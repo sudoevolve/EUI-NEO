@@ -1,13 +1,10 @@
-﻿# EUI
+# EUI
 
-[中文说明](readme.zh-CN.md)
+[Chinese README](readme.zh-CN.md)
 
-EUI is a lightweight, header-only C++ UI toolkit focused on practical immediate-mode workflows.
-The core API in `include/EUI.h` generates draw commands only.
-An optional OpenGL app runtime is available through the built-in GLFW and SDL2 window backends.
-It now includes a more complete text pipeline for mixed text/icon rendering, editable inputs, and scrolling text areas.
-Major widgets also include built-in lightweight motion feedback for hover, press, focus, dropdown reveal, and progress changes.
-The current motion defaults are tuned to stay compatible with event-driven rendering and restrained GPU usage.
+EUI is a header-only C++ GUI framework built around a practical immediate-mode core and a modern OpenGL runtime. The core layer emits draw commands and text data without hard-wiring you to a specific window toolkit, while the built-in app runtime gives you a ready-to-run desktop path with GLFW or SDL2.
+
+The current public route is modern GL first. GLFW and SDL2 share the same renderer path, `EUI_OPENGL_ES` is supported as an OpenGL ES compatibility branch, and Vulkan is still not implemented.
 
 ## Preview
 
@@ -22,460 +19,179 @@ The current motion defaults are tuned to stay compatible with event-driven rende
   </tr>
 </table>
 
-## Project Analysis (Current Code)
+## What EUI Provides
 
-### 1) Architecture
+- A core immediate-mode UI context, `eui::Context`, that produces draw commands and a text arena.
+- A higher-level builder API, `eui::quick::UI`, for composing widgets, layout, primitives, and effects.
+- An optional app runtime, `eui::app`, with window creation, input, DPI handling, frame scheduling, and clipboard integration.
+- A modern OpenGL renderer path used by both GLFW and SDL2 examples.
+- A TrueType-first text pipeline with icon font fallback, Windows fallback text, and built-in bitmap fallback only as a last resort.
 
-- **Core layer (`eui::Context`)**
-  - Immediate-mode UI API that emits `DrawCommand` + text arena.
-  - No hard dependency on GLFW/OpenGL for core usage.
-- **Optional app runtime (`eui::app`)**
-  - Window/input loop, DPI extraction, clipboard bridge, frame scheduling.
-  - Calls your UI builder callback with `FrameContext`.
-- **Renderer layer (inside `EUI.h`)**
-  - OpenGL command renderer with clipping and batching.
-- Optional `stb_truetype` renderer for text/icons with glyph texture caching (auto-enabled when `stb_truetype.h` is available).
-- Text measurement is configured to follow the active renderer backend so caret, selection, wrapping, and hit-testing stay aligned with what is actually rendered.
-- Uses text font + icon font fallback (private-use codepoints prefer icon font).
-- Icon font defaults to bundled `include/Font Awesome 7 Free-Solid-900.otf`; text keeps system default.
-- Falls back to built-in bitmap text only when font loading/rendering fails.
-- You can force-disable STB at compile time with `-DEUI_ENABLE_STB_TRUETYPE=0`.
+## Built-In Components
 
-### 2) Rendering Pipeline
+Public builders currently available through `eui::quick::UI`:
 
-1. `ui.begin_frame(...)`
-2. Build UI widgets and layout.
-3. `ui.take_frame(...)` gets command buffer + text arena.
-4. Runtime hashes frame payload.
-5. If unchanged, skip redraw.
-6. If changed, compute dirty regions vs previous frame.
-7. Repaint only dirty scissor regions; reuse cached framebuffer texture for the rest.
+- Surfaces: `panel`, `card`
+- Text and display: `label`, `text`, `icon`, `metric`, `readonly`
+- Actions and state: `button`, `tab`, `progress`
+- Input and editing: `slider`, `input`, `text_area`, `text_area_readonly`, `dropdown`
+- Containers: `scroll_area`
+- Graphics primitives: `shape`, `image`
+- Layout helpers: `row`, `anchor`, `scope`, `stack`, `clip`
 
-### 3) Performance Mechanisms Already Implemented
+Notes:
 
-- Event-driven rendering (`continuous_render = false` by default).
-- Frame hash early-out to avoid redundant GPU work.
-- Dirty-region diff between previous and current draw command streams.
-- Cached framebuffer texture + partial redraw via scissor.
-- Large dirty-area changes fall back to full redraw instead of forcing cache replay + many partial updates.
-- Clip stack + command clipping in core.
-- Tile-assisted command bucketing for large command counts.
-- Motion states only request redraw while hover/focus/press/value animations are still settling.
-- Weak glows are culled early, large surfaces stay static, and tiny motion deltas snap to rest quickly.
+- `input` is the single-line editable text input.
+- `text_area` is the multiline editable control.
+- `image` currently acts as a styled image placeholder surface with fit policies and transforms. It is not a full image decoding pipeline.
 
-### 4) Text / Editing Model
+## Layout System
 
-- Single-line inputs support caret movement, drag selection, clipboard shortcuts, and horizontal scroll-to-caret.
-- `text_area` supports multi-line editing, wrapping, drag selection, scrolling, and `Up` / `Down` caret navigation with preferred x tracking.
-- Mixed text + icon labels use icon-aware measurement so selection and caret placement stay closer to rendered output.
-- The app runtime handles key repeat for editing keys such as `Backspace`, `Delete`, `Enter`, arrows, `Home`, and `End`.
+EUI ships with layout tools that are small, explicit, and easy to combine:
 
-## Implemented Features
+- Docking: `dock_top`, `dock_bottom`, `dock_left`, `dock_right`
+- Rect splitting: `split_h`, `split_v`, `split_h_ratio`, `split_v_ratio`
+- Flex rows: `row().items({ fixed(...), flex(...), content(...) })`
+- Anchoring: `anchor()` with edges, centers, percentages, and `to_last()`
+- Placement helpers: `fill_parent`, `after_last`, `below_last`
+- Region helpers: `scope`, `stack`, `clip`
+- Rect access: `content()`, `content_rect()`, `last_rect()`
 
-### Theme
+This makes it practical to build dashboards, forms, sidebars, editors, floating badges, and layered composition without introducing a separate retained layout tree.
 
-- `ThemeMode` (`Light` / `Dark`)
-- Primary color (`set_primary_color`)
-- Corner radius (`set_corner_radius`)
-- Dark mode auto-lifts too-dark primary colors for better contrast
+## Graphics, Primitives, and Effects
 
-### Layout
+The primitive layer is designed to be useful even outside stock widgets.
 
-- `ui.panel(...).begin(...)`
-- `ui.card(...).begin(...)`
-- `dock_top` / `dock_bottom` / `dock_left` / `dock_right`
-- `split_h_ratio` / `split_v_ratio`
-- `row().items(...)`
-- `anchor()`
-- `scope()` / `stack()` / `clip()`
-- `spacer`
+- Solid fills
+- Linear gradients
+- Radial gradients
+- Strokes
+- Corner radius
+- Shadows
+- Blur and backdrop blur
+- Opacity control
+- Clip rects
+- Text and icon painting
+- Placeholder image surfaces with `fill`, `contain`, `cover`, `stretch`, and `center`
 
-### Widgets
+2D transform helpers:
 
-- `label`
-- `button` (`Primary`, `Secondary`, `Ghost`, optional `text_scale`)
-- `tab`
-- `slider_float` (drag + right-click numeric edit)
-- `input_float` (caret, selection, `Ctrl+A/C/V/X`)
-- `input_text` (single-line editable text input)
-- `input_readonly`
-  - supports `align_right`, `value_font_scale`, `muted`
-- `progress`
-- `begin_dropdown` / `end_dropdown`
-- `begin_scroll_area` / `end_scroll_area`
-  - drag, wheel, inertia, overscroll bounce, scrollbar options
-- `text_area` (editable, selection, caret, scrolling)
-- `text_area_readonly`
-- Built-in control motion
-  - subtle button/tab press motion
-  - restrained input focus ring and glow
-  - dropdown reveal with rotating chevron
-  - slider/thumb, scrollbar thumb, and progress fill easing
+- `translate`
+- `scale`
+- `rotate`
+- `origin`
+- `origin_percent`
+- `origin_center`
 
-### Output / Integration
+3D transform helpers:
 
-- `end_frame()` returns `std::vector<DrawCommand>`
-- `take_frame(...)` for moving frame buffers out efficiently
-- `text_arena()` returns text storage used by text commands
+- `translate_3d`
+- `scale_3d`
+- `rotate_x`
+- `rotate_y`
+- `rotate_z`
+- `origin_3d`
+- `perspective`
 
-## Repository Layout
+The graphics showcase example demonstrates blur, shadow, gradient composition, and tilt-style 3D cards on the same public API.
 
-```text
-EUI/
-|- .github/
-|  `- workflows/
-|     `- release.yml
-|- cmake/
-|  `- EUIConfig.cmake.in
-|- docs/
-|  |- backend-abstraction-checklist.md
-|  |- backend-abstraction-issue.md
-|  |- concise-ui-syntax-proposal.zh-CN.md
-|  |- framework-revamp-proposal.zh-CN.md
-|  |- include-cleanup-record.zh-CN.md
-|  |- project-structure.zh-CN.md
-|  `- quick-decoupling-status.zh-CN.md
-|- include/
-|  `- EUI.h
-|  |- stb_truetype.h
-|  `- Font Awesome 7 Free-Solid-900.otf
-|- examples/
-|  |- anchor_layout_demo.cpp
-|  |- basic_widgets_demo.cpp
-|  |- calculator_demo.cpp
-|  |- graphics_showcase_demo.cpp
-|  `- sidebar_navigation_demo.cpp
-|- CMakeLists.txt
-|- readme.md
-`- readme.zh-CN.md
-```
+## Motion and Animation
 
-## Build
+EUI already uses built-in motion for common control states:
 
-Recommended generator: `Ninja`.
+- hover
+- press
+- focus
+- dropdown reveal
+- progress transitions
+- scrollbar and slider feedback
 
-### 1) Build core only (no window backend required)
+There is also a lower-level animation layer under `eui::animation`:
 
-```bash
-cmake -S . -B build -G Ninja -DEUI_BUILD_EXAMPLES=OFF
-cmake --build build
-```
+- cubic bezier easing
+- presets: `linear`, `ease`, `ease_in`, `ease_out`, `ease_in_out`, `spring_soft`
+- `TimelineClip`
+- animatable property kinds for opacity, color, position, size, radius, blur, shadow, 2D transform, 3D transform, and custom scalar values
 
-Targets:
+The intended model is restrained motion that still works well with event-driven rendering, rather than a permanently hot render loop.
 
-- `EUI::eui` (interface)
+## Text and Editing
 
-### 2) Build examples (OpenGL + GLFW / SDL2)
+Text is one of the main framework paths now.
 
-```bash
-cmake -S . -B build -G Ninja -DEUI_BUILD_EXAMPLES=ON
-cmake --build build
-```
+- `stb_truetype` is the primary text renderer.
+- Icon font fallback is built in.
+- On Windows desktop, Win32 text is available as a fallback when needed.
+- Built-in bitmap glyphs are the final fallback only.
+- Text measurement is aligned with the active rendering path so caret placement, selection, wrapping, and hit testing stay closer to what is actually drawn.
 
-When OpenGL and at least one enabled window backend are available, CMake creates:
+Editing support already includes:
 
-- `basic_widgets_demo` (`examples/basic_widgets_demo.cpp`)
-- `anchor_layout_demo` (`examples/anchor_layout_demo.cpp`)
-- `sidebar_navigation_demo` (`examples/sidebar_navigation_demo.cpp`)
-- `calculator_demo` (`examples/calculator_demo.cpp`)
-- `graphics_showcase_demo` (`examples/graphics_showcase_demo.cpp`)
+- single-line editable input
+- multiline text area
+- caret movement
+- drag selection
+- clipboard shortcuts
+- horizontal scroll-to-caret for single-line input
+- wrapped multiline editing with scrolling
+- `Up` and `Down` caret navigation with preferred x tracking
 
-Executable names are generated directly from the corresponding `examples/*.cpp` filename.
-Legacy names such as `eui_demo` and `eui_minimal_demo` are kept only as CMake compatibility targets.
+## Themes
 
-Prefer the higher-level backend mode option:
+Core theme controls are intentionally simple:
 
-- `-DEUI_WINDOW_BACKEND=AUTO`
-  - Recommended default mode.
-  - Prefer a locally installed SDL2 first.
-  - Fall back to GLFW when SDL2 is not available locally.
-  - It does not fetch dependencies from the network by default.
-  - If neither backend is available locally, fetching is attempted only when you explicitly enable the fetch options.
-- `-DEUI_WINDOW_BACKEND=GLFW`
-  - Build the GLFW window backend only.
-- `-DEUI_WINDOW_BACKEND=SDL2`
-  - Build the SDL2 window backend only.
-- `-DEUI_WINDOW_BACKEND=ALL`
-  - Try to wire both backends, then choose at runtime through `AppOptions::window_backend`.
+- `set_theme_mode(ThemeMode::Light | ThemeMode::Dark)`
+- `set_primary_color(...)`
+- `set_corner_radius(...)`
 
-Important options:
+The dark theme path also lifts overly dark primary colors to keep contrast usable.
 
-```bash
--DEUI_BUILD_EXAMPLES=ON|OFF
--DEUI_STRICT_WARNINGS=ON|OFF
--DEUI_WINDOW_BACKEND=AUTO|GLFW|SDL2|ALL
--DEUI_FETCH_GLFW_FROM_GIT=ON|OFF
--DEUI_FETCH_SDL2_FROM_GIT=ON|OFF
--DEUI_ENABLE_GLFW_WINDOW_BACKEND=ON|OFF
--DEUI_ENABLE_SDL2_WINDOW_BACKEND=ON|OFF
--DEUI_GLFW_GIT_TAG=3.4
--DEUI_SDL2_GIT_TAG=SDL2
--DEUI_ENABLE_STB_TRUETYPE=1|0
-```
+## Runtime and Backend Support
 
-Where:
-
-- `EUI_WINDOW_BACKEND` is the recommended entry point.
-- `EUI_ENABLE_GLFW_WINDOW_BACKEND` / `EUI_ENABLE_SDL2_WINDOW_BACKEND` remain as lower-level compatibility overrides.
-- `EUI_FETCH_GLFW_FROM_GIT` / `EUI_FETCH_SDL2_FROM_GIT` both default to `OFF`.
-
-If network/Git access is restricted:
-
-```bash
-cmake -S . -B build -G Ninja -DEUI_BUILD_EXAMPLES=ON -DEUI_FETCH_GLFW_FROM_GIT=OFF
-```
-
-Common setups:
-
-```bash
-# Default: prefer local SDL2, otherwise use GLFW
-cmake -S . -B build -G Ninja -DEUI_WINDOW_BACKEND=AUTO
-
-# Force GLFW even if SDL2 exists locally
-cmake -S . -B build -G Ninja -DEUI_WINDOW_BACKEND=GLFW
-
-# Force SDL2 and auto-fetch it if missing locally
-cmake -S . -B build -G Ninja -DEUI_WINDOW_BACKEND=SDL2 -DEUI_FETCH_SDL2_FROM_GIT=ON
-
-# Build both backends and choose at runtime
-cmake -S . -B build -G Ninja -DEUI_WINDOW_BACKEND=ALL
-```
-
-If you use the VSCode CMake Tools sidebar, the repo also ships matching presets:
-
-- `auto`
-- `glfw`
-- `sdl2`
-- `all`
-- `auto-fetch`
-- `glfw-fetch`
-- `sdl2-fetch`
-- `all-fetch`
-
-The first four stay local-only and do not fetch by default.
-The `*-fetch` presets are the ones that allow Git downloads for missing backends.
-
-## Release Packaging
-
-GitHub Actions now includes an automated release workflow at [`.github/workflows/release.yml`](.github/workflows/release.yml).
-Any pushed tag that starts with `v` triggers a release build on Windows and Linux, then runs CMake packaging through `cpack`.
-The same workflow can also be started manually from the GitHub Actions page by providing a `release_tag`, which is useful when you need to rebuild and re-upload assets for an existing release.
-
-Typical release flow:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-Produced release assets:
-
-- Windows package: `.zip`
-- Linux package: `.tar.gz`
-
-The generated packages install:
-
-- `include/`
-- CMake package config files (`EUIConfig.cmake`, `EUIConfigVersion.cmake`, exported targets)
-- `readme.md` and `readme.zh-CN.md`
-- `docs/`
-- `examples/`
-- example executables when example targets are enabled during packaging
-
-## Run Examples
-
-```bash
-# basic widgets
-cmake --build build --target basic_widgets_demo
-
-# calculator example
-cmake --build build --target calculator_demo
-
-# anchor layout
-cmake --build build --target anchor_layout_demo
-
-# sidebar navigation example
-cmake --build build --target sidebar_navigation_demo
-
-# graphics showcase example
-cmake --build build --target graphics_showcase_demo
-```
-
-## Minimal Quick Usage
+Compile-time runtime selection is designed to stay in code:
 
 ```cpp
+#define EUI_BACKEND_OPENGL
+#define EUI_PLATFORM_GLFW
+// or: #define EUI_PLATFORM_SDL2
+// optional: #define EUI_OPENGL_ES
 #include "EUI.h"
-
-eui::Context ctx;
-eui::InputState input{};
-std::string value_text = "0.50";
-
-ctx.begin_frame(1280.0f, 720.0f, input);
-ctx.set_theme_mode(eui::ThemeMode::Dark);
-
-eui::quick::UI ui(ctx);
-ui.panel("Demo")
-    .in(eui::Rect{20.0f, 20.0f, 640.0f, 220.0f})
-    .padding(16.0f)
-    .begin([&](auto& panel) {
-        const auto row = ui.split_h_ratio(panel.content(), 0.50f, 12.0f);
-        ui.button("Run").in(row.first).primary().draw();
-        ui.input("Value", value_text).in(row.second).draw();
-        ui.progress("Loading", 0.42f).height(8.0f).draw();
-    });
-
-const auto& commands = ctx.end_frame();
-const auto& text_arena = ctx.text_arena();
 ```
 
-## Common Layout Recipes
+Current status:
 
-### Width Rules (Important)
+- `EUI_BACKEND_OPENGL`: implemented, recommended public route
+- `EUI_PLATFORM_GLFW`: implemented
+- `EUI_PLATFORM_SDL2`: implemented
+- `EUI_OPENGL_ES`: supported as the ES-compatible branch of the OpenGL backend
+- `EUI_BACKEND_VULKAN`: not implemented yet
 
-- Item width is controlled by layout, not widget args.
-- `row().items({...})` declares the width model for the current strip.
-- `ui.fixed(px)` locks a slot to a fixed width.
-- `ui.flex(weight)` shares the remaining width with other flex slots.
-- `ui.content(min, max)` keeps a slot content-sized inside explicit bounds.
-- `scope(rect, ...)` temporarily routes layout into a sub-rect without mutating global coordinates.
-- `dock_*` consumes edges in order, while `split_*` branches a rect explicitly.
+Runtime options in `eui::app::AppOptions` include:
 
-### Sidebar Icon/Text Vertical Alignment
+- window width, height, title
+- vsync
+- event-driven vs continuous render
+- `max_fps`
+- `WindowBackend::Auto | GLFW | SDL2`
+- text font family, weight, file
+- icon font family, file
+- `TextBackend::Auto | Stb | Win32`
 
-- For left-aligned sidebar buttons, prefix label with `\t` to enable left align with built-in left padding.
-- For icon + text, use **two ASCII spaces** between them (for example `u8"\uF015  Dashboard"`).
-- EUI will split icon/text and render them separately, which keeps vertical alignment stable.
-- See `examples/sidebar_navigation_demo.cpp` for a minimal left-sidebar + page-transition sample.
+## Rendering Model
 
-```cpp
-// Left-aligned nav item with icon + text (stable vertical centering)
-ui.button("\t" u8"\uF015  Dashboard", eui::ButtonStyle::Secondary, 34.0f);
-```
+The renderer is built around keeping desktop UI redraws cheap:
 
-### 1) Sidebar + Main Content
+- frame hashing to skip identical redraws
+- dirty-region diff between frames
+- cached framebuffer reuse
+- partial redraw with scissor regions
+- event-driven rendering by default
+- redraw requests only while interaction or motion is still active
 
-```cpp
-ui.panel("Workspace")
-    .in(frame_rect)
-    .padding(16.0f)
-    .begin([&](auto& page) {
-        const Rect sidebar = page.dock_left(220.0f, 16.0f);
-        const Rect main = page.content();
+This is why EUI works best when you treat UI as mostly static with small bursts of interaction, not as a constantly animating full-screen scene.
 
-        ui.card("Navigation")
-            .in(sidebar)
-            .begin([&](auto&) {
-                ui.button("Dashboard").ghost().height(34.0f).draw();
-                ui.button("Projects").ghost().height(34.0f).draw();
-                ui.button("Settings").ghost().height(34.0f).draw();
-            });
-
-        ui.card("Overview")
-            .in(main)
-            .begin([&](auto&) {
-                ui.label("Main content area").draw();
-            });
-    });
-```
-
-### 2) Top Bar (Left / Right)
-
-```cpp
-ui.card("Top bar")
-    .in(rect)
-    .begin([&](auto&) {
-        ui.row()
-            .items({
-                ui.fixed(96.0f),
-                ui.fixed(96.0f),
-                ui.flex(1.0f),
-                ui.fixed(120.0f),
-                ui.fixed(120.0f),
-            })
-            .gap(8.0f)
-            .align_center()
-            .begin([&] {
-                ui.button("Back").ghost().height(34.0f).draw();
-                ui.button("Forward").ghost().height(34.0f).draw();
-                ui.label("Search / breadcrumbs / page title").muted().draw();
-                ui.button("Search").ghost().height(34.0f).draw();
-                ui.button("Profile").primary().height(34.0f).draw();
-            });
-    });
-```
-
-### 3) Three-Zone Toolbar (Left / Center / Right)
-
-```cpp
-ui.card("Toolbar")
-    .in(rect)
-    .begin([&](auto&) {
-        ui.row()
-            .items({
-                ui.content(150.0f, 220.0f),
-                ui.flex(1.0f),
-                ui.content(160.0f, 240.0f),
-            })
-            .gap(12.0f)
-            .align_center()
-            .begin([&] {
-                ui.readonly("Left", "New / Save").height(34.0f).draw();
-                ui.label("Build #128").font(13.0f).muted().draw();
-                ui.readonly("Right", "Run / Deploy").height(34.0f).draw();
-            });
-    });
-```
-
-### 4) Two-Column Settings Page
-
-```cpp
-std::string gamma = "2.2";
-std::string exposure = "124";
-
-const auto columns = ui.split_h_ratio(rect, 0.50f, 10.0f);
-
-ui.card("General")
-    .in(columns.first)
-    .begin([&](auto&) {
-        ui.input("Gamma", gamma).height(36.0f).draw();
-    });
-
-ui.card("Display")
-    .in(columns.second)
-    .begin([&](auto&) {
-        ui.input("Exposure", exposure).height(36.0f).draw();
-    });
-```
-
-### 5) Anchor a Badge to the Previous Card
-
-```cpp
-ui.metric("Build", "Ready")
-    .in(rect)
-    .tag("LIVE")
-    .draw();
-
-const Rect badge = ui.anchor()
-    .to_last()
-    .top(12.0f)
-    .right(12.0f)
-    .size(72.0f, 24.0f)
-    .resolve();
-
-ui.shape()
-    .in(badge)
-    .radius(12.0f)
-    .fill(0x16A34A)
-    .draw();
-
-ui.text("SYNC")
-    .in(badge)
-    .font(11.0f)
-    .center()
-    .draw();
-```
-
-## Optional App Runtime Usage
+## Minimal App Example
 
 ```cpp
 #define EUI_BACKEND_OPENGL
@@ -485,58 +201,75 @@ ui.text("SYNC")
 int main() {
     eui::app::AppOptions options{};
     options.width = 960;
-    options.height = 710;
-    options.title = "EUI App";
+    options.height = 720;
+    options.title = "EUI Demo";
     options.vsync = true;
     options.continuous_render = false;
-    options.max_fps = 240.0;
-
-    options.text_font_family = "Segoe UI";
-    options.text_font_weight = 600; // 100-900, larger = bolder
-    options.icon_font_family = "Font Awesome 7 Free Solid";
-    options.icon_font_file = "include/Font Awesome 7 Free-Solid-900.otf";
     options.text_backend = eui::app::AppOptions::TextBackend::Auto;
-    // Optional but recommended on non-Windows: set explicit font file paths.
-    // options.text_font_file = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-    // options.icon_font_file = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf";
     options.enable_icon_font_fallback = true;
 
     return eui::app::run(
         [&](eui::app::FrameContext frame) {
             auto& ctx = frame.context();
             ctx.set_theme_mode(eui::ThemeMode::Dark);
+            ctx.set_primary_color(eui::rgb(0x3B82F6));
 
             eui::quick::UI ui(ctx);
-            ui.panel("Demo")
-                .in(eui::Rect{20.0f, 20.0f, 320.0f, 180.0f})
+            ui.panel("Workspace")
+                .in(eui::Rect{24.0f, 24.0f, 520.0f, 320.0f})
                 .padding(16.0f)
                 .begin([&](auto&) {
-                    ui.label("Hello EUI").draw();
+                    ui.label("EUI").font(22.0f).draw();
+                    ui.label("Immediate-mode C++ GUI with a modern GL runtime.")
+                        .font(14.0f)
+                        .muted()
+                        .draw();
                     ui.spacer(10.0f);
-                    ui.button("Run").primary().height(36.0f).draw();
+                    ui.progress("Loading", 0.72f).height(10.0f).draw();
+                    ui.spacer(12.0f);
+                    ui.button("Run").primary().height(38.0f).draw();
                 });
-
-            // request_next_frame() if animation is needed in event-driven mode.
-            frame.request_next_frame();
         },
         options
     );
 }
 ```
 
-### Text Backend Notes
+## Examples
 
-- `AppOptions::TextBackend::Auto`
-  - On Windows, prefers the STB true-type path when `stb_truetype` is enabled, then falls back to Win32, and only then to the built-in bitmap glyphs.
-  - On non-Windows, uses the STB text path when available.
-- `AppOptions::TextBackend::Stb`
-  - Uses `stb_truetype` glyph rasterization and atlas caching.
-- `AppOptions::TextBackend::Win32`
-  - Windows-only text renderer based on GDI/WGL font APIs.
+The repository currently ships these examples:
 
-For best icon coverage, keep `enable_icon_font_fallback = true` and ship an explicit icon font file.
+- `examples/basic_widgets_demo.cpp`
+- `examples/anchor_layout_demo.cpp`
+- `examples/sidebar_navigation_demo.cpp`
+- `examples/calculator_demo.cpp`
+- `examples/graphics_showcase_demo.cpp`
 
-## Notes
+They cover stock widgets, anchor-based layout, sidebar composition, editable forms, and graphics/effects.
 
-- `index.html` is a visual/prototype reference, not part of C++ build output.
-- Keep source files in UTF-8 to avoid C4819/garbled literal issues on Windows toolchains.
+## Build
+
+Core only:
+
+```bash
+cmake -S . -B build -G Ninja -DEUI_BUILD_EXAMPLES=OFF
+cmake --build build
+```
+
+Examples:
+
+```bash
+cmake -S . -B build -G Ninja -DEUI_BUILD_EXAMPLES=ON -DEUI_WINDOW_BACKEND=AUTO
+cmake --build build
+```
+
+If no enabled local window backend is found, example targets are skipped. For local development, the simplest route is to keep the backend macros in your example source and let CMake wire whichever backend is available.
+
+## Docs
+
+`docs/README.md` lists the small remaining documentation set. The current repo direction is:
+
+- modern GL as the primary route
+- GLFW and SDL2 on the same renderer path
+- OpenGL ES as a compatibility branch under OpenGL
+- Vulkan still pending

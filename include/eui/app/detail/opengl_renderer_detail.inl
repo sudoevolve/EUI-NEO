@@ -172,6 +172,7 @@ public:
         };
         PendingBatch pending_batch = PendingBatch::None;
         float pending_outline_thickness = 1.0f;
+        const bool use_triangle_strokes = modern_gl_context_is_gles();
         auto& filled_batch = filled_batch_scratch_;
         auto& outline_batch = outline_batch_scratch_;
         modern_gl_prepare_scratch(filled_batch, 1024u);
@@ -510,10 +511,21 @@ public:
                 const Point p1 = project_vertex(cmd, x1, y0);
                 const Point p2 = project_vertex(cmd, x1, y1);
                 const Point p3 = project_vertex(cmd, x0, y1);
-                push_stroke_segment(outline_batch, p0, p1, cmd.color, pending_outline_thickness);
-                push_stroke_segment(outline_batch, p1, p2, cmd.color, pending_outline_thickness);
-                push_stroke_segment(outline_batch, p2, p3, cmd.color, pending_outline_thickness);
-                push_stroke_segment(outline_batch, p3, p0, cmd.color, pending_outline_thickness);
+                if (use_triangle_strokes) {
+                    push_stroke_segment(outline_batch, p0, p1, cmd.color, pending_outline_thickness);
+                    push_stroke_segment(outline_batch, p1, p2, cmd.color, pending_outline_thickness);
+                    push_stroke_segment(outline_batch, p2, p3, cmd.color, pending_outline_thickness);
+                    push_stroke_segment(outline_batch, p3, p0, cmd.color, pending_outline_thickness);
+                } else {
+                    push_colored_vertex(outline_batch, p0[0], p0[1], cmd.color);
+                    push_colored_vertex(outline_batch, p1[0], p1[1], cmd.color);
+                    push_colored_vertex(outline_batch, p1[0], p1[1], cmd.color);
+                    push_colored_vertex(outline_batch, p2[0], p2[1], cmd.color);
+                    push_colored_vertex(outline_batch, p2[0], p2[1], cmd.color);
+                    push_colored_vertex(outline_batch, p3[0], p3[1], cmd.color);
+                    push_colored_vertex(outline_batch, p3[0], p3[1], cmd.color);
+                    push_colored_vertex(outline_batch, p0[0], p0[1], cmd.color);
+                }
                 return;
             }
 
@@ -529,7 +541,12 @@ public:
                                                 points[static_cast<std::size_t>(i)][1]);
                 const Point p1 = project_vertex(cmd, points[static_cast<std::size_t>(next)][0],
                                                 points[static_cast<std::size_t>(next)][1]);
-                push_stroke_segment(outline_batch, p0, p1, cmd.color, pending_outline_thickness);
+                if (use_triangle_strokes) {
+                    push_stroke_segment(outline_batch, p0, p1, cmd.color, pending_outline_thickness);
+                } else {
+                    push_colored_vertex(outline_batch, p0[0], p0[1], cmd.color);
+                    push_colored_vertex(outline_batch, p1[0], p1[1], cmd.color);
+                }
             }
         };
 
@@ -549,8 +566,15 @@ public:
             const Point p0 = rotate_point(-half_w, -half_h);
             const Point p1 = rotate_point(half_w, 0.0f);
             const Point p2 = rotate_point(-half_w, half_h);
-            push_stroke_segment(outline_batch, p0, p1, cmd.color, pending_outline_thickness);
-            push_stroke_segment(outline_batch, p1, p2, cmd.color, pending_outline_thickness);
+            if (use_triangle_strokes) {
+                push_stroke_segment(outline_batch, p0, p1, cmd.color, pending_outline_thickness);
+                push_stroke_segment(outline_batch, p1, p2, cmd.color, pending_outline_thickness);
+            } else {
+                push_colored_vertex(outline_batch, p0[0], p0[1], cmd.color);
+                push_colored_vertex(outline_batch, p1[0], p1[1], cmd.color);
+                push_colored_vertex(outline_batch, p1[0], p1[1], cmd.color);
+                push_colored_vertex(outline_batch, p2[0], p2[1], cmd.color);
+            }
         };
 
         auto flush_filled_batch = [&]() {
@@ -565,7 +589,13 @@ public:
             if (outline_batch.empty()) {
                 return;
             }
-            modern_gl_draw_vertices(GL_TRIANGLES, outline_batch.data(), outline_batch.size(), width, height);
+            if (use_triangle_strokes) {
+                modern_gl_draw_vertices(GL_TRIANGLES, outline_batch.data(), outline_batch.size(), width, height);
+            } else {
+                glLineWidth(std::max(1.0f, pending_outline_thickness));
+                modern_gl_draw_vertices(GL_LINES, outline_batch.data(), outline_batch.size(), width, height);
+                glLineWidth(1.0f);
+            }
             outline_batch.clear();
         };
 
