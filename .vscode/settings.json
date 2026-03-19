@@ -1,0 +1,12 @@
+{
+  "cmake.useCMakePresets": "never",
+  "cmake.useVsDeveloperEnvironment": "always",
+  "cmake.configureSettings": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "EUI_BUILD_EXAMPLES": "ON",
+    "EUI_STRICT_WARNINGS": "ON",
+    "EUI_FETCH_GLFW_FROM_GIT": "ON",
+    "EUI_FETCH_SDL2_FROM_GIT": "ON",
+    "EUI_WINDOW_BACKEND": "AUTO"
+  }
+}
