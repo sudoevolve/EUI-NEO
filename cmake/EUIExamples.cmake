@@ -468,12 +468,7 @@ function(eui_configure_examples)
         # Legacy command aliases are kept only as CMake compatibility targets.
         # Public example target/output names always follow examples/*.cpp.
         set(EUI_LEGACY_EXAMPLE_TARGET_MAP
-            "eui_demo=basic_widgets_demo"
-            "eui_minimal_demo=anchor_layout_demo"
-            "eui_layout_examples_demo=anchor_layout_demo"
-            "eui_quick_syntax_demo=basic_widgets_demo"
-            "eui_sidebar_navigation_demo=sidebar_navigation_demo"
-            "eui_calculator_demo=calculator_demo"
+            "animation_gallery_demo=EUI_gallery"
             "eui_reference_dashboard_demo=reference_dashboard_demo"
         )
         foreach(legacy_alias IN LISTS EUI_LEGACY_EXAMPLE_TARGET_MAP)

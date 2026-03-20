@@ -2597,6 +2597,16 @@ public:
         return *this;
     }
 
+    MetricBuilder& caption_font(float font_size) {
+        caption_font_ = std::max(8.0f, font_size);
+        return *this;
+    }
+
+    MetricBuilder& tag_font(float font_size) {
+        tag_font_ = std::max(8.0f, font_size);
+        return *this;
+    }
+
     Rect draw() {
         const Rect rect = resolve_rect(220.0f, 92.0f);
         Context& ctx = ui_.ctx();
@@ -2617,7 +2627,7 @@ public:
         const float value_font = (value_font_ > 0.0f) ? value_font_ : std::clamp(rect.h * 0.30f, 16.0f, 28.0f);
 
         if (!tag_.empty()) {
-            const float chip_font = 11.0f;
+            const float chip_font = (tag_font_ > 0.0f) ? tag_font_ : 11.0f;
             const float chip_w = ui_.measure_text(tag_, chip_font) + 20.0f;
             const Rect chip_rect = make_rect(inner.x + inner.w - chip_w, inner.y, chip_w, 22.0f);
             ctx.paint_filled_rect(chip_rect, tag_fill_, 11.0f);
@@ -2630,8 +2640,9 @@ public:
         ctx.paint_text(value_, value_rect, value_color_, value_font, TextAlign::Left, &rect);
 
         if (!caption_.empty()) {
-            const Rect caption_rect = make_rect(inner.x, rect.y + rect.h - 26.0f, inner.w, 16.0f);
-            ctx.paint_text(caption_, caption_rect, caption_color_, 11.0f, TextAlign::Left, &rect);
+            const float caption_font = (caption_font_ > 0.0f) ? caption_font_ : 11.0f;
+            const Rect caption_rect = make_rect(inner.x, rect.y + rect.h - (caption_font + 15.0f), inner.w, caption_font + 4.0f);
+            ctx.paint_text(caption_, caption_rect, caption_color_, caption_font, TextAlign::Left, &rect);
         }
 
         ui_.remember(rect);
@@ -2651,6 +2662,8 @@ private:
     float radius_{18.0f};
     float value_font_{0.0f};
     float label_font_{0.0f};
+    float caption_font_{0.0f};
+    float tag_font_{0.0f};
     Color label_color_{};
     Color value_color_{};
     Color caption_color_{};

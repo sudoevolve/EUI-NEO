@@ -1,0 +1,6952 @@
+﻿[
+    {
+        "label":  "U+F000",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF000"
+    },
+    {
+        "label":  "U+F001",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF001"
+    },
+    {
+        "label":  "U+F002",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF002"
+    },
+    {
+        "label":  "U+F003",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF003"
+    },
+    {
+        "label":  "U+F004",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF004"
+    },
+    {
+        "label":  "U+F005",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF005"
+    },
+    {
+        "label":  "U+F006",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF006"
+    },
+    {
+        "label":  "U+F007",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF007"
+    },
+    {
+        "label":  "U+F008",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF008"
+    },
+    {
+        "label":  "U+F009",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF009"
+    },
+    {
+        "label":  "U+F00A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF00A"
+    },
+    {
+        "label":  "U+F00B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF00B"
+    },
+    {
+        "label":  "U+F00C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF00C"
+    },
+    {
+        "label":  "U+F00D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF00D"
+    },
+    {
+        "label":  "U+F00E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF00E"
+    },
+    {
+        "label":  "U+F010",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF010"
+    },
+    {
+        "label":  "U+F011",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF011"
+    },
+    {
+        "label":  "U+F012",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF012"
+    },
+    {
+        "label":  "U+F013",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF013"
+    },
+    {
+        "label":  "U+F014",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF014"
+    },
+    {
+        "label":  "U+F015",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF015"
+    },
+    {
+        "label":  "U+F016",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF016"
+    },
+    {
+        "label":  "U+F017",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF017"
+    },
+    {
+        "label":  "U+F018",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF018"
+    },
+    {
+        "label":  "U+F019",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF019"
+    },
+    {
+        "label":  "U+F01A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF01A"
+    },
+    {
+        "label":  "U+F01B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF01B"
+    },
+    {
+        "label":  "U+F01C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF01C"
+    },
+    {
+        "label":  "U+F01D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF01D"
+    },
+    {
+        "label":  "U+F01E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF01E"
+    },
+    {
+        "label":  "U+F021",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF021"
+    },
+    {
+        "label":  "U+F022",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF022"
+    },
+    {
+        "label":  "U+F023",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF023"
+    },
+    {
+        "label":  "U+F024",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF024"
+    },
+    {
+        "label":  "U+F025",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF025"
+    },
+    {
+        "label":  "U+F026",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF026"
+    },
+    {
+        "label":  "U+F027",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF027"
+    },
+    {
+        "label":  "U+F028",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF028"
+    },
+    {
+        "label":  "U+F029",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF029"
+    },
+    {
+        "label":  "U+F02A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF02A"
+    },
+    {
+        "label":  "U+F02B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF02B"
+    },
+    {
+        "label":  "U+F02C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF02C"
+    },
+    {
+        "label":  "U+F02D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF02D"
+    },
+    {
+        "label":  "U+F02E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF02E"
+    },
+    {
+        "label":  "U+F02F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF02F"
+    },
+    {
+        "label":  "U+F030",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF030"
+    },
+    {
+        "label":  "U+F031",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF031"
+    },
+    {
+        "label":  "U+F032",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF032"
+    },
+    {
+        "label":  "U+F033",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF033"
+    },
+    {
+        "label":  "U+F034",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF034"
+    },
+    {
+        "label":  "U+F035",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF035"
+    },
+    {
+        "label":  "U+F036",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF036"
+    },
+    {
+        "label":  "U+F037",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF037"
+    },
+    {
+        "label":  "U+F038",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF038"
+    },
+    {
+        "label":  "U+F039",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF039"
+    },
+    {
+        "label":  "U+F03A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF03A"
+    },
+    {
+        "label":  "U+F03B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF03B"
+    },
+    {
+        "label":  "U+F03C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF03C"
+    },
+    {
+        "label":  "U+F03D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF03D"
+    },
+    {
+        "label":  "U+F03E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF03E"
+    },
+    {
+        "label":  "U+F040",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF040"
+    },
+    {
+        "label":  "U+F041",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF041"
+    },
+    {
+        "label":  "U+F042",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF042"
+    },
+    {
+        "label":  "U+F043",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF043"
+    },
+    {
+        "label":  "U+F044",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF044"
+    },
+    {
+        "label":  "U+F045",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF045"
+    },
+    {
+        "label":  "U+F046",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF046"
+    },
+    {
+        "label":  "U+F047",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF047"
+    },
+    {
+        "label":  "U+F048",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF048"
+    },
+    {
+        "label":  "U+F049",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF049"
+    },
+    {
+        "label":  "U+F04A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF04A"
+    },
+    {
+        "label":  "U+F04B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF04B"
+    },
+    {
+        "label":  "U+F04C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF04C"
+    },
+    {
+        "label":  "U+F04D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF04D"
+    },
+    {
+        "label":  "U+F04E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF04E"
+    },
+    {
+        "label":  "U+F050",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF050"
+    },
+    {
+        "label":  "U+F051",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF051"
+    },
+    {
+        "label":  "U+F052",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF052"
+    },
+    {
+        "label":  "U+F053",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF053"
+    },
+    {
+        "label":  "U+F054",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF054"
+    },
+    {
+        "label":  "U+F055",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF055"
+    },
+    {
+        "label":  "U+F056",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF056"
+    },
+    {
+        "label":  "U+F057",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF057"
+    },
+    {
+        "label":  "U+F058",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF058"
+    },
+    {
+        "label":  "U+F059",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF059"
+    },
+    {
+        "label":  "U+F05A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF05A"
+    },
+    {
+        "label":  "U+F05B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF05B"
+    },
+    {
+        "label":  "U+F05C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF05C"
+    },
+    {
+        "label":  "U+F05D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF05D"
+    },
+    {
+        "label":  "U+F05E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF05E"
+    },
+    {
+        "label":  "U+F060",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF060"
+    },
+    {
+        "label":  "U+F061",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF061"
+    },
+    {
+        "label":  "U+F062",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF062"
+    },
+    {
+        "label":  "U+F063",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF063"
+    },
+    {
+        "label":  "U+F064",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF064"
+    },
+    {
+        "label":  "U+F065",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF065"
+    },
+    {
+        "label":  "U+F066",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF066"
+    },
+    {
+        "label":  "U+F067",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF067"
+    },
+    {
+        "label":  "U+F068",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF068"
+    },
+    {
+        "label":  "U+F069",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF069"
+    },
+    {
+        "label":  "U+F06A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF06A"
+    },
+    {
+        "label":  "U+F06B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF06B"
+    },
+    {
+        "label":  "U+F06C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF06C"
+    },
+    {
+        "label":  "U+F06D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF06D"
+    },
+    {
+        "label":  "U+F06E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF06E"
+    },
+    {
+        "label":  "U+F070",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF070"
+    },
+    {
+        "label":  "U+F071",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF071"
+    },
+    {
+        "label":  "U+F072",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF072"
+    },
+    {
+        "label":  "U+F073",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF073"
+    },
+    {
+        "label":  "U+F074",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF074"
+    },
+    {
+        "label":  "U+F075",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF075"
+    },
+    {
+        "label":  "U+F076",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF076"
+    },
+    {
+        "label":  "U+F077",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF077"
+    },
+    {
+        "label":  "U+F078",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF078"
+    },
+    {
+        "label":  "U+F079",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF079"
+    },
+    {
+        "label":  "U+F07A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF07A"
+    },
+    {
+        "label":  "U+F07B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF07B"
+    },
+    {
+        "label":  "U+F07C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF07C"
+    },
+    {
+        "label":  "U+F07D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF07D"
+    },
+    {
+        "label":  "U+F07E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF07E"
+    },
+    {
+        "label":  "U+F080",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF080"
+    },
+    {
+        "label":  "U+F083",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF083"
+    },
+    {
+        "label":  "U+F084",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF084"
+    },
+    {
+        "label":  "U+F085",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF085"
+    },
+    {
+        "label":  "U+F086",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF086"
+    },
+    {
+        "label":  "U+F087",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF087"
+    },
+    {
+        "label":  "U+F088",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF088"
+    },
+    {
+        "label":  "U+F089",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF089"
+    },
+    {
+        "label":  "U+F08A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF08A"
+    },
+    {
+        "label":  "U+F08B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF08B"
+    },
+    {
+        "label":  "U+F08D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF08D"
+    },
+    {
+        "label":  "U+F08E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF08E"
+    },
+    {
+        "label":  "U+F090",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF090"
+    },
+    {
+        "label":  "U+F091",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF091"
+    },
+    {
+        "label":  "U+F093",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF093"
+    },
+    {
+        "label":  "U+F094",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF094"
+    },
+    {
+        "label":  "U+F095",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF095"
+    },
+    {
+        "label":  "U+F096",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF096"
+    },
+    {
+        "label":  "U+F097",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF097"
+    },
+    {
+        "label":  "U+F098",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF098"
+    },
+    {
+        "label":  "U+F09C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF09C"
+    },
+    {
+        "label":  "U+F09D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF09D"
+    },
+    {
+        "label":  "U+F09E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF09E"
+    },
+    {
+        "label":  "U+F0A0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A0"
+    },
+    {
+        "label":  "U+F0A1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A1"
+    },
+    {
+        "label":  "U+F0A2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A2"
+    },
+    {
+        "label":  "U+F0A3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A3"
+    },
+    {
+        "label":  "U+F0A4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A4"
+    },
+    {
+        "label":  "U+F0A5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A5"
+    },
+    {
+        "label":  "U+F0A6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A6"
+    },
+    {
+        "label":  "U+F0A7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A7"
+    },
+    {
+        "label":  "U+F0A8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A8"
+    },
+    {
+        "label":  "U+F0A9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0A9"
+    },
+    {
+        "label":  "U+F0AA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0AA"
+    },
+    {
+        "label":  "U+F0AB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0AB"
+    },
+    {
+        "label":  "U+F0AC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0AC"
+    },
+    {
+        "label":  "U+F0AD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0AD"
+    },
+    {
+        "label":  "U+F0AE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0AE"
+    },
+    {
+        "label":  "U+F0B0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0B0"
+    },
+    {
+        "label":  "U+F0B1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0B1"
+    },
+    {
+        "label":  "U+F0B2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0B2"
+    },
+    {
+        "label":  "U+F0C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C0"
+    },
+    {
+        "label":  "U+F0C1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C1"
+    },
+    {
+        "label":  "U+F0C2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C2"
+    },
+    {
+        "label":  "U+F0C3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C3"
+    },
+    {
+        "label":  "U+F0C4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C4"
+    },
+    {
+        "label":  "U+F0C5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C5"
+    },
+    {
+        "label":  "U+F0C6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C6"
+    },
+    {
+        "label":  "U+F0C7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C7"
+    },
+    {
+        "label":  "U+F0C8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C8"
+    },
+    {
+        "label":  "U+F0C9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0C9"
+    },
+    {
+        "label":  "U+F0CA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0CA"
+    },
+    {
+        "label":  "U+F0CB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0CB"
+    },
+    {
+        "label":  "U+F0CC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0CC"
+    },
+    {
+        "label":  "U+F0CD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0CD"
+    },
+    {
+        "label":  "U+F0CE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0CE"
+    },
+    {
+        "label":  "U+F0D0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0D0"
+    },
+    {
+        "label":  "U+F0D1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0D1"
+    },
+    {
+        "label":  "U+F0D6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0D6"
+    },
+    {
+        "label":  "U+F0D7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0D7"
+    },
+    {
+        "label":  "U+F0D8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0D8"
+    },
+    {
+        "label":  "U+F0D9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0D9"
+    },
+    {
+        "label":  "U+F0DA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0DA"
+    },
+    {
+        "label":  "U+F0DB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0DB"
+    },
+    {
+        "label":  "U+F0DC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0DC"
+    },
+    {
+        "label":  "U+F0DD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0DD"
+    },
+    {
+        "label":  "U+F0DE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0DE"
+    },
+    {
+        "label":  "U+F0E0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E0"
+    },
+    {
+        "label":  "U+F0E2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E2"
+    },
+    {
+        "label":  "U+F0E3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E3"
+    },
+    {
+        "label":  "U+F0E4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E4"
+    },
+    {
+        "label":  "U+F0E5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E5"
+    },
+    {
+        "label":  "U+F0E6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E6"
+    },
+    {
+        "label":  "U+F0E7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E7"
+    },
+    {
+        "label":  "U+F0E8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E8"
+    },
+    {
+        "label":  "U+F0E9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0E9"
+    },
+    {
+        "label":  "U+F0EA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0EA"
+    },
+    {
+        "label":  "U+F0EB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0EB"
+    },
+    {
+        "label":  "U+F0EC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0EC"
+    },
+    {
+        "label":  "U+F0ED",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0ED"
+    },
+    {
+        "label":  "U+F0EE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0EE"
+    },
+    {
+        "label":  "U+F0F0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F0"
+    },
+    {
+        "label":  "U+F0F1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F1"
+    },
+    {
+        "label":  "U+F0F2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F2"
+    },
+    {
+        "label":  "U+F0F3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F3"
+    },
+    {
+        "label":  "U+F0F4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F4"
+    },
+    {
+        "label":  "U+F0F5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F5"
+    },
+    {
+        "label":  "U+F0F6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F6"
+    },
+    {
+        "label":  "U+F0F7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F7"
+    },
+    {
+        "label":  "U+F0F8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F8"
+    },
+    {
+        "label":  "U+F0F9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0F9"
+    },
+    {
+        "label":  "U+F0FA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0FA"
+    },
+    {
+        "label":  "U+F0FB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0FB"
+    },
+    {
+        "label":  "U+F0FC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0FC"
+    },
+    {
+        "label":  "U+F0FD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0FD"
+    },
+    {
+        "label":  "U+F0FE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF0FE"
+    },
+    {
+        "label":  "U+F100",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF100"
+    },
+    {
+        "label":  "U+F101",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF101"
+    },
+    {
+        "label":  "U+F102",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF102"
+    },
+    {
+        "label":  "U+F103",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF103"
+    },
+    {
+        "label":  "U+F104",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF104"
+    },
+    {
+        "label":  "U+F105",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF105"
+    },
+    {
+        "label":  "U+F106",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF106"
+    },
+    {
+        "label":  "U+F107",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF107"
+    },
+    {
+        "label":  "U+F108",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF108"
+    },
+    {
+        "label":  "U+F109",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF109"
+    },
+    {
+        "label":  "U+F10A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF10A"
+    },
+    {
+        "label":  "U+F10B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF10B"
+    },
+    {
+        "label":  "U+F10C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF10C"
+    },
+    {
+        "label":  "U+F10D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF10D"
+    },
+    {
+        "label":  "U+F10E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF10E"
+    },
+    {
+        "label":  "U+F110",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF110"
+    },
+    {
+        "label":  "U+F111",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF111"
+    },
+    {
+        "label":  "U+F112",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF112"
+    },
+    {
+        "label":  "U+F114",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF114"
+    },
+    {
+        "label":  "U+F115",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF115"
+    },
+    {
+        "label":  "U+F118",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF118"
+    },
+    {
+        "label":  "U+F119",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF119"
+    },
+    {
+        "label":  "U+F11A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF11A"
+    },
+    {
+        "label":  "U+F11B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF11B"
+    },
+    {
+        "label":  "U+F11C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF11C"
+    },
+    {
+        "label":  "U+F11D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF11D"
+    },
+    {
+        "label":  "U+F11E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF11E"
+    },
+    {
+        "label":  "U+F120",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF120"
+    },
+    {
+        "label":  "U+F121",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF121"
+    },
+    {
+        "label":  "U+F122",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF122"
+    },
+    {
+        "label":  "U+F123",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF123"
+    },
+    {
+        "label":  "U+F124",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF124"
+    },
+    {
+        "label":  "U+F125",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF125"
+    },
+    {
+        "label":  "U+F126",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF126"
+    },
+    {
+        "label":  "U+F127",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF127"
+    },
+    {
+        "label":  "U+F128",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF128"
+    },
+    {
+        "label":  "U+F129",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF129"
+    },
+    {
+        "label":  "U+F12A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF12A"
+    },
+    {
+        "label":  "U+F12B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF12B"
+    },
+    {
+        "label":  "U+F12C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF12C"
+    },
+    {
+        "label":  "U+F12D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF12D"
+    },
+    {
+        "label":  "U+F12E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF12E"
+    },
+    {
+        "label":  "U+F130",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF130"
+    },
+    {
+        "label":  "U+F131",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF131"
+    },
+    {
+        "label":  "U+F132",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF132"
+    },
+    {
+        "label":  "U+F133",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF133"
+    },
+    {
+        "label":  "U+F134",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF134"
+    },
+    {
+        "label":  "U+F135",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF135"
+    },
+    {
+        "label":  "U+F137",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF137"
+    },
+    {
+        "label":  "U+F138",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF138"
+    },
+    {
+        "label":  "U+F139",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF139"
+    },
+    {
+        "label":  "U+F13A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF13A"
+    },
+    {
+        "label":  "U+F13D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF13D"
+    },
+    {
+        "label":  "U+F13E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF13E"
+    },
+    {
+        "label":  "U+F140",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF140"
+    },
+    {
+        "label":  "U+F141",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF141"
+    },
+    {
+        "label":  "U+F142",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF142"
+    },
+    {
+        "label":  "U+F143",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF143"
+    },
+    {
+        "label":  "U+F144",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF144"
+    },
+    {
+        "label":  "U+F145",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF145"
+    },
+    {
+        "label":  "U+F146",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF146"
+    },
+    {
+        "label":  "U+F147",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF147"
+    },
+    {
+        "label":  "U+F148",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF148"
+    },
+    {
+        "label":  "U+F149",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF149"
+    },
+    {
+        "label":  "U+F14A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF14A"
+    },
+    {
+        "label":  "U+F14B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF14B"
+    },
+    {
+        "label":  "U+F14C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF14C"
+    },
+    {
+        "label":  "U+F14D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF14D"
+    },
+    {
+        "label":  "U+F14E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF14E"
+    },
+    {
+        "label":  "U+F150",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF150"
+    },
+    {
+        "label":  "U+F151",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF151"
+    },
+    {
+        "label":  "U+F152",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF152"
+    },
+    {
+        "label":  "U+F153",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF153"
+    },
+    {
+        "label":  "U+F154",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF154"
+    },
+    {
+        "label":  "U+F155",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF155"
+    },
+    {
+        "label":  "U+F156",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF156"
+    },
+    {
+        "label":  "U+F157",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF157"
+    },
+    {
+        "label":  "U+F158",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF158"
+    },
+    {
+        "label":  "U+F159",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF159"
+    },
+    {
+        "label":  "U+F15B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF15B"
+    },
+    {
+        "label":  "U+F15C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF15C"
+    },
+    {
+        "label":  "U+F15D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF15D"
+    },
+    {
+        "label":  "U+F15E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF15E"
+    },
+    {
+        "label":  "U+F160",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF160"
+    },
+    {
+        "label":  "U+F161",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF161"
+    },
+    {
+        "label":  "U+F162",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF162"
+    },
+    {
+        "label":  "U+F163",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF163"
+    },
+    {
+        "label":  "U+F164",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF164"
+    },
+    {
+        "label":  "U+F165",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF165"
+    },
+    {
+        "label":  "U+F175",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF175"
+    },
+    {
+        "label":  "U+F176",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF176"
+    },
+    {
+        "label":  "U+F177",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF177"
+    },
+    {
+        "label":  "U+F178",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF178"
+    },
+    {
+        "label":  "U+F182",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF182"
+    },
+    {
+        "label":  "U+F183",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF183"
+    },
+    {
+        "label":  "U+F185",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF185"
+    },
+    {
+        "label":  "U+F186",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF186"
+    },
+    {
+        "label":  "U+F187",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF187"
+    },
+    {
+        "label":  "U+F188",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF188"
+    },
+    {
+        "label":  "U+F18E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF18E"
+    },
+    {
+        "label":  "U+F190",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF190"
+    },
+    {
+        "label":  "U+F191",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF191"
+    },
+    {
+        "label":  "U+F192",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF192"
+    },
+    {
+        "label":  "U+F193",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF193"
+    },
+    {
+        "label":  "U+F195",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF195"
+    },
+    {
+        "label":  "U+F196",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF196"
+    },
+    {
+        "label":  "U+F197",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF197"
+    },
+    {
+        "label":  "U+F199",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF199"
+    },
+    {
+        "label":  "U+F19C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF19C"
+    },
+    {
+        "label":  "U+F19D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF19D"
+    },
+    {
+        "label":  "U+F1AB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1AB"
+    },
+    {
+        "label":  "U+F1AC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1AC"
+    },
+    {
+        "label":  "U+F1AD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1AD"
+    },
+    {
+        "label":  "U+F1AE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1AE"
+    },
+    {
+        "label":  "U+F1B0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1B0"
+    },
+    {
+        "label":  "U+F1B1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1B1"
+    },
+    {
+        "label":  "U+F1B2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1B2"
+    },
+    {
+        "label":  "U+F1B3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1B3"
+    },
+    {
+        "label":  "U+F1B8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1B8"
+    },
+    {
+        "label":  "U+F1B9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1B9"
+    },
+    {
+        "label":  "U+F1BA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1BA"
+    },
+    {
+        "label":  "U+F1BB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1BB"
+    },
+    {
+        "label":  "U+F1C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C0"
+    },
+    {
+        "label":  "U+F1C1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C1"
+    },
+    {
+        "label":  "U+F1C2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C2"
+    },
+    {
+        "label":  "U+F1C3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C3"
+    },
+    {
+        "label":  "U+F1C4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C4"
+    },
+    {
+        "label":  "U+F1C5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C5"
+    },
+    {
+        "label":  "U+F1C6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C6"
+    },
+    {
+        "label":  "U+F1C7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C7"
+    },
+    {
+        "label":  "U+F1C8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C8"
+    },
+    {
+        "label":  "U+F1C9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1C9"
+    },
+    {
+        "label":  "U+F1CD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1CD"
+    },
+    {
+        "label":  "U+F1CE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1CE"
+    },
+    {
+        "label":  "U+F1D8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1D8"
+    },
+    {
+        "label":  "U+F1D9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1D9"
+    },
+    {
+        "label":  "U+F1DA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1DA"
+    },
+    {
+        "label":  "U+F1DB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1DB"
+    },
+    {
+        "label":  "U+F1DC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1DC"
+    },
+    {
+        "label":  "U+F1DD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1DD"
+    },
+    {
+        "label":  "U+F1DE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1DE"
+    },
+    {
+        "label":  "U+F1E0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1E0"
+    },
+    {
+        "label":  "U+F1E1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1E1"
+    },
+    {
+        "label":  "U+F1E2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1E2"
+    },
+    {
+        "label":  "U+F1E3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1E3"
+    },
+    {
+        "label":  "U+F1E4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1E4"
+    },
+    {
+        "label":  "U+F1E5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1E5"
+    },
+    {
+        "label":  "U+F1E6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1E6"
+    },
+    {
+        "label":  "U+F1EA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1EA"
+    },
+    {
+        "label":  "U+F1EB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1EB"
+    },
+    {
+        "label":  "U+F1EC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1EC"
+    },
+    {
+        "label":  "U+F1F6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1F6"
+    },
+    {
+        "label":  "U+F1F7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1F7"
+    },
+    {
+        "label":  "U+F1F8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1F8"
+    },
+    {
+        "label":  "U+F1F9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1F9"
+    },
+    {
+        "label":  "U+F1FA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1FA"
+    },
+    {
+        "label":  "U+F1FB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1FB"
+    },
+    {
+        "label":  "U+F1FC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1FC"
+    },
+    {
+        "label":  "U+F1FD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1FD"
+    },
+    {
+        "label":  "U+F1FE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF1FE"
+    },
+    {
+        "label":  "U+F200",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF200"
+    },
+    {
+        "label":  "U+F201",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF201"
+    },
+    {
+        "label":  "U+F204",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF204"
+    },
+    {
+        "label":  "U+F205",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF205"
+    },
+    {
+        "label":  "U+F206",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF206"
+    },
+    {
+        "label":  "U+F207",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF207"
+    },
+    {
+        "label":  "U+F20A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF20A"
+    },
+    {
+        "label":  "U+F20B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF20B"
+    },
+    {
+        "label":  "U+F217",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF217"
+    },
+    {
+        "label":  "U+F218",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF218"
+    },
+    {
+        "label":  "U+F219",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF219"
+    },
+    {
+        "label":  "U+F21A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF21A"
+    },
+    {
+        "label":  "U+F21B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF21B"
+    },
+    {
+        "label":  "U+F21C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF21C"
+    },
+    {
+        "label":  "U+F21D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF21D"
+    },
+    {
+        "label":  "U+F21E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF21E"
+    },
+    {
+        "label":  "U+F221",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF221"
+    },
+    {
+        "label":  "U+F222",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF222"
+    },
+    {
+        "label":  "U+F223",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF223"
+    },
+    {
+        "label":  "U+F224",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF224"
+    },
+    {
+        "label":  "U+F225",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF225"
+    },
+    {
+        "label":  "U+F226",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF226"
+    },
+    {
+        "label":  "U+F227",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF227"
+    },
+    {
+        "label":  "U+F228",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF228"
+    },
+    {
+        "label":  "U+F229",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF229"
+    },
+    {
+        "label":  "U+F22A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF22A"
+    },
+    {
+        "label":  "U+F22B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF22B"
+    },
+    {
+        "label":  "U+F22C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF22C"
+    },
+    {
+        "label":  "U+F22D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF22D"
+    },
+    {
+        "label":  "U+F233",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF233"
+    },
+    {
+        "label":  "U+F234",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF234"
+    },
+    {
+        "label":  "U+F235",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF235"
+    },
+    {
+        "label":  "U+F236",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF236"
+    },
+    {
+        "label":  "U+F238",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF238"
+    },
+    {
+        "label":  "U+F239",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF239"
+    },
+    {
+        "label":  "U+F240",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF240"
+    },
+    {
+        "label":  "U+F241",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF241"
+    },
+    {
+        "label":  "U+F242",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF242"
+    },
+    {
+        "label":  "U+F243",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF243"
+    },
+    {
+        "label":  "U+F244",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF244"
+    },
+    {
+        "label":  "U+F245",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF245"
+    },
+    {
+        "label":  "U+F246",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF246"
+    },
+    {
+        "label":  "U+F247",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF247"
+    },
+    {
+        "label":  "U+F248",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF248"
+    },
+    {
+        "label":  "U+F249",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF249"
+    },
+    {
+        "label":  "U+F24A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF24A"
+    },
+    {
+        "label":  "U+F24D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF24D"
+    },
+    {
+        "label":  "U+F24E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF24E"
+    },
+    {
+        "label":  "U+F250",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF250"
+    },
+    {
+        "label":  "U+F251",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF251"
+    },
+    {
+        "label":  "U+F252",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF252"
+    },
+    {
+        "label":  "U+F253",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF253"
+    },
+    {
+        "label":  "U+F254",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF254"
+    },
+    {
+        "label":  "U+F255",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF255"
+    },
+    {
+        "label":  "U+F256",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF256"
+    },
+    {
+        "label":  "U+F257",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF257"
+    },
+    {
+        "label":  "U+F258",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF258"
+    },
+    {
+        "label":  "U+F259",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF259"
+    },
+    {
+        "label":  "U+F25A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF25A"
+    },
+    {
+        "label":  "U+F25B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF25B"
+    },
+    {
+        "label":  "U+F25C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF25C"
+    },
+    {
+        "label":  "U+F25D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF25D"
+    },
+    {
+        "label":  "U+F26C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF26C"
+    },
+    {
+        "label":  "U+F271",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF271"
+    },
+    {
+        "label":  "U+F272",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF272"
+    },
+    {
+        "label":  "U+F273",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF273"
+    },
+    {
+        "label":  "U+F274",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF274"
+    },
+    {
+        "label":  "U+F275",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF275"
+    },
+    {
+        "label":  "U+F276",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF276"
+    },
+    {
+        "label":  "U+F277",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF277"
+    },
+    {
+        "label":  "U+F278",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF278"
+    },
+    {
+        "label":  "U+F279",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF279"
+    },
+    {
+        "label":  "U+F27A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF27A"
+    },
+    {
+        "label":  "U+F27B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF27B"
+    },
+    {
+        "label":  "U+F283",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF283"
+    },
+    {
+        "label":  "U+F28B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF28B"
+    },
+    {
+        "label":  "U+F28C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF28C"
+    },
+    {
+        "label":  "U+F28D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF28D"
+    },
+    {
+        "label":  "U+F28E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF28E"
+    },
+    {
+        "label":  "U+F290",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF290"
+    },
+    {
+        "label":  "U+F291",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF291"
+    },
+    {
+        "label":  "U+F292",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF292"
+    },
+    {
+        "label":  "U+F295",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF295"
+    },
+    {
+        "label":  "U+F29A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF29A"
+    },
+    {
+        "label":  "U+F29C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF29C"
+    },
+    {
+        "label":  "U+F29D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF29D"
+    },
+    {
+        "label":  "U+F29E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF29E"
+    },
+    {
+        "label":  "U+F2A0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2A0"
+    },
+    {
+        "label":  "U+F2A1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2A1"
+    },
+    {
+        "label":  "U+F2A2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2A2"
+    },
+    {
+        "label":  "U+F2A3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2A3"
+    },
+    {
+        "label":  "U+F2A4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2A4"
+    },
+    {
+        "label":  "U+F2A7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2A7"
+    },
+    {
+        "label":  "U+F2A8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2A8"
+    },
+    {
+        "label":  "U+F2B4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2B4"
+    },
+    {
+        "label":  "U+F2B5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2B5"
+    },
+    {
+        "label":  "U+F2B6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2B6"
+    },
+    {
+        "label":  "U+F2B7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2B7"
+    },
+    {
+        "label":  "U+F2B9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2B9"
+    },
+    {
+        "label":  "U+F2BA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2BA"
+    },
+    {
+        "label":  "U+F2BB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2BB"
+    },
+    {
+        "label":  "U+F2BC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2BC"
+    },
+    {
+        "label":  "U+F2BD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2BD"
+    },
+    {
+        "label":  "U+F2BE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2BE"
+    },
+    {
+        "label":  "U+F2C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2C0"
+    },
+    {
+        "label":  "U+F2C1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2C1"
+    },
+    {
+        "label":  "U+F2C2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2C2"
+    },
+    {
+        "label":  "U+F2C3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2C3"
+    },
+    {
+        "label":  "U+F2C7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2C7"
+    },
+    {
+        "label":  "U+F2C8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2C8"
+    },
+    {
+        "label":  "U+F2C9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2C9"
+    },
+    {
+        "label":  "U+F2CA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2CA"
+    },
+    {
+        "label":  "U+F2CB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2CB"
+    },
+    {
+        "label":  "U+F2CC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2CC"
+    },
+    {
+        "label":  "U+F2CD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2CD"
+    },
+    {
+        "label":  "U+F2CE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2CE"
+    },
+    {
+        "label":  "U+F2D0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2D0"
+    },
+    {
+        "label":  "U+F2D1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2D1"
+    },
+    {
+        "label":  "U+F2D2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2D2"
+    },
+    {
+        "label":  "U+F2D3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2D3"
+    },
+    {
+        "label":  "U+F2D4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2D4"
+    },
+    {
+        "label":  "U+F2DB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2DB"
+    },
+    {
+        "label":  "U+F2DC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2DC"
+    },
+    {
+        "label":  "U+F2E5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2E5"
+    },
+    {
+        "label":  "U+F2E7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2E7"
+    },
+    {
+        "label":  "U+F2EA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2EA"
+    },
+    {
+        "label":  "U+F2ED",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2ED"
+    },
+    {
+        "label":  "U+F2F1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2F1"
+    },
+    {
+        "label":  "U+F2F2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2F2"
+    },
+    {
+        "label":  "U+F2F5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2F5"
+    },
+    {
+        "label":  "U+F2F6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2F6"
+    },
+    {
+        "label":  "U+F2F9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2F9"
+    },
+    {
+        "label":  "U+F2FE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF2FE"
+    },
+    {
+        "label":  "U+F302",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF302"
+    },
+    {
+        "label":  "U+F303",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF303"
+    },
+    {
+        "label":  "U+F304",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF304"
+    },
+    {
+        "label":  "U+F305",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF305"
+    },
+    {
+        "label":  "U+F306",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF306"
+    },
+    {
+        "label":  "U+F309",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF309"
+    },
+    {
+        "label":  "U+F30A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF30A"
+    },
+    {
+        "label":  "U+F30B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF30B"
+    },
+    {
+        "label":  "U+F30C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF30C"
+    },
+    {
+        "label":  "U+F312",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF312"
+    },
+    {
+        "label":  "U+F31C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF31C"
+    },
+    {
+        "label":  "U+F31E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF31E"
+    },
+    {
+        "label":  "U+F328",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF328"
+    },
+    {
+        "label":  "U+F332",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF332"
+    },
+    {
+        "label":  "U+F337",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF337"
+    },
+    {
+        "label":  "U+F338",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF338"
+    },
+    {
+        "label":  "U+F34E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF34E"
+    },
+    {
+        "label":  "U+F358",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF358"
+    },
+    {
+        "label":  "U+F359",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF359"
+    },
+    {
+        "label":  "U+F35A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF35A"
+    },
+    {
+        "label":  "U+F35B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF35B"
+    },
+    {
+        "label":  "U+F35D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF35D"
+    },
+    {
+        "label":  "U+F360",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF360"
+    },
+    {
+        "label":  "U+F362",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF362"
+    },
+    {
+        "label":  "U+F363",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF363"
+    },
+    {
+        "label":  "U+F381",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF381"
+    },
+    {
+        "label":  "U+F382",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF382"
+    },
+    {
+        "label":  "U+F386",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF386"
+    },
+    {
+        "label":  "U+F387",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF387"
+    },
+    {
+        "label":  "U+F390",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF390"
+    },
+    {
+        "label":  "U+F3A0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3A0"
+    },
+    {
+        "label":  "U+F3A5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3A5"
+    },
+    {
+        "label":  "U+F3BE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3BE"
+    },
+    {
+        "label":  "U+F3BF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3BF"
+    },
+    {
+        "label":  "U+F3C1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3C1"
+    },
+    {
+        "label":  "U+F3C5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3C5"
+    },
+    {
+        "label":  "U+F3C9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3C9"
+    },
+    {
+        "label":  "U+F3CD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3CD"
+    },
+    {
+        "label":  "U+F3CE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3CE"
+    },
+    {
+        "label":  "U+F3CF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3CF"
+    },
+    {
+        "label":  "U+F3D1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3D1"
+    },
+    {
+        "label":  "U+F3DD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3DD"
+    },
+    {
+        "label":  "U+F3E0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3E0"
+    },
+    {
+        "label":  "U+F3E5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3E5"
+    },
+    {
+        "label":  "U+F3ED",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3ED"
+    },
+    {
+        "label":  "U+F3FA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3FA"
+    },
+    {
+        "label":  "U+F3FB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3FB"
+    },
+    {
+        "label":  "U+F3FD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3FD"
+    },
+    {
+        "label":  "U+F3FF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF3FF"
+    },
+    {
+        "label":  "U+F406",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF406"
+    },
+    {
+        "label":  "U+F410",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF410"
+    },
+    {
+        "label":  "U+F422",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF422"
+    },
+    {
+        "label":  "U+F424",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF424"
+    },
+    {
+        "label":  "U+F425",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF425"
+    },
+    {
+        "label":  "U+F432",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF432"
+    },
+    {
+        "label":  "U+F433",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF433"
+    },
+    {
+        "label":  "U+F434",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF434"
+    },
+    {
+        "label":  "U+F436",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF436"
+    },
+    {
+        "label":  "U+F439",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF439"
+    },
+    {
+        "label":  "U+F43A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF43A"
+    },
+    {
+        "label":  "U+F43C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF43C"
+    },
+    {
+        "label":  "U+F43F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF43F"
+    },
+    {
+        "label":  "U+F441",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF441"
+    },
+    {
+        "label":  "U+F443",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF443"
+    },
+    {
+        "label":  "U+F445",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF445"
+    },
+    {
+        "label":  "U+F447",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF447"
+    },
+    {
+        "label":  "U+F44B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF44B"
+    },
+    {
+        "label":  "U+F44E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF44E"
+    },
+    {
+        "label":  "U+F450",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF450"
+    },
+    {
+        "label":  "U+F453",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF453"
+    },
+    {
+        "label":  "U+F458",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF458"
+    },
+    {
+        "label":  "U+F45C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF45C"
+    },
+    {
+        "label":  "U+F45D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF45D"
+    },
+    {
+        "label":  "U+F45F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF45F"
+    },
+    {
+        "label":  "U+F461",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF461"
+    },
+    {
+        "label":  "U+F462",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF462"
+    },
+    {
+        "label":  "U+F466",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF466"
+    },
+    {
+        "label":  "U+F468",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF468"
+    },
+    {
+        "label":  "U+F469",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF469"
+    },
+    {
+        "label":  "U+F46A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF46A"
+    },
+    {
+        "label":  "U+F46B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF46B"
+    },
+    {
+        "label":  "U+F46C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF46C"
+    },
+    {
+        "label":  "U+F46D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF46D"
+    },
+    {
+        "label":  "U+F470",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF470"
+    },
+    {
+        "label":  "U+F471",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF471"
+    },
+    {
+        "label":  "U+F472",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF472"
+    },
+    {
+        "label":  "U+F474",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF474"
+    },
+    {
+        "label":  "U+F477",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF477"
+    },
+    {
+        "label":  "U+F478",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF478"
+    },
+    {
+        "label":  "U+F479",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF479"
+    },
+    {
+        "label":  "U+F47D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF47D"
+    },
+    {
+        "label":  "U+F47E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF47E"
+    },
+    {
+        "label":  "U+F47F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF47F"
+    },
+    {
+        "label":  "U+F481",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF481"
+    },
+    {
+        "label":  "U+F482",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF482"
+    },
+    {
+        "label":  "U+F484",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF484"
+    },
+    {
+        "label":  "U+F485",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF485"
+    },
+    {
+        "label":  "U+F486",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF486"
+    },
+    {
+        "label":  "U+F487",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF487"
+    },
+    {
+        "label":  "U+F48B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF48B"
+    },
+    {
+        "label":  "U+F48D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF48D"
+    },
+    {
+        "label":  "U+F48E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF48E"
+    },
+    {
+        "label":  "U+F490",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF490"
+    },
+    {
+        "label":  "U+F491",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF491"
+    },
+    {
+        "label":  "U+F492",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF492"
+    },
+    {
+        "label":  "U+F493",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF493"
+    },
+    {
+        "label":  "U+F494",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF494"
+    },
+    {
+        "label":  "U+F496",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF496"
+    },
+    {
+        "label":  "U+F497",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF497"
+    },
+    {
+        "label":  "U+F49E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF49E"
+    },
+    {
+        "label":  "U+F4A1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4A1"
+    },
+    {
+        "label":  "U+F4AD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4AD"
+    },
+    {
+        "label":  "U+F4B3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4B3"
+    },
+    {
+        "label":  "U+F4B8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4B8"
+    },
+    {
+        "label":  "U+F4B9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4B9"
+    },
+    {
+        "label":  "U+F4BA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4BA"
+    },
+    {
+        "label":  "U+F4BD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4BD"
+    },
+    {
+        "label":  "U+F4BE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4BE"
+    },
+    {
+        "label":  "U+F4C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4C0"
+    },
+    {
+        "label":  "U+F4C1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4C1"
+    },
+    {
+        "label":  "U+F4C2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4C2"
+    },
+    {
+        "label":  "U+F4C4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4C4"
+    },
+    {
+        "label":  "U+F4C6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4C6"
+    },
+    {
+        "label":  "U+F4CD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4CD"
+    },
+    {
+        "label":  "U+F4CE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4CE"
+    },
+    {
+        "label":  "U+F4D3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4D3"
+    },
+    {
+        "label":  "U+F4D6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4D6"
+    },
+    {
+        "label":  "U+F4D7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4D7"
+    },
+    {
+        "label":  "U+F4D8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4D8"
+    },
+    {
+        "label":  "U+F4D9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4D9"
+    },
+    {
+        "label":  "U+F4DA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4DA"
+    },
+    {
+        "label":  "U+F4DB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4DB"
+    },
+    {
+        "label":  "U+F4DE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4DE"
+    },
+    {
+        "label":  "U+F4DF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4DF"
+    },
+    {
+        "label":  "U+F4E2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4E2"
+    },
+    {
+        "label":  "U+F4E3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4E3"
+    },
+    {
+        "label":  "U+F4E6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4E6"
+    },
+    {
+        "label":  "U+F4FA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4FA"
+    },
+    {
+        "label":  "U+F4FB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4FB"
+    },
+    {
+        "label":  "U+F4FC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4FC"
+    },
+    {
+        "label":  "U+F4FD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4FD"
+    },
+    {
+        "label":  "U+F4FE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4FE"
+    },
+    {
+        "label":  "U+F4FF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF4FF"
+    },
+    {
+        "label":  "U+F500",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF500"
+    },
+    {
+        "label":  "U+F501",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF501"
+    },
+    {
+        "label":  "U+F502",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF502"
+    },
+    {
+        "label":  "U+F503",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF503"
+    },
+    {
+        "label":  "U+F504",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF504"
+    },
+    {
+        "label":  "U+F505",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF505"
+    },
+    {
+        "label":  "U+F506",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF506"
+    },
+    {
+        "label":  "U+F507",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF507"
+    },
+    {
+        "label":  "U+F508",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF508"
+    },
+    {
+        "label":  "U+F509",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF509"
+    },
+    {
+        "label":  "U+F515",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF515"
+    },
+    {
+        "label":  "U+F516",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF516"
+    },
+    {
+        "label":  "U+F517",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF517"
+    },
+    {
+        "label":  "U+F518",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF518"
+    },
+    {
+        "label":  "U+F519",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF519"
+    },
+    {
+        "label":  "U+F51A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF51A"
+    },
+    {
+        "label":  "U+F51B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF51B"
+    },
+    {
+        "label":  "U+F51C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF51C"
+    },
+    {
+        "label":  "U+F51D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF51D"
+    },
+    {
+        "label":  "U+F51E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF51E"
+    },
+    {
+        "label":  "U+F51F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF51F"
+    },
+    {
+        "label":  "U+F520",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF520"
+    },
+    {
+        "label":  "U+F521",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF521"
+    },
+    {
+        "label":  "U+F522",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF522"
+    },
+    {
+        "label":  "U+F523",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF523"
+    },
+    {
+        "label":  "U+F524",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF524"
+    },
+    {
+        "label":  "U+F525",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF525"
+    },
+    {
+        "label":  "U+F526",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF526"
+    },
+    {
+        "label":  "U+F527",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF527"
+    },
+    {
+        "label":  "U+F528",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF528"
+    },
+    {
+        "label":  "U+F529",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF529"
+    },
+    {
+        "label":  "U+F52A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF52A"
+    },
+    {
+        "label":  "U+F52B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF52B"
+    },
+    {
+        "label":  "U+F52C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF52C"
+    },
+    {
+        "label":  "U+F52D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF52D"
+    },
+    {
+        "label":  "U+F52E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF52E"
+    },
+    {
+        "label":  "U+F52F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF52F"
+    },
+    {
+        "label":  "U+F530",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF530"
+    },
+    {
+        "label":  "U+F531",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF531"
+    },
+    {
+        "label":  "U+F532",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF532"
+    },
+    {
+        "label":  "U+F533",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF533"
+    },
+    {
+        "label":  "U+F534",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF534"
+    },
+    {
+        "label":  "U+F535",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF535"
+    },
+    {
+        "label":  "U+F536",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF536"
+    },
+    {
+        "label":  "U+F537",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF537"
+    },
+    {
+        "label":  "U+F538",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF538"
+    },
+    {
+        "label":  "U+F539",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF539"
+    },
+    {
+        "label":  "U+F53A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF53A"
+    },
+    {
+        "label":  "U+F53B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF53B"
+    },
+    {
+        "label":  "U+F53C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF53C"
+    },
+    {
+        "label":  "U+F53D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF53D"
+    },
+    {
+        "label":  "U+F53E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF53E"
+    },
+    {
+        "label":  "U+F53F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF53F"
+    },
+    {
+        "label":  "U+F540",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF540"
+    },
+    {
+        "label":  "U+F541",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF541"
+    },
+    {
+        "label":  "U+F542",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF542"
+    },
+    {
+        "label":  "U+F543",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF543"
+    },
+    {
+        "label":  "U+F544",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF544"
+    },
+    {
+        "label":  "U+F545",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF545"
+    },
+    {
+        "label":  "U+F546",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF546"
+    },
+    {
+        "label":  "U+F547",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF547"
+    },
+    {
+        "label":  "U+F548",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF548"
+    },
+    {
+        "label":  "U+F549",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF549"
+    },
+    {
+        "label":  "U+F54A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF54A"
+    },
+    {
+        "label":  "U+F54B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF54B"
+    },
+    {
+        "label":  "U+F54C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF54C"
+    },
+    {
+        "label":  "U+F54D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF54D"
+    },
+    {
+        "label":  "U+F54E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF54E"
+    },
+    {
+        "label":  "U+F54F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF54F"
+    },
+    {
+        "label":  "U+F550",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF550"
+    },
+    {
+        "label":  "U+F551",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF551"
+    },
+    {
+        "label":  "U+F552",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF552"
+    },
+    {
+        "label":  "U+F553",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF553"
+    },
+    {
+        "label":  "U+F554",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF554"
+    },
+    {
+        "label":  "U+F555",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF555"
+    },
+    {
+        "label":  "U+F556",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF556"
+    },
+    {
+        "label":  "U+F557",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF557"
+    },
+    {
+        "label":  "U+F558",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF558"
+    },
+    {
+        "label":  "U+F559",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF559"
+    },
+    {
+        "label":  "U+F55A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF55A"
+    },
+    {
+        "label":  "U+F55B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF55B"
+    },
+    {
+        "label":  "U+F55C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF55C"
+    },
+    {
+        "label":  "U+F55D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF55D"
+    },
+    {
+        "label":  "U+F55E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF55E"
+    },
+    {
+        "label":  "U+F55F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF55F"
+    },
+    {
+        "label":  "U+F560",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF560"
+    },
+    {
+        "label":  "U+F561",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF561"
+    },
+    {
+        "label":  "U+F562",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF562"
+    },
+    {
+        "label":  "U+F563",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF563"
+    },
+    {
+        "label":  "U+F564",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF564"
+    },
+    {
+        "label":  "U+F565",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF565"
+    },
+    {
+        "label":  "U+F566",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF566"
+    },
+    {
+        "label":  "U+F567",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF567"
+    },
+    {
+        "label":  "U+F568",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF568"
+    },
+    {
+        "label":  "U+F569",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF569"
+    },
+    {
+        "label":  "U+F56A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF56A"
+    },
+    {
+        "label":  "U+F56B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF56B"
+    },
+    {
+        "label":  "U+F56C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF56C"
+    },
+    {
+        "label":  "U+F56D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF56D"
+    },
+    {
+        "label":  "U+F56E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF56E"
+    },
+    {
+        "label":  "U+F56F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF56F"
+    },
+    {
+        "label":  "U+F570",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF570"
+    },
+    {
+        "label":  "U+F571",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF571"
+    },
+    {
+        "label":  "U+F572",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF572"
+    },
+    {
+        "label":  "U+F573",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF573"
+    },
+    {
+        "label":  "U+F574",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF574"
+    },
+    {
+        "label":  "U+F575",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF575"
+    },
+    {
+        "label":  "U+F576",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF576"
+    },
+    {
+        "label":  "U+F577",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF577"
+    },
+    {
+        "label":  "U+F578",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF578"
+    },
+    {
+        "label":  "U+F579",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF579"
+    },
+    {
+        "label":  "U+F57A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF57A"
+    },
+    {
+        "label":  "U+F57B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF57B"
+    },
+    {
+        "label":  "U+F57C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF57C"
+    },
+    {
+        "label":  "U+F57D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF57D"
+    },
+    {
+        "label":  "U+F57E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF57E"
+    },
+    {
+        "label":  "U+F57F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF57F"
+    },
+    {
+        "label":  "U+F580",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF580"
+    },
+    {
+        "label":  "U+F581",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF581"
+    },
+    {
+        "label":  "U+F582",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF582"
+    },
+    {
+        "label":  "U+F583",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF583"
+    },
+    {
+        "label":  "U+F584",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF584"
+    },
+    {
+        "label":  "U+F585",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF585"
+    },
+    {
+        "label":  "U+F586",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF586"
+    },
+    {
+        "label":  "U+F587",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF587"
+    },
+    {
+        "label":  "U+F588",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF588"
+    },
+    {
+        "label":  "U+F589",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF589"
+    },
+    {
+        "label":  "U+F58A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF58A"
+    },
+    {
+        "label":  "U+F58B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF58B"
+    },
+    {
+        "label":  "U+F58C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF58C"
+    },
+    {
+        "label":  "U+F58D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF58D"
+    },
+    {
+        "label":  "U+F58E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF58E"
+    },
+    {
+        "label":  "U+F58F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF58F"
+    },
+    {
+        "label":  "U+F590",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF590"
+    },
+    {
+        "label":  "U+F591",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF591"
+    },
+    {
+        "label":  "U+F593",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF593"
+    },
+    {
+        "label":  "U+F594",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF594"
+    },
+    {
+        "label":  "U+F595",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF595"
+    },
+    {
+        "label":  "U+F596",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF596"
+    },
+    {
+        "label":  "U+F597",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF597"
+    },
+    {
+        "label":  "U+F598",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF598"
+    },
+    {
+        "label":  "U+F599",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF599"
+    },
+    {
+        "label":  "U+F59A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF59A"
+    },
+    {
+        "label":  "U+F59B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF59B"
+    },
+    {
+        "label":  "U+F59C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF59C"
+    },
+    {
+        "label":  "U+F59D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF59D"
+    },
+    {
+        "label":  "U+F59F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF59F"
+    },
+    {
+        "label":  "U+F5A0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5A0"
+    },
+    {
+        "label":  "U+F5A1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5A1"
+    },
+    {
+        "label":  "U+F5A2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5A2"
+    },
+    {
+        "label":  "U+F5A4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5A4"
+    },
+    {
+        "label":  "U+F5A5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5A5"
+    },
+    {
+        "label":  "U+F5A6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5A6"
+    },
+    {
+        "label":  "U+F5A7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5A7"
+    },
+    {
+        "label":  "U+F5AA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5AA"
+    },
+    {
+        "label":  "U+F5AB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5AB"
+    },
+    {
+        "label":  "U+F5AC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5AC"
+    },
+    {
+        "label":  "U+F5AD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5AD"
+    },
+    {
+        "label":  "U+F5AE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5AE"
+    },
+    {
+        "label":  "U+F5AF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5AF"
+    },
+    {
+        "label":  "U+F5B0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5B0"
+    },
+    {
+        "label":  "U+F5B1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5B1"
+    },
+    {
+        "label":  "U+F5B3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5B3"
+    },
+    {
+        "label":  "U+F5B4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5B4"
+    },
+    {
+        "label":  "U+F5B6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5B6"
+    },
+    {
+        "label":  "U+F5B7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5B7"
+    },
+    {
+        "label":  "U+F5B8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5B8"
+    },
+    {
+        "label":  "U+F5BA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5BA"
+    },
+    {
+        "label":  "U+F5BB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5BB"
+    },
+    {
+        "label":  "U+F5BC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5BC"
+    },
+    {
+        "label":  "U+F5BD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5BD"
+    },
+    {
+        "label":  "U+F5BF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5BF"
+    },
+    {
+        "label":  "U+F5C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C0"
+    },
+    {
+        "label":  "U+F5C1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C1"
+    },
+    {
+        "label":  "U+F5C2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C2"
+    },
+    {
+        "label":  "U+F5C3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C3"
+    },
+    {
+        "label":  "U+F5C4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C4"
+    },
+    {
+        "label":  "U+F5C5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C5"
+    },
+    {
+        "label":  "U+F5C7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C7"
+    },
+    {
+        "label":  "U+F5C8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C8"
+    },
+    {
+        "label":  "U+F5C9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5C9"
+    },
+    {
+        "label":  "U+F5CA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5CA"
+    },
+    {
+        "label":  "U+F5CD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5CD"
+    },
+    {
+        "label":  "U+F5CE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5CE"
+    },
+    {
+        "label":  "U+F5D0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5D0"
+    },
+    {
+        "label":  "U+F5D1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5D1"
+    },
+    {
+        "label":  "U+F5D2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5D2"
+    },
+    {
+        "label":  "U+F5D7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5D7"
+    },
+    {
+        "label":  "U+F5DA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5DA"
+    },
+    {
+        "label":  "U+F5DC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5DC"
+    },
+    {
+        "label":  "U+F5DE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5DE"
+    },
+    {
+        "label":  "U+F5DF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5DF"
+    },
+    {
+        "label":  "U+F5E1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5E1"
+    },
+    {
+        "label":  "U+F5E4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5E4"
+    },
+    {
+        "label":  "U+F5E7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5E7"
+    },
+    {
+        "label":  "U+F5EB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5EB"
+    },
+    {
+        "label":  "U+F5EE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5EE"
+    },
+    {
+        "label":  "U+F5FC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5FC"
+    },
+    {
+        "label":  "U+F5FD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF5FD"
+    },
+    {
+        "label":  "U+F601",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF601"
+    },
+    {
+        "label":  "U+F604",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF604"
+    },
+    {
+        "label":  "U+F610",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF610"
+    },
+    {
+        "label":  "U+F613",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF613"
+    },
+    {
+        "label":  "U+F619",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF619"
+    },
+    {
+        "label":  "U+F61F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF61F"
+    },
+    {
+        "label":  "U+F621",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF621"
+    },
+    {
+        "label":  "U+F624",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF624"
+    },
+    {
+        "label":  "U+F625",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF625"
+    },
+    {
+        "label":  "U+F629",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF629"
+    },
+    {
+        "label":  "U+F62A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF62A"
+    },
+    {
+        "label":  "U+F62E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF62E"
+    },
+    {
+        "label":  "U+F62F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF62F"
+    },
+    {
+        "label":  "U+F630",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF630"
+    },
+    {
+        "label":  "U+F637",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF637"
+    },
+    {
+        "label":  "U+F63B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF63B"
+    },
+    {
+        "label":  "U+F63C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF63C"
+    },
+    {
+        "label":  "U+F641",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF641"
+    },
+    {
+        "label":  "U+F644",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF644"
+    },
+    {
+        "label":  "U+F647",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF647"
+    },
+    {
+        "label":  "U+F64A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF64A"
+    },
+    {
+        "label":  "U+F64F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF64F"
+    },
+    {
+        "label":  "U+F651",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF651"
+    },
+    {
+        "label":  "U+F653",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF653"
+    },
+    {
+        "label":  "U+F654",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF654"
+    },
+    {
+        "label":  "U+F655",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF655"
+    },
+    {
+        "label":  "U+F658",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF658"
+    },
+    {
+        "label":  "U+F65D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF65D"
+    },
+    {
+        "label":  "U+F65E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF65E"
+    },
+    {
+        "label":  "U+F662",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF662"
+    },
+    {
+        "label":  "U+F664",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF664"
+    },
+    {
+        "label":  "U+F665",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF665"
+    },
+    {
+        "label":  "U+F666",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF666"
+    },
+    {
+        "label":  "U+F669",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF669"
+    },
+    {
+        "label":  "U+F66A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF66A"
+    },
+    {
+        "label":  "U+F66B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF66B"
+    },
+    {
+        "label":  "U+F66D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF66D"
+    },
+    {
+        "label":  "U+F66F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF66F"
+    },
+    {
+        "label":  "U+F674",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF674"
+    },
+    {
+        "label":  "U+F676",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF676"
+    },
+    {
+        "label":  "U+F678",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF678"
+    },
+    {
+        "label":  "U+F679",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF679"
+    },
+    {
+        "label":  "U+F67B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF67B"
+    },
+    {
+        "label":  "U+F67C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF67C"
+    },
+    {
+        "label":  "U+F67F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF67F"
+    },
+    {
+        "label":  "U+F681",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF681"
+    },
+    {
+        "label":  "U+F682",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF682"
+    },
+    {
+        "label":  "U+F683",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF683"
+    },
+    {
+        "label":  "U+F684",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF684"
+    },
+    {
+        "label":  "U+F687",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF687"
+    },
+    {
+        "label":  "U+F688",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF688"
+    },
+    {
+        "label":  "U+F689",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF689"
+    },
+    {
+        "label":  "U+F696",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF696"
+    },
+    {
+        "label":  "U+F698",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF698"
+    },
+    {
+        "label":  "U+F699",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF699"
+    },
+    {
+        "label":  "U+F69A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF69A"
+    },
+    {
+        "label":  "U+F69B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF69B"
+    },
+    {
+        "label":  "U+F6A0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6A0"
+    },
+    {
+        "label":  "U+F6A1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6A1"
+    },
+    {
+        "label":  "U+F6A7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6A7"
+    },
+    {
+        "label":  "U+F6A8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6A8"
+    },
+    {
+        "label":  "U+F6A9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6A9"
+    },
+    {
+        "label":  "U+F6AD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6AD"
+    },
+    {
+        "label":  "U+F6B6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6B6"
+    },
+    {
+        "label":  "U+F6B7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6B7"
+    },
+    {
+        "label":  "U+F6BB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6BB"
+    },
+    {
+        "label":  "U+F6BE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6BE"
+    },
+    {
+        "label":  "U+F6C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6C0"
+    },
+    {
+        "label":  "U+F6C3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6C3"
+    },
+    {
+        "label":  "U+F6C4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6C4"
+    },
+    {
+        "label":  "U+F6C8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6C8"
+    },
+    {
+        "label":  "U+F6CF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6CF"
+    },
+    {
+        "label":  "U+F6D1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6D1"
+    },
+    {
+        "label":  "U+F6D3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6D3"
+    },
+    {
+        "label":  "U+F6D5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6D5"
+    },
+    {
+        "label":  "U+F6D7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6D7"
+    },
+    {
+        "label":  "U+F6D9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6D9"
+    },
+    {
+        "label":  "U+F6DD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6DD"
+    },
+    {
+        "label":  "U+F6DE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6DE"
+    },
+    {
+        "label":  "U+F6E2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6E2"
+    },
+    {
+        "label":  "U+F6E3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6E3"
+    },
+    {
+        "label":  "U+F6E6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6E6"
+    },
+    {
+        "label":  "U+F6E8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6E8"
+    },
+    {
+        "label":  "U+F6EC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6EC"
+    },
+    {
+        "label":  "U+F6ED",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6ED"
+    },
+    {
+        "label":  "U+F6F0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6F0"
+    },
+    {
+        "label":  "U+F6F1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6F1"
+    },
+    {
+        "label":  "U+F6F2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6F2"
+    },
+    {
+        "label":  "U+F6FA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6FA"
+    },
+    {
+        "label":  "U+F6FC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6FC"
+    },
+    {
+        "label":  "U+F6FF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF6FF"
+    },
+    {
+        "label":  "U+F700",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF700"
+    },
+    {
+        "label":  "U+F70B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF70B"
+    },
+    {
+        "label":  "U+F70C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF70C"
+    },
+    {
+        "label":  "U+F70E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF70E"
+    },
+    {
+        "label":  "U+F714",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF714"
+    },
+    {
+        "label":  "U+F715",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF715"
+    },
+    {
+        "label":  "U+F717",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF717"
+    },
+    {
+        "label":  "U+F71E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF71E"
+    },
+    {
+        "label":  "U+F71F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF71F"
+    },
+    {
+        "label":  "U+F722",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF722"
+    },
+    {
+        "label":  "U+F728",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF728"
+    },
+    {
+        "label":  "U+F729",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF729"
+    },
+    {
+        "label":  "U+F72B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF72B"
+    },
+    {
+        "label":  "U+F72E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF72E"
+    },
+    {
+        "label":  "U+F72F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF72F"
+    },
+    {
+        "label":  "U+F73B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF73B"
+    },
+    {
+        "label":  "U+F73C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF73C"
+    },
+    {
+        "label":  "U+F73D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF73D"
+    },
+    {
+        "label":  "U+F740",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF740"
+    },
+    {
+        "label":  "U+F743",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF743"
+    },
+    {
+        "label":  "U+F747",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF747"
+    },
+    {
+        "label":  "U+F74D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF74D"
+    },
+    {
+        "label":  "U+F751",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF751"
+    },
+    {
+        "label":  "U+F752",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF752"
+    },
+    {
+        "label":  "U+F753",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF753"
+    },
+    {
+        "label":  "U+F756",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF756"
+    },
+    {
+        "label":  "U+F75A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF75A"
+    },
+    {
+        "label":  "U+F75B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF75B"
+    },
+    {
+        "label":  "U+F75E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF75E"
+    },
+    {
+        "label":  "U+F75F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF75F"
+    },
+    {
+        "label":  "U+F769",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF769"
+    },
+    {
+        "label":  "U+F76B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF76B"
+    },
+    {
+        "label":  "U+F76C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF76C"
+    },
+    {
+        "label":  "U+F76F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF76F"
+    },
+    {
+        "label":  "U+F770",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF770"
+    },
+    {
+        "label":  "U+F772",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF772"
+    },
+    {
+        "label":  "U+F773",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF773"
+    },
+    {
+        "label":  "U+F77C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF77C"
+    },
+    {
+        "label":  "U+F77D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF77D"
+    },
+    {
+        "label":  "U+F780",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF780"
+    },
+    {
+        "label":  "U+F781",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF781"
+    },
+    {
+        "label":  "U+F783",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF783"
+    },
+    {
+        "label":  "U+F784",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF784"
+    },
+    {
+        "label":  "U+F786",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF786"
+    },
+    {
+        "label":  "U+F787",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF787"
+    },
+    {
+        "label":  "U+F788",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF788"
+    },
+    {
+        "label":  "U+F78C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF78C"
+    },
+    {
+        "label":  "U+F793",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF793"
+    },
+    {
+        "label":  "U+F794",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF794"
+    },
+    {
+        "label":  "U+F796",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF796"
+    },
+    {
+        "label":  "U+F79C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF79C"
+    },
+    {
+        "label":  "U+F79F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF79F"
+    },
+    {
+        "label":  "U+F7A0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7A0"
+    },
+    {
+        "label":  "U+F7A2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7A2"
+    },
+    {
+        "label":  "U+F7A4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7A4"
+    },
+    {
+        "label":  "U+F7A5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7A5"
+    },
+    {
+        "label":  "U+F7A6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7A6"
+    },
+    {
+        "label":  "U+F7A9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7A9"
+    },
+    {
+        "label":  "U+F7AA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7AA"
+    },
+    {
+        "label":  "U+F7AB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7AB"
+    },
+    {
+        "label":  "U+F7AD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7AD"
+    },
+    {
+        "label":  "U+F7AE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7AE"
+    },
+    {
+        "label":  "U+F7B5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7B5"
+    },
+    {
+        "label":  "U+F7B6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7B6"
+    },
+    {
+        "label":  "U+F7B9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7B9"
+    },
+    {
+        "label":  "U+F7BA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7BA"
+    },
+    {
+        "label":  "U+F7BD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7BD"
+    },
+    {
+        "label":  "U+F7BF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7BF"
+    },
+    {
+        "label":  "U+F7C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7C0"
+    },
+    {
+        "label":  "U+F7C2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7C2"
+    },
+    {
+        "label":  "U+F7C4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7C4"
+    },
+    {
+        "label":  "U+F7C5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7C5"
+    },
+    {
+        "label":  "U+F7C9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7C9"
+    },
+    {
+        "label":  "U+F7CA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7CA"
+    },
+    {
+        "label":  "U+F7CC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7CC"
+    },
+    {
+        "label":  "U+F7CD",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7CD"
+    },
+    {
+        "label":  "U+F7CE",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7CE"
+    },
+    {
+        "label":  "U+F7D0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7D0"
+    },
+    {
+        "label":  "U+F7D2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7D2"
+    },
+    {
+        "label":  "U+F7D7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7D7"
+    },
+    {
+        "label":  "U+F7D8",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7D8"
+    },
+    {
+        "label":  "U+F7D9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7D9"
+    },
+    {
+        "label":  "U+F7DA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7DA"
+    },
+    {
+        "label":  "U+F7E4",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7E4"
+    },
+    {
+        "label":  "U+F7E5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7E5"
+    },
+    {
+        "label":  "U+F7E6",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7E6"
+    },
+    {
+        "label":  "U+F7EC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7EC"
+    },
+    {
+        "label":  "U+F7EF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7EF"
+    },
+    {
+        "label":  "U+F7F2",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7F2"
+    },
+    {
+        "label":  "U+F7F3",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7F3"
+    },
+    {
+        "label":  "U+F7F5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7F5"
+    },
+    {
+        "label":  "U+F7F7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7F7"
+    },
+    {
+        "label":  "U+F7FA",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7FA"
+    },
+    {
+        "label":  "U+F7FB",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF7FB"
+    },
+    {
+        "label":  "U+F802",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF802"
+    },
+    {
+        "label":  "U+F805",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF805"
+    },
+    {
+        "label":  "U+F806",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF806"
+    },
+    {
+        "label":  "U+F807",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF807"
+    },
+    {
+        "label":  "U+F80A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF80A"
+    },
+    {
+        "label":  "U+F80B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF80B"
+    },
+    {
+        "label":  "U+F80C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF80C"
+    },
+    {
+        "label":  "U+F80D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF80D"
+    },
+    {
+        "label":  "U+F80F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF80F"
+    },
+    {
+        "label":  "U+F810",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF810"
+    },
+    {
+        "label":  "U+F812",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF812"
+    },
+    {
+        "label":  "U+F815",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF815"
+    },
+    {
+        "label":  "U+F816",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF816"
+    },
+    {
+        "label":  "U+F818",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF818"
+    },
+    {
+        "label":  "U+F81D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF81D"
+    },
+    {
+        "label":  "U+F827",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF827"
+    },
+    {
+        "label":  "U+F828",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF828"
+    },
+    {
+        "label":  "U+F829",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF829"
+    },
+    {
+        "label":  "U+F82A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF82A"
+    },
+    {
+        "label":  "U+F82F",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF82F"
+    },
+    {
+        "label":  "U+F83E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF83E"
+    },
+    {
+        "label":  "U+F84A",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF84A"
+    },
+    {
+        "label":  "U+F84C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF84C"
+    },
+    {
+        "label":  "U+F850",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF850"
+    },
+    {
+        "label":  "U+F853",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF853"
+    },
+    {
+        "label":  "U+F85E",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF85E"
+    },
+    {
+        "label":  "U+F863",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF863"
+    },
+    {
+        "label":  "U+F86D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF86D"
+    },
+    {
+        "label":  "U+F879",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF879"
+    },
+    {
+        "label":  "U+F87B",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF87B"
+    },
+    {
+        "label":  "U+F87C",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF87C"
+    },
+    {
+        "label":  "U+F87D",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF87D"
+    },
+    {
+        "label":  "U+F881",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF881"
+    },
+    {
+        "label":  "U+F882",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF882"
+    },
+    {
+        "label":  "U+F884",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF884"
+    },
+    {
+        "label":  "U+F885",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF885"
+    },
+    {
+        "label":  "U+F886",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF886"
+    },
+    {
+        "label":  "U+F887",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF887"
+    },
+    {
+        "label":  "U+F891",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF891"
+    },
+    {
+        "label":  "U+F897",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF897"
+    },
+    {
+        "label":  "U+F8C0",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8C0"
+    },
+    {
+        "label":  "U+F8C1",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8C1"
+    },
+    {
+        "label":  "U+F8CC",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8CC"
+    },
+    {
+        "label":  "U+F8D7",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8D7"
+    },
+    {
+        "label":  "U+F8D9",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8D9"
+    },
+    {
+        "label":  "U+F8E5",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8E5"
+    },
+    {
+        "label":  "U+F8EF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8EF"
+    },
+    {
+        "label":  "U+F8FF",
+        "usage":  "Private-use icon",
+        "codepoint":  "0xF8FF"
+    },
+    {
+        "label":  "U+1F17F",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F17F"
+    },
+    {
+        "label":  "U+1F308",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F308"
+    },
+    {
+        "label":  "U+1F30B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F30B"
+    },
+    {
+        "label":  "U+1F30D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F30D"
+    },
+    {
+        "label":  "U+1F30E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F30E"
+    },
+    {
+        "label":  "U+1F30F",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F30F"
+    },
+    {
+        "label":  "U+1F310",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F310"
+    },
+    {
+        "label":  "U+1F319",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F319"
+    },
+    {
+        "label":  "U+1F321",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F321"
+    },
+    {
+        "label":  "U+1F326",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F326"
+    },
+    {
+        "label":  "U+1F327",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F327"
+    },
+    {
+        "label":  "U+1F329",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F329"
+    },
+    {
+        "label":  "U+1F32A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F32A"
+    },
+    {
+        "label":  "U+1F32D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F32D"
+    },
+    {
+        "label":  "U+1F331",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F331"
+    },
+    {
+        "label":  "U+1F332",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F332"
+    },
+    {
+        "label":  "U+1F336",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F336"
+    },
+    {
+        "label":  "U+1F34B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F34B"
+    },
+    {
+        "label":  "U+1F34E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F34E"
+    },
+    {
+        "label":  "U+1F34F",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F34F"
+    },
+    {
+        "label":  "U+1F368",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F368"
+    },
+    {
+        "label":  "U+1F36A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F36A"
+    },
+    {
+        "label":  "U+1F374",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F374"
+    },
+    {
+        "label":  "U+1F377",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F377"
+    },
+    {
+        "label":  "U+1F378",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F378"
+    },
+    {
+        "label":  "U+1F381",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F381"
+    },
+    {
+        "label":  "U+1F382",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F382"
+    },
+    {
+        "label":  "U+1F393",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F393"
+    },
+    {
+        "label":  "U+1F397",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F397"
+    },
+    {
+        "label":  "U+1F399",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F399"
+    },
+    {
+        "label":  "U+1F39E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F39E"
+    },
+    {
+        "label":  "U+1F39F",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F39F"
+    },
+    {
+        "label":  "U+1F3A7",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3A7"
+    },
+    {
+        "label":  "U+1F3A8",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3A8"
+    },
+    {
+        "label":  "U+1F3AD",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3AD"
+    },
+    {
+        "label":  "U+1F3B2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3B2"
+    },
+    {
+        "label":  "U+1F3B5",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3B5"
+    },
+    {
+        "label":  "U+1F3C0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3C0"
+    },
+    {
+        "label":  "U+1F3C1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3C1"
+    },
+    {
+        "label":  "U+1F3C2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3C2"
+    },
+    {
+        "label":  "U+1F3C3",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3C3"
+    },
+    {
+        "label":  "U+1F3C5",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3C5"
+    },
+    {
+        "label":  "U+1F3C6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3C6"
+    },
+    {
+        "label":  "U+1F3C8",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3C8"
+    },
+    {
+        "label":  "U+1F3CA",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3CA"
+    },
+    {
+        "label":  "U+1F3CD",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3CD"
+    },
+    {
+        "label":  "U+1F3D0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3D0"
+    },
+    {
+        "label":  "U+1F3D3",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3D3"
+    },
+    {
+        "label":  "U+1F3D4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3D4"
+    },
+    {
+        "label":  "U+1F3D6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3D6"
+    },
+    {
+        "label":  "U+1F3D9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3D9"
+    },
+    {
+        "label":  "U+1F3DB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3DB"
+    },
+    {
+        "label":  "U+1F3E0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3E0"
+    },
+    {
+        "label":  "U+1F3E2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3E2"
+    },
+    {
+        "label":  "U+1F3E5",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3E5"
+    },
+    {
+        "label":  "U+1F3E8",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3E8"
+    },
+    {
+        "label":  "U+1F3EB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3EB"
+    },
+    {
+        "label":  "U+1F3F4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3F4"
+    },
+    {
+        "label":  "U+1F3F7",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F3F7"
+    },
+    {
+        "label":  "U+1F404",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F404"
+    },
+    {
+        "label":  "U+1F408",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F408"
+    },
+    {
+        "label":  "U+1F409",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F409"
+    },
+    {
+        "label":  "U+1F40E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F40E"
+    },
+    {
+        "label":  "U+1F415",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F415"
+    },
+    {
+        "label":  "U+1F41F",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F41F"
+    },
+    {
+        "label":  "U+1F441",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F441"
+    },
+    {
+        "label":  "U+1F44D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F44D"
+    },
+    {
+        "label":  "U+1F44E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F44E"
+    },
+    {
+        "label":  "U+1F451",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F451"
+    },
+    {
+        "label":  "U+1F455",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F455"
+    },
+    {
+        "label":  "U+1F464",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F464"
+    },
+    {
+        "label":  "U+1F465",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F465"
+    },
+    {
+        "label":  "U+1F47B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F47B"
+    },
+    {
+        "label":  "U+1F480",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F480"
+    },
+    {
+        "label":  "U+1F489",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F489"
+    },
+    {
+        "label":  "U+1F48E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F48E"
+    },
+    {
+        "label":  "U+1F494",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F494"
+    },
+    {
+        "label":  "U+1F499",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F499"
+    },
+    {
+        "label":  "U+1F49A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F49A"
+    },
+    {
+        "label":  "U+1F49B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F49B"
+    },
+    {
+        "label":  "U+1F49C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F49C"
+    },
+    {
+        "label":  "U+1F4A1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4A1"
+    },
+    {
+        "label":  "U+1F4A3",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4A3"
+    },
+    {
+        "label":  "U+1F4A7",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4A7"
+    },
+    {
+        "label":  "U+1F4A9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4A9"
+    },
+    {
+        "label":  "U+1F4AC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4AC"
+    },
+    {
+        "label":  "U+1F4B0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4B0"
+    },
+    {
+        "label":  "U+1F4B2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4B2"
+    },
+    {
+        "label":  "U+1F4B3",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4B3"
+    },
+    {
+        "label":  "U+1F4BB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4BB"
+    },
+    {
+        "label":  "U+1F4BC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4BC"
+    },
+    {
+        "label":  "U+1F4BE",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4BE"
+    },
+    {
+        "label":  "U+1F4BF",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4BF"
+    },
+    {
+        "label":  "U+1F4C0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4C0"
+    },
+    {
+        "label":  "U+1F4C1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4C1"
+    },
+    {
+        "label":  "U+1F4C2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4C2"
+    },
+    {
+        "label":  "U+1F4C4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4C4"
+    },
+    {
+        "label":  "U+1F4C5",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4C5"
+    },
+    {
+        "label":  "U+1F4C6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4C6"
+    },
+    {
+        "label":  "U+1F4CB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4CB"
+    },
+    {
+        "label":  "U+1F4CC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4CC"
+    },
+    {
+        "label":  "U+1F4CD",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4CD"
+    },
+    {
+        "label":  "U+1F4CE",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4CE"
+    },
+    {
+        "label":  "U+1F4CF",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4CF"
+    },
+    {
+        "label":  "U+1F4D4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4D4"
+    },
+    {
+        "label":  "U+1F4D6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4D6"
+    },
+    {
+        "label":  "U+1F4DC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4DC"
+    },
+    {
+        "label":  "U+1F4DD",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4DD"
+    },
+    {
+        "label":  "U+1F4DE",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4DE"
+    },
+    {
+        "label":  "U+1F4DF",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4DF"
+    },
+    {
+        "label":  "U+1F4E0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4E0"
+    },
+    {
+        "label":  "U+1F4E1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4E1"
+    },
+    {
+        "label":  "U+1F4E2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4E2"
+    },
+    {
+        "label":  "U+1F4E6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4E6"
+    },
+    {
+        "label":  "U+1F4F0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4F0"
+    },
+    {
+        "label":  "U+1F4F1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4F1"
+    },
+    {
+        "label":  "U+1F4F6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4F6"
+    },
+    {
+        "label":  "U+1F4F7",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4F7"
+    },
+    {
+        "label":  "U+1F4FB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F4FB"
+    },
+    {
+        "label":  "U+1F500",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F500"
+    },
+    {
+        "label":  "U+1F501",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F501"
+    },
+    {
+        "label":  "U+1F504",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F504"
+    },
+    {
+        "label":  "U+1F508",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F508"
+    },
+    {
+        "label":  "U+1F509",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F509"
+    },
+    {
+        "label":  "U+1F50A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F50A"
+    },
+    {
+        "label":  "U+1F50B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F50B"
+    },
+    {
+        "label":  "U+1F50C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F50C"
+    },
+    {
+        "label":  "U+1F50D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F50D"
+    },
+    {
+        "label":  "U+1F511",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F511"
+    },
+    {
+        "label":  "U+1F512",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F512"
+    },
+    {
+        "label":  "U+1F513",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F513"
+    },
+    {
+        "label":  "U+1F514",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F514"
+    },
+    {
+        "label":  "U+1F515",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F515"
+    },
+    {
+        "label":  "U+1F516",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F516"
+    },
+    {
+        "label":  "U+1F517",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F517"
+    },
+    {
+        "label":  "U+1F518",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F518"
+    },
+    {
+        "label":  "U+1F525",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F525"
+    },
+    {
+        "label":  "U+1F527",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F527"
+    },
+    {
+        "label":  "U+1F528",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F528"
+    },
+    {
+        "label":  "U+1F52C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F52C"
+    },
+    {
+        "label":  "U+1F534",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F534"
+    },
+    {
+        "label":  "U+1F535",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F535"
+    },
+    {
+        "label":  "U+1F547",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F547"
+    },
+    {
+        "label":  "U+1F549",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F549"
+    },
+    {
+        "label":  "U+1F54A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F54A"
+    },
+    {
+        "label":  "U+1F54B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F54B"
+    },
+    {
+        "label":  "U+1F54C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F54C"
+    },
+    {
+        "label":  "U+1F54D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F54D"
+    },
+    {
+        "label":  "U+1F54E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F54E"
+    },
+    {
+        "label":  "U+1F553",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F553"
+    },
+    {
+        "label":  "U+1F56B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F56B"
+    },
+    {
+        "label":  "U+1F56E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F56E"
+    },
+    {
+        "label":  "U+1F571",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F571"
+    },
+    {
+        "label":  "U+1F575",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F575"
+    },
+    {
+        "label":  "U+1F577",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F577"
+    },
+    {
+        "label":  "U+1F57B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F57B"
+    },
+    {
+        "label":  "U+1F57D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F57D"
+    },
+    {
+        "label":  "U+1F582",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F582"
+    },
+    {
+        "label":  "U+1F588",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F588"
+    },
+    {
+        "label":  "U+1F58A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F58A"
+    },
+    {
+        "label":  "U+1F58B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F58B"
+    },
+    {
+        "label":  "U+1F58C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F58C"
+    },
+    {
+        "label":  "U+1F595",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F595"
+    },
+    {
+        "label":  "U+1F596",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F596"
+    },
+    {
+        "label":  "U+1F5A4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5A4"
+    },
+    {
+        "label":  "U+1F5A5",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5A5"
+    },
+    {
+        "label":  "U+1F5A8",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5A8"
+    },
+    {
+        "label":  "U+1F5A9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5A9"
+    },
+    {
+        "label":  "U+1F5AA",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5AA"
+    },
+    {
+        "label":  "U+1F5B1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5B1"
+    },
+    {
+        "label":  "U+1F5B4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5B4"
+    },
+    {
+        "label":  "U+1F5B6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5B6"
+    },
+    {
+        "label":  "U+1F5B7",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5B7"
+    },
+    {
+        "label":  "U+1F5B8",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5B8"
+    },
+    {
+        "label":  "U+1F5B9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5B9"
+    },
+    {
+        "label":  "U+1F5BB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5BB"
+    },
+    {
+        "label":  "U+1F5BF",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5BF"
+    },
+    {
+        "label":  "U+1F5C1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5C1"
+    },
+    {
+        "label":  "U+1F5CB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5CB"
+    },
+    {
+        "label":  "U+1F5CE",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5CE"
+    },
+    {
+        "label":  "U+1F5D5",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5D5"
+    },
+    {
+        "label":  "U+1F5D6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5D6"
+    },
+    {
+        "label":  "U+1F5D8",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5D8"
+    },
+    {
+        "label":  "U+1F5D9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5D9"
+    },
+    {
+        "label":  "U+1F5E9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5E9"
+    },
+    {
+        "label":  "U+1F5EA",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5EA"
+    },
+    {
+        "label":  "U+1F5FA",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F5FA"
+    },
+    {
+        "label":  "U+1F600",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F600"
+    },
+    {
+        "label":  "U+1F601",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F601"
+    },
+    {
+        "label":  "U+1F602",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F602"
+    },
+    {
+        "label":  "U+1F603",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F603"
+    },
+    {
+        "label":  "U+1F604",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F604"
+    },
+    {
+        "label":  "U+1F605",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F605"
+    },
+    {
+        "label":  "U+1F606",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F606"
+    },
+    {
+        "label":  "U+1F609",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F609"
+    },
+    {
+        "label":  "U+1F60A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F60A"
+    },
+    {
+        "label":  "U+1F60D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F60D"
+    },
+    {
+        "label":  "U+1F610",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F610"
+    },
+    {
+        "label":  "U+1F617",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F617"
+    },
+    {
+        "label":  "U+1F618",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F618"
+    },
+    {
+        "label":  "U+1F619",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F619"
+    },
+    {
+        "label":  "U+1F61B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F61B"
+    },
+    {
+        "label":  "U+1F61C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F61C"
+    },
+    {
+        "label":  "U+1F61D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F61D"
+    },
+    {
+        "label":  "U+1F620",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F620"
+    },
+    {
+        "label":  "U+1F622",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F622"
+    },
+    {
+        "label":  "U+1F626",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F626"
+    },
+    {
+        "label":  "U+1F62B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F62B"
+    },
+    {
+        "label":  "U+1F62C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F62C"
+    },
+    {
+        "label":  "U+1F62D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F62D"
+    },
+    {
+        "label":  "U+1F62E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F62E"
+    },
+    {
+        "label":  "U+1F633",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F633"
+    },
+    {
+        "label":  "U+1F636",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F636"
+    },
+    {
+        "label":  "U+1F642",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F642"
+    },
+    {
+        "label":  "U+1F644",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F644"
+    },
+    {
+        "label":  "U+1F681",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F681"
+    },
+    {
+        "label":  "U+1F686",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F686"
+    },
+    {
+        "label":  "U+1F68A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F68A"
+    },
+    {
+        "label":  "U+1F68D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F68D"
+    },
+    {
+        "label":  "U+1F690",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F690"
+    },
+    {
+        "label":  "U+1F691",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F691"
+    },
+    {
+        "label":  "U+1F696",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F696"
+    },
+    {
+        "label":  "U+1F697",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F697"
+    },
+    {
+        "label":  "U+1F698",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F698"
+    },
+    {
+        "label":  "U+1F69A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F69A"
+    },
+    {
+        "label":  "U+1F69C",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F69C"
+    },
+    {
+        "label":  "U+1F6A1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6A1"
+    },
+    {
+        "label":  "U+1F6A2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6A2"
+    },
+    {
+        "label":  "U+1F6A6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6A6"
+    },
+    {
+        "label":  "U+1F6AA",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6AA"
+    },
+    {
+        "label":  "U+1F6AB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6AB"
+    },
+    {
+        "label":  "U+1F6AC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6AC"
+    },
+    {
+        "label":  "U+1F6AD",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6AD"
+    },
+    {
+        "label":  "U+1F6B0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6B0"
+    },
+    {
+        "label":  "U+1F6B2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6B2"
+    },
+    {
+        "label":  "U+1F6B4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6B4"
+    },
+    {
+        "label":  "U+1F6B6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6B6"
+    },
+    {
+        "label":  "U+1F6BD",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6BD"
+    },
+    {
+        "label":  "U+1F6BF",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6BF"
+    },
+    {
+        "label":  "U+1F6C1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6C1"
+    },
+    {
+        "label":  "U+1F6CC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6CC"
+    },
+    {
+        "label":  "U+1F6CE",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6CE"
+    },
+    {
+        "label":  "U+1F6D0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6D0"
+    },
+    {
+        "label":  "U+1F6D1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6D1"
+    },
+    {
+        "label":  "U+1F6D2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6D2"
+    },
+    {
+        "label":  "U+1F6E1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6E1"
+    },
+    {
+        "label":  "U+1F6E3",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6E3"
+    },
+    {
+        "label":  "U+1F6EB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6EB"
+    },
+    {
+        "label":  "U+1F6EC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6EC"
+    },
+    {
+        "label":  "U+1F6F0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6F0"
+    },
+    {
+        "label":  "U+1F6FB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F6FB"
+    },
+    {
+        "label":  "U+1F7E0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E0"
+    },
+    {
+        "label":  "U+1F7E1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E1"
+    },
+    {
+        "label":  "U+1F7E2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E2"
+    },
+    {
+        "label":  "U+1F7E3",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E3"
+    },
+    {
+        "label":  "U+1F7E4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E4"
+    },
+    {
+        "label":  "U+1F7E5",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E5"
+    },
+    {
+        "label":  "U+1F7E6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E6"
+    },
+    {
+        "label":  "U+1F7E7",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E7"
+    },
+    {
+        "label":  "U+1F7E8",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E8"
+    },
+    {
+        "label":  "U+1F7E9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7E9"
+    },
+    {
+        "label":  "U+1F7EA",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7EA"
+    },
+    {
+        "label":  "U+1F7EB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F7EB"
+    },
+    {
+        "label":  "U+1F90D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F90D"
+    },
+    {
+        "label":  "U+1F90E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F90E"
+    },
+    {
+        "label":  "U+1F916",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F916"
+    },
+    {
+        "label":  "U+1F91A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F91A"
+    },
+    {
+        "label":  "U+1F91D",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F91D"
+    },
+    {
+        "label":  "U+1F923",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F923"
+    },
+    {
+        "label":  "U+1F929",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F929"
+    },
+    {
+        "label":  "U+1F941",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F941"
+    },
+    {
+        "label":  "U+1F942",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F942"
+    },
+    {
+        "label":  "U+1F943",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F943"
+    },
+    {
+        "label":  "U+1F944",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F944"
+    },
+    {
+        "label":  "U+1F94E",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F94E"
+    },
+    {
+        "label":  "U+1F953",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F953"
+    },
+    {
+        "label":  "U+1F955",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F955"
+    },
+    {
+        "label":  "U+1F95A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F95A"
+    },
+    {
+        "label":  "U+1F977",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F977"
+    },
+    {
+        "label":  "U+1F990",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F990"
+    },
+    {
+        "label":  "U+1F99B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F99B"
+    },
+    {
+        "label":  "U+1F9A6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9A6"
+    },
+    {
+        "label":  "U+1F9B4",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9B4"
+    },
+    {
+        "label":  "U+1F9B7",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9B7"
+    },
+    {
+        "label":  "U+1F9CD",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9CD"
+    },
+    {
+        "label":  "U+1F9E0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9E0"
+    },
+    {
+        "label":  "U+1F9E1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9E1"
+    },
+    {
+        "label":  "U+1F9E6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9E6"
+    },
+    {
+        "label":  "U+1F9E9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9E9"
+    },
+    {
+        "label":  "U+1F9EA",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9EA"
+    },
+    {
+        "label":  "U+1F9EC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9EC"
+    },
+    {
+        "label":  "U+1F9ED",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9ED"
+    },
+    {
+        "label":  "U+1F9EF",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9EF"
+    },
+    {
+        "label":  "U+1F9F0",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9F0"
+    },
+    {
+        "label":  "U+1F9F2",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9F2"
+    },
+    {
+        "label":  "U+1F9F3",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9F3"
+    },
+    {
+        "label":  "U+1F9F9",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9F9"
+    },
+    {
+        "label":  "U+1F9FB",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9FB"
+    },
+    {
+        "label":  "U+1F9FC",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9FC"
+    },
+    {
+        "label":  "U+1F9FE",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1F9FE"
+    },
+    {
+        "label":  "U+1FA79",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1FA79"
+    },
+    {
+        "label":  "U+1FA7A",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1FA7A"
+    },
+    {
+        "label":  "U+1FA91",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1FA91"
+    },
+    {
+        "label":  "U+1FA9B",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1FA9B"
+    },
+    {
+        "label":  "U+1FAB6",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1FAB6"
+    },
+    {
+        "label":  "U+1FAC1",
+        "usage":  "Unicode icon",
+        "codepoint":  "0x1FAC1"
+    }
+]
