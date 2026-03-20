@@ -313,6 +313,23 @@ class Context {
 #if EUI_ENABLE_STB_TRUETYPE
     struct StbMeasureFont;
 #endif
+    struct TextAreaState {
+        float scroll{0.0f};
+        float preferred_x{-1.0f};
+    };
+
+    struct ScrollAreaState {
+        float scroll{0.0f};
+        float velocity{0.0f};
+        float content_height{0.0f};
+    };
+
+    enum class ScrollInputKind {
+        None,
+        ScrollArea,
+        TextArea,
+    };
+
 public:
     Context() {
         commands_.reserve(1024);
@@ -420,6 +437,14 @@ public:
         scope_stack_.clear();
         clip_stack_.clear();
         waterfall_ = WaterfallState{};
+        hovered_scroll_input_kind_ = next_hovered_scroll_input_kind_;
+        hovered_scroll_input_id_ = next_hovered_scroll_input_id_;
+        hovered_scroll_input_depth_ = next_hovered_scroll_input_depth_;
+        next_hovered_scroll_input_kind_ = ScrollInputKind::None;
+        next_hovered_scroll_input_id_ = 0u;
+        next_hovered_scroll_input_depth_ = -1;
+        next_hovered_scroll_input_on_thumb_ = false;
+        pressed_scroll_claim_depth_ = input_.mouse_pressed ? hovered_scroll_input_depth_ : -1;
 
         content_x_ = 16.0f;
         content_width_ = frame_width_ - 32.0f;
@@ -470,6 +495,20 @@ private:
             active_scroll_drag_id_ = 0;
             active_scrollbar_drag_id_ = 0;
         }
+    }
+
+    void update_hovered_scroll_input(ScrollInputKind kind, std::uint64_t id, int depth, bool on_thumb) {
+        if (depth < next_hovered_scroll_input_depth_) {
+            return;
+        }
+        if (depth == next_hovered_scroll_input_depth_ && next_hovered_scroll_input_kind_ != ScrollInputKind::None &&
+            !on_thumb && next_hovered_scroll_input_on_thumb_) {
+            return;
+        }
+        next_hovered_scroll_input_kind_ = kind;
+        next_hovered_scroll_input_id_ = id;
+        next_hovered_scroll_input_depth_ = depth;
+        next_hovered_scroll_input_on_thumb_ = on_thumb;
     }
 
 public:
@@ -1153,15 +1192,7 @@ public:
         const float before_velocity = state.velocity;
         bool needs_animation = false;
 
-        if (hovered_view && std::fabs(input_.mouse_wheel_y) > 1e-6f) {
-            const float wheel_delta = input_.mouse_wheel_y * std::max(12.0f, options.wheel_step);
-            state.scroll -= wheel_delta;
-            const float dt = std::max(1e-4f, ui_dt_);
-            const float impulse_velocity = (-wheel_delta / dt) * 0.10f;
-            state.velocity = state.velocity * 0.30f + impulse_velocity;
-            needs_animation = true;
-        }
-
+        const int input_depth = static_cast<int>(scope_stack_.size());
         const float thumb_h = max_scroll > 0.0f ? std::max(std::max(12.0f, options.min_thumb_height),
                                                            viewport.h * (viewport.h / std::max(viewport.h + 1.0f, content_h)))
                                                 : viewport.h;
@@ -1177,14 +1208,32 @@ public:
         const bool hovered_thumb =
             show_scrollbar && max_scroll > 0.0f && thumb.contains(input_.mouse_x, input_.mouse_y);
 
+        if (hovered_view || hovered_thumb) {
+            update_hovered_scroll_input(ScrollInputKind::ScrollArea, id, input_depth, hovered_thumb);
+        }
+        const bool wheel_targeted =
+            hovered_scroll_input_kind_ == ScrollInputKind::ScrollArea && hovered_scroll_input_id_ == id;
+        if (wheel_targeted && hovered_view && max_scroll > 1e-4f && std::fabs(input_.mouse_wheel_y) > 1e-6f) {
+            const float wheel_delta = input_.mouse_wheel_y * std::max(12.0f, options.wheel_step);
+            state.scroll -= wheel_delta;
+            const float dt = std::max(1e-4f, ui_dt_);
+            const float impulse_velocity = (-wheel_delta / dt) * 0.10f;
+            state.velocity = state.velocity * 0.30f + impulse_velocity;
+            needs_animation = true;
+        }
+
         if (input_.mouse_pressed) {
-            if (hovered_thumb) {
+            if (hovered_thumb && input_depth >= pressed_scroll_claim_depth_) {
+                pressed_scroll_claim_depth_ = input_depth;
                 active_scrollbar_drag_id_ = id;
                 active_scrollbar_drag_offset_ = input_.mouse_y - thumb.y;
+                active_scroll_drag_id_ = 0u;
                 state.velocity = 0.0f;
-            } else if (options.enable_drag && hovered_view) {
+            } else if (options.enable_drag && hovered_view && input_depth >= pressed_scroll_claim_depth_) {
+                pressed_scroll_claim_depth_ = input_depth;
                 active_scroll_drag_id_ = id;
                 active_scroll_drag_last_y_ = input_.mouse_y;
+                active_scrollbar_drag_id_ = 0u;
                 state.velocity = 0.0f;
             }
         }
@@ -1373,6 +1422,7 @@ public:
         const std::uint64_t id = id_for(label) ^ 0x5f8d37aa44c2e391ull;
         TextAreaState& state = text_area_state_[id];
         const bool hovered_box = box_rect.contains(input_.mouse_x, input_.mouse_y);
+        const int input_depth = static_cast<int>(scope_stack_.size());
         bool editing = is_text_input_active(id);
         bool follow_caret = false;
 
@@ -1491,7 +1541,12 @@ public:
         const Rect thumb{track.x, thumb_y, track.w, thumb_h};
         const bool hovered_thumb = thumb.contains(input_.mouse_x, input_.mouse_y);
 
-        if (hovered_box && std::fabs(input_.mouse_wheel_y) > 1e-6f) {
+        if (hovered_box || hovered_thumb) {
+            update_hovered_scroll_input(ScrollInputKind::TextArea, id, input_depth, hovered_thumb);
+        }
+        const bool wheel_targeted =
+            hovered_scroll_input_kind_ == ScrollInputKind::TextArea && hovered_scroll_input_id_ == id;
+        if (wheel_targeted && hovered_box && max_scroll > 1e-4f && std::fabs(input_.mouse_wheel_y) > 1e-6f) {
             state.scroll = std::clamp(state.scroll - input_.mouse_wheel_y * line_h * 2.0f, 0.0f, max_scroll);
         } else {
             state.scroll = std::clamp(state.scroll, 0.0f, max_scroll);
@@ -1682,9 +1737,12 @@ public:
         draw_input_chrome(motion_id(id, 0x1a2b3c4d5e6f700eull), box_rect, hovered_box || editing, editing,
                           mix(theme_.input_bg, theme_.secondary, 0.08f), radius, editing ? 1.1f : 1.0f);
 
-        if (input_.mouse_pressed && hovered_thumb) {
+        if (input_.mouse_pressed && hovered_thumb && input_depth >= pressed_scroll_claim_depth_) {
+            pressed_scroll_claim_depth_ = input_depth;
             active_textarea_scroll_id_ = id;
             active_textarea_drag_offset_ = input_.mouse_y - thumb.y;
+            active_scroll_drag_id_ = 0u;
+            active_scrollbar_drag_id_ = 0u;
         }
         if (active_textarea_scroll_id_ == id) {
             if (input_.mouse_down && max_scroll > 0.0f) {
@@ -1857,7 +1915,10 @@ public:
         const std::uint64_t id = id_for(label) ^ 0x5f8d37aa44c2e391ull;
         TextAreaState& state = text_area_state_[id];
         const bool hovered_box = box_rect.contains(input_.mouse_x, input_.mouse_y);
-        if (hovered_box && std::fabs(input_.mouse_wheel_y) > 1e-6f) {
+        const int input_depth = static_cast<int>(scope_stack_.size());
+        const bool wheel_targeted =
+            hovered_scroll_input_kind_ == ScrollInputKind::TextArea && hovered_scroll_input_id_ == id;
+        if (wheel_targeted && hovered_box && max_scroll > 1e-4f && std::fabs(input_.mouse_wheel_y) > 1e-6f) {
             state.scroll = std::clamp(state.scroll - input_.mouse_wheel_y * line_h * 2.0f, 0.0f, max_scroll);
         } else {
             state.scroll = std::clamp(state.scroll, 0.0f, max_scroll);
@@ -1881,9 +1942,16 @@ public:
             track.y + (max_scroll > 0.0f ? (state.scroll / max_scroll) * thumb_travel : 0.0f);
         const Rect thumb{track.x, thumb_y, track.w, thumb_h};
         const bool hovered_thumb = thumb.contains(input_.mouse_x, input_.mouse_y);
-        if (input_.mouse_pressed && hovered_thumb) {
+
+        if (hovered_box || hovered_thumb) {
+            update_hovered_scroll_input(ScrollInputKind::TextArea, id, input_depth, hovered_thumb);
+        }
+        if (input_.mouse_pressed && hovered_thumb && input_depth >= pressed_scroll_claim_depth_) {
+            pressed_scroll_claim_depth_ = input_depth;
             active_textarea_scroll_id_ = id;
             active_textarea_drag_offset_ = input_.mouse_y - thumb.y;
+            active_scroll_drag_id_ = 0u;
+            active_scrollbar_drag_id_ = 0u;
         }
         if (active_textarea_scroll_id_ == id) {
             if (input_.mouse_down && max_scroll > 0.0f) {
@@ -2159,17 +2227,6 @@ private:
         float start_y{0.0f};
         float item_width{0.0f};
         std::vector<float> column_y{};
-    };
-
-struct TextAreaState {
-        float scroll{0.0f};
-        float preferred_x{-1.0f};
-    };
-
-    struct ScrollAreaState {
-        float scroll{0.0f};
-        float velocity{0.0f};
-        float content_height{0.0f};
     };
 
     struct MotionState {
@@ -3891,6 +3948,14 @@ struct TextAreaState {
     std::string clipboard_write_text_{};
     std::unordered_map<std::uint64_t, TextAreaState> text_area_state_{};
     std::unordered_map<std::uint64_t, ScrollAreaState> scroll_area_state_{};
+    ScrollInputKind hovered_scroll_input_kind_{ScrollInputKind::None};
+    std::uint64_t hovered_scroll_input_id_{0u};
+    int hovered_scroll_input_depth_{-1};
+    ScrollInputKind next_hovered_scroll_input_kind_{ScrollInputKind::None};
+    std::uint64_t next_hovered_scroll_input_id_{0u};
+    int next_hovered_scroll_input_depth_{-1};
+    bool next_hovered_scroll_input_on_thumb_{false};
+    int pressed_scroll_claim_depth_{-1};
     std::unordered_map<std::uint64_t, MotionState> motion_states_{};
     std::uint64_t motion_frame_id_{0u};
     std::vector<Rect> clip_stack_{};
