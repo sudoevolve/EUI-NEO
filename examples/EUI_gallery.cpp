@@ -109,7 +109,8 @@ enum GalleryPageIndex {
     kPageAnimation = 3,
     kPageDashboard = 4,
     kPageSettings = 5,
-    kPageAbout = 6,
+    kPageImage = 6,
+    kPageAbout = 7,
 };
 
 static constexpr std::array<DemoDescriptor, 9> kDemos{{
@@ -124,13 +125,14 @@ static constexpr std::array<DemoDescriptor, 9> kDemos{{
     {"Combo", "Translation, scale, rotate, color, opacity and blur", "combined channels"},
 }};
 
-static constexpr std::array<PageDescriptor, 7> kPages{{
+static constexpr std::array<PageDescriptor, 8> kPages{{
     {"Basic Controls", "Buttons, sliders, inputs and text surfaces.", "buttons + inputs"},
     {"Design", "Typography, icon ids and palette tokens for fast UI work.", "fonts + icons + colors"},
     {"Layout", "Declarative row, column, grid and stack composition.", "row() + column() + grid()"},
     {"Animation", "Motion lives here instead of in the main sidebar.", "motion showcase"},
     {"Dashboard Example", "A dashboard-style composition preview.", "dashboard preview"},
     {"Settings", "Theme mode, accent color and gallery tuning.", "theme + accent"},
+    {"Image", "Image widgets, textured fills and fit modes.", "ui.image() + fill_image()"},
     {"About", "Project identity, repository link and contact details.", "project + license"},
 }};
 
@@ -147,13 +149,14 @@ constexpr int custom_accent_slot() {
     return static_cast<int>(kAccentHexes.size());
 }
 
-static constexpr std::array<std::uint32_t, 7> kPageIcons{{
+static constexpr std::array<std::uint32_t, 8> kPageIcons{{
     0xF1DEu,
     0xF1FCu,
     0xF0DBu,
     0xF061u,
     0xF080u,
     0xF013u,
+    0xF03Eu,
     0xF05Au,
 }};
 
@@ -257,11 +260,11 @@ std::uint32_t custom_accent_hex(const GalleryState& state) {
     return pack_rgb_hex(state.custom_accent_r, state.custom_accent_g, state.custom_accent_b);
 }
 
-std::filesystem::path find_icon_library_json() {
+std::filesystem::path find_repo_asset(const std::filesystem::path& relative) {
     namespace fs = std::filesystem;
     fs::path current = fs::current_path();
     for (int depth = 0; depth < 6; ++depth) {
-        const fs::path candidate = current / "examples" / "EUI_gallery_icons.json";
+        const fs::path candidate = current / relative;
         if (fs::exists(candidate)) {
             return candidate;
         }
@@ -271,6 +274,15 @@ std::filesystem::path find_icon_library_json() {
         current = current.parent_path();
     }
     return {};
+}
+
+std::string repo_asset_path(const std::filesystem::path& relative) {
+    const std::filesystem::path found = find_repo_asset(relative);
+    return found.empty() ? relative.string() : found.string();
+}
+
+std::filesystem::path find_icon_library_json() {
+    return find_repo_asset(std::filesystem::path("examples") / "EUI_gallery_icons.json");
 }
 
 std::vector<IconLibraryEntry> fallback_icon_library() {
@@ -1344,9 +1356,22 @@ void draw_basic_controls_page(UI& ui, const eui::InputState& input, GalleryState
                 .begin([&](auto& card) {
                     const std::string spacing_text = format_pixels(state.layout_gap);
                     const std::string density_text = std::string(control_modes[static_cast<std::size_t>(std::clamp(state.controls_mode, 0, 2))]);
+                    const float dropdown_padding = 10.0f * scale;
+                    const float dropdown_item_gap = 6.0f * scale;
+                    const float dropdown_item_h = compact_h;
+                    const float dropdown_header_h = std::max(34.0f, dropdown_padding * 3.0f);
+                    const float dropdown_body_h =
+                        dropdown_padding * 2.0f +
+                        dropdown_item_h * static_cast<float>(control_modes.size()) +
+                        dropdown_item_gap * static_cast<float>(control_modes.size() > 0 ? control_modes.size() - 1u : 0u);
+                    const float dropdown_track_h =
+                        dropdown_header_h + (state.controls_dropdown_open ? dropdown_body_h : 0.0f);
+                    const float progress_bar_h = 10.0f * scale;
+                    const float progress_label_h = std::clamp(progress_bar_h * 1.6f, 14.0f, 26.0f);
+                    const float progress_track_h = progress_bar_h + std::max(8.0f, progress_label_h + 4.0f);
                     ui.column(card.content())
-                        .tracks({eui::quick::px(38.0f * scale), eui::quick::px(normal_h), eui::quick::px(normal_h), eui::quick::px(normal_h),
-                                 eui::quick::px(10.0f * scale), eui::quick::px(compact_h), eui::quick::px(normal_h)})
+                        .tracks({eui::quick::px(38.0f * scale), eui::quick::px(dropdown_track_h), eui::quick::px(normal_h), eui::quick::px(normal_h),
+                                 eui::quick::px(progress_track_h), eui::quick::px(compact_h), eui::quick::px(normal_h)})
                         .gap(8.0f * scale)
                         .begin([&](auto& input_rows) {
                             ui.input("Search", state.search_text)
@@ -1360,18 +1385,18 @@ void draw_basic_controls_page(UI& ui, const eui::InputState& input, GalleryState
                             const Rect dropdown_row = input_rows.next();
                             ui.scope(dropdown_row, [&](auto&) {
                                 ui.dropdown(dropdown_label, state.controls_dropdown_open)
-                                    .body_height(eui::quick::bind([&] { return 144.0f * scale; }))
-                                    .padding(eui::quick::bind([&] { return 14.0f * scale; }))
+                                    .body_height(eui::quick::bind([&] { return dropdown_body_h; }))
+                                    .padding(eui::quick::bind([&] { return dropdown_padding; }))
                                     .begin([&](auto& menu) {
                                         ui.column(menu.content())
-                                            .repeat(control_modes.size(), eui::quick::px(normal_h))
-                                            .gap(8.0f * scale)
+                                            .repeat(control_modes.size(), eui::quick::px(dropdown_item_h))
+                                            .gap(dropdown_item_gap)
                                             .begin([&](auto& menu_rows) {
                                                 for (int i = 0; i < static_cast<int>(control_modes.size()); ++i) {
                                                     if (ui.button(control_modes[static_cast<std::size_t>(i)])
                                                             .in(menu_rows.next())
                                                             .ghost()
-                                                            .height(normal_height)
+                                                            .height(compact_height)
                                                             .draw()) {
                                                         state.controls_mode = i;
                                                         state.controls_dropdown_open = false;
@@ -1383,7 +1408,7 @@ void draw_basic_controls_page(UI& ui, const eui::InputState& input, GalleryState
 
                             ui.slider("Progress", state.progress_ratio).in(input_rows.next()).range(0.0f, 1.0f).decimals(2).height(normal_height).draw();
                             ui.slider("Live Value", state.control_slider).in(input_rows.next()).range(0.0f, 1.0f).decimals(2).height(normal_height).draw();
-                            ui.progress("Completion", state.progress_ratio).in(input_rows.next()).height(eui::quick::bind([&] { return 10.0f * scale; })).draw();
+                            ui.progress("Completion", state.progress_ratio).in(input_rows.next()).height(eui::quick::bind([&] { return progress_bar_h; })).draw();
                             ui.readonly("Gap / Accent", spacing_text + " / " + format_hex_color(accent_hex(state)))
                                 .in(input_rows.next())
                                 .height(compact_height)
@@ -1895,12 +1920,144 @@ void draw_settings_page(UI& ui, const eui::InputState& input, GalleryState& stat
         });
 }
 
+void draw_image_page(UI& ui, const GalleryState& state, const Rect& rect, float scale) {
+    const GalleryPalette palette = make_gallery_palette(state);
+    static const std::string hero_image = repo_asset_path(std::filesystem::path("preview") / "0.jpg");
+    static const std::string cover_image = repo_asset_path(std::filesystem::path("preview") / "1.jpg");
+    static const std::string contain_image = repo_asset_path(std::filesystem::path("preview") / "2.jpg");
+    static const std::string stretch_image = repo_asset_path(std::filesystem::path("preview") / "3.jpg");
+    static const std::string center_image = repo_asset_path(std::filesystem::path("preview") / "4.jpg");
+
+    ui.view(rect)
+        .column()
+        .tracks({eui::quick::fr(1.18f), eui::quick::fr()})
+        .gap(16.0f * scale)
+        .begin([&](auto& rows) {
+            const Rect top = rows.next();
+            const Rect bottom = rows.next();
+
+            ui.row(top)
+                .tracks({eui::quick::fr(1.2f), eui::quick::px(320.0f * scale)})
+                .gap(16.0f * scale)
+                .begin([&](auto& cols) {
+                    const Rect preview = cols.next();
+                    const Rect note = cols.next();
+
+                    ui.card("ui.image(...)")
+                        .in(preview)
+                        .title_font(font_heading(scale))
+                        .radius(22.0f * scale)
+                        .fill(palette.surface_alt)
+                        .stroke(palette.border, 1.0f)
+                        .begin([&](auto& card) {
+                            const Rect area = card.content();
+                            ui.image(hero_image)
+                                .in(area)
+                                .radius(18.0f * scale)
+                                .cover()
+                                .draw();
+
+                            const Rect chip = ui.anchor()
+                                                  .in(area)
+                                                  .right(16.0f * scale)
+                                                  .top(16.0f * scale)
+                                                  .size(124.0f * scale, 28.0f * scale)
+                                                  .resolve();
+                            draw_fill(ui, chip, mix_hex(palette.surface_deep, palette.accent, 0.24f),
+                                      chip.h * 0.5f, 0.94f);
+                            draw_stroke(ui, chip, palette.accent, chip.h * 0.5f, 1.0f, 0.90f);
+                            draw_text_center(ui, "cover()", chip, font_meta(scale), palette.text, 0.98f);
+                        });
+
+                    ui.card("API Snapshot")
+                        .in(note)
+                        .title_font(font_heading(scale))
+                        .radius(22.0f * scale)
+                        .fill(palette.surface_alt)
+                        .stroke(palette.border, 1.0f)
+                        .begin([&](auto& card) {
+                            const Rect area = card.content();
+                            draw_fill(ui, area, palette.surface_deep, 18.0f * scale, 0.94f);
+                            draw_stroke(ui, area, palette.border_soft, 18.0f * scale, 1.0f, 0.88f);
+
+                            draw_text_left(ui, "Standalone image", Rect{area.x + 16.0f * scale, area.y + 16.0f * scale,
+                                                                       area.w - 32.0f * scale, 18.0f * scale},
+                                           font_body(scale), palette.text, 0.98f);
+                            draw_text_left(ui, "ui.image(path).in(rect).cover().draw();",
+                                           Rect{area.x + 16.0f * scale, area.y + 40.0f * scale, area.w - 32.0f * scale, 18.0f * scale},
+                                           font_meta(scale), palette.accent, 0.98f);
+
+                            draw_text_left(ui, "Texture fill on shape", Rect{area.x + 16.0f * scale, area.y + 84.0f * scale,
+                                                                              area.w - 32.0f * scale, 18.0f * scale},
+                                           font_body(scale), palette.text, 0.98f);
+                            draw_text_left(ui, "ui.shape().fill_image(path).image_cover().draw();",
+                                           Rect{area.x + 16.0f * scale, area.y + 108.0f * scale, area.w - 32.0f * scale, 18.0f * scale},
+                                           font_meta(scale), palette.accent, 0.98f);
+
+                            draw_text_left(ui, "Fit modes", Rect{area.x + 16.0f * scale, area.y + 152.0f * scale,
+                                                                  area.w - 32.0f * scale, 18.0f * scale},
+                                           font_body(scale), palette.text, 0.98f);
+                            draw_text_left(ui, "cover / contain / stretch / center",
+                                           Rect{area.x + 16.0f * scale, area.y + 176.0f * scale, area.w - 32.0f * scale, 18.0f * scale},
+                                           font_meta(scale), palette.muted, 0.98f);
+                        });
+                });
+
+            auto draw_mode_card = [&](const Rect& card_rect, std::string_view title, const std::string& path,
+                                      eui::graphics::ImageFit fit) {
+                ui.card(title)
+                    .in(card_rect)
+                    .title_font(font_heading(scale))
+                    .radius(20.0f * scale)
+                    .fill(palette.surface_alt)
+                    .stroke(palette.border, 1.0f)
+                    .begin([&](auto& card) {
+                        const Rect area = card.content();
+                        const Rect stage{
+                            area.x,
+                            area.y,
+                            area.w,
+                            std::max(0.0f, area.h - 22.0f * scale),
+                        };
+                        const Rect footer{
+                            area.x,
+                            area.y + area.h - 18.0f * scale,
+                            area.w,
+                            18.0f * scale,
+                        };
+
+                        ui.shape()
+                            .in(stage)
+                            .radius(16.0f * scale)
+                            .fill(palette.surface_deep, 0.96f)
+                            .fill_image(path)
+                            .image_fit(fit)
+                            .stroke(palette.border_soft, 1.0f, 0.88f)
+                            .draw();
+
+                        draw_text_center(ui, title, footer, font_meta(scale), palette.muted, 0.96f);
+                    });
+            };
+
+            ui.row(bottom)
+                .tracks({eui::quick::fr(), eui::quick::fr(), eui::quick::fr(), eui::quick::fr()})
+                .gap(12.0f * scale)
+                .begin([&](auto& cols) {
+                    draw_mode_card(cols.next(), "Cover", cover_image, eui::graphics::ImageFit::cover);
+                    draw_mode_card(cols.next(), "Contain", contain_image, eui::graphics::ImageFit::contain);
+                    draw_mode_card(cols.next(), "Stretch", stretch_image, eui::graphics::ImageFit::stretch);
+                    draw_mode_card(cols.next(), "Center", center_image, eui::graphics::ImageFit::center);
+                });
+        });
+}
+
 void draw_about_page(UI& ui, const eui::InputState& input, const GalleryState& state, const Rect& rect, float scale) {
     const GalleryPalette palette = make_gallery_palette(state);
     const std::uint32_t accent = accent_hex(state);
+    static const std::string avatar_image = repo_asset_path(std::filesystem::path("examples") / "avtar.jpg");
     const Rect content = inset_rect(rect, 32.0f * scale);
     const float hero_w = std::min(content.w, 720.0f * scale);
-    const float hero_h = std::min(content.h * 0.44f, 236.0f * scale);
+    const float hero_h = std::min(content.h * 0.48f, 272.0f * scale);
 
     ui.view(content)
         .column()
@@ -1918,60 +2075,106 @@ void draw_about_page(UI& ui, const eui::InputState& input, const GalleryState& s
 
                     draw_fill(ui, hero, palette.surface_deep, 24.0f * scale, 0.96f);
                     draw_stroke(ui, hero, mix_hex(palette.border_soft, accent, 0.18f), 24.0f * scale, 1.0f, 0.90f);
-                    draw_text_center(ui, "EUI", Rect{hero.x, hero.y + 20.0f * scale, hero.w, 22.0f * scale},
-                                     font_heading(scale) * 2.0f, mix_hex(palette.text, accent, 0.24f), 0.98f);
-                    draw_text_center(ui, "Created by SudoEvolve",
-                                     Rect{hero.x, hero.y + 50.0f * scale, hero.w, 18.0f * scale},
-                                     font_body(scale), palette.text, 0.98f);
-                    draw_text_center(ui,
-                                     "Immediate-mode GUI with crisp text, modern surfaces, reusable controls and fast iteration for desktop tooling.",
-                                     Rect{hero.x + 28.0f * scale, hero.y + 60.0f * scale, hero.w - 56.0f * scale, 38.0f * scale},
-                                     font_body(scale), palette.muted, 0.98f);
+                    const Rect hero_inner = inset_rect(hero, 20.0f * scale);
+                    const float avatar_size = 72.0f * scale;
+                    ui.column(hero_inner)
+                        .tracks({
+                            eui::quick::px(avatar_size),
+                            eui::quick::px(28.0f * scale),
+                            eui::quick::px(18.0f * scale),
+                            eui::quick::fr(),
+                            eui::quick::px(42.0f * scale),
+                        })
+                        .gap(8.0f * scale)
+                        .begin([&](auto& hero_rows) {
+                            const Rect avatar_row = hero_rows.next();
+                            const Rect title_row = hero_rows.next();
+                            const Rect subtitle_row = hero_rows.next();
+                            const Rect desc_row = hero_rows.next();
+                            const Rect buttons_row = hero_rows.next();
 
-                    const float buttons_w = std::min(hero.w - 64.0f * scale, 420.0f * scale);
-                    const Rect buttons_row{
-                        hero.x + (hero.w - buttons_w) * 0.5f,
-                        hero.y + hero.h - 80.0f * scale,
-                        buttons_w,
-                        42.0f * scale,
-                    };
-                    ui.row(buttons_row)
-                        .tracks({eui::quick::fr(), eui::quick::fr()})
-                        .gap(16.0f * scale)
-                        .begin([&](auto& button_cols) {
-                            const Rect github_button = button_cols.next();
-                            const Rect mail_button = button_cols.next();
-                            const bool github_hovered = hovered(input, github_button);
-                            const bool mail_hovered = hovered(input, mail_button);
-                            const float github_mix = ui.presence(ui.id("gallery/about/github"), github_hovered, 18.0f, 12.0f);
-                            const float mail_mix = ui.presence(ui.id("gallery/about/mail"), mail_hovered, 18.0f, 12.0f);
+                            const Rect avatar{
+                                avatar_row.x + (avatar_row.w - avatar_size) * 0.5f,
+                                avatar_row.y,
+                                avatar_size,
+                                avatar_size,
+                            };
+                            ui.shape()
+                                .in(avatar)
+                                .radius(avatar_size * 0.5f)
+                                .fill_image(avatar_image)
+                                .image_cover()
+                                .stroke(mix_hex(accent, 0xFFFFFF, palette.light ? 0.22f : 0.10f), 2.0f, 0.96f)
+                                .draw();
 
-                            draw_fill(ui, github_button, mix_hex(palette.accent, 0xFFFFFF, palette.light ? 0.14f : 0.04f * github_mix),
-                                      github_button.h * 0.5f, 0.98f);
-                            draw_stroke(ui, github_button, mix_hex(palette.accent, palette.text, 0.12f), github_button.h * 0.5f, 1.0f, 0.94f);
-                            draw_icon(ui, 0xF121u,
-                                      Rect{github_button.x + 24.0f * scale, github_button.y + 13.0f * scale, 18.0f * scale, 18.0f * scale},
-                                      palette.light ? 0x0F172A : 0xFFFFFF, 0.98f);
-                            draw_text_left(ui, "GitHub",
-                                           Rect{github_button.x + 52.0f * scale, github_button.y + 13.0f * scale,
-                                                github_button.w - 68.0f * scale, 18.0f * scale},
-                                           font_body(scale), palette.light ? 0x0F172A : 0xFFFFFF, 0.98f);
+                            draw_text_center(ui, "EUI", title_row, font_heading(scale) * 2.0f,
+                                             mix_hex(palette.text, accent, 0.24f), 0.98f);
+                            draw_text_center(ui, "Created by SudoEvolve", subtitle_row, font_body(scale),
+                                             palette.text, 0.98f);
+                            draw_text_center(ui, "Immediate-mode GUI for crisp text, glass surfaces and fast desktop tooling iteration.",
+                                             desc_row, font_body(scale), palette.muted, 0.98f);
 
-                            draw_fill(ui, mail_button, palette.surface_deep, mail_button.h * 0.5f, 0.96f);
-                            draw_stroke(ui, mail_button, mix_hex(palette.border_soft, accent, 0.20f + 0.18f * mail_mix), mail_button.h * 0.5f, 1.0f, 0.90f);
-                            draw_icon(ui, 0xF0E0u,
-                                      Rect{mail_button.x + 24.0f * scale, mail_button.y + 13.0f * scale, 18.0f * scale, 18.0f * scale},
-                                      palette.text, 0.98f);
-                            draw_text_left(ui, "Email",
-                                           Rect{mail_button.x + 52.0f * scale, mail_button.y + 13.0f * scale, mail_button.w - 68.0f * scale, 18.0f * scale},
-                                           font_body(scale), palette.text, 0.98f);
+                            const float buttons_w = std::min(buttons_row.w, 420.0f * scale);
+                            ui.row(Rect{
+                                       buttons_row.x + (buttons_row.w - buttons_w) * 0.5f,
+                                       buttons_row.y,
+                                       buttons_w,
+                                       buttons_row.h,
+                                   })
+                                .tracks({eui::quick::fr(), eui::quick::fr()})
+                                .gap(16.0f * scale)
+                                .begin([&](auto& button_cols) {
+                                    const Rect github_button = button_cols.next();
+                                    const Rect mail_button = button_cols.next();
+                                    const bool github_hovered = hovered(input, github_button);
+                                    const bool mail_hovered = hovered(input, mail_button);
+                                    const float github_mix =
+                                        ui.presence(ui.id("gallery/about/github"), github_hovered, 18.0f, 12.0f);
+                                    const float mail_mix =
+                                        ui.presence(ui.id("gallery/about/mail"), mail_hovered, 18.0f, 12.0f);
 
-                            if (clicked(input, github_button)) {
-                                open_external_uri("https://github.com/sudoevolve");
-                            }
-                            if (clicked(input, mail_button)) {
-                                open_external_uri("mailto:sudoevolve@gmail.com");
-                            }
+                                    draw_fill(ui, github_button,
+                                              mix_hex(palette.accent, 0xFFFFFF, palette.light ? 0.14f : 0.04f * github_mix),
+                                              github_button.h * 0.5f, 0.98f);
+                                    draw_stroke(ui, github_button, mix_hex(palette.accent, palette.text, 0.12f),
+                                                github_button.h * 0.5f, 1.0f, 0.94f);
+                                    draw_icon(ui, 0xF121u,
+                                              Rect{github_button.x + 24.0f * scale,
+                                                   github_button.y + 13.0f * scale,
+                                                   18.0f * scale,
+                                                   18.0f * scale},
+                                              palette.light ? 0x0F172A : 0xFFFFFF, 0.98f);
+                                    draw_text_left(ui, "GitHub",
+                                                   Rect{github_button.x + 52.0f * scale,
+                                                        github_button.y + 13.0f * scale,
+                                                        github_button.w - 68.0f * scale,
+                                                        18.0f * scale},
+                                                   font_body(scale), palette.light ? 0x0F172A : 0xFFFFFF, 0.98f);
+
+                                    draw_fill(ui, mail_button, palette.surface_deep, mail_button.h * 0.5f, 0.96f);
+                                    draw_stroke(ui, mail_button,
+                                                mix_hex(palette.border_soft, accent, 0.20f + 0.18f * mail_mix),
+                                                mail_button.h * 0.5f, 1.0f, 0.90f);
+                                    draw_icon(ui, 0xF0E0u,
+                                              Rect{mail_button.x + 24.0f * scale,
+                                                   mail_button.y + 13.0f * scale,
+                                                   18.0f * scale,
+                                                   18.0f * scale},
+                                              palette.text, 0.98f);
+                                    draw_text_left(ui, "Email",
+                                                   Rect{mail_button.x + 52.0f * scale,
+                                                        mail_button.y + 13.0f * scale,
+                                                        mail_button.w - 68.0f * scale,
+                                                        18.0f * scale},
+                                                   font_body(scale), palette.text, 0.98f);
+
+                                    if (clicked(input, github_button)) {
+                                        open_external_uri("https://github.com/sudoevolve");
+                                    }
+                                    if (clicked(input, mail_button)) {
+                                        open_external_uri("mailto:sudoevolve@gmail.com");
+                                    }
+                                });
                         });
                 });
 
@@ -2039,7 +2242,7 @@ void draw_sidebar(UI& ui, const eui::InputState& input, GalleryState& state, con
             const Rect list_rect = rows.next();
 
             draw_text_left(ui, "EUI Gallery", Rect{header.x, header.y, header.w, 22.0f * scale}, font_display(scale), palette.text, 1.0f);
-            draw_text_left(ui, "Controls, design, layout, motion, dashboard, settings and about.",
+            draw_text_left(ui, "Controls, design, layout, motion, dashboard, settings, image and about.",
                            Rect{header.x, header.y + 26.0f * scale, header.w, 18.0f * scale}, font_meta(scale), palette.muted, 0.96f);
 
             const float row_h = 42.0f * scale;
@@ -2127,6 +2330,9 @@ void draw_stage(UI& ui, const eui::InputState& input, GalleryState& state, const
                 case kPageSettings:
                     draw_settings_page(ui, input, state, stage_rect, scale);
                     break;
+                case kPageImage:
+                    draw_image_page(ui, state, stage_rect, scale);
+                    break;
                 case kPageAbout:
                 default:
                     draw_about_page(ui, input, state, stage_rect, scale);
@@ -2196,7 +2402,7 @@ int main() {
                             draw_text_left(ui, "EUI Gallery",
                                            Rect{header.x + 22.0f * scale, header.y + 14.0f * scale, header.w - 44.0f * scale, 20.0f * scale},
                                            font_display(scale), palette.text, 1.0f);
-                            draw_text_left(ui, "Left side is now top-level navigation only. Animation detail lives inside the Animation page.",
+                            draw_text_left(ui, "Gallery now includes a dedicated image page for ui.image() and textured shape fills.",
                                            Rect{header.x + 22.0f * scale, header.y + 36.0f * scale, header.w - 44.0f * scale, 16.0f * scale},
                                            font_meta(scale), palette.muted, 0.96f);
 

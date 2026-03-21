@@ -1,6 +1,6 @@
 # EUI Quick 声明式 UI 教程
 
-最后更新：2026-03-20
+最后更新：2026-03-21
 
 这份文档是给第一次上手 EUI 的开发者写的。
 
@@ -14,9 +14,11 @@
 - 怎么写最常用的动画
 - 怎么把代码整理成页面和组件
 
-当前仓库推荐先对照两份示例一起读：
+当前仓库推荐至少对照下面几份示例一起读：
 
 - `examples/minimal_quick_demo.cpp`
+- `examples/anchor_and_position_demo.cpp`
+- `examples/image_texture_demo.cpp`
 - `examples/EUI_gallery.cpp`
 
 ---
@@ -655,11 +657,13 @@ ui.button("Live").in(chip).primary().draw();
 
 也就是说，锚点更像“精修工具”，不是整页主布局工具。
 
+这一节和上一节里“显式位置 + 锚点”的完整对照示例，直接看 `examples/anchor_and_position_demo.cpp`。
+
 ---
 
 ## 10. 怎么画形状、文字和图标
 
-### 8.1 画一个最简单的矩形
+### 10.1 画一个最简单的矩形
 
 ```cpp
 ui.shape()
@@ -726,6 +730,52 @@ ui.glyph(0xF013u)
 ```
 
 如果你已经在工程里设置了图标字体，这种写法就够了。
+
+### 10.6 画图片和纹理填充
+
+直接画图片：
+
+```cpp
+ui.image("examples/avtar.jpg")
+    .in(Rect{48.0f, 120.0f, 96.0f, 96.0f})
+    .radius(48.0f)
+    .cover()
+    .draw();
+```
+
+给基础图元填充图片：
+
+```cpp
+ui.shape()
+    .in(Rect{180.0f, 120.0f, 220.0f, 120.0f})
+    .radius(18.0f)
+    .fill_image("../preview/1.jpg")
+    .image_cover()
+    .stroke(0x334155, 1.0f, 0.9f)
+    .draw();
+```
+
+常用模式：
+
+- `cover`
+  - 优先铺满目标区域，必要时裁掉边缘。
+- `contain`
+  - 保留完整图片，必要时留白。
+- `stretch`
+  - 强行拉伸到目标矩形，不保留原始比例。
+- `center`
+  - 按原始大小居中放置。
+- `fill`
+  - 不保留比例直接填满。
+  - `ui.image(...)` 可以用 `.fill_mode()`。
+  - `shape()/rect` 可以用 `.image_fit(eui::graphics::ImageFit::fill)`。
+
+对应示例：
+
+- `examples/image_texture_demo.cpp`
+- `examples/EUI_gallery.cpp`
+  - `Image` 页面演示 `ui.image(...)` 和 `fill_image(...)`
+  - `About` 页头像演示圆角图元图片填充
 
 ---
 
@@ -1186,6 +1236,9 @@ ui.panel("Demo")
 - `ui.text(...)`
 - `ui.glyph(...)`
 - `ui.image(...)`
+- `.fill_image(...)`
+- `.image_cover() / .image_contain() / .image_stretch() / .image_center()`
+- `.image_fit(eui::graphics::ImageFit::fill)`
 
 动画：
 
@@ -1263,9 +1316,10 @@ const float t = ui.motion("x", 100.0f, 12.0f);
 
 1. 先读这篇文档
 2. 再打开 `examples/minimal_quick_demo.cpp`
-3. 然后看 `examples/EUI_gallery.cpp`
-4. 如果要看目录职责，再看 `docs/project-structure.zh-CN.md`
-5. 如果要看渲染路线，再看 `docs/modern-gl-roadmap.zh-CN.md`
+3. 然后看 `examples/anchor_and_position_demo.cpp`
+4. 再看 `examples/image_texture_demo.cpp`
+5. 最后看 `examples/EUI_gallery.cpp`
+6. 如果要看目录职责，再看 `docs/project-structure.zh-CN.md`
 
 团队定开发规范约定：
 

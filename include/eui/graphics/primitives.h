@@ -66,7 +66,7 @@ struct ImagePrimitive {
     CornerRadius radius{};
     float opacity{1.0f};
     ImageFit fit{ImageFit::cover};
-    ClipRect clip{{}, ClipMode::bounds};
+    ClipRect clip{};
     Transform2D transform_2d{};
     Transform3D transform_3d{};
 };
