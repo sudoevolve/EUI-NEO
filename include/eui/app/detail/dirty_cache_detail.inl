@@ -334,3 +334,16 @@ inline void update_cache_lifecycle(RuntimeState& runtime) {
         release_cache_texture(runtime);
     }
 }
+
+inline void disable_dirty_cache(RuntimeState& runtime) {
+    release_cache_texture(runtime);
+    runtime.prev_commands.clear();
+    runtime.dirty_regions.clear();
+    eui::detail::context_trim_live_vector_hysteresis(runtime.prev_commands, 0u, runtime.prev_commands_trim_frames,
+                                                     30u);
+    eui::detail::context_retain_vector_hysteresis(runtime.dirty_regions, 0u, runtime.dirty_regions_trim_frames,
+                                                  30u);
+    runtime.prev_bg = Color{};
+    runtime.prev_frame_hash = 0ull;
+    runtime.has_prev_frame = false;
+}

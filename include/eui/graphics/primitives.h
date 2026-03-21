@@ -37,10 +37,20 @@ struct ClipRect {
     ClipMode mode{ClipMode::none};
 };
 
+enum class ImageFit : std::uint8_t {
+    fill,
+    contain,
+    cover,
+    stretch,
+    center,
+};
+
 struct RectanglePrimitive {
     Rect rect{};
     CornerRadius radius{};
     Brush fill{};
+    std::string_view image_source{};
+    ImageFit image_fit{ImageFit::cover};
     Stroke stroke{};
     Shadow shadow{};
     Blur blur{};
@@ -48,14 +58,6 @@ struct RectanglePrimitive {
     ClipRect clip{};
     Transform2D transform_2d{};
     Transform3D transform_3d{};
-};
-
-enum class ImageFit : std::uint8_t {
-    fill,
-    contain,
-    cover,
-    stretch,
-    center,
 };
 
 struct ImagePrimitive {

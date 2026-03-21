@@ -1,4 +1,10 @@
+#if defined(_WIN32) && !defined(EUI_OPENGL_ES)
+#include <wincodec.h>
+#endif
+
 class Renderer {
+    struct CachedImageTexture;
+
 public:
     explicit Renderer(const AppOptions& options = {})
 #if defined(_WIN32) && !defined(EUI_OPENGL_ES)
@@ -36,27 +42,29 @@ public:
             backdrop_texture_w_ = 0;
             backdrop_texture_h_ = 0;
         }
+        release_image_cache();
         std::vector<std::uint32_t>{}.swap(spatial_bucket_offsets_);
         std::vector<std::uint32_t>{}.swap(spatial_bucket_cursor_);
         std::vector<std::uint32_t>{}.swap(spatial_bucket_indices_);
         std::vector<std::uint16_t>{}.swap(spatial_marks_);
         std::vector<std::uint32_t>{}.swap(visible_indices_);
-        spatial_commands_ptr_ = nullptr;
-        spatial_command_count_ = 0u;
-        spatial_frame_hash_ = 0ull;
-        spatial_width_ = 0;
-        spatial_height_ = 0;
-        spatial_cols_ = 0;
-        spatial_rows_ = 0;
+        reset_spatial_index_metadata();
+        spatial_bucket_offsets_trim_frames_ = 0u;
+        spatial_bucket_cursor_trim_frames_ = 0u;
+        spatial_bucket_indices_trim_frames_ = 0u;
+        spatial_marks_trim_frames_ = 0u;
+        visible_indices_trim_frames_ = 0u;
         filled_batch_trim_frames_ = 0u;
         outline_batch_trim_frames_ = 0u;
         blur_batch_trim_frames_ = 0u;
+        image_batch_trim_frames_ = 0u;
         backdrop_frame_token_ = 0ull;
         backdrop_idle_frames_ = 0u;
         backdrop_used_in_frame_ = false;
         modern_gl_trim_scratch(filled_batch_scratch_, 0u);
         modern_gl_trim_scratch(outline_batch_scratch_, 0u);
         modern_gl_trim_scratch(blur_pass_vertices_scratch_, 0u);
+        modern_gl_trim_scratch(image_vertices_scratch_, 0u);
     }
 
     void render(const std::vector<DrawCommand>& commands, const std::vector<char>& text_arena,
@@ -75,10 +83,12 @@ public:
         if (!outer_clip_valid) {
             return;
         }
+        modern_gl_begin_frame(frame_hash);
         if (stb_font_renderer_ != nullptr) {
             stb_font_renderer_->begin_frame(frame_hash);
         }
         begin_backdrop_frame(frame_hash);
+        begin_image_frame();
 
         auto irect_equal = [](const IRect& lhs, const IRect& rhs) {
             return lhs.x == rhs.x && lhs.y == rhs.y && lhs.w == rhs.w && lhs.h == rhs.h;
@@ -114,8 +124,9 @@ public:
             }
         };
 
+        const bool use_spatial_index = clip_rect != nullptr && commands.size() >= 96u;
         visible_indices_.clear();
-        if (clip_rect == nullptr || commands.size() < 96u) {
+        if (!use_spatial_index) {
             visible_indices_.reserve(commands.size());
             for (std::size_t i = 0; i < commands.size(); ++i) {
                 const Rect visible_rect = command_visible_rect(commands[i]);
@@ -180,11 +191,14 @@ public:
         const bool use_triangle_strokes = modern_gl_context_is_gles();
         auto& filled_batch = filled_batch_scratch_;
         auto& outline_batch = outline_batch_scratch_;
+        auto& image_vertices = image_vertices_scratch_;
         modern_gl_prepare_scratch(filled_batch, 1024u);
         modern_gl_prepare_scratch(outline_batch, 1024u);
+        modern_gl_prepare_scratch(image_vertices, 512u);
         std::size_t filled_batch_peak = 0u;
         std::size_t outline_batch_peak = 0u;
         std::size_t blur_pass_peak = 0u;
+        std::size_t image_batch_peak = 0u;
 
         auto push_colored_vertex = [](std::vector<ModernGlVertex>& batch, float x, float y, const Color& color) {
             batch.push_back(modern_gl_vertex(x, y, color));
@@ -255,6 +269,49 @@ public:
                 case eui::graphics::BrushKind::none:
                 default:
                     return cmd.color;
+            }
+        };
+
+        auto resolve_image_source = [&](const DrawCommand& cmd) -> std::string_view {
+            const std::size_t offset = static_cast<std::size_t>(cmd.text_offset);
+            const std::size_t length = static_cast<std::size_t>(cmd.text_length);
+            if (offset + length > text_arena.size()) {
+                return {};
+            }
+            return std::string_view(text_arena.data() + offset, length);
+        };
+
+        auto resolve_image_fit_rect = [](const Rect& frame, int intrinsic_w, int intrinsic_h,
+                                         eui::graphics::ImageFit fit) -> Rect {
+            const float src_w = std::max(1.0f, static_cast<float>(intrinsic_w));
+            const float src_h = std::max(1.0f, static_cast<float>(intrinsic_h));
+            switch (fit) {
+                case eui::graphics::ImageFit::fill:
+                case eui::graphics::ImageFit::stretch:
+                    return frame;
+                case eui::graphics::ImageFit::center:
+                    return Rect{
+                        frame.x + (frame.w - src_w) * 0.5f,
+                        frame.y + (frame.h - src_h) * 0.5f,
+                        src_w,
+                        src_h,
+                    };
+                case eui::graphics::ImageFit::contain:
+                case eui::graphics::ImageFit::cover:
+                default: {
+                    const float scale_x = frame.w / src_w;
+                    const float scale_y = frame.h / src_h;
+                    const float scale =
+                        fit == eui::graphics::ImageFit::contain ? std::min(scale_x, scale_y) : std::max(scale_x, scale_y);
+                    const float draw_w = src_w * scale;
+                    const float draw_h = src_h * scale;
+                    return Rect{
+                        frame.x + (frame.w - draw_w) * 0.5f,
+                        frame.y + (frame.h - draw_h) * 0.5f,
+                        draw_w,
+                        draw_h,
+                    };
+                }
             }
         };
 
@@ -596,6 +653,63 @@ public:
             }
         };
 
+        auto draw_image_rect = [&](const DrawCommand& cmd) {
+            const std::string_view source = resolve_image_source(cmd);
+            const CachedImageTexture* texture = nullptr;
+            if (!ensure_image_texture(source, texture) || texture == nullptr || texture->texture == 0u ||
+                texture->width <= 0 || texture->height <= 0) {
+                return;
+            }
+
+            const Rect frame_rect = cmd.rect;
+            const Rect content_rect = resolve_image_fit_rect(frame_rect, texture->width, texture->height, cmd.image_fit);
+            Rect draw_rect{};
+            if (!rect_intersection(frame_rect, content_rect, draw_rect) || draw_rect.w <= 0.0f || draw_rect.h <= 0.0f) {
+                return;
+            }
+
+            const float content_w = std::max(1e-6f, content_rect.w);
+            const float content_h = std::max(1e-6f, content_rect.h);
+            const float radius = std::min(cmd.radius, std::min(draw_rect.w, draw_rect.h) * 0.5f);
+            auto push_textured_vertex = [&](float src_x, float src_y) {
+                const Point projected = project_vertex(cmd, src_x, src_y);
+                const float u = std::clamp((src_x - content_rect.x) / content_w, 0.0f, 1.0f);
+                const float v = std::clamp((src_y - content_rect.y) / content_h, 0.0f, 1.0f);
+                image_vertices.push_back(modern_gl_vertex(projected[0], projected[1], cmd.color, u, v));
+            };
+
+            modern_gl_prepare_scratch(image_vertices, radius > 0.0f ? 192u : 6u);
+            if (radius <= 0.0f) {
+                push_textured_vertex(draw_rect.x, draw_rect.y);
+                push_textured_vertex(draw_rect.x + draw_rect.w, draw_rect.y);
+                push_textured_vertex(draw_rect.x + draw_rect.w, draw_rect.y + draw_rect.h);
+                push_textured_vertex(draw_rect.x, draw_rect.y);
+                push_textured_vertex(draw_rect.x + draw_rect.w, draw_rect.y + draw_rect.h);
+                push_textured_vertex(draw_rect.x, draw_rect.y + draw_rect.h);
+            } else {
+                std::array<Point, 64> boundary{};
+                const int count =
+                    build_rounded_points(draw_rect, radius, boundary.data(), static_cast<int>(boundary.size()));
+                if (count < 3) {
+                    return;
+                }
+                const float center_x = draw_rect.x + draw_rect.w * 0.5f;
+                const float center_y = draw_rect.y + draw_rect.h * 0.5f;
+                for (int i = 0; i < count; ++i) {
+                    const int next = (i + 1) % count;
+                    push_textured_vertex(center_x, center_y);
+                    push_textured_vertex(boundary[static_cast<std::size_t>(i)][0],
+                                         boundary[static_cast<std::size_t>(i)][1]);
+                    push_textured_vertex(boundary[static_cast<std::size_t>(next)][0],
+                                         boundary[static_cast<std::size_t>(next)][1]);
+                }
+            }
+
+            image_batch_peak = std::max(image_batch_peak, image_vertices.size());
+            modern_gl_draw_vertices(GL_TRIANGLES, image_vertices.data(), image_vertices.size(), width, height,
+                                    texture->texture, ModernGlTextureMode::Rgba);
+        };
+
         auto flush_filled_batch = [&]() {
             if (filled_batch.empty()) {
                 return;
@@ -742,6 +856,11 @@ public:
 #endif
                     break;
                 }
+                case CommandType::ImageRect:
+                    flush_pending_batch();
+                    apply_scissor(desired_clip);
+                    draw_image_rect(cmd);
+                    break;
             }
         }
 
@@ -751,12 +870,24 @@ public:
         const std::size_t outline_keep =
             std::max<std::size_t>(4096u, outline_batch_peak + outline_batch_peak / 2u + 64u);
         const std::size_t blur_keep = std::max<std::size_t>(2048u, blur_pass_peak + blur_pass_peak / 2u + 32u);
+        const std::size_t image_keep = std::max<std::size_t>(512u, image_batch_peak + image_batch_peak / 2u + 16u);
         eui::detail::context_retain_vector_hysteresis(filled_batch_scratch_, filled_keep, filled_batch_trim_frames_,
                                                       120u);
         eui::detail::context_retain_vector_hysteresis(outline_batch_scratch_, outline_keep,
                                                       outline_batch_trim_frames_, 120u);
         eui::detail::context_retain_vector_hysteresis(blur_pass_vertices_scratch_, blur_keep, blur_batch_trim_frames_,
                                                       120u);
+        eui::detail::context_retain_vector_hysteresis(image_vertices_scratch_, image_keep, image_batch_trim_frames_,
+                                                      120u);
+        const std::size_t visible_keep =
+            std::max<std::size_t>(128u, visible_indices_.size() + visible_indices_.size() / 2u + 8u);
+        eui::detail::context_retain_vector_hysteresis(visible_indices_, visible_keep, visible_indices_trim_frames_,
+                                                      120u);
+        const std::size_t marks_keep =
+            use_spatial_index ? std::max<std::size_t>(256u, commands.size() + commands.size() / 2u + 8u) : 0u;
+        eui::detail::context_trim_live_vector_hysteresis(spatial_marks_, marks_keep, spatial_marks_trim_frames_,
+                                                         120u);
+        prune_image_cache();
     }
 
 #if defined(_WIN32) && !defined(EUI_OPENGL_ES)
@@ -786,13 +917,30 @@ private:
     mutable std::unique_ptr<Win32FontRenderer> win32_font_renderer_{};
 #endif
 private:
+    struct CachedImageTexture {
+        TextureId texture{0u};
+        int width{0};
+        int height{0};
+        std::size_t approx_bytes{0u};
+        std::uint64_t last_used_frame{0ull};
+        bool load_failed{false};
+    };
+
     mutable std::unique_ptr<StbFontRenderer> stb_font_renderer_{};
     static constexpr int k_spatial_tile_px = 128;
+    static constexpr std::uint64_t k_image_idle_trim_frames = 360u;
+    static constexpr std::uint64_t k_failed_image_trim_frames = 120u;
+    static constexpr std::size_t k_image_cache_budget_bytes = 96u * 1024u * 1024u;
     mutable std::vector<std::uint32_t> spatial_bucket_offsets_{};
     mutable std::vector<std::uint32_t> spatial_bucket_cursor_{};
     mutable std::vector<std::uint32_t> spatial_bucket_indices_{};
     mutable std::vector<std::uint16_t> spatial_marks_{};
     mutable std::vector<std::uint32_t> visible_indices_{};
+    mutable std::uint32_t spatial_bucket_offsets_trim_frames_{0u};
+    mutable std::uint32_t spatial_bucket_cursor_trim_frames_{0u};
+    mutable std::uint32_t spatial_bucket_indices_trim_frames_{0u};
+    mutable std::uint32_t spatial_marks_trim_frames_{0u};
+    mutable std::uint32_t visible_indices_trim_frames_{0u};
     mutable std::uint16_t spatial_mark_id_{1u};
     mutable const DrawCommand* spatial_commands_ptr_{nullptr};
     mutable std::size_t spatial_command_count_{0u};
@@ -804,15 +952,25 @@ private:
     mutable std::vector<ModernGlVertex> filled_batch_scratch_{};
     mutable std::vector<ModernGlVertex> outline_batch_scratch_{};
     mutable std::vector<ModernGlVertex> blur_pass_vertices_scratch_{};
+    mutable std::vector<ModernGlVertex> image_vertices_scratch_{};
     mutable std::uint32_t filled_batch_trim_frames_{0u};
     mutable std::uint32_t outline_batch_trim_frames_{0u};
     mutable std::uint32_t blur_batch_trim_frames_{0u};
+    mutable std::uint32_t image_batch_trim_frames_{0u};
     mutable TextureId backdrop_texture_{0u};
     mutable int backdrop_texture_w_{0};
     mutable int backdrop_texture_h_{0};
     mutable std::uint64_t backdrop_frame_token_{0ull};
     mutable std::uint32_t backdrop_idle_frames_{0u};
     mutable bool backdrop_used_in_frame_{false};
+    mutable std::unordered_map<std::string, CachedImageTexture> image_cache_{};
+    mutable std::size_t image_cache_bytes_{0u};
+    mutable std::uint64_t image_frame_index_{0ull};
+#if defined(_WIN32) && !defined(EUI_OPENGL_ES)
+    mutable IWICImagingFactory* wic_factory_{nullptr};
+    mutable bool wic_factory_attempted_{false};
+    mutable bool wic_com_initialized_{false};
+#endif
 
     void ensure_backdrop_texture(int width, int height) const {
         if (width <= 0 || height <= 0) {
@@ -854,13 +1012,258 @@ private:
         backdrop_used_in_frame_ = false;
     }
 
+    void begin_image_frame() const {
+        image_frame_index_ += 1ull;
+        if (image_frame_index_ == 0ull) {
+            image_frame_index_ = 1ull;
+        }
+    }
+
+    void release_image_entry(std::unordered_map<std::string, CachedImageTexture>::iterator it) const {
+        if (it == image_cache_.end()) {
+            return;
+        }
+        if (it->second.texture != 0u) {
+            glDeleteTextures(1, &it->second.texture);
+            if (image_cache_bytes_ >= it->second.approx_bytes) {
+                image_cache_bytes_ -= it->second.approx_bytes;
+            } else {
+                image_cache_bytes_ = 0u;
+            }
+        }
+        image_cache_.erase(it);
+    }
+
+    void release_image_cache() const {
+        for (auto it = image_cache_.begin(); it != image_cache_.end();) {
+            if (it->second.texture != 0u) {
+                glDeleteTextures(1, &it->second.texture);
+            }
+            it = image_cache_.erase(it);
+        }
+        image_cache_bytes_ = 0u;
+        image_frame_index_ = 0ull;
+#if defined(_WIN32) && !defined(EUI_OPENGL_ES)
+        if (wic_factory_ != nullptr) {
+            wic_factory_->Release();
+            wic_factory_ = nullptr;
+        }
+        if (wic_com_initialized_) {
+            CoUninitialize();
+            wic_com_initialized_ = false;
+        }
+        wic_factory_attempted_ = false;
+#endif
+    }
+
+    void prune_image_cache() const {
+        for (auto it = image_cache_.begin(); it != image_cache_.end();) {
+            const std::uint64_t idle_frames =
+                image_frame_index_ > it->second.last_used_frame ? (image_frame_index_ - it->second.last_used_frame) : 0ull;
+            const std::uint64_t trim_after = it->second.load_failed ? k_failed_image_trim_frames : k_image_idle_trim_frames;
+            if (idle_frames >= trim_after) {
+                auto doomed = it++;
+                release_image_entry(doomed);
+                continue;
+            }
+            ++it;
+        }
+
+        while (image_cache_bytes_ > k_image_cache_budget_bytes) {
+            auto oldest = image_cache_.end();
+            for (auto it = image_cache_.begin(); it != image_cache_.end(); ++it) {
+                if (it->second.last_used_frame == image_frame_index_) {
+                    continue;
+                }
+                if (oldest == image_cache_.end() || it->second.last_used_frame < oldest->second.last_used_frame) {
+                    oldest = it;
+                }
+            }
+            if (oldest == image_cache_.end()) {
+                break;
+            }
+            release_image_entry(oldest);
+        }
+    }
+
+#if defined(_WIN32) && !defined(EUI_OPENGL_ES)
+    bool ensure_wic_factory() const {
+        if (wic_factory_ != nullptr) {
+            return true;
+        }
+        if (wic_factory_attempted_) {
+            return false;
+        }
+        wic_factory_attempted_ = true;
+
+        const HRESULT init_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        if (SUCCEEDED(init_result)) {
+            wic_com_initialized_ = true;
+        } else if (init_result != RPC_E_CHANGED_MODE) {
+            return false;
+        }
+
+        const HRESULT hr =
+            CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&wic_factory_));
+        if (FAILED(hr)) {
+            if (wic_com_initialized_) {
+                CoUninitialize();
+                wic_com_initialized_ = false;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    bool decode_image_rgba(std::string_view source, std::vector<unsigned char>& pixels, int& width, int& height) const {
+        width = 0;
+        height = 0;
+        pixels.clear();
+        if (source.empty() || !ensure_wic_factory()) {
+            return false;
+        }
+
+        std::wstring wide_path = utf8_to_wide(source);
+        if (wide_path.empty()) {
+            wide_path.assign(source.begin(), source.end());
+        }
+        if (wide_path.empty()) {
+            return false;
+        }
+
+        IWICBitmapDecoder* decoder = nullptr;
+        IWICBitmapFrameDecode* frame = nullptr;
+        IWICFormatConverter* converter = nullptr;
+        bool ok = false;
+
+        if (SUCCEEDED(wic_factory_->CreateDecoderFromFilename(wide_path.c_str(), nullptr, GENERIC_READ,
+                                                              WICDecodeMetadataCacheOnLoad, &decoder)) &&
+            SUCCEEDED(decoder->GetFrame(0u, &frame)) &&
+            SUCCEEDED(wic_factory_->CreateFormatConverter(&converter)) &&
+            SUCCEEDED(converter->Initialize(frame, GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone, nullptr,
+                                            0.0, WICBitmapPaletteTypeCustom))) {
+            UINT w = 0u;
+            UINT h = 0u;
+            if (SUCCEEDED(converter->GetSize(&w, &h)) && w > 0u && h > 0u) {
+                pixels.resize(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4u);
+                if (SUCCEEDED(converter->CopyPixels(nullptr, w * 4u, static_cast<UINT>(pixels.size()), pixels.data()))) {
+                    width = static_cast<int>(w);
+                    height = static_cast<int>(h);
+                    ok = true;
+                }
+            }
+        }
+
+        if (converter != nullptr) {
+            converter->Release();
+        }
+        if (frame != nullptr) {
+            frame->Release();
+        }
+        if (decoder != nullptr) {
+            decoder->Release();
+        }
+
+        if (!ok) {
+            pixels.clear();
+            width = 0;
+            height = 0;
+        }
+        return ok;
+    }
+#else
+    bool decode_image_rgba(std::string_view, std::vector<unsigned char>&, int&, int&) const {
+        return false;
+    }
+#endif
+
+    bool ensure_image_texture(std::string_view source, const CachedImageTexture*& out_texture) const {
+        out_texture = nullptr;
+        if (source.empty()) {
+            return false;
+        }
+
+        auto [it, inserted] = image_cache_.try_emplace(std::string(source));
+        CachedImageTexture& entry = it->second;
+        entry.last_used_frame = image_frame_index_;
+        out_texture = &entry;
+        if (entry.texture != 0u) {
+            return true;
+        }
+        if (entry.load_failed) {
+            return false;
+        }
+
+        std::vector<unsigned char> pixels{};
+        int width = 0;
+        int height = 0;
+        if (!decode_image_rgba(source, pixels, width, height) || width <= 0 || height <= 0 || pixels.empty()) {
+            entry.load_failed = true;
+            return false;
+        }
+
+        glGenTextures(1, &entry.texture);
+        if (entry.texture == 0u) {
+            entry.load_failed = true;
+            return false;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, entry.texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+        glBindTexture(GL_TEXTURE_2D, 0u);
+
+        entry.width = width;
+        entry.height = height;
+        entry.approx_bytes = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u;
+        entry.load_failed = false;
+        image_cache_bytes_ += entry.approx_bytes;
+        return true;
+    }
+
+    void reset_spatial_index_metadata() const {
+        spatial_commands_ptr_ = nullptr;
+        spatial_command_count_ = 0u;
+        spatial_frame_hash_ = 0ull;
+        spatial_width_ = 0;
+        spatial_height_ = 0;
+        spatial_cols_ = 0;
+        spatial_rows_ = 0;
+    }
+
+    void trim_spatial_index_storage(std::size_t bucket_count, std::size_t index_count) const {
+        const std::size_t offset_keep =
+            bucket_count == 0u
+                ? 0u
+                : std::max<std::size_t>(64u, (bucket_count + 1u) + (bucket_count + 1u) / 2u + 8u);
+        eui::detail::context_trim_live_vector_hysteresis(spatial_bucket_offsets_, offset_keep,
+                                                         spatial_bucket_offsets_trim_frames_, 120u);
+        eui::detail::context_trim_live_vector_hysteresis(spatial_bucket_cursor_, offset_keep,
+                                                         spatial_bucket_cursor_trim_frames_, 120u);
+        const std::size_t index_keep =
+            index_count == 0u ? 0u : std::max<std::size_t>(256u, index_count + index_count / 2u + 16u);
+        eui::detail::context_trim_live_vector_hysteresis(spatial_bucket_indices_, index_keep,
+                                                         spatial_bucket_indices_trim_frames_, 120u);
+    }
+
     void ensure_spatial_index(const std::vector<DrawCommand>& commands, int width, int height,
                               std::uint64_t frame_hash) const {
         if (commands.size() < 96u) {
+            spatial_bucket_offsets_.clear();
+            spatial_bucket_cursor_.clear();
+            spatial_bucket_indices_.clear();
+            trim_spatial_index_storage(0u, 0u);
+            reset_spatial_index_metadata();
             return;
         }
         if (spatial_commands_ptr_ == commands.data() && spatial_command_count_ == commands.size() &&
             spatial_frame_hash_ == frame_hash && spatial_width_ == width && spatial_height_ == height) {
+            const std::size_t bucket_count =
+                spatial_bucket_offsets_.empty() ? 0u : (spatial_bucket_offsets_.size() - 1u);
+            trim_spatial_index_storage(bucket_count, spatial_bucket_indices_.size());
             return;
         }
 
@@ -923,5 +1326,6 @@ private:
         spatial_frame_hash_ = frame_hash;
         spatial_width_ = width;
         spatial_height_ = height;
+        trim_spatial_index_storage(bucket_count, spatial_bucket_indices_.size());
     }
 };

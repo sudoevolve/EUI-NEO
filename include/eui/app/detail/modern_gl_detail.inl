@@ -99,6 +99,9 @@ struct ModernGlSharedState {
     GLuint program{0u};
     GLuint vbo{0u};
     std::size_t vbo_capacity_bytes{0u};
+    std::uint64_t vbo_frame_token{0ull};
+    std::size_t vbo_frame_peak_bytes{0u};
+    std::uint32_t vbo_underuse_frames{0u};
 
     GLint viewport_uniform{-1};
     GLint texture_uniform{-1};
@@ -484,6 +487,42 @@ inline std::size_t modern_gl_next_buffer_capacity(std::size_t required_bytes) {
     return std::max(capacity, required_bytes);
 }
 
+inline void modern_gl_note_buffer_usage(std::size_t required_bytes) {
+    ModernGlSharedState& state = modern_gl_shared_state();
+    state.vbo_frame_peak_bytes = std::max(state.vbo_frame_peak_bytes, required_bytes);
+}
+
+inline void modern_gl_begin_frame(std::uint64_t frame_hash = 0ull) {
+    ModernGlSharedState& state = modern_gl_shared_state();
+    const std::uint64_t frame_token = frame_hash != 0ull ? frame_hash : (state.vbo_frame_token + 1ull);
+    if (frame_token == state.vbo_frame_token) {
+        return;
+    }
+
+    if (state.vbo_frame_token != 0ull && state.vbo != 0u && state.bind_buffer != nullptr &&
+        state.buffer_data != nullptr) {
+        const std::size_t desired_capacity =
+            std::max<std::size_t>(4096u, state.vbo_frame_peak_bytes + state.vbo_frame_peak_bytes / 2u + 256u);
+        const bool oversized = state.vbo_capacity_bytes > desired_capacity * 2u;
+        if (oversized) {
+            state.vbo_underuse_frames += 1u;
+            if (state.vbo_underuse_frames >= 120u) {
+                state.vbo_capacity_bytes = modern_gl_next_buffer_capacity(desired_capacity);
+                state.bind_buffer(GL_ARRAY_BUFFER, state.vbo);
+                state.buffer_data(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(state.vbo_capacity_bytes), nullptr,
+                                  GL_DYNAMIC_DRAW);
+                state.bind_buffer(GL_ARRAY_BUFFER, 0u);
+                state.vbo_underuse_frames = 0u;
+            }
+        } else {
+            state.vbo_underuse_frames = 0u;
+        }
+    }
+
+    state.vbo_frame_token = frame_token;
+    state.vbo_frame_peak_bytes = 0u;
+}
+
 template <typename T>
 inline void modern_gl_prepare_scratch(std::vector<T>& scratch, std::size_t min_capacity = 0u) {
     scratch.clear();
@@ -527,6 +566,7 @@ inline bool modern_gl_draw_vertices(GLenum primitive, const ModernGlVertex* vert
 
     state.bind_buffer(GL_ARRAY_BUFFER, state.vbo);
     const std::size_t required_bytes = vertex_count * sizeof(ModernGlVertex);
+    modern_gl_note_buffer_usage(required_bytes);
     if (required_bytes > state.vbo_capacity_bytes) {
         state.vbo_capacity_bytes = modern_gl_next_buffer_capacity(required_bytes);
         state.buffer_data(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(state.vbo_capacity_bytes), nullptr,
@@ -588,6 +628,7 @@ inline bool modern_gl_draw_backdrop_blur_vertices(const ModernGlVertex* vertices
 
     state.bind_buffer(GL_ARRAY_BUFFER, state.vbo);
     const std::size_t required_bytes = vertex_count * sizeof(ModernGlVertex);
+    modern_gl_note_buffer_usage(required_bytes);
     if (required_bytes > state.vbo_capacity_bytes) {
         state.vbo_capacity_bytes = modern_gl_next_buffer_capacity(required_bytes);
         state.buffer_data(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(state.vbo_capacity_bytes), nullptr,

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -32,7 +33,7 @@ namespace eui::detail {
 
 #if EUI_ENABLE_STB_TRUETYPE
 struct ContextStbMeasureFont {
-    std::vector<unsigned char> data{};
+    std::shared_ptr<std::vector<unsigned char>> data_blob{};
     stbtt_fontinfo info{};
     float scale{0.0f};
     bool valid{false};
@@ -300,6 +301,34 @@ inline std::vector<unsigned char> context_read_file_bytes(const std::string& pat
     return bytes;
 }
 
+inline std::shared_ptr<std::vector<unsigned char>> context_load_shared_font_blob(const std::string& path) {
+#if EUI_ENABLE_STB_TRUETYPE
+    if (path.empty()) {
+        return {};
+    }
+
+    static std::unordered_map<std::string, std::weak_ptr<std::vector<unsigned char>>> shared_blobs{};
+    auto it = shared_blobs.find(path);
+    if (it != shared_blobs.end()) {
+        auto data = it->second.lock();
+        if (data != nullptr && !data->empty()) {
+            return data;
+        }
+        shared_blobs.erase(it);
+    }
+
+    auto data = std::make_shared<std::vector<unsigned char>>(context_read_file_bytes(path));
+    if (data->empty()) {
+        return {};
+    }
+    shared_blobs[path] = data;
+    return data;
+#else
+    (void)path;
+    return {};
+#endif
+}
+
 inline const ContextStbMeasureFont* context_ensure_stb_measure_font(ContextTextMeasureState& state, bool icon_font,
                                                                     int px) {
 #if EUI_ENABLE_STB_TRUETYPE
@@ -315,10 +344,13 @@ inline const ContextStbMeasureFont* context_ensure_stb_measure_font(ContextTextM
     auto it = state.stb_fonts.find(key);
     if (it == state.stb_fonts.end()) {
         ContextStbMeasureFont font{};
-        font.data = context_read_file_bytes(font_file);
-        if (!font.data.empty() && stbtt_InitFont(&font.info, font.data.data(), 0) != 0) {
-            font.scale = stbtt_ScaleForPixelHeight(&font.info, static_cast<float>(quantized_px));
-            font.valid = font.scale > 0.0f;
+        font.data_blob = context_load_shared_font_blob(font_file);
+        if (font.data_blob != nullptr && !font.data_blob->empty()) {
+            const int offset = stbtt_GetFontOffsetForIndex(font.data_blob->data(), 0);
+            if (offset >= 0 && stbtt_InitFont(&font.info, font.data_blob->data(), offset) != 0) {
+                font.scale = stbtt_ScaleForPixelHeight(&font.info, static_cast<float>(quantized_px));
+                font.valid = font.scale > 0.0f;
+            }
         }
         it = state.stb_fonts.emplace(key, std::move(font)).first;
     }

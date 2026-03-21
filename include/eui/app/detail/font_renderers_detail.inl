@@ -464,7 +464,6 @@ public:
             release_face_gl_resources(pair.second);
         }
         faces_.clear();
-        font_blob_cache_.clear();
         frame_epoch_ = 0u;
         last_frame_hash_ = 0ull;
         modern_gl_trim_scratch(draw_glyphs_scratch_, 0u);
@@ -766,19 +765,7 @@ private:
     }
 
     std::shared_ptr<std::vector<unsigned char>> load_font_blob(const std::string& path) const {
-        if (path.empty()) {
-            return {};
-        }
-        auto it = font_blob_cache_.find(path);
-        if (it != font_blob_cache_.end()) {
-            return it->second;
-        }
-        auto data = std::make_shared<std::vector<unsigned char>>(read_file(path));
-        if (data->empty()) {
-            return {};
-        }
-        font_blob_cache_[path] = data;
-        return data;
+        return eui::detail::context_load_shared_font_blob(path);
     }
 
     static void release_face_atlas_resources(FontFace& face) {
@@ -1123,8 +1110,10 @@ private:
             }
         }
 
-        auto [inserted, _] = faces_.emplace(key, std::move(face));
-        return inserted->second.valid ? &inserted->second : nullptr;
+        faces_.emplace(key, std::move(face));
+        prune_face_cache_if_needed(key);
+        auto keep = faces_.find(key);
+        return keep != faces_.end() && keep->second.valid ? &keep->second : nullptr;
     }
 
     GlyphData* ensure_glyph(FontFace* face, std::uint32_t cp) const {
@@ -1240,7 +1229,6 @@ private:
     std::string icon_font_path_{};
     bool enable_icon_fallback_{true};
     mutable std::unordered_map<std::string, FontFace> faces_{};
-    mutable std::unordered_map<std::string, std::shared_ptr<std::vector<unsigned char>>> font_blob_cache_{};
     mutable std::uint64_t frame_epoch_{0u};
     mutable std::uint64_t last_frame_hash_{0ull};
     mutable std::vector<PreparedGlyph> draw_glyphs_scratch_{};

@@ -64,10 +64,10 @@ inline eui::Rect resolve_rect(const eui::graphics::RectanglePrimitive& primitive
 }
 
 inline eui::Rect resolve_rect(const eui::graphics::ImagePrimitive& primitive) {
-    eui::Rect rect = eui::to_legacy_rect(primitive.rect);
-    rect = eui::apply_rect_transform_2d(rect, primitive.transform_2d);
-    rect = eui::apply_rect_transform_3d_fallback(rect, primitive.transform_3d);
-    return rect;
+    const eui::Rect rect = eui::to_legacy_rect(primitive.rect);
+    const eui::graphics::Transform3D combined =
+        combine_rect_transforms(primitive.transform_2d, primitive.transform_3d);
+    return eui::projected_rect_bounds(rect, combined);
 }
 
 inline eui::Rect resolve_rect(const eui::graphics::IconPrimitive& primitive) {
@@ -179,8 +179,14 @@ inline void paint_rectangle(eui::Context& ui, const eui::graphics::RectanglePrim
         if (scaled_fill.kind != eui::graphics::BrushKind::none) {
             ui.paint_filled_rect(base_rect, scaled_fill, radius, &combined);
         }
+        if (!primitive.image_source.empty()) {
+            ui.paint_image_rect(base_rect, primitive.image_source, primitive.image_fit, radius, opacity, &combined);
+        }
     } else {
         paint_fill_brush(ui, base_rect, radius, primitive.fill, opacity);
+        if (!primitive.image_source.empty()) {
+            ui.paint_image_rect(base_rect, primitive.image_source, primitive.image_fit, radius, opacity);
+        }
     }
 
     if (primitive.stroke.width > 0.0f) {
@@ -413,52 +419,23 @@ inline bool image_visible_rect(const eui::Rect& lhs, const eui::Rect& rhs, eui::
 }
 
 inline void paint_image(eui::Context& ui, const eui::graphics::ImagePrimitive& primitive) {
-    const eui::Rect frame_rect = resolve_rect(primitive);
-    const eui::graphics::Size intrinsic = image_placeholder_intrinsic_size(primitive.source);
-    const eui::Rect content_rect = resolve_image_fit_rect(frame_rect, intrinsic, primitive.fit);
+    const eui::Rect base_rect = eui::to_legacy_rect(primitive.rect);
+    const eui::graphics::Transform3D combined =
+        combine_rect_transforms(primitive.transform_2d, primitive.transform_3d);
+    const bool has_transform_3d = !eui::transform_3d_is_identity(combined);
     const float radius = average_corner_radius(primitive.radius);
     const float opacity = std::clamp(primitive.opacity, 0.0f, 1.0f);
-    const std::uint64_t seed = image_placeholder_hash(primitive.source.empty() ? std::string_view("image") : primitive.source);
-    const eui::Color fill = eui::rgba(0.08f, 0.11f, 0.15f, opacity);
-    const eui::Color outline = eui::rgba(0.24f, 0.31f, 0.40f, opacity);
-    const eui::Color text = eui::rgba(0.82f, 0.88f, 0.94f, opacity);
-    const eui::Color label_bg = eui::rgba(0.03f, 0.05f, 0.08f, std::clamp(opacity * 0.72f, 0.0f, 1.0f));
 
     const bool has_clip = primitive.clip.mode == eui::graphics::ClipMode::bounds;
-    const eui::Rect clip_rect = eui::to_legacy_rect(primitive.clip.rect);
     if (has_clip) {
-        ui.push_clip(clip_rect);
+        ui.push_clip(eui::to_legacy_rect(primitive.clip.rect));
     }
 
-    ui.paint_filled_rect(frame_rect, fill, radius);
-    ui.push_clip(frame_rect);
-    eui::Rect visible_content{};
-    if (image_visible_rect(content_rect, frame_rect, visible_content)) {
-        paint_image_placeholder_tiles(ui, visible_content, seed, opacity);
+    if (has_transform_3d) {
+        ui.paint_image_rect(base_rect, primitive.source, primitive.fit, radius, opacity, &combined);
+    } else {
+        ui.paint_image_rect(base_rect, primitive.source, primitive.fit, radius, opacity);
     }
-    paint_image_placeholder_guides(ui, content_rect, opacity);
-    ui.pop_clip();
-
-    ui.paint_outline_rect(frame_rect, outline, radius, 1.0f);
-
-    const std::string label = image_placeholder_label(primitive.source);
-    const std::string mode_label = std::string(image_fit_name(primitive.fit)) + "  " +
-                                   std::to_string(static_cast<int>(intrinsic.w)) + "x" +
-                                   std::to_string(static_cast<int>(intrinsic.h));
-    const float label_h = std::clamp(frame_rect.h * 0.20f, 18.0f, 28.0f);
-    const eui::Rect footer{
-        frame_rect.x,
-        frame_rect.y + frame_rect.h - label_h,
-        frame_rect.w,
-        label_h,
-    };
-    ui.paint_filled_rect(footer, label_bg, 0.0f);
-    ui.paint_text(label, eui::Rect{footer.x + 8.0f, footer.y, std::max(0.0f, footer.w - 16.0f), footer.h}, text,
-                  std::max(10.0f, footer.h * 0.52f), eui::TextAlign::Left, has_clip ? &clip_rect : nullptr);
-    ui.paint_text(mode_label,
-                  eui::Rect{footer.x + 8.0f, footer.y, std::max(0.0f, footer.w - 16.0f), footer.h},
-                  eui::rgba(text.r, text.g, text.b, std::clamp(opacity * 0.74f, 0.0f, 1.0f)),
-                  std::max(9.0f, footer.h * 0.46f), eui::TextAlign::Right, has_clip ? &clip_rect : nullptr);
 
     if (has_clip) {
         ui.pop_clip();

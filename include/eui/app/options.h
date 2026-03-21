@@ -22,6 +22,7 @@ struct AppOptions {
     bool continuous_render{false};
     double idle_wait_seconds{0.25};
     double max_fps{60.0};
+    bool enable_dirty_cache{true};
     WindowBackend window_backend{WindowBackend::Auto};
     const char* text_font_family{"Segoe UI"};
     int text_font_weight{600};

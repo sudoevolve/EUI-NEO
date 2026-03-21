@@ -32,7 +32,7 @@ int run_with_sdl2(BuildUiFn&& build_ui, const AppOptions& options = {}) {
 #endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
     const Uint32 window_flags = SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
     SDL_Window* window = SDL_CreateWindow(options.title,
@@ -298,19 +298,22 @@ int run_with_sdl2(BuildUiFn&& build_ui, const AppOptions& options = {}) {
         const auto& transform_payloads = runtime.curr_transform_payloads;
         const std::uint64_t frame_hash = detail::hash_frame_payload(commands, bg);
 
+        const bool dirty_cache_enabled = options.enable_dirty_cache;
         const bool hard_full_redraw = framebuffer_changed || !runtime.has_prev_frame;
-        const bool cache_missing = !runtime.has_cache;
-        const bool force_full_redraw = hard_full_redraw || cache_missing;
+        const bool cache_missing = dirty_cache_enabled && !runtime.has_cache;
+        const bool force_full_redraw = !dirty_cache_enabled || hard_full_redraw || cache_missing;
         bool has_dirty = false;
         runtime.dirty_regions.clear();
-        if (!force_full_redraw && runtime.has_prev_frame && runtime.prev_frame_hash == frame_hash) {
-            has_dirty = false;
-        } else {
-            has_dirty = detail::compute_dirty_regions(commands, runtime, bg, framebuffer_w, framebuffer_h,
-                                                      hard_full_redraw, runtime.dirty_regions);
+        if (dirty_cache_enabled) {
+            if (!force_full_redraw && runtime.has_prev_frame && runtime.prev_frame_hash == frame_hash) {
+                has_dirty = false;
+            } else {
+                has_dirty = detail::compute_dirty_regions(commands, runtime, bg, framebuffer_w, framebuffer_h,
+                                                          hard_full_redraw, runtime.dirty_regions);
+            }
         }
         bool prefer_full_redraw = false;
-        if (!hard_full_redraw && has_dirty) {
+        if (dirty_cache_enabled && !hard_full_redraw && has_dirty) {
             float dirty_area = 0.0f;
             for (const Rect& dirty : runtime.dirty_regions) {
                 dirty_area += std::max(0.0f, dirty.w) * std::max(0.0f, dirty.h);
@@ -342,11 +345,13 @@ int run_with_sdl2(BuildUiFn&& build_ui, const AppOptions& options = {}) {
             glClear(GL_COLOR_BUFFER_BIT);
             renderer.render(commands, text_arena, brush_payloads, transform_payloads, framebuffer_w, framebuffer_h,
                             nullptr, frame_hash);
-            if (!prefer_full_redraw || hard_full_redraw) {
+            if (dirty_cache_enabled && (!prefer_full_redraw || hard_full_redraw)) {
                 detail::ensure_cache_texture(runtime, framebuffer_w, framebuffer_h);
                 detail::copy_full_to_cache(runtime, framebuffer_w, framebuffer_h);
-            } else {
+            } else if (dirty_cache_enabled) {
                 runtime.has_cache = false;
+            } else {
+                detail::disable_dirty_cache(runtime);
             }
         } else {
             detail::draw_cache_texture(runtime, framebuffer_w, framebuffer_h);
@@ -365,12 +370,16 @@ int run_with_sdl2(BuildUiFn&& build_ui, const AppOptions& options = {}) {
             glDisable(GL_SCISSOR_TEST);
         }
 
-        detail::update_prev_command_cache(runtime, commands);
-        detail::trim_dirty_region_cache(runtime);
-        detail::update_cache_lifecycle(runtime);
-        runtime.prev_bg = bg;
-        runtime.prev_frame_hash = frame_hash;
-        runtime.has_prev_frame = true;
+        if (dirty_cache_enabled) {
+            detail::update_prev_command_cache(runtime, commands);
+            detail::trim_dirty_region_cache(runtime);
+            detail::update_cache_lifecycle(runtime);
+            runtime.prev_bg = bg;
+            runtime.prev_frame_hash = frame_hash;
+            runtime.has_prev_frame = true;
+        } else {
+            detail::disable_dirty_cache(runtime);
+        }
         SDL_GL_SwapWindow(window);
 
         if (options.max_fps > 0.0) {

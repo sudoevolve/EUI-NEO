@@ -26,6 +26,9 @@ target_include_directories(eui INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 target_compile_features(eui INTERFACE cxx_std_17)
+if(WIN32)
+    target_link_libraries(eui INTERFACE ole32 windowscodecs)
+endif()
 
 if(EUI_STRICT_WARNINGS)
     if(MSVC)

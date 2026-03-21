@@ -571,6 +571,13 @@ public:
         add_backdrop_blur(rect, radius, blur_radius, opacity, transform_3d);
     }
 
+    void paint_image_rect(const Rect& rect, std::string_view source,
+                          eui::graphics::ImageFit fit = eui::graphics::ImageFit::cover,
+                          float radius = 0.0f, float opacity = 1.0f,
+                          const eui::graphics::Transform3D* transform_3d = nullptr) {
+        add_image_rect(rect, source, fit, radius, opacity, transform_3d);
+    }
+
     void paint_text(std::string_view text, const Rect& rect, const Color& color, float font_size = 13.0f,
                     TextAlign align = TextAlign::Left, const Rect* clip_rect = nullptr) {
         add_text(text, rect, color, font_size, align, clip_rect);
@@ -2234,7 +2241,7 @@ private:
 
     std::uint64_t hash_command(const DrawCommand& cmd) const {
         std::uint64_t hash = hash_command_base(cmd);
-        if (cmd.type == CommandType::Text &&
+        if ((cmd.type == CommandType::Text || cmd.type == CommandType::ImageRect) &&
             static_cast<std::size_t>(cmd.text_offset) + static_cast<std::size_t>(cmd.text_length) <= text_arena_.size()) {
             const std::string_view text(text_arena_.data() + cmd.text_offset, cmd.text_length);
             hash = hash_mix(hash, hash_sv(text));
@@ -3826,6 +3833,34 @@ private:
         if (!apply_clip_to_command(cmd, nullptr)) {
             return;
         }
+        refresh_command_metadata(cmd, false);
+        commands_.push_back(std::move(cmd));
+    }
+
+    void add_image_rect(const Rect& rect, std::string_view source, eui::graphics::ImageFit fit, float radius,
+                        float opacity, const eui::graphics::Transform3D* transform_3d) {
+        const float effective_alpha = std::clamp(opacity * global_alpha_, 0.0f, 1.0f);
+        if (effective_alpha <= 1e-4f || source.empty()) {
+            return;
+        }
+
+        DrawCommand cmd;
+        cmd.type = CommandType::ImageRect;
+        cmd.rect = rect;
+        cmd.color = rgba(1.0f, 1.0f, 1.0f, effective_alpha);
+        cmd.image_fit = fit;
+        cmd.radius = std::max(0.0f, radius);
+        assign_command_brush_payload(cmd, eui::graphics::Brush{});
+        assign_command_transform_payload(cmd, transform_3d);
+        if (!apply_clip_to_command(cmd, nullptr)) {
+            return;
+        }
+
+        const std::uint32_t offset = static_cast<std::uint32_t>(text_arena_.size());
+        const std::uint32_t length = static_cast<std::uint32_t>(source.size());
+        text_arena_.insert(text_arena_.end(), source.begin(), source.end());
+        cmd.text_offset = offset;
+        cmd.text_length = length;
         refresh_command_metadata(cmd, false);
         commands_.push_back(std::move(cmd));
     }

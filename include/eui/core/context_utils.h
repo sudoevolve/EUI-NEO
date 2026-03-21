@@ -118,6 +118,7 @@ inline std::uint64_t context_hash_command_base(const DrawCommand& cmd) {
     hash = context_hash_mix(hash, cmd.payload_hash);
     hash = context_hash_mix(hash, static_cast<std::uint64_t>(context_float_bits(cmd.font_size)));
     hash = context_hash_mix(hash, static_cast<std::uint64_t>(cmd.align));
+    hash = context_hash_mix(hash, static_cast<std::uint64_t>(cmd.image_fit));
     hash = context_hash_mix(hash, static_cast<std::uint64_t>(context_float_bits(cmd.radius)));
     hash = context_hash_mix(hash, static_cast<std::uint64_t>(context_float_bits(cmd.thickness)));
     hash = context_hash_mix(hash, static_cast<std::uint64_t>(context_float_bits(cmd.rotation)));

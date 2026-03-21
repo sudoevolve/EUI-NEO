@@ -1476,6 +1476,32 @@ public:
         return gradient(rgb(top, alpha), rgb(bottom, alpha));
     }
 
+    RectangleBuilder& fill_image(std::string_view source) {
+        image_source_ = std::string(source);
+        return *this;
+    }
+
+    RectangleBuilder& image_fit(eui::graphics::ImageFit fit_mode) {
+        image_fit_ = fit_mode;
+        return *this;
+    }
+
+    RectangleBuilder& image_contain() {
+        return image_fit(eui::graphics::ImageFit::contain);
+    }
+
+    RectangleBuilder& image_cover() {
+        return image_fit(eui::graphics::ImageFit::cover);
+    }
+
+    RectangleBuilder& image_stretch() {
+        return image_fit(eui::graphics::ImageFit::stretch);
+    }
+
+    RectangleBuilder& image_center() {
+        return image_fit(eui::graphics::ImageFit::center);
+    }
+
     RectangleBuilder& alpha(float alpha) {
         alpha_ = std::clamp(alpha, 0.0f, 1.0f);
         return *this;
@@ -1561,6 +1587,9 @@ public:
         } else if (has_fill_) {
             ctx.paint_filled_rect(rect, with_alpha(fill_, alpha_), radius_);
         }
+        if (!image_source_.empty()) {
+            ctx.paint_image_rect(rect, image_source_, image_fit_, radius_, alpha_);
+        }
 
         if (stroke_.enabled && stroke_.width > 0.0f) {
             ctx.paint_outline_rect(rect, with_alpha(stroke_.color, alpha_), radius_, stroke_.width);
@@ -1584,6 +1613,8 @@ private:
     float radius_{0.0f};
     float alpha_{1.0f};
     float blur_radius_{0.0f};
+    std::string image_source_{};
+    eui::graphics::ImageFit image_fit_{eui::graphics::ImageFit::cover};
     bool has_text_{false};
     std::string text_{};
     float text_font_{14.0f};
@@ -1687,6 +1718,32 @@ public:
         return *this;
     }
 
+    ShapeBuilder& fill_image(std::string_view source) {
+        image_source_ = std::string(source);
+        return *this;
+    }
+
+    ShapeBuilder& image_fit(eui::graphics::ImageFit fit_mode) {
+        primitive().image_fit = fit_mode;
+        return *this;
+    }
+
+    ShapeBuilder& image_contain() {
+        return image_fit(eui::graphics::ImageFit::contain);
+    }
+
+    ShapeBuilder& image_cover() {
+        return image_fit(eui::graphics::ImageFit::cover);
+    }
+
+    ShapeBuilder& image_stretch() {
+        return image_fit(eui::graphics::ImageFit::stretch);
+    }
+
+    ShapeBuilder& image_center() {
+        return image_fit(eui::graphics::ImageFit::center);
+    }
+
     ShapeBuilder& gradient(const eui::graphics::Color& top, const eui::graphics::Color& bottom) {
         primitive().fill = gfx::vertical_gradient(top, bottom);
         return *this;
@@ -1784,9 +1841,13 @@ public:
     }
 
     Rect draw() {
+        primitive().image_source = image_source_;
         resolve_primitive_rect();
         return this->ui_.paint(primitive());
     }
+
+private:
+    std::string image_source_{};
 };
 
 class GlyphBuilder : public PrimitiveBuilderBase<GlyphBuilder, eui::graphics::IconPrimitive> {

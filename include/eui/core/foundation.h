@@ -402,6 +402,7 @@ enum class CommandType {
     RectOutline,
     BackdropBlur,
     Text,
+    ImageRect,
     Chevron,
 };
 
@@ -425,6 +426,7 @@ struct DrawCommand {
     std::uint32_t text_length{0};
     float font_size{13.0f};
     TextAlign align{TextAlign::Left};
+    eui::graphics::ImageFit image_fit{eui::graphics::ImageFit::cover};
     float radius{0.0f};
     float thickness{1.0f};
     float rotation{0.0f};
