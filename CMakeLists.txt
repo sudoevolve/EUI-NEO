@@ -4,6 +4,9 @@ project(EUI-NEO VERSION 1.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# 禁用 HTTPS 证书验证，解决国内或代理环境下下载 Github 源码失败的问题
+set(CMAKE_TLS_VERIFY OFF)
+
 # 禁用 GLFW 测试、示例和文档以加快构建速度
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Build the GLFW example programs" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "Build the GLFW test programs" FORCE)
