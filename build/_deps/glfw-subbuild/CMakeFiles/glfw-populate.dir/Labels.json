@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/CMakeFiles/glfw-populate"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/CMakeFiles/glfw-populate.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/CMakeFiles/glfw-populate-complete.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-build.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-configure.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-download.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-install.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-mkdir.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-patch.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-test.rule"
+		},
+		{
+			"file" : "C:/Users/Administrator/Documents/GitHub/EUI-NEO/build/_deps/glfw-subbuild/glfw-populate-prefix/src/glfw-populate-stamp/glfw-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"glfw-populate"
+		],
+		"name" : "glfw-populate"
+	}
+}
