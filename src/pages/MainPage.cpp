@@ -15,23 +15,8 @@ static bool ColorEq(const Color& a, const Color& b, float epsilon = 0.0001f) {
            FloatEq(a.a, b.a, epsilon);
 }
 
-static void GetPanelDrawBounds(Panel& panel, float& outX, float& outY, float& outW, float& outH) {
-    panel.GetAbsoluteBounds(outX, outY);
-    float expand = panel.shadowBlur * 2.0f;
-    outX = outX - expand + std::min(0.0f, panel.shadowOffsetX);
-    outY = outY - expand + std::min(0.0f, panel.shadowOffsetY);
-    outW = panel.width + expand * 2.0f + std::abs(panel.shadowOffsetX);
-    outH = panel.height + expand * 2.0f + std::abs(panel.shadowOffsetY);
-}
-
 static void MarkPanelDirty(Panel& panel) {
-    float x = 0.0f;
-    float y = 0.0f;
-    float w = 0.0f;
-    float h = 0.0f;
-    GetPanelDrawBounds(panel, x, y, w, h);
-    Renderer::AddDirtyRect(x, y, w, h);
-    Renderer::RequestRepaint();
+    panel.MarkDirty();
 }
 
 MainPage::MainPage() {

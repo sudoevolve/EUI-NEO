@@ -27,6 +27,115 @@ float Lerp(float a, float b, float t) {
     return a + (b - a) * t;
 }
 
+RectTransform Lerp(const RectTransform& a, const RectTransform& b, float t) {
+    t = std::clamp(t, 0.0f, 1.0f);
+    RectTransform out;
+    out.translateX = Lerp(a.translateX, b.translateX, t);
+    out.translateY = Lerp(a.translateY, b.translateY, t);
+    out.scaleX = Lerp(a.scaleX, b.scaleX, t);
+    out.scaleY = Lerp(a.scaleY, b.scaleY, t);
+    out.rotationDegrees = Lerp(a.rotationDegrees, b.rotationDegrees, t);
+    return out;
+}
+
+float ApplyEasing(Easing easing, float t) {
+    t = std::clamp(t, 0.0f, 1.0f);
+    switch (easing) {
+        case Easing::EaseIn:
+            return t * t * t;
+        case Easing::EaseOut: {
+            float inv = 1.0f - t;
+            return 1.0f - inv * inv * inv;
+        }
+        case Easing::EaseInOut:
+            if (t < 0.5f) {
+                return 4.0f * t * t * t;
+            }
+            return 1.0f - std::pow(-2.0f * t + 2.0f, 3.0f) * 0.5f;
+        case Easing::Linear:
+        default:
+            return t;
+    }
+}
+
+RectGradient RectGradient::Solid(const Color& color) {
+    RectGradient gradient;
+    gradient.enabled = true;
+    gradient.topLeft = color;
+    gradient.topRight = color;
+    gradient.bottomLeft = color;
+    gradient.bottomRight = color;
+    return gradient;
+}
+
+RectGradient RectGradient::Horizontal(const Color& left, const Color& right) {
+    RectGradient gradient;
+    gradient.enabled = true;
+    gradient.topLeft = left;
+    gradient.bottomLeft = left;
+    gradient.topRight = right;
+    gradient.bottomRight = right;
+    return gradient;
+}
+
+RectGradient RectGradient::Vertical(const Color& top, const Color& bottom) {
+    RectGradient gradient;
+    gradient.enabled = true;
+    gradient.topLeft = top;
+    gradient.topRight = top;
+    gradient.bottomLeft = bottom;
+    gradient.bottomRight = bottom;
+    return gradient;
+}
+
+RectGradient RectGradient::Corners(const Color& topLeft, const Color& topRight,
+                                   const Color& bottomLeft, const Color& bottomRight) {
+    RectGradient gradient;
+    gradient.enabled = true;
+    gradient.topLeft = topLeft;
+    gradient.topRight = topRight;
+    gradient.bottomLeft = bottomLeft;
+    gradient.bottomRight = bottomRight;
+    return gradient;
+}
+
+RectGradient Lerp(const RectGradient& a, const RectGradient& b, float t) {
+    t = std::clamp(t, 0.0f, 1.0f);
+    RectGradient out;
+    out.enabled = a.enabled || b.enabled;
+    out.topLeft = Lerp(a.topLeft, b.topLeft, t);
+    out.topRight = Lerp(a.topRight, b.topRight, t);
+    out.bottomLeft = Lerp(a.bottomLeft, b.bottomLeft, t);
+    out.bottomRight = Lerp(a.bottomRight, b.bottomRight, t);
+    return out;
+}
+
+static RectGradient ResolveGradientForStyle(const RectStyle& style) {
+    if (style.gradient.enabled) {
+        return style.gradient;
+    }
+
+    Color solid = style.color;
+    solid.a = 1.0f;
+    return RectGradient::Solid(solid);
+}
+
+RectStyle Lerp(const RectStyle& a, const RectStyle& b, float t) {
+    t = std::clamp(t, 0.0f, 1.0f);
+    RectStyle out;
+    out.color = Lerp(a.color, b.color, t);
+    out.gradient = Lerp(ResolveGradientForStyle(a), ResolveGradientForStyle(b), t);
+    out.gradient.enabled = a.gradient.enabled || b.gradient.enabled;
+    out.rounding = Lerp(a.rounding, b.rounding, t);
+    out.blurAmount = Lerp(a.blurAmount, b.blurAmount, t);
+    out.shadowBlur = Lerp(a.shadowBlur, b.shadowBlur, t);
+    out.shadowOffsetX = Lerp(a.shadowOffsetX, b.shadowOffsetX, t);
+    out.shadowOffsetY = Lerp(a.shadowOffsetY, b.shadowOffsetY, t);
+    out.shadowColor = Lerp(a.shadowColor, b.shadowColor, t);
+    out.transform = Lerp(a.transform, b.transform, t);
+    return out;
+}
+
 Theme LightTheme = {
     Color(0.95f, 0.95f, 0.97f),
     Color(0.2f, 0.5f, 0.9f),
@@ -60,10 +169,19 @@ static GLint SizeLoc = -1;
 static GLint RoundingLoc = -1;
 static GLint BoxPosLoc = -1;
 static GLint BoxSizeLoc = -1;
+static GLint TranslateLoc = -1;
+static GLint ScaleLoc = -1;
+static GLint RotationLoc = -1;
+static GLint TransformInvLoc = -1;
 static GLint BlurAmountLoc = -1;
 static GLint ShadowBlurLoc = -1;
 static GLint ShadowOffsetLoc = -1;
 static GLint ShadowColorLoc = -1;
+static GLint GradientEnabledLoc = -1;
+static GLint GradientTopLeftLoc = -1;
+static GLint GradientTopRightLoc = -1;
+static GLint GradientBottomLeftLoc = -1;
+static GLint GradientBottomRightLoc = -1;
 static GLint TimeLoc = -1;
 static GLint ResolutionLoc = -1;
 static GLint Channel0Loc = -1;
@@ -88,6 +206,8 @@ static float CachedBlurAmount = 0.0f;
 static float CachedBlurShadowBlur = 0.0f;
 static float CachedBlurShadowOffsetX = 0.0f;
 static float CachedBlurShadowOffsetY = 0.0f;
+static RectTransform CachedBlurTransform;
+static RectGradient CachedBlurGradient;
 static unsigned int BackdropVersion = 1;
 static unsigned int CachedBackdropVersion = 0;
 static bool ActiveRedrawClipEnabled = false;
@@ -100,12 +220,29 @@ static const char* vShaderStr = R"(
 #version 330 core
 layout(location = 0) in vec2 aPos;
 out vec2 vPos;
+out vec2 vLocal;
+out vec2 vUV;
 uniform mat4 projection;
 uniform vec2 uPos;
 uniform vec2 uSize;
+uniform vec2 uTranslate;
+uniform vec2 uScale;
+uniform float uRotation;
 void main() {
-    vec2 pos = (aPos * uSize) + uPos;
+    vec2 center = uPos + uSize * 0.5 + uTranslate;
+    vec2 local = (aPos - vec2(0.5)) * uSize;
+    vec2 scaled = local * uScale;
+    float rotation = radians(uRotation);
+    float c = cos(rotation);
+    float s = sin(rotation);
+    vec2 rotated = vec2(
+        c * scaled.x - s * scaled.y,
+        s * scaled.x + c * scaled.y
+    );
+    vec2 pos = center + rotated;
     vPos = pos;
+    vLocal = local;
+    vUV = aPos;
     gl_Position = projection * vec4(pos, 0.0, 1.0);
 }
 )";
@@ -113,16 +250,27 @@ void main() {
 static const char* fShaderStr = R"(
 #version 330 core
 in vec2 vPos;
+in vec2 vLocal;
+in vec2 vUV;
 uniform vec4 uColor;
 uniform vec2 uPos;
 uniform vec2 uSize;
 uniform vec2 uBoxPos;
 uniform vec2 uBoxSize;
+uniform vec2 uTranslate;
+uniform vec2 uScale;
+uniform float uRotation;
+uniform mat2 uTransformInv;
 uniform float uRounding;
 uniform float uBlurAmount;
 uniform float uShadowBlur;
 uniform vec2 uShadowOffset;
 uniform vec4 uShadowColor;
+uniform int uGradientEnabled;
+uniform vec4 uGradientTopLeft;
+uniform vec4 uGradientTopRight;
+uniform vec4 uGradientBottomLeft;
+uniform vec4 uGradientBottomRight;
 uniform float iTime;
 uniform vec2 iResolution;
 uniform sampler2D iChannel0;
@@ -140,21 +288,32 @@ float rand(vec2 co) {
     return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
+vec4 fillColorAt(vec2 uv) {
+    if (uGradientEnabled == 0) {
+        return uColor;
+    }
+    vec4 top = mix(uGradientTopLeft, uGradientTopRight, clamp(uv.x, 0.0, 1.0));
+    vec4 bottom = mix(uGradientBottomLeft, uGradientBottomRight, clamp(uv.x, 0.0, 1.0));
+    vec4 gradientColor = mix(top, bottom, clamp(uv.y, 0.0, 1.0));
+    return vec4(gradientColor.rgb, gradientColor.a * uColor.a);
+}
+
 void main() {
-    vec2 center = uBoxPos + uBoxSize * 0.5;
-    vec2 p = vPos - center;
+    vec2 center = uBoxPos + uBoxSize * 0.5 + uTranslate;
+    vec2 p = vLocal;
     float d = roundedBoxSDF(p, uBoxSize * 0.5, uRounding);
 
     float shadowAlpha = 0.0;
     if (uShadowBlur > 0.0) {
-        vec2 shadowCenter = center + uShadowOffset;
-        vec2 sp = vPos - shadowCenter;
+        vec2 shadowDelta = (vPos - center) - uShadowOffset;
+        vec2 sp = uTransformInv * shadowDelta;
         float sd = roundedBoxSDF(sp, uBoxSize * 0.5, uRounding);
         shadowAlpha = 1.0 - smoothstep(-uShadowBlur, uShadowBlur, sd);
         shadowAlpha *= uShadowColor.a;
     }
 
     float alpha = 1.0 - smoothstep(-1.0, 1.0, d);
+    vec4 fillColor = fillColorAt(vUV);
     vec4 finalColor = vec4(0.0);
 
     if (uBlurAmount > 0.0 && alpha > 0.0) {
@@ -173,10 +332,10 @@ void main() {
             blurredImage += draw(uv2) / 2.0;
         }
         blurredImage /= repeats;
-        vec3 mixColor = mix(blurredImage, uColor.rgb, uColor.a);
-        finalColor = vec4(mixColor, alpha);
+        vec3 mixColor = mix(blurredImage, fillColor.rgb, fillColor.a);
+        finalColor = vec4(mixColor, fillColor.a * alpha);
     } else {
-        finalColor = vec4(uColor.rgb, uColor.a * alpha);
+        finalColor = vec4(fillColor.rgb, fillColor.a * alpha);
     }
 
     if (shadowAlpha > 0.0 && alpha < 1.0) {
@@ -237,6 +396,102 @@ static bool FloatEq(float a, float b, float epsilon = 0.0001f) {
     return std::abs(a - b) <= epsilon;
 }
 
+static bool ColorEq(const Color& a, const Color& b, float epsilon = 0.0001f) {
+    return FloatEq(a.r, b.r, epsilon) &&
+           FloatEq(a.g, b.g, epsilon) &&
+           FloatEq(a.b, b.b, epsilon) &&
+           FloatEq(a.a, b.a, epsilon);
+}
+
+static bool RectTransformEq(const RectTransform& a, const RectTransform& b, float epsilon = 0.0001f) {
+    return FloatEq(a.translateX, b.translateX, epsilon) &&
+           FloatEq(a.translateY, b.translateY, epsilon) &&
+           FloatEq(a.scaleX, b.scaleX, epsilon) &&
+           FloatEq(a.scaleY, b.scaleY, epsilon) &&
+           FloatEq(a.rotationDegrees, b.rotationDegrees, epsilon);
+}
+
+static bool RectGradientEq(const RectGradient& a, const RectGradient& b, float epsilon = 0.0001f) {
+    return a.enabled == b.enabled &&
+           ColorEq(a.topLeft, b.topLeft, epsilon) &&
+           ColorEq(a.topRight, b.topRight, epsilon) &&
+           ColorEq(a.bottomLeft, b.bottomLeft, epsilon) &&
+           ColorEq(a.bottomRight, b.bottomRight, epsilon);
+}
+
+static void BuildTransformInverse(const RectTransform& transform, float out[4]) {
+    float scaleX = std::abs(transform.scaleX) < 0.0001f ? (transform.scaleX < 0.0f ? -0.0001f : 0.0001f)
+                                                        : transform.scaleX;
+    float scaleY = std::abs(transform.scaleY) < 0.0001f ? (transform.scaleY < 0.0f ? -0.0001f : 0.0001f)
+                                                        : transform.scaleY;
+    float rotation = transform.rotationDegrees * 0.017453292519943295f;
+    float c = std::cos(rotation);
+    float s = std::sin(rotation);
+
+    out[0] = c / scaleX;
+    out[1] = s / scaleX;
+    out[2] = -s / scaleY;
+    out[3] = c / scaleY;
+}
+
+static RectBounds ComputeRectBounds(float x, float y, float w, float h, const RectStyle& style) {
+    float halfW = w * 0.5f;
+    float halfH = h * 0.5f;
+    float centerX = x + halfW + style.transform.translateX;
+    float centerY = y + halfH + style.transform.translateY;
+    float rotation = style.transform.rotationDegrees * 0.017453292519943295f;
+    float c = std::cos(rotation);
+    float s = std::sin(rotation);
+
+    const float localCorners[4][2] = {
+        {-halfW, -halfH},
+        { halfW, -halfH},
+        {-halfW,  halfH},
+        { halfW,  halfH},
+    };
+
+    float minX = centerX;
+    float minY = centerY;
+    float maxX = centerX;
+    float maxY = centerY;
+
+    for (int i = 0; i < 4; ++i) {
+        float lx = localCorners[i][0] * style.transform.scaleX;
+        float ly = localCorners[i][1] * style.transform.scaleY;
+        float rx = c * lx - s * ly;
+        float ry = s * lx + c * ly;
+        float px = centerX + rx;
+        float py = centerY + ry;
+        minX = std::min(minX, px);
+        minY = std::min(minY, py);
+        maxX = std::max(maxX, px);
+        maxY = std::max(maxY, py);
+    }
+
+    RectBounds base;
+    base.x = minX;
+    base.y = minY;
+    base.w = maxX - minX;
+    base.h = maxY - minY;
+
+    RectBounds shadow = base;
+    shadow.x += style.shadowOffsetX;
+    shadow.y += style.shadowOffsetY;
+
+    float unionX1 = std::min(base.x, shadow.x);
+    float unionY1 = std::min(base.y, shadow.y);
+    float unionX2 = std::max(base.x + base.w, shadow.x + shadow.w);
+    float unionY2 = std::max(base.y + base.h, shadow.y + shadow.h);
+
+    float expand = style.shadowBlur * 2.0f;
+    RectBounds out;
+    out.x = unionX1 - expand;
+    out.y = unionY1 - expand;
+    out.w = (unionX2 - unionX1) + expand * 2.0f;
+    out.h = (unionY2 - unionY1) + expand * 2.0f;
+    return out;
+}
+
 static bool RectIntersectsActiveRedraw(float x, float y, float w, float h) {
     if (!ActiveRedrawClipEnabled) {
         return true;
@@ -278,28 +533,28 @@ static void EnsureCachedBlurTexture(int width, int height) {
     }
 }
 
-static bool CachedBlurMatches(float quadX, float quadY, float quadW, float quadH, const Color& color, float rounding,
-                              float blurAmount, float shadowBlur, float shadowOffsetX, float shadowOffsetY,
-                              const Color& shadowColor) {
+static bool CachedBlurMatches(float quadX, float quadY, float quadW, float quadH, const RectStyle& style) {
     return BlurCacheValid &&
         CachedBackdropVersion == BackdropVersion &&
         FloatEq(CachedBlurX, quadX) &&
         FloatEq(CachedBlurY, quadY) &&
         FloatEq(CachedBlurW, quadW) &&
         FloatEq(CachedBlurH, quadH) &&
-        FloatEq(CachedBlurColor[0], color.r) &&
-        FloatEq(CachedBlurColor[1], color.g) &&
-        FloatEq(CachedBlurColor[2], color.b) &&
-        FloatEq(CachedBlurColor[3], color.a) &&
-        FloatEq(CachedBlurRounding, rounding) &&
-        FloatEq(CachedBlurAmount, blurAmount) &&
-        FloatEq(CachedBlurShadowBlur, shadowBlur) &&
-        FloatEq(CachedBlurShadowOffsetX, shadowOffsetX) &&
-        FloatEq(CachedBlurShadowOffsetY, shadowOffsetY) &&
-        FloatEq(CachedBlurShadowColor[0], shadowColor.r) &&
-        FloatEq(CachedBlurShadowColor[1], shadowColor.g) &&
-        FloatEq(CachedBlurShadowColor[2], shadowColor.b) &&
-        FloatEq(CachedBlurShadowColor[3], shadowColor.a);
+        FloatEq(CachedBlurColor[0], style.color.r) &&
+        FloatEq(CachedBlurColor[1], style.color.g) &&
+        FloatEq(CachedBlurColor[2], style.color.b) &&
+        FloatEq(CachedBlurColor[3], style.color.a) &&
+        FloatEq(CachedBlurRounding, style.rounding) &&
+        FloatEq(CachedBlurAmount, style.blurAmount) &&
+        FloatEq(CachedBlurShadowBlur, style.shadowBlur) &&
+        FloatEq(CachedBlurShadowOffsetX, style.shadowOffsetX) &&
+        FloatEq(CachedBlurShadowOffsetY, style.shadowOffsetY) &&
+        FloatEq(CachedBlurShadowColor[0], style.shadowColor.r) &&
+        FloatEq(CachedBlurShadowColor[1], style.shadowColor.g) &&
+        FloatEq(CachedBlurShadowColor[2], style.shadowColor.b) &&
+        FloatEq(CachedBlurShadowColor[3], style.shadowColor.a) &&
+        RectTransformEq(CachedBlurTransform, style.transform) &&
+        RectGradientEq(CachedBlurGradient, style.gradient);
 }
 
 struct Character {
@@ -356,11 +611,20 @@ void Renderer::Init() {
     SizeLoc = glGetUniformLocation(ShaderProgram, "uSize");
     BoxPosLoc = glGetUniformLocation(ShaderProgram, "uBoxPos");
     BoxSizeLoc = glGetUniformLocation(ShaderProgram, "uBoxSize");
+    TranslateLoc = glGetUniformLocation(ShaderProgram, "uTranslate");
+    ScaleLoc = glGetUniformLocation(ShaderProgram, "uScale");
+    RotationLoc = glGetUniformLocation(ShaderProgram, "uRotation");
+    TransformInvLoc = glGetUniformLocation(ShaderProgram, "uTransformInv");
     RoundingLoc = glGetUniformLocation(ShaderProgram, "uRounding");
     BlurAmountLoc = glGetUniformLocation(ShaderProgram, "uBlurAmount");
     ShadowBlurLoc = glGetUniformLocation(ShaderProgram, "uShadowBlur");
     ShadowOffsetLoc = glGetUniformLocation(ShaderProgram, "uShadowOffset");
     ShadowColorLoc = glGetUniformLocation(ShaderProgram, "uShadowColor");
+    GradientEnabledLoc = glGetUniformLocation(ShaderProgram, "uGradientEnabled");
+    GradientTopLeftLoc = glGetUniformLocation(ShaderProgram, "uGradientTopLeft");
+    GradientTopRightLoc = glGetUniformLocation(ShaderProgram, "uGradientTopRight");
+    GradientBottomLeftLoc = glGetUniformLocation(ShaderProgram, "uGradientBottomLeft");
+    GradientBottomRightLoc = glGetUniformLocation(ShaderProgram, "uGradientBottomRight");
     TimeLoc = glGetUniformLocation(ShaderProgram, "iTime");
     ResolutionLoc = glGetUniformLocation(ShaderProgram, "iResolution");
     Channel0Loc = glGetUniformLocation(ShaderProgram, "iChannel0");
@@ -474,21 +738,17 @@ void Renderer::SetPartialRedraw(float x1, float y1, float x2, float y2) {
     ActiveRedrawY2 = y2;
 }
 
-void Renderer::DrawRect(float x, float y, float w, float h, const Color& color, float rounding,
-                        float blurAmount, float shadowBlur, float shadowOffsetX, float shadowOffsetY,
-                        const Color& shadowColor) {
-    float expand = shadowBlur * 2.0f;
-    float quadX = x - expand + std::min(0.0f, shadowOffsetX);
-    float quadY = y - expand + std::min(0.0f, shadowOffsetY);
-    float quadW = w + expand * 2.0f + std::abs(shadowOffsetX);
-    float quadH = h + expand * 2.0f + std::abs(shadowOffsetY);
+RectBounds Renderer::MeasureRectBounds(float x, float y, float w, float h, const RectStyle& style) {
+    return ComputeRectBounds(x, y, w, h, style);
+}
 
-    if (!RectIntersectsActiveRedraw(quadX, quadY, quadW, quadH)) {
+void Renderer::DrawRect(float x, float y, float w, float h, const RectStyle& style) {
+    RectBounds bounds = ComputeRectBounds(x, y, w, h, style);
+    if (!RectIntersectsActiveRedraw(bounds.x, bounds.y, bounds.w, bounds.h)) {
         return;
     }
 
-    if (blurAmount > 0.0f && CachedBlurMatches(quadX, quadY, quadW, quadH, color, rounding, blurAmount,
-                                               shadowBlur, shadowOffsetX, shadowOffsetY, shadowColor)) {
+    if (style.blurAmount > 0.0f && CachedBlurMatches(bounds.x, bounds.y, bounds.w, bounds.h, style)) {
         if (CurrentActiveProgram != CachedBlurProgram) {
             glUseProgram(CachedBlurProgram);
             CurrentActiveProgram = CachedBlurProgram;
@@ -511,21 +771,37 @@ void Renderer::DrawRect(float x, float y, float w, float h, const Color& color, 
         CurrentActiveProgram = ShaderProgram;
     }
 
-    glUniform2f(PosLoc, quadX, quadY);
-    glUniform2f(SizeLoc, quadW, quadH);
+    float transformInv[4] = {};
+    BuildTransformInverse(style.transform, transformInv);
+
+    glUniform2f(PosLoc, x, y);
+    glUniform2f(SizeLoc, w, h);
     glUniform2f(BoxPosLoc, x, y);
     glUniform2f(BoxSizeLoc, w, h);
-    glUniform4f(ColorLoc, color.r, color.g, color.b, color.a);
-    glUniform1f(RoundingLoc, rounding);
-    glUniform1f(BlurAmountLoc, blurAmount);
-    glUniform1f(ShadowBlurLoc, shadowBlur);
-    glUniform2f(ShadowOffsetLoc, shadowOffsetX, shadowOffsetY);
-    glUniform4f(ShadowColorLoc, shadowColor.r, shadowColor.g, shadowColor.b, shadowColor.a);
+    glUniform2f(TranslateLoc, style.transform.translateX, style.transform.translateY);
+    glUniform2f(ScaleLoc, style.transform.scaleX, style.transform.scaleY);
+    glUniform1f(RotationLoc, style.transform.rotationDegrees);
+    glUniformMatrix2fv(TransformInvLoc, 1, GL_FALSE, transformInv);
+    glUniform4f(ColorLoc, style.color.r, style.color.g, style.color.b, style.color.a);
+    glUniform1f(RoundingLoc, style.rounding);
+    glUniform1f(BlurAmountLoc, style.blurAmount);
+    glUniform1f(ShadowBlurLoc, style.shadowBlur);
+    glUniform2f(ShadowOffsetLoc, style.shadowOffsetX, style.shadowOffsetY);
+    glUniform4f(ShadowColorLoc, style.shadowColor.r, style.shadowColor.g, style.shadowColor.b, style.shadowColor.a);
+    glUniform1i(GradientEnabledLoc, style.gradient.enabled ? 1 : 0);
+    glUniform4f(GradientTopLeftLoc, style.gradient.topLeft.r, style.gradient.topLeft.g,
+                style.gradient.topLeft.b, style.gradient.topLeft.a);
+    glUniform4f(GradientTopRightLoc, style.gradient.topRight.r, style.gradient.topRight.g,
+                style.gradient.topRight.b, style.gradient.topRight.a);
+    glUniform4f(GradientBottomLeftLoc, style.gradient.bottomLeft.r, style.gradient.bottomLeft.g,
+                style.gradient.bottomLeft.b, style.gradient.bottomLeft.a);
+    glUniform4f(GradientBottomRightLoc, style.gradient.bottomRight.r, style.gradient.bottomRight.g,
+                style.gradient.bottomRight.b, style.gradient.bottomRight.a);
     glUniform1f(TimeLoc, (float)glfwGetTime());
     glUniform2f(ResolutionLoc, State.screenW, State.screenH);
 
     static int lastBlurFrame = -1;
-    if (blurAmount > 0.0f) {
+    if (style.blurAmount > 0.0f) {
         glBindTexture(GL_TEXTURE_2D, BgTexture);
         static int texW = 0;
         static int texH = 0;
@@ -550,11 +826,11 @@ void Renderer::DrawRect(float x, float y, float w, float h, const Color& color, 
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    if (blurAmount > 0.0f) {
-        int copyX = std::clamp((int)std::floor(quadX), 0, (int)State.screenW);
-        int copyYTop = std::clamp((int)std::floor(quadY), 0, (int)State.screenH);
-        int copyRight = std::clamp((int)std::ceil(quadX + quadW), 0, (int)State.screenW);
-        int copyBottom = std::clamp((int)std::ceil(quadY + quadH), 0, (int)State.screenH);
+    if (style.blurAmount > 0.0f) {
+        int copyX = std::clamp((int)std::floor(bounds.x), 0, (int)State.screenW);
+        int copyYTop = std::clamp((int)std::floor(bounds.y), 0, (int)State.screenH);
+        int copyRight = std::clamp((int)std::ceil(bounds.x + bounds.w), 0, (int)State.screenW);
+        int copyBottom = std::clamp((int)std::ceil(bounds.y + bounds.h), 0, (int)State.screenH);
         int copyW = copyRight - copyX;
         int copyH = copyBottom - copyYTop;
 
@@ -571,22 +847,38 @@ void Renderer::DrawRect(float x, float y, float w, float h, const Color& color, 
             CachedBlurY = (float)copyYTop;
             CachedBlurW = (float)copyW;
             CachedBlurH = (float)copyH;
-            CachedBlurColor[0] = color.r;
-            CachedBlurColor[1] = color.g;
-            CachedBlurColor[2] = color.b;
-            CachedBlurColor[3] = color.a;
-            CachedBlurShadowColor[0] = shadowColor.r;
-            CachedBlurShadowColor[1] = shadowColor.g;
-            CachedBlurShadowColor[2] = shadowColor.b;
-            CachedBlurShadowColor[3] = shadowColor.a;
-            CachedBlurRounding = rounding;
-            CachedBlurAmount = blurAmount;
-            CachedBlurShadowBlur = shadowBlur;
-            CachedBlurShadowOffsetX = shadowOffsetX;
-            CachedBlurShadowOffsetY = shadowOffsetY;
+            CachedBlurColor[0] = style.color.r;
+            CachedBlurColor[1] = style.color.g;
+            CachedBlurColor[2] = style.color.b;
+            CachedBlurColor[3] = style.color.a;
+            CachedBlurShadowColor[0] = style.shadowColor.r;
+            CachedBlurShadowColor[1] = style.shadowColor.g;
+            CachedBlurShadowColor[2] = style.shadowColor.b;
+            CachedBlurShadowColor[3] = style.shadowColor.a;
+            CachedBlurRounding = style.rounding;
+            CachedBlurAmount = style.blurAmount;
+            CachedBlurShadowBlur = style.shadowBlur;
+            CachedBlurShadowOffsetX = style.shadowOffsetX;
+            CachedBlurShadowOffsetY = style.shadowOffsetY;
+            CachedBlurTransform = style.transform;
+            CachedBlurGradient = style.gradient;
             BlurCacheValid = true;
         }
     }
+}
+
+void Renderer::DrawRect(float x, float y, float w, float h, const Color& color, float rounding,
+                        float blurAmount, float shadowBlur, float shadowOffsetX, float shadowOffsetY,
+                        const Color& shadowColor) {
+    RectStyle style;
+    style.color = color;
+    style.rounding = rounding;
+    style.blurAmount = blurAmount;
+    style.shadowBlur = shadowBlur;
+    style.shadowOffsetX = shadowOffsetX;
+    style.shadowOffsetY = shadowOffsetY;
+    style.shadowColor = shadowColor;
+    DrawRect(x, y, w, h, style);
 }
 
 bool Renderer::LoadFont(const std::string& fontPath, float fontSize, unsigned int startChar, unsigned int endChar) {
@@ -804,6 +1096,32 @@ bool Widget::IsHovered() {
     GetAbsoluteBounds(absX, absY);
     return State.mouseX >= absX && State.mouseX <= absX + width &&
            State.mouseY >= absY && State.mouseY <= absY + height;
+}
+
+void Widget::MarkDirty(const RectStyle& style, float expand, float duration) {
+    float absX = 0.0f;
+    float absY = 0.0f;
+    GetAbsoluteBounds(absX, absY);
+    RectBounds bounds = Renderer::MeasureRectBounds(absX, absY, width, height, style);
+    Renderer::AddDirtyRect(bounds.x - expand, bounds.y - expand, bounds.w + expand * 2.0f, bounds.h + expand * 2.0f);
+    Renderer::RequestRepaint(duration);
+}
+
+void Widget::MarkDirty(const RectStyle& fromStyle, const RectStyle& toStyle, float expand, float duration) {
+    float absX = 0.0f;
+    float absY = 0.0f;
+    GetAbsoluteBounds(absX, absY);
+
+    RectBounds fromBounds = Renderer::MeasureRectBounds(absX, absY, width, height, fromStyle);
+    RectBounds toBounds = Renderer::MeasureRectBounds(absX, absY, width, height, toStyle);
+
+    float x1 = std::min(fromBounds.x, toBounds.x) - expand;
+    float y1 = std::min(fromBounds.y, toBounds.y) - expand;
+    float x2 = std::max(fromBounds.x + fromBounds.w, toBounds.x + toBounds.w) + expand;
+    float y2 = std::max(fromBounds.y + fromBounds.h, toBounds.y + toBounds.h) + expand;
+
+    Renderer::AddDirtyRect(x1, y1, x2 - x1, y2 - y1);
+    Renderer::RequestRepaint(duration);
 }
 
 void Widget::MarkDirty(float expand, float duration) {
