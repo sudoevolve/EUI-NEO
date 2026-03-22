@@ -16,6 +16,7 @@ public:
         Builder(UIContext& context, SliderNode& node) : UIBuilderBase<SliderNode, Builder>(context, node) {}
 
         Builder& value(float nextValue) {
+            this->node_.trackComposeValue("value", nextValue);
             this->node_.value_ = nextValue;
             return *this;
         }
@@ -36,6 +37,29 @@ public:
 
     const char* typeName() const override {
         return StaticTypeName();
+    }
+
+    RectFrame paintBounds() const override {
+        const RectFrame frame = PrimitiveFrame(primitive_);
+        const float handleRadius = 8.0f;
+        RectFrame bounds{
+            frame.x - handleRadius,
+            frame.y,
+            frame.width + handleRadius * 2.0f,
+            frame.height
+        };
+
+        if (primitive_.hasClipRect) {
+            const float x1 = std::max(bounds.x, primitive_.clipRect.x);
+            const float y1 = std::max(bounds.y, primitive_.clipRect.y);
+            const float x2 = std::min(bounds.x + bounds.width, primitive_.clipRect.x + primitive_.clipRect.width);
+            const float y2 = std::min(bounds.y + bounds.height, primitive_.clipRect.y + primitive_.clipRect.height);
+            bounds.x = x1;
+            bounds.y = y1;
+            bounds.width = std::max(0.0f, x2 - x1);
+            bounds.height = std::max(0.0f, y2 - y1);
+        }
+        return bounds;
     }
 
     void update() override {
@@ -126,7 +150,8 @@ protected:
 
 private:
     void requestRepaint(float expand = 12.0f, float duration = 0.0f) {
-        RequestPrimitiveRepaint(primitive_, MakeStyle(primitive_), expand, duration);
+        (void)expand;
+        requestVisualRepaint(duration);
     }
 
     float value_ = 0.0f;

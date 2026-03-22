@@ -264,6 +264,13 @@ extern Theme LightTheme;
 extern Theme DarkTheme;
 extern Theme* CurrentTheme;
 
+enum class RenderLayer {
+    Backdrop = 0,
+    Chrome = 1,
+    Content = 2,
+    Count
+};
+
 struct UIState {
     float mouseX = 0.0f;
     float mouseY = 0.0f;
@@ -291,6 +298,16 @@ public:
     static void Init();
     static void Shutdown();
     static void BeginFrame();
+    static bool MakeCurrentScissorRect(const RectFrame& bounds, GLint& outX, GLint& outY, GLint& outW, GLint& outH);
+    static void SetLayerBounds(RenderLayer layer, const RectFrame& bounds);
+    static bool NeedsLayerRedraw(RenderLayer layer);
+    static void BeginLayer(RenderLayer layer);
+    static void EndLayer();
+    static void CompositeLayers(const Color& background);
+    static void DrawCachedSurface(const std::string& key, const RectFrame& bounds, bool dirty,
+                                  const std::function<void()>& painter);
+    static void ReleaseCachedSurface(const std::string& key);
+    static void InvalidateLayer(RenderLayer layer);
     static void InvalidateAll();
     static void InvalidateBackdrop();
     static void CaptureBackdrop();

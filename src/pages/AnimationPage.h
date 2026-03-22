@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../EUINEO.h"
 #include "../ui/UIContext.h"
 #include <algorithm>
 #include <array>
@@ -8,148 +9,173 @@
 
 namespace EUINEO {
 
-class AnimationPage {
+class AnimationCardNode : public UINode {
 public:
-    AnimationPage() {
-        for (int index = 0; index < static_cast<int>(cards_.size()); ++index) {
-            cards_[index].hoverAnimation.Bind(&cards_[index].hoverAmount);
-            cards_[index].burstAnimation.Bind(&cards_[index].burstAmount);
+    class Builder : public UIBuilderBase<AnimationCardNode, Builder> {
+    public:
+        Builder(UIContext& context, AnimationCardNode& node)
+            : UIBuilderBase<AnimationCardNode, Builder>(context, node) {}
+
+        Builder& specIndex(int value) {
+            this->node_.trackComposeValue("specIndex", value);
+            this->node_.specIndex_ = value;
+            return *this;
+        }
+    };
+
+    explicit AnimationCardNode(const std::string& key) : UINode(key) {
+        hoverAnimation_.Bind(&hoverAmount_);
+        burstAnimation_.Bind(&burstAmount_);
+        resetDefaults();
+    }
+
+    static constexpr const char* StaticTypeName() {
+        return "AnimationCardNode";
+    }
+
+    const char* typeName() const override {
+        return StaticTypeName();
+    }
+
+    void setSpecIndex(int value) {
+        specIndex_ = value;
+    }
+
+    RectFrame paintBounds() const override {
+        RectFrame frame = PrimitiveFrame(primitive_);
+        frame.x -= 12.0f;
+        frame.y -= 14.0f;
+        frame.width += 24.0f;
+        frame.height += 24.0f;
+
+        if (primitive_.hasClipRect) {
+            const float x1 = std::max(frame.x, primitive_.clipRect.x);
+            const float y1 = std::max(frame.y, primitive_.clipRect.y);
+            const float x2 = std::min(frame.x + frame.width, primitive_.clipRect.x + primitive_.clipRect.width);
+            const float y2 = std::min(frame.y + frame.height, primitive_.clipRect.y + primitive_.clipRect.height);
+            frame.x = x1;
+            frame.y = y1;
+            frame.width = std::max(0.0f, x2 - x1);
+            frame.height = std::max(0.0f, y2 - y1);
+        }
+        return frame;
+    }
+
+    void update() override {
+        const RectFrame frame = PrimitiveFrame(primitive_);
+        const bool hovered = primitive_.enabled &&
+                             State.mouseX >= frame.x && State.mouseX <= frame.x + frame.width &&
+                             State.mouseY >= frame.y && State.mouseY <= frame.y + frame.height;
+        bool needsRepaint = false;
+
+        if (hovered != hovered_) {
+            hovered_ = hovered;
+            hoverAnimation_.PlayTo(hovered ? 1.0f : 0.0f, 0.18f, hovered ? Easing::EaseOut : Easing::EaseInOut);
+            needsRepaint = true;
+        }
+
+        if (hovered && State.mouseClicked) {
+            burstAnimation_.PlayTo(1.0f, 0.10f, Easing::EaseOut);
+            burstAnimation_.Queue(0.0f, 0.18f, Easing::EaseInOut);
+            needsRepaint = true;
+        }
+
+        if (hoverAnimation_.Update(State.deltaTime)) {
+            needsRepaint = true;
+        }
+        if (burstAnimation_.Update(State.deltaTime)) {
+            needsRepaint = true;
+        }
+
+        if (needsRepaint) {
+            requestVisualRepaint();
         }
     }
 
-    void Update(const RectFrame& bounds) {
-        bounds_ = bounds;
-        if (bounds_.width <= 0.0f || bounds_.height <= 0.0f) {
-            return;
-        }
-
-        const Layout layout = MakeLayout();
-        bool needsAnimatedRepaint = false;
-
-        for (int index = 0; index < static_cast<int>(cards_.size()); ++index) {
-            CardRuntime& card = cards_[index];
-            const RectFrame frame = CardFrame(layout, index);
-            const bool hovered = State.mouseX >= frame.x && State.mouseX <= frame.x + frame.width &&
-                                 State.mouseY >= frame.y && State.mouseY <= frame.y + frame.height;
-
-            if (hovered != card.hovered) {
-                card.hovered = hovered;
-                card.hoverAnimation.PlayTo(hovered ? 1.0f : 0.0f, 0.18f, hovered ? Easing::EaseOut : Easing::EaseInOut);
-                Renderer::RequestRepaint(0.18f);
-            }
-
-            if (hovered && State.mouseClicked) {
-                card.burstAnimation.PlayTo(1.0f, 0.10f, Easing::EaseOut);
-                card.burstAnimation.Queue(0.0f, 0.18f, Easing::EaseInOut);
-                Renderer::RequestRepaint(0.20f);
-            }
-
-            if (card.hoverAnimation.Update(State.deltaTime)) {
-                needsAnimatedRepaint = true;
-            }
-            if (card.burstAnimation.Update(State.deltaTime)) {
-                needsAnimatedRepaint = true;
-            }
-        }
-
-        if (needsAnimatedRepaint) {
-            Renderer::RequestRepaint(0.18f);
-        }
-    }
-
-    void Compose(UIContext& ui, const std::string& idPrefix) const {
-        if (bounds_.width <= 0.0f || bounds_.height <= 0.0f) {
-            return;
-        }
-
-        const Layout layout = MakeLayout();
-        const auto& specs = CardSpecs();
+    void draw() override {
+        PrimitiveClipScope clip(primitive_);
+        const RectFrame panelFrame = PrimitiveFrame(primitive_);
+        const CardSpec& spec = CardSpecs()[std::clamp(specIndex_, 0, static_cast<int>(CardSpecs().size()) - 1)];
         const bool dark = CurrentTheme == &DarkTheme;
+        const float hover = std::clamp(hoverAmount_, 0.0f, 1.0f);
+        const float burst = std::clamp(burstAmount_, 0.0f, 1.0f);
+        const float panelLift = hover * -4.0f + burst * -3.0f;
+        const RectFrame sampleFrame = SampleFrame(panelFrame);
+        const float sampleLift = specIndex_ == 3 ? hover * -6.0f + burst * -4.0f : 0.0f;
 
-        ui.label(idPrefix + ".title")
-            .text("Animation Page")
-            .position(bounds_.x, bounds_.y + 24.0f)
-            .fontSize(31.0f)
-            .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.98f))
-            .build();
+        Renderer::DrawRect(
+            panelFrame.x,
+            panelFrame.y + panelLift,
+            panelFrame.width,
+            panelFrame.height,
+            CurrentTheme->surface,
+            16.0f
+        );
 
-        ui.label(idPrefix + ".subtitle")
-            .text("Hover cards to preview rect property tracks. Click for a queued burst.")
-            .position(bounds_.x, bounds_.y + 54.0f)
-            .fontSize(17.0f)
-            .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.72f))
-            .build();
+        Renderer::DrawTextStr(
+            spec.title,
+            panelFrame.x + 24.0f,
+            panelFrame.y + 40.0f + panelLift,
+            Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.96f),
+            23.0f / 24.0f
+        );
 
-        for (int index = 0; index < static_cast<int>(cards_.size()); ++index) {
-            const CardRuntime& card = cards_[index];
-            const float hover = std::clamp(card.hoverAmount, 0.0f, 1.0f);
-            const float burst = std::clamp(card.burstAmount, 0.0f, 1.0f);
-            const RectFrame panelFrame = CardFrame(layout, index);
-            const RectFrame sampleFrame = SampleFrame(panelFrame);
-            const float panelLift = hover * -4.0f + burst * -3.0f;
-            const float sampleLift = (index == 3 ? hover * -6.0f + burst * -4.0f : 0.0f);
+        Renderer::DrawTextStr(
+            spec.detailLine1,
+            panelFrame.x + 24.0f,
+            panelFrame.y + 72.0f + panelLift,
+            Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.66f),
+            15.0f / 24.0f
+        );
 
-            ui.panel(idPrefix + ".card" + std::to_string(index) + ".panel")
-                .position(panelFrame.x, panelFrame.y)
-                .size(panelFrame.width, panelFrame.height)
-                .background(CurrentTheme->surface.r, CurrentTheme->surface.g, CurrentTheme->surface.b, 0.98f)
-                .rounding(16.0f)
-                .translateY(panelLift)
-                .build();
+        Renderer::DrawTextStr(
+            spec.detailLine2,
+            panelFrame.x + 24.0f,
+            panelFrame.y + 90.0f + panelLift,
+            Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.66f),
+            15.0f / 24.0f
+        );
 
-            ui.label(idPrefix + ".card" + std::to_string(index) + ".title")
-                .text(specs[index].title)
-                .position(panelFrame.x + 24.0f, panelFrame.y + 40.0f + panelLift)
-                .fontSize(23.0f)
-                .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.96f))
-                .build();
+        const float badgeScale = 14.0f / 24.0f;
+        const float badgeTextWidth = Renderer::MeasureTextWidth(spec.badge, badgeScale);
+        const float badgeX = panelFrame.x + 24.0f;
+        const float badgeY = panelFrame.y + panelFrame.height - 38.0f + panelLift;
 
-            ui.label(idPrefix + ".card" + std::to_string(index) + ".detail1")
-                .text(specs[index].detailLine1)
-                .position(panelFrame.x + 24.0f, panelFrame.y + 72.0f + panelLift)
-                .fontSize(15.0f)
-                .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.66f))
-                .build();
+        Renderer::DrawRect(
+            badgeX,
+            badgeY,
+            badgeTextWidth + 24.0f,
+            24.0f,
+            CurrentTheme->surfaceHover,
+            10.0f
+        );
 
-            ui.label(idPrefix + ".card" + std::to_string(index) + ".detail2")
-                .text(specs[index].detailLine2)
-                .position(panelFrame.x + 24.0f, panelFrame.y + 90.0f + panelLift)
-                .fontSize(15.0f)
-                .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.66f))
-                .build();
+        Renderer::DrawTextStr(
+            spec.badge,
+            badgeX + 12.0f,
+            badgeY + 16.5f,
+            Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.82f),
+            badgeScale
+        );
 
-            const float badgeScale = 14.0f / 24.0f;
-            const float badgeTextWidth = Renderer::MeasureTextWidth(specs[index].badge, badgeScale);
-            const float badgeX = panelFrame.x + 24.0f;
-            const float badgeY = panelFrame.y + panelFrame.height - 38.0f + panelLift;
+        const SampleVisual sample = MakeSampleVisual(specIndex_, hover, burst, dark);
+        RectStyle sampleStyle;
+        sampleStyle.color = sample.color;
+        sampleStyle.gradient = sample.gradient;
+        sampleStyle.rounding = 12.0f;
+        sampleStyle.transform.translateY = panelLift + sampleLift;
+        sampleStyle.transform.scaleX = sample.scaleX;
+        sampleStyle.transform.scaleY = sample.scaleY;
+        sampleStyle.transform.rotationDegrees = sample.rotation;
+        Renderer::DrawRect(sampleFrame.x, sampleFrame.y, sampleFrame.width, sampleFrame.height, sampleStyle);
+    }
 
-            ui.panel(idPrefix + ".card" + std::to_string(index) + ".badgePanel")
-                .position(badgeX, badgeY)
-                .size(badgeTextWidth + 24.0f, 24.0f)
-                .background(CurrentTheme->surfaceHover)
-                .rounding(10.0f)
-                .build();
-
-            ui.label(idPrefix + ".card" + std::to_string(index) + ".badgeText")
-                .text(specs[index].badge)
-                .position(badgeX + 12.0f, badgeY + 16.5f)
-                .fontSize(14.0f)
-                .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.82f))
-                .build();
-
-            const SampleVisual sample = MakeSampleVisual(index, hover, burst, dark);
-            ui.panel(idPrefix + ".card" + std::to_string(index) + ".sample")
-                .position(sampleFrame.x, sampleFrame.y)
-                .size(sampleFrame.width, sampleFrame.height)
-                .background(sample.color)
-                .gradient(sample.gradient)
-                .rounding(12.0f)
-                .scaleX(sample.scaleX)
-                .scaleY(sample.scaleY)
-                .translateY(panelLift + sampleLift)
-                .rotation(sample.rotation)
-                .build();
-        }
+protected:
+    void resetDefaults() override {
+        primitive_ = UIPrimitive{};
+        primitive_.width = 240.0f;
+        primitive_.height = 180.0f;
+        specIndex_ = 0;
     }
 
 private:
@@ -158,22 +184,6 @@ private:
         const char* detailLine1;
         const char* detailLine2;
         const char* badge;
-    };
-
-    struct CardRuntime {
-        bool hovered = false;
-        float hoverAmount = 0.0f;
-        float burstAmount = 0.0f;
-        FloatAnimation hoverAnimation;
-        FloatAnimation burstAnimation;
-    };
-
-    struct Layout {
-        float gap = 18.0f;
-        float topOffset = 98.0f;
-        int columns = 1;
-        float cardWidth = 0.0f;
-        float cardHeight = 0.0f;
     };
 
     struct SampleVisual {
@@ -192,29 +202,6 @@ private:
             {"Queue + Combo", "Blend move, rotate, scale", "and gradient in queue.", "PlayTo + Queue"},
         }};
         return specs;
-    }
-
-    Layout MakeLayout() const {
-        Layout layout;
-        layout.columns = bounds_.width >= 520.0f ? 2 : 1;
-        layout.cardWidth = layout.columns == 2 ? (bounds_.width - layout.gap) * 0.5f : bounds_.width;
-
-        const float availableHeight = std::max(240.0f, bounds_.height - layout.topOffset - layout.gap);
-        layout.cardHeight = layout.columns == 2
-            ? std::clamp((availableHeight - layout.gap) * 0.5f, 170.0f, 210.0f)
-            : std::clamp((availableHeight - layout.gap * 3.0f) * 0.25f, 116.0f, 152.0f);
-        return layout;
-    }
-
-    RectFrame CardFrame(const Layout& layout, int index) const {
-        RectFrame frame;
-        const int col = index % layout.columns;
-        const int row = index / layout.columns;
-        frame.x = bounds_.x + col * (layout.cardWidth + layout.gap);
-        frame.y = bounds_.y + layout.topOffset + row * (layout.cardHeight + layout.gap);
-        frame.width = layout.cardWidth;
-        frame.height = layout.cardHeight;
-        return frame;
     }
 
     static RectFrame SampleFrame(const RectFrame& panelFrame) {
@@ -257,8 +244,78 @@ private:
         return visual;
     }
 
-    RectFrame bounds_;
-    std::array<CardRuntime, 4> cards_{};
+    int specIndex_ = 0;
+    bool hovered_ = false;
+    float hoverAmount_ = 0.0f;
+    float burstAmount_ = 0.0f;
+    FloatAnimation hoverAnimation_;
+    FloatAnimation burstAnimation_;
+};
+
+class AnimationPage {
+public:
+    struct Layout {
+        float gap = 18.0f;
+        float topOffset = 98.0f;
+        int columns = 1;
+        float cardWidth = 0.0f;
+        float cardHeight = 0.0f;
+    };
+
+    static void Compose(UIContext& ui, const std::string& idPrefix, const RectFrame& bounds) {
+        if (bounds.width <= 0.0f || bounds.height <= 0.0f) {
+            return;
+        }
+
+        const Layout layout = MakeLayout(bounds);
+
+        ui.label(idPrefix + ".title")
+            .text("Animation Page")
+            .position(bounds.x, bounds.y + 24.0f)
+            .fontSize(31.0f)
+            .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.98f))
+            .build();
+
+        ui.label(idPrefix + ".subtitle")
+            .text("Hover cards to preview rect property tracks. Click for a queued burst.")
+            .position(bounds.x, bounds.y + 54.0f)
+            .fontSize(17.0f)
+            .color(Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.72f))
+            .build();
+
+        for (int index = 0; index < 4; ++index) {
+            const RectFrame frame = CardFrame(bounds, layout, index);
+            ui.node<AnimationCardNode>(idPrefix + ".card" + std::to_string(index))
+                .position(frame.x, frame.y)
+                .size(frame.width, frame.height)
+                .call(&AnimationCardNode::setSpecIndex, index)
+                .build();
+        }
+    }
+
+private:
+    static Layout MakeLayout(const RectFrame& bounds) {
+        Layout layout;
+        layout.columns = bounds.width >= 520.0f ? 2 : 1;
+        layout.cardWidth = layout.columns == 2 ? (bounds.width - layout.gap) * 0.5f : bounds.width;
+
+        const float availableHeight = std::max(240.0f, bounds.height - layout.topOffset - layout.gap);
+        layout.cardHeight = layout.columns == 2
+            ? std::clamp((availableHeight - layout.gap) * 0.5f, 170.0f, 210.0f)
+            : std::clamp((availableHeight - layout.gap * 3.0f) * 0.25f, 116.0f, 152.0f);
+        return layout;
+    }
+
+    static RectFrame CardFrame(const RectFrame& bounds, const Layout& layout, int index) {
+        RectFrame frame;
+        const int col = index % layout.columns;
+        const int row = index / layout.columns;
+        frame.x = bounds.x + col * (layout.cardWidth + layout.gap);
+        frame.y = bounds.y + layout.topOffset + row * (layout.cardHeight + layout.gap);
+        frame.width = layout.cardWidth;
+        frame.height = layout.cardHeight;
+        return frame;
+    }
 };
 
 } // namespace EUINEO

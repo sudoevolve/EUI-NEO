@@ -43,6 +43,7 @@ struct UIPrimitive {
     float opacity = 1.0f;
     bool visible = true;
     bool enabled = true;
+    RenderLayer renderLayer = RenderLayer::Content;
     int zIndex = 0;
     bool hasClipRect = false;
     UIClipRect clipRect;

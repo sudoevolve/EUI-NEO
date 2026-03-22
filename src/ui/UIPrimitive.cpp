@@ -54,24 +54,13 @@ bool TryMakeScissorRect(const UIPrimitive& primitive, GLint& outX, GLint& outY, 
     if (!primitive.hasClipRect || primitive.clipRect.width <= 0.0f || primitive.clipRect.height <= 0.0f) {
         return false;
     }
-    if (State.screenW <= 0.0f || State.screenH <= 0.0f) {
-        return false;
-    }
-
-    const float x1 = std::clamp(primitive.clipRect.x, 0.0f, State.screenW);
-    const float y1 = std::clamp(primitive.clipRect.y, 0.0f, State.screenH);
-    const float x2 = std::clamp(primitive.clipRect.x + primitive.clipRect.width, x1, State.screenW);
-    const float y2 = std::clamp(primitive.clipRect.y + primitive.clipRect.height, y1, State.screenH);
-
-    if (x2 <= x1 || y2 <= y1) {
-        return false;
-    }
-
-    outX = static_cast<GLint>(std::floor(x1));
-    outY = static_cast<GLint>(std::floor(State.screenH - y2));
-    outW = std::max<GLint>(1, static_cast<GLint>(std::ceil(x2) - std::floor(x1)));
-    outH = std::max<GLint>(1, static_cast<GLint>(std::ceil(y2) - std::floor(y1)));
-    return true;
+    const RectFrame bounds{
+        primitive.clipRect.x,
+        primitive.clipRect.y,
+        primitive.clipRect.width,
+        primitive.clipRect.height
+    };
+    return Renderer::MakeCurrentScissorRect(bounds, outX, outY, outW, outH);
 }
 
 } // namespace
@@ -122,9 +111,9 @@ bool PrimitiveContains(const UIPrimitive& primitive, float x, float y) {
 }
 
 void RequestPrimitiveRepaint(const UIPrimitive& primitive, const RectStyle& style, float expand, float duration) {
-    (void)primitive;
     (void)style;
     (void)expand;
+    (void)primitive;
     Renderer::RequestRepaint(duration);
 }
 

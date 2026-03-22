@@ -14,6 +14,7 @@ public:
         Builder(UIContext& context, ProgressBarNode& node) : UIBuilderBase<ProgressBarNode, Builder>(context, node) {}
 
         Builder& value(float nextValue) {
+            this->node_.trackComposeValue("value", nextValue);
             this->node_.value_ = nextValue;
             return *this;
         }
@@ -78,7 +79,8 @@ protected:
 
 private:
     void requestRepaint(float expand = 2.0f, float duration = 0.0f) {
-        RequestPrimitiveRepaint(primitive_, MakeStyle(primitive_), expand, duration);
+        (void)expand;
+        requestVisualRepaint(duration);
     }
 
     float value_ = 0.0f;

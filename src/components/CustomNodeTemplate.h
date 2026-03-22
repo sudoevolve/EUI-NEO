@@ -119,7 +119,8 @@ protected:
 
 private:
     void requestRepaint(float expand = 12.0f, float duration = 0.0f) {
-        RequestPrimitiveRepaint(primitive_, MakeStyle(primitive_), expand, duration);
+        (void)expand;
+        requestVisualRepaint(duration);
     }
 
     std::string title_;

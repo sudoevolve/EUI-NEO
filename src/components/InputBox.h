@@ -18,16 +18,19 @@ public:
         Builder(UIContext& context, InputBoxNode& node) : UIBuilderBase<InputBoxNode, Builder>(context, node) {}
 
         Builder& placeholder(std::string value) {
+            this->node_.trackComposeValue("placeholder", value);
             this->node_.placeholder_ = std::move(value);
             return *this;
         }
 
         Builder& text(std::string value) {
+            this->node_.trackComposeValue("text", value);
             this->node_.text_ = std::move(value);
             return *this;
         }
 
         Builder& fontSize(float value) {
+            this->node_.trackComposeValue("fontSize", value);
             this->node_.fontSize_ = value;
             return *this;
         }
@@ -53,6 +56,10 @@ public:
 
     const char* typeName() const override {
         return StaticTypeName();
+    }
+
+    bool wantsContinuousUpdate() const override {
+        return isFocused_;
     }
 
     void update() override {
@@ -202,7 +209,8 @@ protected:
 
 private:
     void requestRepaint(float expand = 4.0f, float duration = 0.0f) {
-        RequestPrimitiveRepaint(primitive_, MakeStyle(primitive_), expand, duration);
+        (void)expand;
+        requestVisualRepaint(duration);
     }
 
     std::string placeholder_;

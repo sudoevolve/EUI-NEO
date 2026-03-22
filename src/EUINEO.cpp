@@ -242,6 +242,42 @@ static int BgTextureW = 0;
 static int BgTextureH = 0;
 static bool BackdropCapturePending = true;
 
+struct LayerCache {
+    GLuint texture = 0;
+    GLuint framebuffer = 0;
+    int width = 0;
+    int height = 0;
+    bool dirty = true;
+    bool ready = false;
+    RectFrame bounds;
+};
+
+struct CachedSurface {
+    GLuint texture = 0;
+    GLuint framebuffer = 0;
+    int width = 0;
+    int height = 0;
+    RectFrame bounds;
+    bool ready = false;
+};
+
+static LayerCache LayerCaches[static_cast<int>(RenderLayer::Count)];
+static std::unordered_map<std::string, CachedSurface> CachedSurfaces;
+static GLuint CompositeProgram = 0;
+static GLuint CompositeVAO = 0;
+static GLuint CompositeVBO = 0;
+static GLint CompositeProjLoc = -1;
+static GLint CompositePosLoc = -1;
+static GLint CompositeSizeLoc = -1;
+static GLint CompositeTextureLoc = -1;
+static GLint CompositeUVPosLoc = -1;
+static GLint CompositeUVSizeLoc = -1;
+static int ActiveLayerIndex = -1;
+static bool ActiveCustomSurface = false;
+static RectFrame ActiveCustomSurfaceBounds;
+static int ActiveCustomSurfaceWidth = 0;
+static int ActiveCustomSurfaceHeight = 0;
+
 static const char* vShaderStr = R"(
 #version 330 core
 layout(location = 0) in vec2 aPos;
@@ -327,7 +363,7 @@ void main() {
         vec2 pixelStep = 1.0 / iResolution.xy;
         float blurRadiusPx = bluramount * min(iResolution.x, iResolution.y);
         vec3 blurredImage = draw(uv);
-        const float repeats = 60.0;
+        float repeats = mix(10.0, 28.0, clamp(bluramount / 0.15, 0.0, 1.0));
         const float tau = 6.28318530718;
         for (float i = 0.0; i < repeats; i += 1.0) {
             float angle = (i / repeats) * tau;
@@ -414,6 +450,33 @@ void main() {
         discard;
     }
 
+    FragColor = texture(uTexture, vUV);
+}
+)";
+
+static const char* compositeVShaderStr = R"(
+#version 330 core
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aUV;
+out vec2 vUV;
+uniform mat4 projection;
+uniform vec2 uPos;
+uniform vec2 uSize;
+uniform vec2 uUVPos;
+uniform vec2 uUVSize;
+void main() {
+    vec2 pos = uPos + aPos * uSize;
+    vUV = uUVPos + aUV * uUVSize;
+    gl_Position = projection * vec4(pos, 0.0, 1.0);
+}
+)";
+
+static const char* compositeFShaderStr = R"(
+#version 330 core
+in vec2 vUV;
+uniform sampler2D uTexture;
+out vec4 FragColor;
+void main() {
     FragColor = texture(uTexture, vUV);
 }
 )";
@@ -572,6 +635,187 @@ static void EnsureBackdropTexture(int width, int height) {
     }
 }
 
+static int LayerIndex(RenderLayer layer) {
+    return static_cast<int>(layer);
+}
+
+static RenderLayer LayerFromIndex(int index) {
+    return static_cast<RenderLayer>(index);
+}
+
+static bool UsesTightLayerSurface(RenderLayer layer) {
+    return layer != RenderLayer::Backdrop;
+}
+
+static void MarkBackdropInputsDirty() {
+    ++BackdropVersion;
+    BlurCacheValid = false;
+    BackdropCapturePending = true;
+}
+
+static LayerCache& CacheFor(RenderLayer layer) {
+    return LayerCaches[LayerIndex(layer)];
+}
+
+static int TargetLayerWidth(RenderLayer layer, const RectFrame& bounds) {
+    if (UsesTightLayerSurface(layer)) {
+        return std::max(1, static_cast<int>(std::ceil(std::max(0.0f, bounds.width))));
+    }
+    return std::max(1, static_cast<int>(State.screenW));
+}
+
+static int TargetLayerHeight(RenderLayer layer, const RectFrame& bounds) {
+    if (UsesTightLayerSurface(layer)) {
+        return std::max(1, static_cast<int>(std::ceil(std::max(0.0f, bounds.height))));
+    }
+    return std::max(1, static_cast<int>(State.screenH));
+}
+
+static void EnsureLayerCacheStorage(RenderLayer layer, int width, int height) {
+    LayerCache& cache = CacheFor(layer);
+    width = std::max(width, 1);
+    height = std::max(height, 1);
+
+    if (cache.texture == 0) {
+        glGenTextures(1, &cache.texture);
+        glBindTexture(GL_TEXTURE_2D, cache.texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, cache.texture);
+    }
+
+    if (cache.width != width || cache.height != height) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        cache.width = width;
+        cache.height = height;
+        cache.dirty = true;
+        cache.ready = false;
+        if (layer == RenderLayer::Backdrop) {
+            MarkBackdropInputsDirty();
+        }
+    }
+
+    if (cache.framebuffer == 0) {
+        glGenFramebuffers(1, &cache.framebuffer);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, cache.framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, cache.texture, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+static void EnsureCachedSurfaceStorage(CachedSurface& cache, int width, int height) {
+    width = std::max(width, 1);
+    height = std::max(height, 1);
+
+    if (cache.texture == 0) {
+        glGenTextures(1, &cache.texture);
+        glBindTexture(GL_TEXTURE_2D, cache.texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, cache.texture);
+    }
+
+    if (cache.width != width || cache.height != height) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        cache.width = width;
+        cache.height = height;
+        cache.ready = false;
+    }
+
+    if (cache.framebuffer == 0) {
+        glGenFramebuffers(1, &cache.framebuffer);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, cache.framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, cache.texture, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+static void CompositeTexture(const GLuint texture, const RectFrame& bounds,
+                             float uvX, float uvY, float uvW, float uvH) {
+    if (texture == 0 || bounds.width <= 0.0f || bounds.height <= 0.0f) {
+        return;
+    }
+
+    const float L = 0.0f;
+    const float R = State.screenW;
+    const float B = State.screenH;
+    const float T = 0.0f;
+    const float proj[16] = {
+        2.0f / (R - L), 0, 0, 0,
+        0, 2.0f / (T - B), 0, 0,
+        0, 0, -1, 0,
+        -(R + L) / (R - L), -(T + B) / (T - B), 0, 1
+    };
+
+    glUseProgram(CompositeProgram);
+    glUniformMatrix4fv(CompositeProjLoc, 1, GL_FALSE, proj);
+    glUniform1i(CompositeTextureLoc, 0);
+    glUniform2f(CompositePosLoc, bounds.x, bounds.y);
+    glUniform2f(CompositeSizeLoc, bounds.width, bounds.height);
+    glUniform2f(CompositeUVPosLoc, uvX, uvY);
+    glUniform2f(CompositeUVSizeLoc, uvW, uvH);
+    glBindVertexArray(CompositeVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindVertexArray(0);
+}
+
+static bool MakeScreenScissorRect(const RectFrame& bounds, GLint& outX, GLint& outY, GLint& outW, GLint& outH) {
+    if (bounds.width <= 0.0f || bounds.height <= 0.0f) {
+        return false;
+    }
+
+    const float x1 = std::clamp(bounds.x, 0.0f, State.screenW);
+    const float y1 = std::clamp(bounds.y, 0.0f, State.screenH);
+    const float x2 = std::clamp(bounds.x + bounds.width, x1, State.screenW);
+    const float y2 = std::clamp(bounds.y + bounds.height, y1, State.screenH);
+    if (x2 <= x1 || y2 <= y1) {
+        return false;
+    }
+
+    outX = static_cast<GLint>(std::floor(x1));
+    outY = static_cast<GLint>(std::floor(State.screenH - y2));
+    outW = std::max<GLint>(1, static_cast<GLint>(std::ceil(x2) - std::floor(x1)));
+    outH = std::max<GLint>(1, static_cast<GLint>(std::ceil(y2) - std::floor(y1)));
+    return true;
+}
+
+static bool MakeLocalScissorRect(const RectFrame& surfaceBounds, int surfaceHeight,
+                                 const RectFrame& bounds, GLint& outX, GLint& outY,
+                                 GLint& outW, GLint& outH) {
+    if (bounds.width <= 0.0f || bounds.height <= 0.0f ||
+        surfaceBounds.width <= 0.0f || surfaceBounds.height <= 0.0f ||
+        surfaceHeight <= 0) {
+        return false;
+    }
+
+    const float x1 = std::clamp(bounds.x - surfaceBounds.x, 0.0f, surfaceBounds.width);
+    const float y1 = std::clamp(bounds.y - surfaceBounds.y, 0.0f, surfaceBounds.height);
+    const float x2 = std::clamp(bounds.x + bounds.width - surfaceBounds.x, x1, surfaceBounds.width);
+    const float y2 = std::clamp(bounds.y + bounds.height - surfaceBounds.y, y1, surfaceBounds.height);
+    if (x2 <= x1 || y2 <= y1) {
+        return false;
+    }
+
+    outX = static_cast<GLint>(std::floor(x1));
+    outY = static_cast<GLint>(std::floor(static_cast<float>(surfaceHeight) - y2));
+    outW = std::max<GLint>(1, static_cast<GLint>(std::ceil(x2) - std::floor(x1)));
+    outH = std::max<GLint>(1, static_cast<GLint>(std::ceil(y2) - std::floor(y1)));
+    return true;
+}
+
 static bool CachedBlurMatches(float quadX, float quadY, float quadW, float quadH, const RectStyle& style) {
     return BlurCacheValid &&
         CachedBackdropVersion == BackdropVersion &&
@@ -603,12 +847,32 @@ struct Character {
     unsigned int Advance;
 };
 
+struct TextWidthCacheKey {
+    std::string text;
+    int scaleKey = 0;
+
+    bool operator==(const TextWidthCacheKey& other) const {
+        return scaleKey == other.scaleKey && text == other.text;
+    }
+};
+
+struct TextWidthCacheKeyHash {
+    std::size_t operator()(const TextWidthCacheKey& key) const {
+        return std::hash<std::string>{}(key.text) ^ (static_cast<std::size_t>(key.scaleKey) << 1);
+    }
+};
+
 static std::unordered_map<unsigned int, Character> Characters;
+static std::unordered_map<TextWidthCacheKey, float, TextWidthCacheKeyHash> TextWidthCache;
 static GLuint TextVAO = 0;
 static GLuint TextVBO = 0;
 static GLuint TextShaderProgram = 0;
 static GLint TextProjLoc = -1;
 static GLint TextColorLoc = -1;
+
+static int MakeTextScaleKey(float scale) {
+    return static_cast<int>(std::lround(scale * 1024.0f));
+}
 
 static const char* textVShaderStr = R"(
 #version 330 core
@@ -643,6 +907,7 @@ void Renderer::Init() {
     glDeleteShader(vs);
     glDeleteShader(fs);
     CachedBlurProgram = CreateProgram(cachedBlurVShaderStr, cachedBlurFShaderStr);
+    CompositeProgram = CreateProgram(compositeVShaderStr, compositeFShaderStr);
 
     ProjLoc = glGetUniformLocation(ShaderProgram, "projection");
     ColorLoc = glGetUniformLocation(ShaderProgram, "uColor");
@@ -679,6 +944,12 @@ void Renderer::Init() {
     CachedBlurShadowBlurLoc = glGetUniformLocation(CachedBlurProgram, "uShadowBlur");
     CachedBlurShadowOffsetLoc = glGetUniformLocation(CachedBlurProgram, "uShadowOffset");
     CachedBlurShadowAlphaLoc = glGetUniformLocation(CachedBlurProgram, "uShadowAlpha");
+    CompositeProjLoc = glGetUniformLocation(CompositeProgram, "projection");
+    CompositePosLoc = glGetUniformLocation(CompositeProgram, "uPos");
+    CompositeSizeLoc = glGetUniformLocation(CompositeProgram, "uSize");
+    CompositeTextureLoc = glGetUniformLocation(CompositeProgram, "uTexture");
+    CompositeUVPosLoc = glGetUniformLocation(CompositeProgram, "uUVPos");
+    CompositeUVSizeLoc = glGetUniformLocation(CompositeProgram, "uUVSize");
 
     glGenTextures(1, &BgTexture);
     glBindTexture(GL_TEXTURE_2D, BgTexture);
@@ -723,13 +994,46 @@ void Renderer::Init() {
     glEnableVertexAttribArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    const float compositeVertices[] = {
+        0.0f, 0.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f, 0.0f,
+    };
+    glGenVertexArrays(1, &CompositeVAO);
+    glGenBuffers(1, &CompositeVBO);
+    glBindVertexArray(CompositeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, CompositeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(compositeVertices), compositeVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 }
 
 void Renderer::Shutdown() {
+    for (LayerCache& cache : LayerCaches) {
+        if (cache.framebuffer) glDeleteFramebuffers(1, &cache.framebuffer);
+        if (cache.texture) glDeleteTextures(1, &cache.texture);
+    }
+    for (auto& entry : CachedSurfaces) {
+        if (entry.second.framebuffer) glDeleteFramebuffers(1, &entry.second.framebuffer);
+        if (entry.second.texture) glDeleteTextures(1, &entry.second.texture);
+    }
+    CachedSurfaces.clear();
+
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(ShaderProgram);
     glDeleteProgram(CachedBlurProgram);
+    glDeleteProgram(CompositeProgram);
+    glDeleteVertexArrays(1, &CompositeVAO);
+    glDeleteBuffers(1, &CompositeVBO);
     glDeleteTextures(1, &BgTexture);
     if (CachedBlurTexture) glDeleteTextures(1, &CachedBlurTexture);
 
@@ -740,11 +1044,203 @@ void Renderer::Shutdown() {
 
 static GLuint CurrentActiveProgram = 0;
 
+bool Renderer::MakeCurrentScissorRect(const RectFrame& bounds, GLint& outX, GLint& outY, GLint& outW, GLint& outH) {
+    if (ActiveCustomSurface) {
+        return MakeLocalScissorRect(ActiveCustomSurfaceBounds, ActiveCustomSurfaceHeight, bounds,
+                                    outX, outY, outW, outH);
+    }
+    if (ActiveLayerIndex >= 0) {
+        const RenderLayer layer = LayerFromIndex(ActiveLayerIndex);
+        const LayerCache& cache = LayerCaches[ActiveLayerIndex];
+        if (UsesTightLayerSurface(layer)) {
+            return MakeLocalScissorRect(cache.bounds, cache.height, bounds, outX, outY, outW, outH);
+        }
+    }
+    return MakeScreenScissorRect(bounds, outX, outY, outW, outH);
+}
+
+void Renderer::SetLayerBounds(RenderLayer layer, const RectFrame& bounds) {
+    LayerCache& cache = CacheFor(layer);
+    if (!FloatEq(cache.bounds.x, bounds.x) ||
+        !FloatEq(cache.bounds.y, bounds.y) ||
+        !FloatEq(cache.bounds.width, bounds.width) ||
+        !FloatEq(cache.bounds.height, bounds.height)) {
+        cache.bounds = bounds;
+        cache.dirty = true;
+        if (layer == RenderLayer::Backdrop) {
+            MarkBackdropInputsDirty();
+        }
+        State.needsRepaint = true;
+    }
+}
+
+bool Renderer::NeedsLayerRedraw(RenderLayer layer) {
+    const LayerCache& cache = CacheFor(layer);
+    const int targetW = TargetLayerWidth(layer, cache.bounds);
+    const int targetH = TargetLayerHeight(layer, cache.bounds);
+    return cache.dirty || !cache.ready || cache.width != targetW || cache.height != targetH;
+}
+
+void Renderer::BeginLayer(RenderLayer layer) {
+    LayerCache& cache = CacheFor(layer);
+    const int targetW = TargetLayerWidth(layer, cache.bounds);
+    const int targetH = TargetLayerHeight(layer, cache.bounds);
+    EnsureLayerCacheStorage(layer, targetW, targetH);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, cache.framebuffer);
+    glViewport(0, 0, targetW, targetH);
+    const Color clear = layer == RenderLayer::Backdrop
+        ? CurrentTheme->background
+        : Color(0.0f, 0.0f, 0.0f, 0.0f);
+    if (UsesTightLayerSurface(layer)) {
+        glDisable(GL_SCISSOR_TEST);
+        glClearColor(clear.r, clear.g, clear.b, clear.a);
+        glClear(GL_COLOR_BUFFER_BIT);
+    } else {
+        GLint scissorX = 0;
+        GLint scissorY = 0;
+        GLint scissorW = targetW;
+        GLint scissorH = targetH;
+        const bool hasScissor = MakeScreenScissorRect(cache.bounds, scissorX, scissorY, scissorW, scissorH);
+        if (hasScissor) {
+            glEnable(GL_SCISSOR_TEST);
+            glScissor(scissorX, scissorY, scissorW, scissorH);
+        } else {
+            glDisable(GL_SCISSOR_TEST);
+        }
+        glClearColor(clear.r, clear.g, clear.b, clear.a);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
+    }
+
+    CurrentActiveProgram = 0;
+    ActiveLayerIndex = LayerIndex(layer);
+}
+
+void Renderer::EndLayer() {
+    if (ActiveLayerIndex < 0) {
+        return;
+    }
+
+    LayerCache& cache = LayerCaches[ActiveLayerIndex];
+    cache.dirty = false;
+    cache.ready = true;
+    ActiveLayerIndex = -1;
+    CurrentActiveProgram = 0;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, std::max(1, (int)State.screenW), std::max(1, (int)State.screenH));
+}
+
+void Renderer::CompositeLayers(const Color& background) {
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, std::max(1, (int)State.screenW), std::max(1, (int)State.screenH));
+    glDisable(GL_SCISSOR_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glClearColor(background.r, background.g, background.b, background.a);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    const LayerCache& backdrop = CacheFor(RenderLayer::Backdrop);
+    if (backdrop.ready && backdrop.texture != 0 && backdrop.bounds.width > 0.0f && backdrop.bounds.height > 0.0f) {
+        const float uvX = backdrop.bounds.x / std::max(1.0f, State.screenW);
+        const float uvBottom = 1.0f - ((backdrop.bounds.y + backdrop.bounds.height) / std::max(1.0f, State.screenH));
+        const float uvW = backdrop.bounds.width / std::max(1.0f, State.screenW);
+        const float uvH = backdrop.bounds.height / std::max(1.0f, State.screenH);
+        CompositeTexture(backdrop.texture, backdrop.bounds, uvX, uvBottom, uvW, uvH);
+    }
+    CurrentActiveProgram = 0;
+}
+
+void Renderer::DrawCachedSurface(const std::string& key, const RectFrame& bounds, bool dirty,
+                                 const std::function<void()>& painter) {
+    if (bounds.width <= 0.0f || bounds.height <= 0.0f || !painter) {
+        return;
+    }
+
+    CachedSurface& cache = CachedSurfaces[key];
+    const int targetW = std::max(1, static_cast<int>(std::ceil(bounds.width)));
+    const int targetH = std::max(1, static_cast<int>(std::ceil(bounds.height)));
+    const bool boundsChanged =
+        !FloatEq(cache.bounds.x, bounds.x) ||
+        !FloatEq(cache.bounds.y, bounds.y) ||
+        !FloatEq(cache.bounds.width, bounds.width) ||
+        !FloatEq(cache.bounds.height, bounds.height);
+
+    EnsureCachedSurfaceStorage(cache, targetW, targetH);
+    if (dirty || !cache.ready || boundsChanged) {
+        cache.bounds = bounds;
+        glBindFramebuffer(GL_FRAMEBUFFER, cache.framebuffer);
+        glViewport(0, 0, targetW, targetH);
+        glDisable(GL_SCISSOR_TEST);
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        ActiveCustomSurface = true;
+        ActiveCustomSurfaceBounds = bounds;
+        ActiveCustomSurfaceWidth = targetW;
+        ActiveCustomSurfaceHeight = targetH;
+        CurrentActiveProgram = 0;
+        BeginFrame();
+        painter();
+        ActiveCustomSurface = false;
+        ActiveCustomSurfaceBounds = RectFrame{};
+        ActiveCustomSurfaceWidth = 0;
+        ActiveCustomSurfaceHeight = 0;
+
+        cache.ready = true;
+        CurrentActiveProgram = 0;
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, std::max(1, (int)State.screenW), std::max(1, (int)State.screenH));
+    }
+
+    CompositeTexture(cache.texture, cache.bounds, 0.0f, 0.0f, 1.0f, 1.0f);
+    CurrentActiveProgram = 0;
+}
+
+void Renderer::ReleaseCachedSurface(const std::string& key) {
+    auto it = CachedSurfaces.find(key);
+    if (it == CachedSurfaces.end()) {
+        return;
+    }
+    if (it->second.framebuffer) glDeleteFramebuffers(1, &it->second.framebuffer);
+    if (it->second.texture) glDeleteTextures(1, &it->second.texture);
+    CachedSurfaces.erase(it);
+}
+
+void Renderer::InvalidateLayer(RenderLayer layer) {
+    LayerCache& cache = CacheFor(layer);
+    cache.dirty = true;
+    if (layer == RenderLayer::Backdrop) {
+        MarkBackdropInputsDirty();
+    }
+    State.needsRepaint = true;
+}
+
 void Renderer::BeginFrame() {
     float L = 0.0f;
     float R = State.screenW;
     float B = State.screenH;
     float T = 0.0f;
+    if (ActiveCustomSurface) {
+        if (ActiveCustomSurfaceBounds.width > 0.0f && ActiveCustomSurfaceBounds.height > 0.0f) {
+            L = ActiveCustomSurfaceBounds.x;
+            R = ActiveCustomSurfaceBounds.x + ActiveCustomSurfaceBounds.width;
+            T = ActiveCustomSurfaceBounds.y;
+            B = ActiveCustomSurfaceBounds.y + ActiveCustomSurfaceBounds.height;
+        }
+    } else if (ActiveLayerIndex >= 0) {
+        const RenderLayer layer = LayerFromIndex(ActiveLayerIndex);
+        if (UsesTightLayerSurface(layer)) {
+            const RectFrame& bounds = LayerCaches[ActiveLayerIndex].bounds;
+            if (bounds.width > 0.0f && bounds.height > 0.0f) {
+                L = bounds.x;
+                R = bounds.x + bounds.width;
+                T = bounds.y;
+                B = bounds.y + bounds.height;
+            }
+        }
+    }
     float proj[16] = {
         2.0f / (R - L), 0, 0, 0,
         0, 2.0f / (T - B), 0, 0,
@@ -952,6 +1448,7 @@ bool Renderer::LoadFont(const std::string& fontPath, float fontSize, unsigned in
     }
 
     glBindTexture(GL_TEXTURE_2D, 0);
+    TextWidthCache.clear();
     return true;
 }
 
@@ -961,18 +1458,20 @@ void Renderer::DrawTextStr(const std::string& text, float x, float y, const Colo
         return;
     }
 
-    float textWidth = std::max(MeasureTextWidth(text, scale), 24.0f * scale);
-    float textHeight = 32.0f * scale;
-    const float boundsX = x;
-    const float boundsY = y - textHeight;
-    const float boundsW = textWidth;
-    const float boundsH = textHeight * 1.35f;
-
     float finalPivotX = pivotX;
     float finalPivotY = pivotY;
-    if (!useCustomPivot) {
-        finalPivotX = boundsX + boundsW * 0.5f;
-        finalPivotY = boundsY + boundsH * 0.5f;
+    const bool needsRotation = std::abs(rotationDegrees) > 0.001f;
+    if (needsRotation || useCustomPivot) {
+        if (!useCustomPivot) {
+            const float textWidth = std::max(MeasureTextWidth(text, scale), 24.0f * scale);
+            const float textHeight = 32.0f * scale;
+            const float boundsX = x;
+            const float boundsY = y - textHeight;
+            const float boundsW = textWidth;
+            const float boundsH = textHeight * 1.35f;
+            finalPivotX = boundsX + boundsW * 0.5f;
+            finalPivotY = boundsY + boundsH * 0.5f;
+        }
     }
 
     if (CurrentActiveProgram != TextShaderProgram) {
@@ -1018,7 +1517,7 @@ void Renderer::DrawTextStr(const std::string& text, float x, float y, const Colo
             { xpos + w, ypos + h,   1.0f, 1.0f }
         };
 
-        if (std::abs(rotationDegrees) > 0.001f) {
+        if (needsRotation) {
             const float radians = rotationDegrees * 0.017453292519943295f;
             const float c = std::cos(radians);
             const float s = std::sin(radians);
@@ -1042,6 +1541,16 @@ void Renderer::DrawTextStr(const std::string& text, float x, float y, const Colo
 }
 
 float Renderer::MeasureTextWidth(const std::string& text, float scale) {
+    if (text.empty()) {
+        return 0.0f;
+    }
+
+    const TextWidthCacheKey cacheKey{text, MakeTextScaleKey(scale)};
+    auto cacheIt = TextWidthCache.find(cacheKey);
+    if (cacheIt != TextWidthCache.end()) {
+        return cacheIt->second;
+    }
+
     float width = 0.0f;
     size_t i = 0;
     while (i < text.length()) {
@@ -1059,6 +1568,11 @@ float Renderer::MeasureTextWidth(const std::string& text, float scale) {
             width += 24.0f * 0.3f * scale;
         }
     }
+
+    if (TextWidthCache.size() > 4096) {
+        TextWidthCache.clear();
+    }
+    TextWidthCache.emplace(cacheKey, width);
     return width;
 }
 
@@ -1070,14 +1584,15 @@ void Renderer::RequestRepaint(float duration) {
 }
 
 void Renderer::InvalidateAll() {
+    for (LayerCache& cache : LayerCaches) {
+        cache.dirty = true;
+    }
+    MarkBackdropInputsDirty();
     State.needsRepaint = true;
 }
 
 void Renderer::InvalidateBackdrop() {
-    ++BackdropVersion;
-    BlurCacheValid = false;
-    BackdropCapturePending = true;
-    State.needsRepaint = true;
+    InvalidateLayer(RenderLayer::Backdrop);
 }
 
 void Renderer::CaptureBackdrop() {

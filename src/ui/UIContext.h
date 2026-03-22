@@ -23,6 +23,10 @@ public:
     void end();
     void update();
     void draw();
+    void draw(RenderLayer layer);
+    RectFrame layerBounds(RenderLayer layer) const;
+    bool wantsContinuousUpdate() const;
+    void markAllNodesDirty();
     void pushClip(float x, float y, float width, float height);
     void popClip();
 
@@ -80,12 +84,18 @@ private:
         primitive.clipRect = clipStack_.back();
     }
 
+    void refreshLayerBounds();
+
     std::string pageId_;
     std::uint64_t composeStamp_ = 0;
     std::unordered_map<std::string, std::unique_ptr<UINode>> nodes_;
     std::vector<UINode*> order_;
+    std::vector<UINode*> drawOrder_;
     std::vector<UIClipRect> clipStack_;
+    mutable std::vector<RectFrame> layerBounds_;
     bool treeChanged_ = false;
+    std::uint64_t drawOrderStamp_ = 0;
+    std::uint64_t layerBoundsStamp_ = 0;
 };
 
 } // namespace EUINEO

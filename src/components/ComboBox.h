@@ -18,21 +18,25 @@ public:
         Builder(UIContext& context, ComboBoxNode& node) : UIBuilderBase<ComboBoxNode, Builder>(context, node) {}
 
         Builder& items(std::vector<std::string> value) {
+            this->node_.trackComposeValue("items", value);
             this->node_.items_ = std::move(value);
             return *this;
         }
 
         Builder& placeholder(std::string value) {
+            this->node_.trackComposeValue("placeholder", value);
             this->node_.placeholder_ = std::move(value);
             return *this;
         }
 
         Builder& selected(int index) {
+            this->node_.trackComposeValue("selected", index);
             this->node_.selectedIndex_ = index;
             return *this;
         }
 
         Builder& fontSize(float value) {
+            this->node_.trackComposeValue("fontSize", value);
             this->node_.fontSize_ = value;
             return *this;
         }
@@ -53,6 +57,35 @@ public:
 
     const char* typeName() const override {
         return StaticTypeName();
+    }
+
+    RectFrame paintBounds() const override {
+        const RectFrame frame = PrimitiveFrame(primitive_);
+        RectFrame bounds = frame;
+        if (primitive_.hasClipRect) {
+            const float x1 = std::max(bounds.x, primitive_.clipRect.x);
+            const float y1 = std::max(bounds.y, primitive_.clipRect.y);
+            const float x2 = std::min(bounds.x + bounds.width, primitive_.clipRect.x + primitive_.clipRect.width);
+            const float y2 = std::min(bounds.y + bounds.height, primitive_.clipRect.y + primitive_.clipRect.height);
+            bounds.x = x1;
+            bounds.y = y1;
+            bounds.width = std::max(0.0f, x2 - x1);
+            bounds.height = std::max(0.0f, y2 - y1);
+        }
+
+        const float visibleOpen = std::clamp(openAnim_, 0.0f, 1.0f);
+        const float visibleListHeight = listVisibleHeight(frame.height, items_.size(), visibleOpen);
+        if (visibleListHeight > 1.0f) {
+            const float overlap = listOverlap(visibleListHeight);
+            bounds = RectFrame{
+                std::min(bounds.x, frame.x),
+                std::min(bounds.y, frame.y + frame.height - overlap),
+                std::max(bounds.x + bounds.width, frame.x + frame.width) - std::min(bounds.x, frame.x),
+                std::max(bounds.y + bounds.height, frame.y + frame.height + visibleListHeight) -
+                    std::min(bounds.y, frame.y + frame.height - overlap)
+            };
+        }
+        return bounds;
     }
 
     void update() override {
@@ -128,7 +161,6 @@ public:
     }
 
     void draw() override {
-        PrimitiveClipScope clip(primitive_);
         const RectFrame frame = PrimitiveFrame(primitive_);
         const float textScale = fontSize_ / 24.0f;
         const float textX = frame.x + 10.0f;
@@ -181,20 +213,23 @@ public:
             }
         }
 
-        Color baseColor = Lerp(CurrentTheme->surface, CurrentTheme->surfaceActive, openAnim_);
-        Color hoverColor = Lerp(CurrentTheme->surfaceHover, CurrentTheme->surfaceActive, openAnim_);
-        const Color background = ApplyOpacity(Lerp(baseColor, hoverColor, hoverAnim_), primitive_.opacity);
-        Renderer::DrawRect(frame.x, frame.y, frame.width, frame.height, background, 6.0f);
+        {
+            PrimitiveClipScope clip(primitive_);
+            Color baseColor = Lerp(CurrentTheme->surface, CurrentTheme->surfaceActive, openAnim_);
+            Color hoverColor = Lerp(CurrentTheme->surfaceHover, CurrentTheme->surfaceActive, openAnim_);
+            const Color background = ApplyOpacity(Lerp(baseColor, hoverColor, hoverAnim_), primitive_.opacity);
+            Renderer::DrawRect(frame.x, frame.y, frame.width, frame.height, background, 6.0f);
 
-        const std::string displayText =
-            (selectedIndex_ >= 0 && selectedIndex_ < static_cast<int>(items_.size())) ? items_[selectedIndex_] : placeholder_;
-        Color textColor = selectedIndex_ >= 0
-            ? CurrentTheme->text
-            : Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.5f);
-        Renderer::DrawTextStr(displayText, textX, textY, ApplyOpacity(textColor, primitive_.opacity), textScale);
-        Renderer::DrawTextStr(isOpen_ ? "\xEF\x84\x86" : "\xEF\x84\x87",
-                              frame.x + frame.width - 25.0f, textY,
-                              ApplyOpacity(CurrentTheme->text, primitive_.opacity), textScale);
+            const std::string displayText =
+                (selectedIndex_ >= 0 && selectedIndex_ < static_cast<int>(items_.size())) ? items_[selectedIndex_] : placeholder_;
+            Color textColor = selectedIndex_ >= 0
+                ? CurrentTheme->text
+                : Color(CurrentTheme->text.r, CurrentTheme->text.g, CurrentTheme->text.b, 0.5f);
+            Renderer::DrawTextStr(displayText, textX, textY, ApplyOpacity(textColor, primitive_.opacity), textScale);
+            Renderer::DrawTextStr(isOpen_ ? "\xEF\x84\x86" : "\xEF\x84\x87",
+                                  frame.x + frame.width - 25.0f, textY,
+                                  ApplyOpacity(CurrentTheme->text, primitive_.opacity), textScale);
+        }
     }
 
 protected:
@@ -227,7 +262,7 @@ private:
     void requestRepaint(float fromOpenFactor, float toOpenFactor, float duration = 0.0f) {
         (void)fromOpenFactor;
         (void)toOpenFactor;
-        Renderer::RequestRepaint(duration);
+        requestVisualRepaint(duration);
     }
 
     std::vector<std::string> items_;

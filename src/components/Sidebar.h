@@ -23,12 +23,16 @@ public:
         Builder(UIContext& context, SidebarNode& node) : UIBuilderBase<SidebarNode, Builder>(context, node) {}
 
         Builder& brand(std::string primary, std::string secondary) {
+            this->node_.trackComposeValue("brandPrimary", primary);
+            this->node_.trackComposeValue("brandSecondary", secondary);
             this->node_.brandPrimary_ = std::move(primary);
             this->node_.brandSecondary_ = std::move(secondary);
             return *this;
         }
 
         Builder& width(float collapsed, float expanded) {
+            this->node_.trackComposeValue("collapsedWidth", collapsed);
+            this->node_.trackComposeValue("expandedWidth", expanded);
             this->node_.collapsedWidth_ = collapsed;
             this->node_.expandedWidth_ = expanded;
             this->node_.primitive().width = expanded;
@@ -36,11 +40,14 @@ public:
         }
 
         Builder& item(std::string icon, std::string label, std::function<void()> handler) {
+            this->node_.trackComposeValue("itemIcon", icon);
+            this->node_.trackComposeValue("itemLabel", label);
             this->node_.items_.push_back(ItemSpec{std::move(icon), std::move(label), std::move(handler)});
             return *this;
         }
 
         Builder& selectedIndex(int index) {
+            this->node_.trackComposeValue("selectedIndex", index);
             this->node_.selectedIndex_ = index;
             return *this;
         }
@@ -117,7 +124,8 @@ private:
     RectFrame themeFrameFor(const RectFrame& shell) const;
 
     void requestRepaint(float expand = 18.0f, float duration = 0.0f) {
-        RequestPrimitiveRepaint(primitive_, MakeStyle(primitive_), expand, duration);
+        (void)expand;
+        requestVisualRepaint(duration);
     }
 
     std::string brandPrimary_;
@@ -224,8 +232,8 @@ inline void SidebarNode::draw() {
     drawPanel(shell, shellStyle, primitive_.borderWidth, ApplyOpacity(primitive_.borderColor, primitive_.opacity));
 
     const bool showLabels = shell.width >= 128.0f;
-    const float brandPrimaryScale = 21.0f / 24.0f;
-    const float brandSecondaryScale = 18.0f / 24.0f;
+    const float brandPrimaryScale = 28.0f / 24.0f;
+    const float brandSecondaryScale = 22.0f / 24.0f;
     const float primaryWidth = Renderer::MeasureTextWidth(brandPrimary_, brandPrimaryScale);
     const float secondaryWidth = Renderer::MeasureTextWidth(brandSecondary_, brandSecondaryScale);
     const float primaryX = showLabels ? shell.x + 20.0f : shell.x + (shell.width - primaryWidth) * 0.5f;

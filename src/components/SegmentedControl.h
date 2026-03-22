@@ -18,16 +18,19 @@ public:
         Builder(UIContext& context, SegmentedControlNode& node) : UIBuilderBase<SegmentedControlNode, Builder>(context, node) {}
 
         Builder& items(std::vector<std::string> value) {
+            this->node_.trackComposeValue("items", value);
             this->node_.items_ = std::move(value);
             return *this;
         }
 
         Builder& selected(int index) {
+            this->node_.trackComposeValue("selected", index);
             this->node_.selectedIndex_ = index;
             return *this;
         }
 
         Builder& fontSize(float value) {
+            this->node_.trackComposeValue("fontSize", value);
             this->node_.fontSize_ = value;
             return *this;
         }
@@ -128,7 +131,8 @@ protected:
 
 private:
     void requestRepaint(float expand = 4.0f, float duration = 0.0f) {
-        RequestPrimitiveRepaint(primitive_, MakeStyle(primitive_), expand, duration);
+        (void)expand;
+        requestVisualRepaint(duration);
     }
 
     std::vector<std::string> items_;

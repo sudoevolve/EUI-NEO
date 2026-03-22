@@ -173,6 +173,11 @@ public:
         return self();
     }
 
+    Derived& layer(RenderLayer value) {
+        node_.primitive().renderLayer = value;
+        return self();
+    }
+
     Derived& zIndex(int value) {
         node_.primitive().zIndex = value;
         return self();
@@ -180,12 +185,17 @@ public:
 
     template <typename ValueT, typename AssignedT>
     Derived& prop(ValueT NodeT::* member, AssignedT&& value) {
+        if (!node_.trackComposeValue("prop", value)) {
+            node_.forceComposeDirty();
+        }
         node_.*member = std::forward<AssignedT>(value);
         return self();
     }
 
     template <typename MethodT, typename... Args>
     Derived& call(MethodT method, Args&&... args) {
+        node_.trackComposeMarker("call");
+        (trackArgument(args), ...);
         std::invoke(method, node_, std::forward<Args>(args)...);
         return self();
     }
@@ -193,10 +203,12 @@ public:
     template <typename Fn>
     Derived& configure(Fn&& fn) {
         std::forward<Fn>(fn)(node_);
+        node_.forceComposeDirty();
         return self();
     }
 
     void build() {
+        node_.finishCompose();
     }
 
 protected:
@@ -204,6 +216,13 @@ protected:
 
     Derived& self() {
         return static_cast<Derived&>(*this);
+    }
+
+    template <typename ArgT>
+    void trackArgument(const ArgT& value) {
+        if (!node_.trackComposeValue("arg", value)) {
+            node_.forceComposeDirty();
+        }
     }
 
     UIContext& context_;

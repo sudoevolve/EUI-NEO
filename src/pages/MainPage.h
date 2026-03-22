@@ -1,10 +1,15 @@
 #pragma once
 
 #include "AnimationPage.h"
+#include "HomePage.h"
+#include "LayoutPage.h"
 #include "../ui/UIContext.h"
 #include "MainPageView.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -15,6 +20,7 @@ public:
     MainPage() = default;
 
     void Update() {
+        bool pageRevealAnimating = false;
         if (pageReveal_ < 1.0f) {
             const float previous = pageReveal_;
             pageReveal_ = Lerp(pageReveal_, 1.0f, State.deltaTime * 11.0f);
@@ -22,18 +28,35 @@ public:
                 pageReveal_ = 1.0f;
             }
             if (std::abs(previous - pageReveal_) > 0.0001f) {
+                pageRevealAnimating = true;
                 Renderer::RequestRepaint(0.18f);
             }
         }
 
-        Compose();
+        const std::uint64_t versionBeforeUpdate = stateVersion_;
+        if (NeedsCompose(pageRevealAnimating)) {
+            ComposeTree();
+        }
         ui_.update();
-        UpdateActiveView();
-        Compose();
+        if (stateVersion_ != versionBeforeUpdate) {
+            ComposeTree();
+        }
     }
 
     void Draw() {
         ui_.draw();
+    }
+
+    void DrawLayer(RenderLayer layer) {
+        ui_.draw(layer);
+    }
+
+    RectFrame LayerBounds(RenderLayer layer) const {
+        return ui_.layerBounds(layer);
+    }
+
+    bool WantsContinuousUpdate() const {
+        return ui_.wantsContinuousUpdate();
     }
 
 private:
@@ -46,12 +69,6 @@ private:
         const float contentY = layout.contentY;
         const float contentW = layout.contentW;
         const float contentH = layout.contentH;
-        const float currentContentOffsetX = layout.currentContentOffsetX;
-        const float contentCenterX = contentX + contentW * 0.5f + currentContentOffsetX;
-        const float contentCenterY = contentY + contentH * 0.5f;
-        const float controlsX = contentCenterX - 150.0f;
-        const float titleScale = 32.0f / 24.0f;
-        const float titleWidth = Renderer::MeasureTextWidth("EUI-NEO", titleScale);
 
         ui_.begin("main");
 
@@ -59,10 +76,12 @@ private:
             .position(sidebarX, sidebarY)
             .size(sidebarWidth_, sidebarH)
             .width(60.0f, sidebarWidth_)
+            .layer(RenderLayer::Chrome)
             .brand("EUI", "NEO")
             .selectedIndex(static_cast<int>(currentView_))
             .item("\xEF\x80\x95", "Home", [this] { SwitchView(MainPageView::Home); })
             .item("\xEF\x81\x8B", "Animation", [this] { SwitchView(MainPageView::Animation); })
+            .item("\xEF\x80\x89", "Layout", [this] { SwitchView(MainPageView::Layout); })
             .themeToggle([this] { ToggleTheme(); })
             .build();
 
@@ -71,15 +90,15 @@ private:
             .size(contentW, contentH)
             .rounding(16.0f)
             .blur(progressValue_ * 0.15f)
+            .layer(RenderLayer::Backdrop)
             .zIndex(-2)
             .build();
-
-        ui_.pushClip(contentX, contentY, contentW, contentH);
 
         ui_.panel("bg.red")
             .position(contentX + contentW * 0.10f - 84.0f, contentY + 58.0f)
             .size(196.0f, 196.0f)
             .background(0.98f, 0.36f, 0.36f, 0.92f)
+            .layer(RenderLayer::Backdrop)
             .rounding(98.0f)
             .zIndex(-3)
             .build();
@@ -88,6 +107,7 @@ private:
             .position(contentX + contentW * 0.58f, contentY + 86.0f)
             .size(164.0f, 164.0f)
             .background(0.30f, 0.92f, 0.58f, 0.88f)
+            .layer(RenderLayer::Backdrop)
             .rounding(82.0f)
             .zIndex(-3)
             .build();
@@ -96,101 +116,32 @@ private:
             .position(contentX + contentW * 0.30f, contentY + contentH * 0.44f)
             .size(246.0f, 246.0f)
             .background(0.34f, 0.52f, 1.0f, 0.90f)
+            .layer(RenderLayer::Backdrop)
             .rounding(123.0f)
             .zIndex(-3)
             .build();
 
-        if (currentView_ == MainPageView::Home) {
-
-            ui_.button("home.primary")
-                .text("Primary")
-                .position(contentCenterX - 130.0f, contentY + 62.0f)
-                .style(ButtonStyle::Primary)
-                .fontSize(20.0f)
-                .onClick([this] {
-                    progressValue_ += 0.1f;
-                    if (progressValue_ > 1.0f) {
-                        progressValue_ = 0.0f;
-                    }
-                })
-                .build();
-
-            ui_.button("home.outline")
-                .text("Outline")
-                .position(contentCenterX + 10.0f, contentY + 62.0f)
-                .style(ButtonStyle::Outline)
-                .fontSize(20.0f)
-                .onClick([this] {
-                    progressValue_ = 0.0f;
-                })
-                .build();
-
-            ui_.button("home.icon")
-                .text("Icon  \xEF\x80\x93")
-                .position(contentCenterX - 60.0f, contentY + 122.0f)
-                .fontSize(20.0f)
-                .build();
-
-            ui_.progress("home.progress")
-                .position(controlsX, contentCenterY - 60.0f)
-                .size(300.0f, 15.0f)
-                .value(progressValue_)
-                .build();
-
-            ui_.slider("home.slider")
-                .position(controlsX, contentCenterY - 10.0f)
-                .size(300.0f, 20.0f)
-                .value(progressValue_)
-                .onChange([this](float value) {
-                    progressValue_ = value;
-                })
-                .build();
-
-            ui_.segmented("home.segmented")
-                .position(controlsX, contentCenterY + 40.0f)
-                .size(300.0f, 35.0f)
-                .items(segmentedItems_)
-                .selected(segmentedIndex_)
-                .fontSize(20.0f)
-                .onChange([this](int index) {
-                    segmentedIndex_ = index;
-                })
-                .build();
-
-            ui_.input("home.input")
-                .position(controlsX, contentCenterY + 100.0f)
-                .size(300.0f, 35.0f)
-                .placeholder("Type something...")
-                .fontSize(20.0f)
-                .text(inputText_)
-                .onChange([this](const std::string& text) {
-                    inputText_ = text;
-                })
-                .build();
-
-            ui_.combo("home.combo")
-                .position(controlsX, contentCenterY + 160.0f)
-                .size(300.0f, 35.0f)
-                .placeholder("Select an option")
-                .fontSize(20.0f)
-                .items(comboItems_)
-                .selected(comboSelection_)
-                .onChange([this](int index) {
-                    comboSelection_ = index;
-                })
-                .build();
-        } else {
-            animationPage_.Compose(ui_, "animation.page");
-        }
-
+        ui_.pushClip(contentX, contentY, contentW, contentH);
+        ComposeCurrentPage(PageBounds());
         ui_.popClip();
         ui_.end();
     }
 
+    void ComposeTree() {
+        Compose();
+        hasComposed_ = true;
+        composedStateVersion_ = stateVersion_;
+        composedView_ = currentView_;
+        composedScreenW_ = State.screenW;
+        composedScreenH_ = State.screenH;
+    }
+
     void ToggleTheme() {
         CurrentTheme = CurrentTheme == &DarkTheme ? &LightTheme : &DarkTheme;
-        Renderer::InvalidateBackdrop();
+        ++stateVersion_;
+        ui_.markAllNodesDirty();
         Renderer::InvalidateAll();
+        Renderer::RequestRepaint(0.18f);
     }
 
     void SwitchView(MainPageView view) {
@@ -202,7 +153,8 @@ private:
         currentView_ = view;
         pageReveal_ = 0.0f;
         pageRevealDirection_ = nextIndex >= previousIndex ? 1 : -1;
-        Renderer::InvalidateAll();
+        ++stateVersion_;
+        Renderer::RequestRepaint(0.18f);
     }
 
     struct Layout {
@@ -229,7 +181,7 @@ private:
         return layout;
     }
 
-    RectFrame AnimationBounds() const {
+    RectFrame PageBounds() const {
         const Layout layout = MakeLayout();
         RectFrame frame;
         frame.x = layout.contentX + contentInset_ + layout.currentContentOffsetX;
@@ -239,14 +191,144 @@ private:
         return frame;
     }
 
-    void UpdateActiveView() {
-        if (currentView_ == MainPageView::Animation) {
-            animationPage_.Update(AnimationBounds());
+    void ComposeCurrentPage(const RectFrame& bounds) {
+        switch (currentView_) {
+        case MainPageView::Home: {
+            HomePage::Actions actions;
+            actions.onRandomizeThemeColor = [this] { RandomizeThemeColor(); };
+            actions.onToggleIconAccent = [this] { ToggleHomeIconAccent(); };
+            actions.onProgressChange = [this](float value) { SetProgressValue(value); };
+            actions.onSegmentedChange = [this](int index) { SetSegmentedIndex(index); };
+            actions.onInputChange = [this](const std::string& text) { SetInputText(text); };
+            actions.onComboChange = [this](int index) { SetComboSelection(index); };
+
+            HomePage::Compose(
+                ui_,
+                "home.page",
+                bounds,
+                homeIconAccentEnabled_,
+                progressValue_,
+                segmentedItems_,
+                segmentedIndex_,
+                inputText_,
+                comboItems_,
+                comboSelection_,
+                actions
+            );
+            break;
+        }
+        case MainPageView::Animation:
+            AnimationPage::Compose(ui_, "animation.page", bounds);
+            break;
+        case MainPageView::Layout: {
+            LayoutPage::Actions actions;
+            actions.onSplitChange = [this](float value) { SetLayoutSplit(value); };
+            LayoutPage::Compose(ui_, "layout.page", bounds, layoutSplit_, actions);
+            break;
+        }
         }
     }
 
+    bool NeedsCompose(bool pageRevealAnimating) const {
+        if (!hasComposed_) {
+            return true;
+        }
+        if (pageRevealAnimating) {
+            return true;
+        }
+        if (currentView_ != composedView_) {
+            return true;
+        }
+        if (stateVersion_ != composedStateVersion_) {
+            return true;
+        }
+        if (std::abs(composedScreenW_ - State.screenW) > 0.01f ||
+            std::abs(composedScreenH_ - State.screenH) > 0.01f) {
+            return true;
+        }
+        return false;
+    }
+
+    void SetProgressValue(float value) {
+        const float clamped = std::clamp(value, 0.0f, 1.0f);
+        if (std::abs(progressValue_ - clamped) < 0.0001f) {
+            return;
+        }
+        progressValue_ = clamped;
+        ++stateVersion_;
+        Renderer::InvalidateLayer(RenderLayer::Backdrop);
+        Renderer::RequestRepaint(0.18f);
+    }
+
+    void SetSegmentedIndex(int index) {
+        if (segmentedIndex_ == index) {
+            return;
+        }
+        segmentedIndex_ = index;
+        ++stateVersion_;
+    }
+
+    void SetInputText(const std::string& text) {
+        if (inputText_ == text) {
+            return;
+        }
+        inputText_ = text;
+        ++stateVersion_;
+    }
+
+    void SetComboSelection(int index) {
+        if (comboSelection_ == index) {
+            return;
+        }
+        comboSelection_ = index;
+        ++stateVersion_;
+    }
+
+    void ToggleHomeIconAccent() {
+        homeIconAccentEnabled_ = !homeIconAccentEnabled_;
+        ++stateVersion_;
+    }
+
+    void RandomizeThemeColor() {
+        static const std::array<Color, 10> accentPalette{{
+            Color(0.20f, 0.50f, 0.90f),
+            Color(0.12f, 0.72f, 0.78f),
+            Color(0.15f, 0.78f, 0.48f),
+            Color(0.88f, 0.42f, 0.18f),
+            Color(0.92f, 0.28f, 0.46f),
+            Color(0.56f, 0.36f, 0.96f),
+            Color(0.96f, 0.68f, 0.18f),
+            Color(0.78f, 0.22f, 0.78f),
+            Color(0.32f, 0.64f, 0.24f),
+            Color(0.88f, 0.18f, 0.24f),
+        }};
+
+        randomSeed_ = randomSeed_ * 1664525u + 1013904223u;
+        int nextIndex = static_cast<int>(randomSeed_ % accentPalette.size());
+        if (nextIndex == accentIndex_) {
+            nextIndex = (nextIndex + 1) % static_cast<int>(accentPalette.size());
+        }
+
+        accentIndex_ = nextIndex;
+        const Color accent = accentPalette[accentIndex_];
+        LightTheme.primary = accent;
+        DarkTheme.primary = accent;
+
+        ++stateVersion_;
+        ui_.markAllNodesDirty();
+        Renderer::InvalidateAll();
+    }
+
+    void SetLayoutSplit(float value) {
+        const float clamped = std::clamp(value, 0.28f, 0.72f);
+        if (std::abs(layoutSplit_ - clamped) < 0.0001f) {
+            return;
+        }
+        layoutSplit_ = clamped;
+        ++stateVersion_;
+    }
+
     UIContext ui_;
-    AnimationPage animationPage_;
     MainPageView currentView_ = MainPageView::Home;
     float pageReveal_ = 1.0f;
     int pageRevealDirection_ = 1;
@@ -254,11 +336,21 @@ private:
     float sidebarWidth_ = 86.0f;
     float contentInset_ = 34.0f;
     float progressValue_ = 0.30f;
+    bool homeIconAccentEnabled_ = false;
     std::vector<std::string> segmentedItems_{"Apple", "Banana", "Cherry"};
     int segmentedIndex_ = 0;
     std::string inputText_;
     std::vector<std::string> comboItems_{"Item 1", "Item 2", "Item 3"};
     int comboSelection_ = -1;
+    float layoutSplit_ = 0.42f;
+    std::uint32_t randomSeed_ = 0xC0FFEE11u;
+    int accentIndex_ = 0;
+    std::uint64_t stateVersion_ = 0;
+    std::uint64_t composedStateVersion_ = std::numeric_limits<std::uint64_t>::max();
+    MainPageView composedView_ = MainPageView::Home;
+    float composedScreenW_ = -1.0f;
+    float composedScreenH_ = -1.0f;
+    bool hasComposed_ = false;
 };
 
 } // namespace EUINEO

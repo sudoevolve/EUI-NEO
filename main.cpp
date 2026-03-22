@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <glad/glad.h>
@@ -41,8 +42,17 @@ int main() {
     EUINEO::State.screenH = (float)initialFbH;
 
     glfwSetCursorPosCallback(window, [](GLFWwindow*, double x, double y) {
-        EUINEO::State.mouseX = (float)x;
-        EUINEO::State.mouseY = (float)y;
+        const float nextX = (float)x;
+        const float nextY = (float)y;
+        if (std::abs(EUINEO::State.mouseX - nextX) > 0.01f ||
+            std::abs(EUINEO::State.mouseY - nextY) > 0.01f) {
+            EUINEO::State.mouseX = nextX;
+            EUINEO::State.mouseY = nextY;
+            EUINEO::Renderer::RequestRepaint();
+            return;
+        }
+        EUINEO::State.mouseX = nextX;
+        EUINEO::State.mouseY = nextY;
     });
 
     glfwSetMouseButtonCallback(window, [](GLFWwindow*, int button, int action, int mods) {
@@ -171,15 +181,26 @@ int main() {
         lastLeftDown = leftDown;
         lastRightDown = rightDown;
 
-        mainPage.Update();
+        const bool frameRequestedBeforeUpdate =
+            EUINEO::State.needsRepaint ||
+            EUINEO::State.animationTimeLeft > 0.0f ||
+            mainPage.WantsContinuousUpdate();
+        if (frameRequestedBeforeUpdate) {
+            mainPage.Update();
+        }
 
         bool shouldDraw = EUINEO::Renderer::ShouldRepaint();
         if (shouldDraw) {
             EUINEO::State.frameCount++;
-            EUINEO::Color bg = EUINEO::CurrentTheme->background;
-            glDisable(GL_SCISSOR_TEST);
-            glClearColor(bg.r, bg.g, bg.b, bg.a);
-            glClear(GL_COLOR_BUFFER_BIT);
+            EUINEO::Renderer::SetLayerBounds(EUINEO::RenderLayer::Backdrop, mainPage.LayerBounds(EUINEO::RenderLayer::Backdrop));
+            if (EUINEO::Renderer::NeedsLayerRedraw(EUINEO::RenderLayer::Backdrop)) {
+                EUINEO::Renderer::BeginLayer(EUINEO::RenderLayer::Backdrop);
+                EUINEO::Renderer::BeginFrame();
+                mainPage.DrawLayer(EUINEO::RenderLayer::Backdrop);
+                EUINEO::Renderer::EndLayer();
+            }
+
+            EUINEO::Renderer::CompositeLayers(EUINEO::CurrentTheme->background);
             EUINEO::Renderer::BeginFrame();
             mainPage.Draw();
             glfwSwapBuffers(window);
@@ -190,6 +211,8 @@ int main() {
 
         if (shouldDraw || EUINEO::State.animationTimeLeft > 0) {
             glfwPollEvents();
+        } else if (mainPage.WantsContinuousUpdate()) {
+            glfwWaitEventsTimeout(1.0 / 30.0);
         } else {
             glfwWaitEvents();
         }
