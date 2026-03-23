@@ -238,14 +238,6 @@ ui.button("confirm")
 - `LayoutPage` 先算左右分栏宽度，再放组件
 - 页面头部和 section 复用 `src/ui/ThemeTokens.h` 里的 helper
 
-当前还没有：
-
-- 相对父容器四边锚定
-- 自动拉伸填充
-- sibling 约束
-- flex / grid / auto layout
-- `left/top/right/bottom` 同时求解尺寸
-
 ## 自定义组件
 
 推荐路径是先直接用 `ui.node<T>()`，不要一上来就改 `UIContext`。
