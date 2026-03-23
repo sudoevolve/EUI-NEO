@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "src/EUINEO.h"
@@ -124,16 +125,32 @@ int main() {
 
     EUINEO::Renderer::Init();
 
+    constexpr const char* kUIFontFile = "Mountain and Nature.ttf";
+    constexpr const char* kIconFontFile = "Font Awesome 7 Free-Solid-900.otf";
+
+    const auto loadProjectFont = [](const char* fileName,
+                                    float fontSize,
+                                    unsigned int startChar,
+                                    unsigned int endChar) {
+        static const char* kFontDirs[] = {
+            "font/",
+            "src/font/"
+        };
+        for (const char* dir : kFontDirs) {
+            const std::string path = std::string(dir) + fileName;
+            if (EUINEO::Renderer::LoadFont(path, fontSize, startChar, endChar)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     bool fontLoaded = false;
-    if (EUINEO::Renderer::LoadFont("src/font/Mountain and Nature.ttf", 24.0f, 32, 128) ||
-        EUINEO::Renderer::LoadFont("../src/font/Mountain and Nature.ttf", 24.0f, 32, 128) ||
-        EUINEO::Renderer::LoadFont("../../src/font/Mountain and Nature.ttf", 24.0f, 32, 128)) {
+    if (loadProjectFont(kUIFontFile, 24.0f, 32, 128)) {
         fontLoaded = true;
     }
 
-    if (!EUINEO::Renderer::LoadFont("font/Font Awesome 7 Free-Solid-900.otf", 24.0f, 0xF000, 0xF2FF)) {
-        EUINEO::Renderer::LoadFont("../src/font/Font Awesome 7 Free-Solid-900.otf", 24.0f, 0xF000, 0xF2FF);
-    }
+    loadProjectFont(kIconFontFile, 24.0f, 0xF000, 0xF2FF);
 
     if (!fontLoaded) {
         if (EUINEO::Renderer::LoadFont("C:/Windows/Fonts/msyh.ttc", 24.0f, 32, 128)) {
