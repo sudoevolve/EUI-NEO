@@ -4,9 +4,6 @@ EUI-NEO 是一个基于 OpenGL + GLFW 的声明式 2D GUI 框架。
 
 - 页面放在 `src/pages`，尽量一页一个 `.h`
 - 组件放在 `src/components`，尽量一个组件一个 `.h`
-- `UIContext` 只做通用节点收集、compose 生命周期、clip 继承和 builder 入口
-- 渲染层走事件驱动重绘、Backdrop 层缓存和节点级 surface cache
-- 不再使用脏区传播、局部回放、多矩形拆分这条旧路线
 
 <p align="center">
   <img src="./1.jpg" alt="EUI-NEO Preview 1" width="49%" />
