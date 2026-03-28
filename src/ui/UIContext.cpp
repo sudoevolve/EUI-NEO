@@ -140,6 +140,8 @@ void UIContext::end() {
         Renderer::InvalidateLayer(static_cast<RenderLayer>(index));
     }
 
+    refreshLayerBounds();
+
     if (anyDirty) {
         Renderer::RequestRepaint();
     }
