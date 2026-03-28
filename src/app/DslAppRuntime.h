@@ -22,6 +22,62 @@ struct DslAppConfig {
 
 using DslComposeFn = std::function<void(UIContext&, const RectFrame&)>;
 
+struct DslWindowState {
+    GLFWwindow* window = nullptr;
+    bool fullscreen = false;
+    int windowedX = 100;
+    int windowedY = 100;
+    int windowedW = 960;
+    int windowedH = 640;
+};
+
+inline DslWindowState& ActiveDslWindowState() {
+    static DslWindowState state;
+    return state;
+}
+
+inline bool IsDslWindowFullscreen() {
+    return ActiveDslWindowState().fullscreen;
+}
+
+inline void SetDslWindowFullscreen(bool fullscreen) {
+    DslWindowState& state = ActiveDslWindowState();
+    GLFWwindow* window = state.window;
+    if (window == nullptr) {
+        return;
+    }
+    const bool currentFullscreen = glfwGetWindowMonitor(window) != nullptr;
+    if (currentFullscreen == fullscreen) {
+        state.fullscreen = currentFullscreen;
+        return;
+    }
+
+    if (fullscreen) {
+        glfwGetWindowPos(window, &state.windowedX, &state.windowedY);
+        glfwGetWindowSize(window, &state.windowedW, &state.windowedH);
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        if (monitor == nullptr) {
+            return;
+        }
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        if (mode == nullptr) {
+            return;
+        }
+        glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+    } else {
+        const int targetW = std::max(320, state.windowedW);
+        const int targetH = std::max(240, state.windowedH);
+        glfwSetWindowMonitor(window, nullptr, state.windowedX, state.windowedY, targetW, targetH, 0);
+    }
+    state.fullscreen = glfwGetWindowMonitor(window) != nullptr;
+    Renderer::InvalidateAll();
+    Renderer::RequestRepaint(0.18f);
+}
+
+inline void ToggleDslWindowFullscreen() {
+    SetDslWindowFullscreen(!IsDslWindowFullscreen());
+}
+
 inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
     if (!compose) {
         return -1;
@@ -88,6 +144,14 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
         glfwTerminate();
         return -1;
     }
+    {
+        DslWindowState& state = ActiveDslWindowState();
+        state.window = window;
+        state.fullscreen = false;
+        state.windowedW = config.width;
+        state.windowedH = config.height;
+        glfwGetWindowPos(window, &state.windowedX, &state.windowedY);
+    }
 
     glfwMakeContextCurrent(window);
     const int targetFps = std::max(0, config.fps);
@@ -148,6 +212,13 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
         State.framebufferH = static_cast<float>(std::max(1, rt->framebufferH));
         State.dpiScaleX = scaleX;
         State.dpiScaleY = scaleY;
+        DslWindowState& state = ActiveDslWindowState();
+        state.fullscreen = glfwGetWindowMonitor(win) != nullptr;
+        if (!state.fullscreen) {
+            state.windowedW = w;
+            state.windowedH = h;
+            glfwGetWindowPos(win, &state.windowedX, &state.windowedY);
+        }
         Renderer::InvalidateAll();
     });
 
@@ -258,7 +329,11 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
             }
         }
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-            glfwSetWindowShouldClose(win, 1);
+            if (glfwGetWindowMonitor(win) != nullptr) {
+                SetDslWindowFullscreen(false);
+            } else {
+                glfwSetWindowShouldClose(win, 1);
+            }
         }
     });
 
@@ -345,6 +420,7 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
     }
 
     Renderer::Shutdown();
+    ActiveDslWindowState().window = nullptr;
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;

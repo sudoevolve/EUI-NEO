@@ -137,6 +137,12 @@ public:
         const float indicatorX = frame.x + indicatorAnim_ * segmentWidth;
         Renderer::DrawRect(indicatorX + 2.0f, frame.y + 2.0f, segmentWidth - 4.0f, frame.height - 4.0f,
                            ApplyOpacity(CurrentTheme->primary, primitive_.opacity), std::max(0.0f, cornerRadius - 1.0f));
+        const float primaryLuminance = CurrentTheme->primary.r * 0.2126f +
+                                       CurrentTheme->primary.g * 0.7152f +
+                                       CurrentTheme->primary.b * 0.0722f;
+        const Color indicatorTextColor = primaryLuminance > 0.55f
+            ? Color(0.04f, 0.04f, 0.04f, 1.0f)
+            : Color(1.0f, 1.0f, 1.0f, 1.0f);
 
         const float textScale = fontSize_ / 24.0f;
         for (std::size_t index = 0; index < items_.size(); ++index) {
@@ -146,7 +152,7 @@ public:
             const float distance = std::abs(indicatorAnim_ - static_cast<float>(index));
             const float proximity = std::clamp(1.0f - distance, 0.0f, 1.0f);
             const float blend = proximity * proximity * (3.0f - 2.0f * proximity);
-            const Color textColor = Lerp(CurrentTheme->text, Color(1.0f, 1.0f, 1.0f, 1.0f), blend);
+            const Color textColor = Lerp(CurrentTheme->text, indicatorTextColor, blend);
             Renderer::DrawTextStr(items_[index], textX, textY, ApplyOpacity(textColor, primitive_.opacity), textScale);
         }
     }
