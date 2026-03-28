@@ -2,7 +2,6 @@
 
 EUI-NEO 是一个基于 OpenGL + GLFW 的声明式 2D GUI 框架。
 
-- 页面放在 `src/pages`，尽量一页一个 `.h`
 - 组件放在 `src/components`，尽量一个组件一个 `.h`
 
 <p align="center">
@@ -18,12 +17,18 @@ EUI-NEO 是一个基于 OpenGL + GLFW 的声明式 2D GUI 框架。
 EUI-NEO/
 ├─ main.cpp
 ├─ README.md
+├─ app/
+│  ├─ basic_demo.cpp
+│  ├─ calculator_demo.cpp
+│  └─ calculator_logic.h
 ├─ docs/
 │  ├─ ui_dsl_analysis.md
 │  └─ gpui_full_redraw_optimization.md
 ├─ src/
 │  ├─ EUINEO.h
 │  ├─ EUINEO.cpp
+│  ├─ app/
+│  │  └─ DslAppRuntime.h
 │  ├─ components/
 │  │  ├─ Button.h
 │  │  ├─ ComboBox.h
@@ -31,7 +36,9 @@ EUI-NEO/
 │  │  ├─ InputBox.h
 │  │  ├─ Label.h
 │  │  ├─ Panel.h
+│  │  ├─ Polygon.h
 │  │  ├─ ProgressBar.h
+│  │  ├─ ScrollArea.h
 │  │  ├─ SegmentedControl.h
 │  │  ├─ Sidebar.h
 │  │  └─ Slider.h
@@ -102,6 +109,55 @@ while (!glfwWindowShouldClose(window)) {
     }
 }
 ```
+
+## app 目录说明
+
+`app/` 是业务开发目录，给使用者放自己的页面入口和逻辑代码，不是框架底层目录。
+
+- `app/*.cpp`：一个文件对应一个可执行入口（一个 demo / 一个应用入口）
+- `app/*.h`：页面逻辑、状态、业务函数
+- `src/`：框架源码（组件、渲染、布局、运行时）
+
+当前示例：
+
+- `app/basic_demo.cpp`
+- `app/calculator_demo.cpp`
+- `app/calculator_logic.h`
+
+如果你使用声明式 UI 运行时，入口函数是 `src/app/DslAppRuntime.h` 里的 `RunDslApp`。常见写法是：
+
+```cpp
+// app/xxx_demo.cpp
+int main() {
+    EUINEO::DslAppConfig config;
+    // window / page / fps 配置
+    return EUINEO::RunDslApp(config, composeFn);
+}
+```
+
+```cpp
+// app/xxx_logic.h
+struct XxxLogic {
+    // 状态、输入处理、计算逻辑
+};
+```
+
+## DSL 运行配置
+
+`DslAppConfig` 现在支持帧率配置：
+
+```cpp
+EUINEO::DslAppConfig config;
+config.title = "EUI Demo";
+config.width = 800;
+config.height = 600;
+config.pageId = "demo";
+config.fps = 120;
+```
+
+- `config.fps <= 0`：默认垂直同步（VSync）
+- `config.fps > 0`：关闭 VSync，按目标帧率限帧
+- 不写 `fps` 时默认值是 `0`，等价于垂直同步
 
 ## 字体与回退
 
@@ -407,7 +463,7 @@ ui.label("title")
     .build();
 ```
 
-## 基础图元形状动画
+## 动画 DSL
 
 当前最基础的形状就是：
 
@@ -418,6 +474,10 @@ ui.label("title")
 
 - 循环动画：`.animateScale()`、`.animateRotation()`、`.animateOpacity()`、`.animateTranslateX()`、`.animateTranslateY()`、`.animateBackground()`
 - Hover 动画：`.hoverScale()`、`.hoverRotation()`、`.hoverOpacity()`、`.hoverTranslateX()`、`.hoverTranslateY()`、`.hoverBackground()`
+
+`button` 组件当前支持：
+
+- `.hoverScale(idle, hover, duration)`
 
 `panel` hover 示例：
 

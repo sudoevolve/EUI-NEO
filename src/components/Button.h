@@ -57,6 +57,16 @@ public:
             return *this;
         }
 
+        Builder& hoverScale(float idle, float hover, float duration) {
+            this->node_.trackComposeValue("hoverScaleIdle", idle);
+            this->node_.trackComposeValue("hoverScaleHover", hover);
+            this->node_.trackComposeValue("hoverScaleDuration", duration);
+            this->node_.hoverScaleIdle_ = idle;
+            this->node_.hoverScaleHover_ = hover;
+            this->node_.hoverScaleDuration_ = std::max(0.0f, duration);
+            return *this;
+        }
+
         Builder& onClick(std::function<void()> handler) {
             this->node_.onClick_ = std::move(handler);
             return *this;
@@ -82,11 +92,14 @@ public:
 
     void update() override {
         const bool hovered = primitive_.enabled && PrimitiveContains(primitive_, State.mouseX, State.mouseY);
-        const float speed = 15.0f * State.deltaTime;
+        const float hoverSpeed = hoverScaleDuration_ > 0.0f
+            ? std::clamp(State.deltaTime / hoverScaleDuration_, 0.0f, 1.0f)
+            : 1.0f;
+        const float clickSpeed = 25.0f * State.deltaTime;
 
         const float targetHover = hovered ? 1.0f : 0.0f;
         if (std::abs(hoverAnim_ - targetHover) > 0.001f) {
-            hoverAnim_ = Lerp(hoverAnim_, targetHover, speed);
+            hoverAnim_ = Lerp(hoverAnim_, targetHover, hoverSpeed);
             if (std::abs(hoverAnim_ - targetHover) < 0.001f) {
                 hoverAnim_ = targetHover;
             }
@@ -95,7 +108,7 @@ public:
 
         const float targetClick = (hovered && State.mouseDown) ? 1.0f : 0.0f;
         if (std::abs(clickAnim_ - targetClick) > 0.001f) {
-            clickAnim_ = Lerp(clickAnim_, targetClick, speed * 2.0f);
+            clickAnim_ = Lerp(clickAnim_, targetClick, clickSpeed);
             if (std::abs(clickAnim_ - targetClick) < 0.001f) {
                 clickAnim_ = targetClick;
             }
@@ -111,6 +124,17 @@ public:
     void draw() override {
         PrimitiveClipScope clip(primitive_);
         const RectFrame frame = PrimitiveFrame(primitive_);
+        const float hoverScale = Lerp(hoverScaleIdle_, hoverScaleHover_, hoverAnim_);
+        const float pressScale = 1.0f - clickAnim_ * 0.035f;
+        const float animScale = std::max(0.9f, hoverScale * pressScale);
+        const float scaledWidth = frame.width * animScale;
+        const float scaledHeight = frame.height * animScale;
+        const RectFrame drawFrame{
+            frame.x + (frame.width - scaledWidth) * 0.5f,
+            frame.y + (frame.height - scaledHeight) * 0.5f,
+            scaledWidth,
+            scaledHeight
+        };
         const float cornerRadius = primitive_.rounding > 0.0f ? primitive_.rounding : 6.0f;
 
         const Color baseColor = style_ == ButtonStyle::Primary ? CurrentTheme->primary : CurrentTheme->surface;
@@ -132,34 +156,34 @@ public:
                 primitive_.opacity
             );
             borderStyle.gradient = RectGradient{};
-            borderStyle.rounding = cornerRadius;
-            Renderer::DrawRect(frame.x, frame.y, frame.width, frame.height, borderStyle);
+            borderStyle.rounding = cornerRadius * animScale;
+            Renderer::DrawRect(drawFrame.x, drawFrame.y, drawFrame.width, drawFrame.height, borderStyle);
 
             RectStyle innerStyle = MakeStyle(primitive_);
             innerStyle.color = ApplyOpacity(
                 primitive_.background.a > 0.0f ? primitive_.background : CurrentTheme->background,
                 primitive_.opacity
             );
-            innerStyle.rounding = std::max(0.0f, cornerRadius - 1.0f);
-            Renderer::DrawRect(frame.x + 1.0f, frame.y + 1.0f,
-                               frame.width - 2.0f, frame.height - 2.0f, innerStyle);
+            innerStyle.rounding = std::max(0.0f, cornerRadius * animScale - 1.0f);
+            Renderer::DrawRect(drawFrame.x + 1.0f, drawFrame.y + 1.0f,
+                               std::max(0.0f, drawFrame.width - 2.0f), std::max(0.0f, drawFrame.height - 2.0f), innerStyle);
         } else {
             RectStyle style = MakeStyle(primitive_);
             style.color = fillColor;
-            style.rounding = cornerRadius;
-            Renderer::DrawRect(frame.x, frame.y, frame.width, frame.height, style);
+            style.rounding = cornerRadius * animScale;
+            Renderer::DrawRect(drawFrame.x, drawFrame.y, drawFrame.width, drawFrame.height, style);
         }
 
-        const float textScale = fontSize_ / 24.0f;
+        const float textScale = (fontSize_ / 24.0f) * animScale;
         const Color baseTextColor = hasTextColorOverride_
             ? textColorOverride_
             : (style_ == ButtonStyle::Primary ? Color(1.0f, 1.0f, 1.0f, 1.0f) : CurrentTheme->text);
         const Color textColor = ApplyOpacity(baseTextColor, primitive_.opacity);
-        const float textY = frame.y + frame.height * 0.5f + (fontSize_ / 4.0f);
+        const float textY = drawFrame.y + drawFrame.height * 0.5f + (fontSize_ * animScale / 4.0f);
 
         if (icon_.empty()) {
             const float textWidth = Renderer::MeasureTextWidth(text_, textScale);
-            const float textX = frame.x + (frame.width - textWidth) * 0.5f;
+            const float textX = drawFrame.x + (drawFrame.width - textWidth) * 0.5f;
             Renderer::DrawTextStr(text_, textX, textY, textColor, textScale);
             return;
         }
@@ -168,10 +192,10 @@ public:
         const RectFrame iconBounds = Renderer::MeasureTextBounds(icon_, iconScale);
         const float iconBoxWidth = std::max(iconBounds.width, fontSize_ * 0.8f);
         const float textWidth = Renderer::MeasureTextWidth(text_, textScale);
-        const float contentGap = text_.empty() ? 0.0f : std::max(8.0f, fontSize_ * 0.5f);
+        const float contentGap = text_.empty() ? 0.0f : std::max(8.0f * animScale, fontSize_ * animScale * 0.5f);
         const float groupWidth = iconBoxWidth + contentGap + textWidth;
-        const float groupX = frame.x + (frame.width - groupWidth) * 0.5f;
-        const float iconY = frame.y + (frame.height - std::max(iconBounds.height, fontSize_ * 0.8f)) * 0.5f - iconBounds.y;
+        const float groupX = drawFrame.x + (drawFrame.width - groupWidth) * 0.5f;
+        const float iconY = drawFrame.y + (drawFrame.height - std::max(iconBounds.height, fontSize_ * animScale * 0.8f)) * 0.5f - iconBounds.y;
 
         if (iconPlacement_ == ButtonIconPlacement::Leading) {
             const float iconX = groupX + (iconBoxWidth - iconBounds.width) * 0.5f - iconBounds.x;
@@ -198,6 +222,9 @@ protected:
         textColorOverride_ = Color(0.0f, 0.0f, 0.0f, 0.0f);
         style_ = ButtonStyle::Default;
         iconPlacement_ = ButtonIconPlacement::Leading;
+        hoverScaleIdle_ = 1.0f;
+        hoverScaleHover_ = 1.0f;
+        hoverScaleDuration_ = 0.16f;
         onClick_ = {};
     }
 
@@ -215,6 +242,9 @@ private:
     Color textColorOverride_ = Color(0.0f, 0.0f, 0.0f, 0.0f);
     ButtonStyle style_ = ButtonStyle::Default;
     ButtonIconPlacement iconPlacement_ = ButtonIconPlacement::Leading;
+    float hoverScaleIdle_ = 1.0f;
+    float hoverScaleHover_ = 1.0f;
+    float hoverScaleDuration_ = 0.16f;
     std::function<void()> onClick_;
     float hoverAnim_ = 0.0f;
     float clickAnim_ = 0.0f;

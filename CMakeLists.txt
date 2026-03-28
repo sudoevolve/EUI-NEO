@@ -54,36 +54,45 @@ include_directories(third_party)
 
 # 自动收集 src 下的所有 cpp 文件 (包含所有组件如 InputBox, ComboBox, Panel 等)
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "src/*.cpp")
+file(GLOB APP_ENTRY_FILES CONFIGURE_DEPENDS "app/*.cpp")
 
-# 添加可执行文件 (加入 EUINEO 和各个组件、页面)
-add_executable(eui_neo main.cpp ${SRC_FILES})
+add_library(eui_neo_core STATIC ${SRC_FILES})
+target_include_directories(eui_neo_core PUBLIC src third_party)
+target_link_libraries(eui_neo_core PUBLIC glfw glad OpenGL::GL)
 
-# 压缩可执行文件大小和内存优化标志（针对 MSVC/GCC 等）
-if(MSVC)
-    # Release already gets /O2 from CMake; adding /O1 here only triggers D9025 and
-    # forces the slower size-focused optimizer. Keep the hardening/encoding flags only.
-    target_compile_options(eui_neo PRIVATE /GS- /sdl- /utf-8)
-    target_link_options(eui_neo PRIVATE /OPT:REF /OPT:ICF /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS)
-else()
-    target_compile_options(eui_neo PRIVATE -Os -fno-exceptions -fno-rtti)
-    target_link_options(eui_neo PRIVATE -Wl,--gc-sections -s)
-endif()
+function(configure_eui_target target_name)
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE /GS- /sdl- /utf-8)
+        target_link_options(${target_name} PRIVATE /OPT:REF /OPT:ICF /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS)
+    else()
+        target_compile_options(${target_name} PRIVATE -Os -fno-exceptions -fno-rtti)
+        target_link_options(${target_name} PRIVATE -Wl,--gc-sections -s)
+    endif()
 
-# 链接依赖库
-target_link_libraries(eui_neo PRIVATE glfw glad OpenGL::GL)
+    target_link_libraries(${target_name} PRIVATE eui_neo_core)
 
-# 由于我们将 GLFW 编译为了动态库 (DLL)，在 Windows 下需要将其拷贝到可执行文件所在目录
-if(WIN32)
-    add_custom_command(TARGET eui_neo POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:glfw>
-    $<TARGET_FILE_DIR:eui_neo>
-)
-endif()
+    if(WIN32)
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:glfw>
+            $<TARGET_FILE_DIR:${target_name}>
+        )
+    endif()
 
-# 将字体文件夹拷贝到可执行文件同级目录，以便单独运行 exe 时能找到字体
-add_custom_command(TARGET eui_neo POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/font
-    $<TARGET_FILE_DIR:eui_neo>/font
-)
+    add_custom_command(TARGET ${target_name} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/font
+        $<TARGET_FILE_DIR:${target_name}>/font
+    )
+endfunction()
+
+add_executable(eui_neo main.cpp)
+configure_eui_target(eui_neo)
+
+foreach(app_source IN LISTS APP_ENTRY_FILES)
+    get_filename_component(app_name "${app_source}" NAME_WE)
+    string(MAKE_C_IDENTIFIER "${app_name}" app_id)
+    set(app_target "app_${app_id}")
+    add_executable(${app_target} "${app_source}")
+    configure_eui_target(${app_target})
+endforeach()
