@@ -19,21 +19,6 @@ UIClipRect IntersectClipRect(const UIClipRect& lhs, const UIClipRect& rhs) {
     return clipped;
 }
 
-RectFrame UnionFrame(const RectFrame& lhs, const RectFrame& rhs) {
-    if (lhs.width <= 0.0f || lhs.height <= 0.0f) {
-        return rhs;
-    }
-    if (rhs.width <= 0.0f || rhs.height <= 0.0f) {
-        return lhs;
-    }
-
-    const float x1 = std::min(lhs.x, rhs.x);
-    const float y1 = std::min(lhs.y, rhs.y);
-    const float x2 = std::max(lhs.x + lhs.width, rhs.x + rhs.width);
-    const float y2 = std::max(lhs.y + lhs.height, rhs.y + rhs.height);
-    return RectFrame{x1, y1, x2 - x1, y2 - y1};
-}
-
 int LayerDrawPriority(RenderLayer layer) {
     switch (layer) {
         case RenderLayer::Backdrop:
@@ -99,31 +84,20 @@ void UIContext::begin(const std::string& pageId) {
     currentOffsetY_ = 0.0f;
     treeChanged_ = false;
     needsRecompose_ = false;
-    layerBoundsStamp_ = 0;
-    if (layerBounds_.size() != static_cast<std::size_t>(RenderLayer::Count)) {
-        layerBounds_.assign(static_cast<std::size_t>(RenderLayer::Count), RectFrame{});
-    }
 }
 
 void UIContext::end() {
     bool dirtyLayers[static_cast<std::size_t>(RenderLayer::Count)] = {};
-    for (auto& entry : nodes_) {
-        UINode* node = entry.second.get();
-        if (node == nullptr) {
-            continue;
-        }
-        if (!node->composedIn(composeStamp_)) {
-            treeChanged_ = true;
-            const std::size_t layerIndex = static_cast<std::size_t>(node->renderLayer());
-            if (layerIndex < static_cast<std::size_t>(RenderLayer::Count)) {
-                dirtyLayers[layerIndex] = true;
-            }
-        }
-    }
 
     for (UINode* node : order_) {
         if (!node->cacheDirty()) {
             continue;
+        }
+        if (node->visible() && node->primitive().blur <= 0.0f && node->usesCachedSurface()) {
+            const RectFrame bounds = node->paintBounds();
+            if (bounds.width <= 0.0f || bounds.height <= 0.0f) {
+                continue;
+            }
         }
         const std::size_t layerIndex = static_cast<std::size_t>(node->renderLayer());
         if (layerIndex < static_cast<std::size_t>(RenderLayer::Count)) {
@@ -139,8 +113,6 @@ void UIContext::end() {
         anyDirty = true;
         Renderer::InvalidateLayer(static_cast<RenderLayer>(index));
     }
-
-    refreshLayerBounds();
 
     if (anyDirty) {
         Renderer::RequestRepaint();
@@ -449,10 +421,13 @@ void UIContext::update() {
     bool dirtyLayers[static_cast<std::size_t>(RenderLayer::Count)] = {};
     for (UINode* node : order_) {
         applyRuntimeContext(node);
-        if (node->visible()) {
+        const bool isVisible = node->visible();
+        if (isVisible) {
             node->update();
+        } else {
+            node->clearCacheDirty();
         }
-        if (node->cacheDirty()) {
+        if (isVisible && node->cacheDirty()) {
             const std::size_t layerIndex = static_cast<std::size_t>(node->renderLayer());
             if (layerIndex < static_cast<std::size_t>(RenderLayer::Count)) {
                 dirtyLayers[layerIndex] = true;
@@ -468,17 +443,9 @@ void UIContext::update() {
             Renderer::InvalidateLayer(static_cast<RenderLayer>(index));
         }
     }
-    refreshLayerBounds();
 }
 
 void UIContext::render() {
-    Renderer::SetLayerBounds(RenderLayer::Backdrop, layerBounds(RenderLayer::Backdrop));
-    if (Renderer::NeedsLayerRedraw(RenderLayer::Backdrop)) {
-        Renderer::BeginLayer(RenderLayer::Backdrop);
-        Renderer::BeginFrame();
-        draw(RenderLayer::Backdrop);
-        Renderer::EndLayer();
-    }
     Renderer::CompositeLayers(CurrentTheme->background);
     Renderer::BeginFrame();
     draw();
@@ -500,58 +467,22 @@ void UIContext::draw() {
 
     for (UINode* node : drawOrder_) {
         applyRuntimeContext(node);
-        if (!node->visible() || node->renderLayer() == RenderLayer::Backdrop) {
+        if (!node->visible()) {
             continue;
         }
         if (node->primitive().blur <= 0.0f && node->usesCachedSurface()) {
             const RectFrame bounds = node->paintBounds();
-            Renderer::DrawCachedSurface(node->key(), bounds, node->cacheDirty(), [node]() {
-                node->draw();
-            });
-        } else {
-            node->draw();
-        }
-        node->clearCacheDirty();
-    }
-}
-
-void UIContext::draw(RenderLayer layer) {
-    if (drawOrderStamp_ != composeStamp_) {
-        drawOrder_ = order_;
-        std::stable_sort(drawOrder_.begin(), drawOrder_.end(), [](const UINode* lhs, const UINode* rhs) {
-            const int lhsLayer = LayerDrawPriority(lhs->renderLayer());
-            const int rhsLayer = LayerDrawPriority(rhs->renderLayer());
-            if (lhsLayer != rhsLayer) {
-                return lhsLayer < rhsLayer;
+            if (bounds.width > 0.0f && bounds.height > 0.0f) {
+                Renderer::DrawCachedSurface(node->key(), bounds, node->cacheDirty(), [node]() {
+                    node->draw();
+                });
+                node->clearCacheDirty();
             }
-            return lhs->zIndex() < rhs->zIndex();
-        });
-        drawOrderStamp_ = composeStamp_;
-    }
-
-    for (UINode* node : drawOrder_) {
-        applyRuntimeContext(node);
-        if (!node->visible() || node->renderLayer() != layer) {
-            continue;
-        }
-        if (node->primitive().blur <= 0.0f && node->usesCachedSurface()) {
-            const RectFrame bounds = node->paintBounds();
-            Renderer::DrawCachedSurface(node->key(), bounds, node->cacheDirty(), [node]() {
-                node->draw();
-            });
         } else {
             node->draw();
+            node->clearCacheDirty();
         }
-        node->clearCacheDirty();
     }
-}
-
-RectFrame UIContext::layerBounds(RenderLayer layer) const {
-    const std::size_t index = static_cast<std::size_t>(layer);
-    if (index >= layerBounds_.size()) {
-        return RectFrame{};
-    }
-    return layerBounds_[index];
 }
 
 bool UIContext::wantsContinuousUpdate() const {
@@ -582,37 +513,10 @@ void UIContext::requestVisualRefresh(float duration) {
     Renderer::RequestRepaint(duration);
 }
 
-void UIContext::requestBackdropRefresh(float duration) {
-    Renderer::InvalidateLayer(RenderLayer::Backdrop);
-    Renderer::RequestRepaint(duration);
-}
-
 void UIContext::requestThemeRefresh(float duration) {
     markAllNodesDirty();
     Renderer::InvalidateAll();
     Renderer::RequestRepaint(duration);
-}
-
-void UIContext::refreshLayerBounds() {
-    if (layerBounds_.size() != static_cast<std::size_t>(RenderLayer::Count)) {
-        layerBounds_.assign(static_cast<std::size_t>(RenderLayer::Count), RectFrame{});
-    } else {
-        std::fill(layerBounds_.begin(), layerBounds_.end(), RectFrame{});
-    }
-
-    for (UINode* node : order_) {
-        applyRuntimeContext(node);
-        if (!node->visible()) {
-            continue;
-        }
-        const std::size_t index = static_cast<std::size_t>(node->renderLayer());
-        if (index >= layerBounds_.size()) {
-            continue;
-        }
-        layerBounds_[index] = UnionFrame(layerBounds_[index], node->paintBounds());
-    }
-
-    layerBoundsStamp_ = composeStamp_;
 }
 
 } // namespace EUINEO

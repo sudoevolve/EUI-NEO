@@ -826,16 +826,18 @@ static LayerCache& CacheFor(RenderLayer layer) {
 
 static int TargetLayerWidth(RenderLayer layer, const RectFrame& bounds) {
     if (UsesTightLayerSurface(layer)) {
-        return std::max(1, static_cast<int>(std::ceil(std::max(0.0f, bounds.width))));
+        const float scaleX = std::max(State.dpiScaleX, 0.0001f);
+        return std::max(1, static_cast<int>(std::ceil(std::max(0.0f, bounds.width * scaleX))));
     }
-    return std::max(1, static_cast<int>(State.screenW));
+    return std::max(1, static_cast<int>(std::ceil(State.framebufferW)));
 }
 
 static int TargetLayerHeight(RenderLayer layer, const RectFrame& bounds) {
     if (UsesTightLayerSurface(layer)) {
-        return std::max(1, static_cast<int>(std::ceil(std::max(0.0f, bounds.height))));
+        const float scaleY = std::max(State.dpiScaleY, 0.0001f);
+        return std::max(1, static_cast<int>(std::ceil(std::max(0.0f, bounds.height * scaleY))));
     }
-    return std::max(1, static_cast<int>(State.screenH));
+    return std::max(1, static_cast<int>(std::ceil(State.framebufferH)));
 }
 
 static void EnsureLayerCacheStorage(RenderLayer layer, int width, int height) {
@@ -975,16 +977,20 @@ static bool MakeScreenScissorRect(const RectFrame& bounds, GLint& outX, GLint& o
         return false;
     }
 
-    const float x1 = std::clamp(bounds.x, 0.0f, State.screenW);
-    const float y1 = std::clamp(bounds.y, 0.0f, State.screenH);
-    const float x2 = std::clamp(bounds.x + bounds.width, x1, State.screenW);
-    const float y2 = std::clamp(bounds.y + bounds.height, y1, State.screenH);
+    const float scaleX = std::max(State.dpiScaleX, 0.0001f);
+    const float scaleY = std::max(State.dpiScaleY, 0.0001f);
+    const float framebufferW = std::max(State.framebufferW, 1.0f);
+    const float framebufferH = std::max(State.framebufferH, 1.0f);
+    const float x1 = std::clamp(bounds.x * scaleX, 0.0f, framebufferW);
+    const float y1 = std::clamp(bounds.y * scaleY, 0.0f, framebufferH);
+    const float x2 = std::clamp((bounds.x + bounds.width) * scaleX, x1, framebufferW);
+    const float y2 = std::clamp((bounds.y + bounds.height) * scaleY, y1, framebufferH);
     if (x2 <= x1 || y2 <= y1) {
         return false;
     }
 
     outX = static_cast<GLint>(std::floor(x1));
-    outY = static_cast<GLint>(std::floor(State.screenH - y2));
+    outY = static_cast<GLint>(std::floor(framebufferH - y2));
     outW = std::max<GLint>(1, static_cast<GLint>(std::ceil(x2) - std::floor(x1)));
     outH = std::max<GLint>(1, static_cast<GLint>(std::ceil(y2) - std::floor(y1)));
     return true;
@@ -1621,26 +1627,18 @@ void Renderer::EndLayer() {
     CurrentActiveProgram = 0;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, std::max(1, (int)State.screenW), std::max(1, (int)State.screenH));
+    glViewport(0, 0, std::max(1, (int)State.framebufferW), std::max(1, (int)State.framebufferH));
 }
 
 void Renderer::CompositeLayers(const Color& background) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, std::max(1, (int)State.screenW), std::max(1, (int)State.screenH));
+    glViewport(0, 0, std::max(1, (int)State.framebufferW), std::max(1, (int)State.framebufferH));
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
     glClearColor(background.r, background.g, background.b, background.a);
     glClear(GL_COLOR_BUFFER_BIT);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    const LayerCache& backdrop = CacheFor(RenderLayer::Backdrop);
-    if (backdrop.ready && backdrop.texture != 0 && backdrop.bounds.width > 0.0f && backdrop.bounds.height > 0.0f) {
-        const float uvX = backdrop.bounds.x / std::max(1.0f, State.screenW);
-        const float uvBottom = 1.0f - ((backdrop.bounds.y + backdrop.bounds.height) / std::max(1.0f, State.screenH));
-        const float uvW = backdrop.bounds.width / std::max(1.0f, State.screenW);
-        const float uvH = backdrop.bounds.height / std::max(1.0f, State.screenH);
-        CompositeTexture(backdrop.texture, backdrop.bounds, uvX, uvBottom, uvW, uvH);
-    }
     CurrentActiveProgram = 0;
 }
 
@@ -1657,8 +1655,10 @@ void Renderer::DrawCachedSurface(const std::string& key, const RectFrame& bounds
     const int previousCustomSurfaceHeight = ActiveCustomSurfaceHeight;
 
     CachedSurface& cache = CachedSurfaces[key];
-    const int targetW = std::max(1, static_cast<int>(std::ceil(bounds.width * CachedSurfaceSupersampleScale)));
-    const int targetH = std::max(1, static_cast<int>(std::ceil(bounds.height * CachedSurfaceSupersampleScale)));
+    const int targetW = std::max(1, static_cast<int>(std::ceil(
+        bounds.width * CachedSurfaceSupersampleScale * std::max(State.dpiScaleX, 0.0001f))));
+    const int targetH = std::max(1, static_cast<int>(std::ceil(
+        bounds.height * CachedSurfaceSupersampleScale * std::max(State.dpiScaleY, 0.0001f))));
     const bool sizeChanged =
         !FloatEq(cache.bounds.width, bounds.width) ||
         !FloatEq(cache.bounds.height, bounds.height);
@@ -1698,7 +1698,7 @@ void Renderer::DrawCachedSurface(const std::string& key, const RectFrame& bounds
                        std::max(1, LayerCaches[previousLayerIndex].height));
         } else {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glViewport(0, 0, std::max(1, (int)State.screenW), std::max(1, (int)State.screenH));
+            glViewport(0, 0, std::max(1, (int)State.framebufferW), std::max(1, (int)State.framebufferH));
         }
         BeginFrame();
     }
@@ -1743,7 +1743,7 @@ void Renderer::BeginFrame() {
     glUseProgram(ShaderProgram);
     glUniformMatrix4fv(ProjLoc, 1, GL_FALSE, proj);
     glUniform1f(TimeLoc, static_cast<float>(glfwGetTime()));
-    glUniform2f(ResolutionLoc, State.screenW, State.screenH);
+    glUniform2f(ResolutionLoc, State.framebufferW, State.framebufferH);
 
     glUseProgram(CachedBlurProgram);
     glUniformMatrix4fv(CachedBlurProjLoc, 1, GL_FALSE, proj);
@@ -1840,25 +1840,29 @@ void Renderer::DrawRect(float x, float y, float w, float h, const RectStyle& sty
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     if (canReuseBlurCache) {
-        int copyX = std::clamp((int)std::floor(bounds.x), 0, (int)State.screenW);
-        int copyYTop = std::clamp((int)std::floor(bounds.y), 0, (int)State.screenH);
-        int copyRight = std::clamp((int)std::ceil(bounds.x + bounds.w), 0, (int)State.screenW);
-        int copyBottom = std::clamp((int)std::ceil(bounds.y + bounds.h), 0, (int)State.screenH);
+        const float scaleX = std::max(State.dpiScaleX, 0.0001f);
+        const float scaleY = std::max(State.dpiScaleY, 0.0001f);
+        const int framebufferW = std::max(1, (int)State.framebufferW);
+        const int framebufferH = std::max(1, (int)State.framebufferH);
+        int copyX = std::clamp((int)std::floor(bounds.x * scaleX), 0, framebufferW);
+        int copyYTop = std::clamp((int)std::floor(bounds.y * scaleY), 0, framebufferH);
+        int copyRight = std::clamp((int)std::ceil((bounds.x + bounds.w) * scaleX), 0, framebufferW);
+        int copyBottom = std::clamp((int)std::ceil((bounds.y + bounds.h) * scaleY), 0, framebufferH);
         int copyW = copyRight - copyX;
         int copyH = copyBottom - copyYTop;
 
         if (copyW > 0 && copyH > 0) {
-            int copyY = std::max(0, (int)std::floor(State.screenH - (copyYTop + copyH)));
+            int copyY = std::max(0, (int)std::floor(State.framebufferH - (copyYTop + copyH)));
 
             EnsureCachedBlurTexture(copyW, copyH);
             glBindTexture(GL_TEXTURE_2D, CachedBlurTexture);
             glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, copyX, copyY, copyW, copyH);
 
             CachedBackdropVersion = BackdropVersion;
-            CachedBlurX = (float)copyX;
-            CachedBlurY = (float)copyYTop;
-            CachedBlurW = (float)copyW;
-            CachedBlurH = (float)copyH;
+            CachedBlurX = static_cast<float>(copyX) / scaleX;
+            CachedBlurY = static_cast<float>(copyYTop) / scaleY;
+            CachedBlurW = static_cast<float>(copyW) / scaleX;
+            CachedBlurH = static_cast<float>(copyH) / scaleY;
             CachedBlurColor[0] = style.color.r;
             CachedBlurColor[1] = style.color.g;
             CachedBlurColor[2] = style.color.b;
@@ -2214,17 +2218,13 @@ void Renderer::InvalidateAll() {
     State.needsRepaint = true;
 }
 
-void Renderer::InvalidateBackdrop() {
-    InvalidateLayer(RenderLayer::Backdrop);
-}
-
 void Renderer::CaptureBackdrop() {
     if (!BackdropCapturePending) {
         return;
     }
 
-    const int texW = std::max(1, (int)State.screenW);
-    const int texH = std::max(1, (int)State.screenH);
+    const int texW = std::max(1, (int)State.framebufferW);
+    const int texH = std::max(1, (int)State.framebufferH);
     EnsureBackdropTexture(texW, texH);
     glBindTexture(GL_TEXTURE_2D, BgTexture);
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, texW, texH);

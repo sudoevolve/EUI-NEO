@@ -287,6 +287,10 @@ struct UIState {
     float deltaTime = 0.0f;
     float screenW = 800.0f;
     float screenH = 600.0f;
+    float framebufferW = 800.0f;
+    float framebufferH = 600.0f;
+    float dpiScaleX = 1.0f;
+    float dpiScaleY = 1.0f;
 
     std::string textInput;
     bool keys[512] = {false};
@@ -319,7 +323,6 @@ public:
     static void ReleaseCachedSurface(const std::string& key);
     static void InvalidateLayer(RenderLayer layer);
     static void InvalidateAll();
-    static void InvalidateBackdrop();
     static void CaptureBackdrop();
 
     static RectBounds MeasureRectBounds(float x, float y, float w, float h, const RectStyle& style);

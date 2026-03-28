@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 #include <string>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -13,12 +14,40 @@ int gFramebufferW = 0;
 int gFramebufferH = 0;
 int gWindowW = 0;
 int gWindowH = 0;
+float gContentScaleX = 1.0f;
+float gContentScaleY = 1.0f;
+
+void SyncSurfaceMetrics() {
+    const float fallbackScaleX = gWindowW > 0 ? static_cast<float>(gFramebufferW) / static_cast<float>(std::max(1, gWindowW)) : 1.0f;
+    const float fallbackScaleY = gWindowH > 0 ? static_cast<float>(gFramebufferH) / static_cast<float>(std::max(1, gWindowH)) : 1.0f;
+    const float scaleX = std::max(0.5f, std::max(gContentScaleX, fallbackScaleX));
+    const float scaleY = std::max(0.5f, std::max(gContentScaleY, fallbackScaleY));
+    const float logicalW = static_cast<float>(std::max(1, gFramebufferW)) / scaleX;
+    const float logicalH = static_cast<float>(std::max(1, gFramebufferH)) / scaleY;
+    const float framebufferW = static_cast<float>(std::max(1, gFramebufferW));
+    const float framebufferH = static_cast<float>(std::max(1, gFramebufferH));
+    EUINEO::State.screenW = logicalW;
+    EUINEO::State.screenH = logicalH;
+    EUINEO::State.framebufferW = framebufferW;
+    EUINEO::State.framebufferH = framebufferH;
+    EUINEO::State.dpiScaleX = scaleX;
+    EUINEO::State.dpiScaleY = scaleY;
+}
 
 void UpdateMousePosition(double x, double y) {
-    const float mouseScaleX = gWindowW > 0 ? static_cast<float>(gFramebufferW) / static_cast<float>(gWindowW) : 1.0f;
-    const float mouseScaleY = gWindowH > 0 ? static_cast<float>(gFramebufferH) / static_cast<float>(gWindowH) : 1.0f;
-    const float nextX = static_cast<float>(x) * mouseScaleX;
-    const float nextY = static_cast<float>(y) * mouseScaleY;
+    const float rawX = static_cast<float>(x);
+    const float rawY = static_cast<float>(y);
+    const float windowW = static_cast<float>(std::max(1, gWindowW));
+    const float windowH = static_cast<float>(std::max(1, gWindowH));
+    const float framebufferW = static_cast<float>(std::max(1, gFramebufferW));
+    const float framebufferH = static_cast<float>(std::max(1, gFramebufferH));
+
+    const bool cursorLooksLikeWindowSpaceX = rawX <= windowW + 0.5f;
+    const bool cursorLooksLikeWindowSpaceY = rawY <= windowH + 0.5f;
+    const float normalizedX = cursorLooksLikeWindowSpaceX ? (rawX / windowW) : (rawX / framebufferW);
+    const float normalizedY = cursorLooksLikeWindowSpaceY ? (rawY / windowH) : (rawY / framebufferH);
+    const float nextX = std::clamp(normalizedX, 0.0f, 1.0f) * EUINEO::State.screenW;
+    const float nextY = std::clamp(normalizedY, 0.0f, 1.0f) * EUINEO::State.screenH;
     if (std::abs(EUINEO::State.mouseX - nextX) > 0.01f ||
         std::abs(EUINEO::State.mouseY - nextY) > 0.01f) {
         EUINEO::State.pointerMoved = true;
@@ -41,17 +70,17 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "EUI-NEO", nullptr, nullptr);
     glfwMakeContextCurrent(window);
 
-    glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int w, int h) {
+    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* win, int w, int h) {
         glViewport(0, 0, w, h);
         gFramebufferW = w;
         gFramebufferH = h;
-        EUINEO::State.screenW = (float)w;
-        EUINEO::State.screenH = (float)h;
-        EUINEO::Renderer::InvalidateBackdrop();
+        glfwGetWindowSize(win, &gWindowW, &gWindowH);
+        SyncSurfaceMetrics();
         EUINEO::Renderer::InvalidateAll();
     });
 
@@ -62,13 +91,25 @@ int main() {
     gFramebufferW = initialFbW;
     gFramebufferH = initialFbH;
     glViewport(0, 0, initialFbW, initialFbH);
-    EUINEO::State.screenW = (float)initialFbW;
-    EUINEO::State.screenH = (float)initialFbH;
     glfwGetWindowSize(window, &gWindowW, &gWindowH);
+    glfwGetWindowContentScale(window, &gContentScaleX, &gContentScaleY);
+    SyncSurfaceMetrics();
 
-    glfwSetWindowSizeCallback(window, [](GLFWwindow*, int w, int h) {
+    glfwSetWindowSizeCallback(window, [](GLFWwindow* win, int w, int h) {
         gWindowW = w;
         gWindowH = h;
+        glfwGetWindowContentScale(win, &gContentScaleX, &gContentScaleY);
+        SyncSurfaceMetrics();
+        EUINEO::Renderer::InvalidateAll();
+    });
+
+    glfwSetWindowContentScaleCallback(window, [](GLFWwindow* win, float xscale, float yscale) {
+        gContentScaleX = xscale;
+        gContentScaleY = yscale;
+        glfwGetWindowSize(win, &gWindowW, &gWindowH);
+        glfwGetFramebufferSize(win, &gFramebufferW, &gFramebufferH);
+        SyncSurfaceMetrics();
+        EUINEO::Renderer::InvalidateAll();
     });
 
     glfwSetCursorPosCallback(window, [](GLFWwindow*, double x, double y) {
@@ -217,8 +258,7 @@ int main() {
         const bool frameRequestedBeforeUpdate =
             EUINEO::State.needsRepaint ||
             EUINEO::State.animationTimeLeft > 0.0f ||
-            EUINEO::State.pointerMoved ||
-            mainPage.WantsContinuousUpdate();
+            EUINEO::State.pointerMoved;
         if (frameRequestedBeforeUpdate) {
             mainPage.Update();
         }
@@ -241,8 +281,6 @@ int main() {
 
         if (shouldDraw || EUINEO::State.animationTimeLeft > 0) {
             glfwPollEvents();
-        } else if (mainPage.WantsContinuousUpdate()) {
-            glfwWaitEventsTimeout(1.0 / 30.0);
         } else {
             glfwWaitEvents();
         }

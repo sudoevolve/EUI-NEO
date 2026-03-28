@@ -223,7 +223,7 @@ private:
         }
         progressValue_ = clamped;
         ++stateVersion_;
-        ui_.requestBackdropRefresh(0.18f);
+        ui_.requestVisualRefresh(0.18f);
     }
 
     void SetSegmentedIndex(int index) {

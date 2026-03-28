@@ -69,12 +69,9 @@ public:
     void update();
     void render();
     void draw();
-    void draw(RenderLayer layer);
-    RectFrame layerBounds(RenderLayer layer) const;
     bool wantsContinuousUpdate() const;
     void markAllNodesDirty();
     void requestVisualRefresh(float duration = 0.0f);
-    void requestBackdropRefresh(float duration = 0.0f);
     void requestThemeRefresh(float duration = 0.18f);
     void pushClip(float x, float y, float width, float height);
     void popClip();
@@ -236,7 +233,6 @@ private:
     RectFrame resolveItemFrame(const LayoutItem& item, FlexDirection direction,
                               float cursor, float crossStart, float mainSize, float crossSize) const;
     void applyResolvedFrame(UINode& node, const RectFrame& frame);
-    void refreshLayerBounds();
 
     friend void FinalizeUIBuild(UIContext& context, UINode& node, const LayoutBuildInfo& info);
 
@@ -252,11 +248,9 @@ private:
     std::vector<LayoutState*> layoutStack_;
     std::unordered_map<UINode*, Offset> baseContextOffset_;
     std::unordered_map<UINode*, std::vector<ScrollAreaNode*>> scrollBindings_;
-    mutable std::vector<RectFrame> layerBounds_;
     bool treeChanged_ = false;
     bool needsRecompose_ = false;
     std::uint64_t drawOrderStamp_ = 0;
-    std::uint64_t layerBoundsStamp_ = 0;
     float currentOffsetX_ = 0.0f;
     float currentOffsetY_ = 0.0f;
 };
