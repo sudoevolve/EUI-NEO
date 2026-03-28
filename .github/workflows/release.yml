@@ -44,33 +44,12 @@ jobs:
             libgl1-mesa-dev
       - name: configure windows
         if: matrix.platform == 'windows'
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
       - name: configure linux
         if: matrix.platform == 'linux'
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON
       - name: build
         run: cmake --build build --config Release --parallel
-      - name: collect windows runtime dlls
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: |
-          $gcc = (Get-Command g++.exe -ErrorAction SilentlyContinue)
-          if ($null -eq $gcc) {
-            throw "g++.exe not found on runner."
-          }
-          $binDir = Split-Path -Parent $gcc.Path
-          $runtimeDllNames = @(
-            "libstdc++-6.dll",
-            "libgcc_s_seh-1.dll",
-            "libwinpthread-1.dll",
-            "libssp-0.dll"
-          )
-          foreach ($name in $runtimeDllNames) {
-            $dllPath = Join-Path $binDir $name
-            if (Test-Path $dllPath) {
-              Copy-Item -Path $dllPath -Destination build -Force
-            }
-          }
       - name: package windows
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -80,10 +59,10 @@ jobs:
           $label = $label -replace '[^A-Za-z0-9._-]', '-'
           $out = "dist/EUI-NEO-$label-windows-x64.zip"
           $items = @()
-          $items += Get-ChildItem build -Filter *.exe -File
+          $items += Get-ChildItem build -Recurse -Filter *.exe -File
           if ($items.Count -eq 0) { throw "No .exe outputs found in build directory." }
-          $items += Get-ChildItem build -Filter *.dll -File
-          if (Test-Path build/font) { $items += Get-Item build/font }
+          $items += Get-ChildItem build -Recurse -Filter glfw*.dll -File
+          if (Test-Path build/Release/font) { $items += Get-Item build/Release/font }
           Compress-Archive -Path $items.FullName -DestinationPath $out -Force
       - name: package linux
         if: matrix.platform == 'linux'
