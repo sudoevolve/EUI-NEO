@@ -1093,10 +1093,25 @@ static GLint TextColorLoc = -1;
 static GLint TextModeLoc = -1;
 static GLint TextSdfEdgeLoc = -1;
 static GLint TextSdfPixelRangeLoc = -1;
-static constexpr int kTextSdfPadding = 12;
+static GLint TextSdfSoftnessLoc = -1;
+static GLint TextSdfBiasLoc = -1;
+static GLint TextSdfMinWidthLoc = -1;
+static GLint TextSdfDiscardThresholdLoc = -1;
+static GLint TextSdfSmallTextBlendLoc = -1;
+static constexpr int kTextSdfPadding = 16;
 static constexpr unsigned char kTextSdfOnEdgeValue = 120;
 static constexpr float kTextSdfPixelDistScale =
     static_cast<float>(kTextSdfOnEdgeValue) / static_cast<float>(kTextSdfPadding);
+static constexpr float kTextSdfSoftness = 1.0f;
+static constexpr float kTextSdfBias = 0.0f;
+static constexpr float kTextSdfMinWidth = 0.35f;
+static constexpr float kTextSdfDiscardThreshold = 0.005f;
+static constexpr float kTextSdfSmallTextStartPx = 64.0f;
+static constexpr float kTextSdfSmallTextEndPx = 16.0f;
+static constexpr float kTextSdfSmallSoftness = 1.25f;
+static constexpr float kTextSdfSmallBias = 0.015f;
+static constexpr float kTextSdfSmallMinWidth = 0.55f;
+static constexpr float kTextSdfSmallDiscardThreshold = 0.001f;
 
 static int MakeTextScaleKey(float scale) {
     return static_cast<int>(std::lround(scale * 1024.0f));
@@ -1109,6 +1124,17 @@ static float ResolveRequestedTextPixelSize(float normalizedScale) {
 static float ResolveCharacterScale(const Character& character, float normalizedScale) {
     const float basePixelSize = std::max(character.BasePixelSize, 1.0f);
     return ResolveRequestedTextPixelSize(normalizedScale) / basePixelSize;
+}
+
+static float ResolveSmallTextBlend(float requestedPixelSize) {
+    if (requestedPixelSize <= kTextSdfSmallTextEndPx) {
+        return 1.0f;
+    }
+    if (requestedPixelSize >= kTextSdfSmallTextStartPx) {
+        return 0.0f;
+    }
+    const float range = std::max(kTextSdfSmallTextStartPx - kTextSdfSmallTextEndPx, 0.001f);
+    return (kTextSdfSmallTextStartPx - requestedPixelSize) / range;
 }
 
 static FontSource* FindFontSource(const std::string& fontPath, float fontSize, bool useSdf) {
@@ -1333,14 +1359,29 @@ uniform vec4 textColor;
 uniform int textMode;
 uniform float sdfEdgeValue;
 uniform float sdfPxRange;
+uniform float sdfSoftness;
+uniform float sdfBias;
+uniform float sdfMinWidth;
+uniform float sdfDiscardThreshold;
+uniform float sdfSmallTextBlend;
 void main() {
     float sampleValue = texture(text, TexCoords).r;
     float alpha = sampleValue;
     if (textMode == 1) {
-        float signedDistance = sampleValue - sdfEdgeValue;
-        float valueSpread = max(fwidth(sampleValue), 0.0008);
-        alpha = smoothstep(-valueSpread, valueSpread, signedDistance);
-        if (alpha < 0.01) {
+        if (sdfSmallTextBlend > 0.001) {
+            vec2 texelSize = 1.0 / vec2(textureSize(text, 0));
+            vec2 sampleOffset = texelSize * (0.60 * sdfSmallTextBlend);
+            float filteredSample = (sampleValue * 2.0
+                + texture(text, TexCoords + vec2(sampleOffset.x, 0.0)).r
+                + texture(text, TexCoords - vec2(sampleOffset.x, 0.0)).r
+                + texture(text, TexCoords + vec2(0.0, sampleOffset.y)).r
+                + texture(text, TexCoords - vec2(0.0, sampleOffset.y)).r) / 6.0;
+            sampleValue = mix(sampleValue, filteredSample, sdfSmallTextBlend);
+        }
+        float texelDistance = (sampleValue - sdfEdgeValue) * (sdfPxRange / max(sdfEdgeValue, 0.0001));
+        float aaWidth = max(fwidth(texelDistance) * sdfSoftness, sdfMinWidth);
+        alpha = smoothstep(-aaWidth, aaWidth, texelDistance + sdfBias);
+        if (alpha < sdfDiscardThreshold) {
             discard;
         }
     }
@@ -1467,11 +1508,21 @@ void Renderer::Init() {
     TextModeLoc = glGetUniformLocation(TextShaderProgram, "textMode");
     TextSdfEdgeLoc = glGetUniformLocation(TextShaderProgram, "sdfEdgeValue");
     TextSdfPixelRangeLoc = glGetUniformLocation(TextShaderProgram, "sdfPxRange");
+    TextSdfSoftnessLoc = glGetUniformLocation(TextShaderProgram, "sdfSoftness");
+    TextSdfBiasLoc = glGetUniformLocation(TextShaderProgram, "sdfBias");
+    TextSdfMinWidthLoc = glGetUniformLocation(TextShaderProgram, "sdfMinWidth");
+    TextSdfDiscardThresholdLoc = glGetUniformLocation(TextShaderProgram, "sdfDiscardThreshold");
+    TextSdfSmallTextBlendLoc = glGetUniformLocation(TextShaderProgram, "sdfSmallTextBlend");
     glUseProgram(TextShaderProgram);
     glUniform1i(glGetUniformLocation(TextShaderProgram, "text"), 0);
     glUniform1i(TextModeLoc, 1);
     glUniform1f(TextSdfEdgeLoc, static_cast<float>(kTextSdfOnEdgeValue) / 255.0f);
     glUniform1f(TextSdfPixelRangeLoc, static_cast<float>(kTextSdfPadding));
+    glUniform1f(TextSdfSoftnessLoc, kTextSdfSoftness);
+    glUniform1f(TextSdfBiasLoc, kTextSdfBias);
+    glUniform1f(TextSdfMinWidthLoc, kTextSdfMinWidth);
+    glUniform1f(TextSdfDiscardThresholdLoc, kTextSdfDiscardThreshold);
+    glUniform1f(TextSdfSmallTextBlendLoc, 0.0f);
 
     glGenVertexArrays(1, &TextVAO);
     glGenBuffers(1, &TextVBO);
@@ -2028,6 +2079,17 @@ void Renderer::DrawTextStr(const std::string& text, float x, float y, const Colo
     }
 
     glUniform4f(TextColorLoc, color.r, color.g, color.b, color.a);
+    const float requestedPixelSize = ResolveRequestedTextPixelSize(scale);
+    const float smallTextBlend = ResolveSmallTextBlend(requestedPixelSize);
+    const float dynamicSdfSoftness = kTextSdfSoftness + (kTextSdfSmallSoftness - kTextSdfSoftness) * smallTextBlend;
+    const float dynamicSdfBias = kTextSdfBias + (kTextSdfSmallBias - kTextSdfBias) * smallTextBlend;
+    const float dynamicSdfMinWidth = kTextSdfMinWidth + (kTextSdfSmallMinWidth - kTextSdfMinWidth) * smallTextBlend;
+    const float dynamicSdfDiscardThreshold = kTextSdfDiscardThreshold + (kTextSdfSmallDiscardThreshold - kTextSdfDiscardThreshold) * smallTextBlend;
+    glUniform1f(TextSdfSoftnessLoc, dynamicSdfSoftness);
+    glUniform1f(TextSdfBiasLoc, dynamicSdfBias);
+    glUniform1f(TextSdfMinWidthLoc, dynamicSdfMinWidth);
+    glUniform1f(TextSdfDiscardThresholdLoc, dynamicSdfDiscardThreshold);
+    glUniform1f(TextSdfSmallTextBlendLoc, smallTextBlend);
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(TextVAO);
     glBindBuffer(GL_ARRAY_BUFFER, TextVBO);

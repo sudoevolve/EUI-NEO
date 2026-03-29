@@ -194,47 +194,30 @@ int main() {
     constexpr float kIconSdfLoadSize = 96.0f;
     constexpr float kCjkSdfLoadSize = 72.0f;
 
-    const auto loadProjectFont = [](const char* fileName,
-                                    float fontSize,
-                                    unsigned int startChar,
-                                    unsigned int endChar,
-                                    bool useSdf = true) {
+    const auto registerProjectFont = [](const char* fileName, float fontSize, bool useSdf = true) {
         static const char* kFontDirs[] = {
             "font/",
             "src/font/"
         };
         for (const char* dir : kFontDirs) {
             const std::string path = std::string(dir) + fileName;
-            if (EUINEO::Renderer::LoadFont(path, fontSize, startChar, endChar, useSdf)) {
+            if (EUINEO::Renderer::RegisterFontSource(path, fontSize, useSdf)) {
                 return true;
             }
         }
         return false;
     };
 
-    const auto loadProjectIcon = [&](unsigned int codepoint) {
-        return loadProjectFont(kIconFontFile, kIconSdfLoadSize, codepoint, codepoint + 1, false);
-    };
-
     bool fontLoaded = false;
-    if (loadProjectFont(kUIFontFile, kUiSdfLoadSize, 32, 128)) {
+    if (registerProjectFont(kUIFontFile, kUiSdfLoadSize, true)) {
         fontLoaded = true;
     }
-
-    loadProjectIcon(0xF009); // grid
-    loadProjectIcon(0xF013); // gear
-    loadProjectIcon(0xF015); // home
-    loadProjectIcon(0xF031); // font
-    loadProjectIcon(0xF04B); // play
-    loadProjectIcon(0xF106); // chevron-up
-    loadProjectIcon(0xF107); // chevron-down
-    loadProjectIcon(0xF185); // sun
-    loadProjectIcon(0xF186); // moon
+    registerProjectFont(kIconFontFile, kIconSdfLoadSize, false);
 
     if (!fontLoaded) {
-        if (EUINEO::Renderer::LoadFont("C:/Windows/Fonts/msyh.ttc", kUiSdfLoadSize, 32, 128)) {
+        if (EUINEO::Renderer::RegisterFontSource("C:/Windows/Fonts/msyh.ttc", kUiSdfLoadSize, true)) {
             fontLoaded = true;
-        } else if (EUINEO::Renderer::LoadFont("C:/Windows/Fonts/arial.ttf", kUiSdfLoadSize)) {
+        } else if (EUINEO::Renderer::RegisterFontSource("C:/Windows/Fonts/arial.ttf", kUiSdfLoadSize, true)) {
             fontLoaded = true;
         } else {
             printf("Failed to load fallback font!\n");

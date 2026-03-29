@@ -348,16 +348,16 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
     Renderer::Init();
 
     bool fontLoaded = false;
-    if (Renderer::LoadFont("font/YouSheBiaoTiHei-2.ttf", 72.0f, 32, 128)) {
+    if (Renderer::RegisterFontSource("font/YouSheBiaoTiHei-2.ttf", 72.0f, true)) {
         fontLoaded = true;
-    } else if (Renderer::LoadFont("src/font/YouSheBiaoTiHei-2.ttf", 72.0f, 32, 128)) {
+    } else if (Renderer::RegisterFontSource("src/font/YouSheBiaoTiHei-2.ttf", 72.0f, true)) {
         fontLoaded = true;
     }
-    Renderer::LoadFont("font/Font Awesome 7 Free-Solid-900.otf", 96.0f, 0xF009, 0xF10F, false);
-    Renderer::LoadFont("src/font/Font Awesome 7 Free-Solid-900.otf", 96.0f, 0xF009, 0xF10F, false);
+    Renderer::RegisterFontSource("font/Font Awesome 7 Free-Solid-900.otf", 96.0f, false);
+    Renderer::RegisterFontSource("src/font/Font Awesome 7 Free-Solid-900.otf", 96.0f, false);
     if (!fontLoaded) {
-        if (!Renderer::LoadFont("C:/Windows/Fonts/msyh.ttc", 72.0f, 32, 128)) {
-            Renderer::LoadFont("C:/Windows/Fonts/arial.ttf", 72.0f, 32, 128);
+        if (!Renderer::RegisterFontSource("C:/Windows/Fonts/msyh.ttc", 72.0f, true)) {
+            Renderer::RegisterFontSource("C:/Windows/Fonts/arial.ttf", 72.0f, true);
         }
     }
     Renderer::RegisterFontSource("C:/Windows/Fonts/msyh.ttc", 72.0f);

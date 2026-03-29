@@ -60,6 +60,14 @@ add_library(eui_neo_core STATIC ${SRC_FILES})
 target_include_directories(eui_neo_core PUBLIC src third_party)
 target_link_libraries(eui_neo_core PUBLIC glfw glad OpenGL::GL)
 
+set(EUI_FONT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/font")
+if(EXISTS "${EUI_FONT_SOURCE_DIR}")
+    add_custom_target(eui_copy_fonts
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/font"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${EUI_FONT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/font"
+    )
+endif()
+
 function(configure_eui_target target_name)
     if(MSVC)
         target_compile_options(${target_name} PRIVATE /GS- /sdl- /utf-8)
@@ -70,6 +78,9 @@ function(configure_eui_target target_name)
     endif()
 
     target_link_libraries(${target_name} PRIVATE eui_neo_core)
+    if(TARGET eui_copy_fonts)
+        add_dependencies(${target_name} eui_copy_fonts)
+    endif()
 
     if(WIN32)
         add_custom_command(TARGET ${target_name} POST_BUILD
@@ -79,12 +90,6 @@ function(configure_eui_target target_name)
             COMMAND_EXPAND_LISTS
         )
     endif()
-
-    add_custom_command(TARGET ${target_name} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/font
-        $<TARGET_FILE_DIR:${target_name}>/font
-    )
 endfunction()
 
 add_executable(eui_neo main.cpp)
