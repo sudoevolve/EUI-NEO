@@ -427,6 +427,13 @@ void UIContext::update() {
         } else {
             node->clearCacheDirty();
         }
+        if (isVisible && node->cacheDirty() && node->primitive().blur <= 0.0f && node->usesCachedSurface()) {
+            const RectFrame bounds = node->paintBounds();
+            if (bounds.width <= 0.0f || bounds.height <= 0.0f) {
+                Renderer::ReleaseCachedSurface(node->key());
+                node->clearCacheDirty();
+            }
+        }
         if (isVisible && node->cacheDirty()) {
             const std::size_t layerIndex = static_cast<std::size_t>(node->renderLayer());
             if (layerIndex < static_cast<std::size_t>(RenderLayer::Count)) {
@@ -476,8 +483,10 @@ void UIContext::draw() {
                 Renderer::DrawCachedSurface(node->key(), bounds, node->cacheDirty(), [node]() {
                     node->draw();
                 });
-                node->clearCacheDirty();
+            } else {
+                Renderer::ReleaseCachedSurface(node->key());
             }
+            node->clearCacheDirty();
         } else {
             node->draw();
             node->clearCacheDirty();
