@@ -78,6 +78,25 @@ inline void ToggleDslWindowFullscreen() {
     SetDslWindowFullscreen(!IsDslWindowFullscreen());
 }
 
+inline void SetDslBackground(const Color& color) {
+    if (CurrentTheme == nullptr) {
+        CurrentTheme = &DarkTheme;
+    }
+    CurrentTheme->background = color;
+    if (GLFWwindow* window = ActiveDslWindowState().window) {
+        if (color.a >= 0.999f) {
+            glfwSetWindowOpacity(window, 1.0f);
+        }
+    }
+    Renderer::InvalidateAll();
+    Renderer::RequestRepaint(0.08f);
+}
+
+inline void UseDslLightTheme(const Color& background = Color(1.0f, 1.0f, 1.0f, 1.0f)) {
+    CurrentTheme = &LightTheme;
+    SetDslBackground(background);
+}
+
 inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
     if (!compose) {
         return -1;
@@ -151,6 +170,9 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
         state.windowedW = config.width;
         state.windowedH = config.height;
         glfwGetWindowPos(window, &state.windowedX, &state.windowedY);
+    }
+    if (CurrentTheme != nullptr && CurrentTheme->background.a >= 0.999f) {
+        glfwSetWindowOpacity(window, 1.0f);
     }
 
     glfwMakeContextCurrent(window);
