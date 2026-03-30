@@ -64,6 +64,7 @@ jobs:
           $items += Get-ChildItem $binDir -Filter app_*.exe -File -ErrorAction SilentlyContinue
           if ($items.Count -eq 0) { throw "No .exe outputs found in build directory." }
           $items += Get-ChildItem $binDir -Filter glfw*.dll -File -ErrorAction SilentlyContinue
+          if (Test-Path "build/font") { $items += Get-Item "build/font" }
           if (Test-Path "$binDir/font") { $items += Get-Item "$binDir/font" }
           Compress-Archive -Path $items.FullName -DestinationPath $out -Force
       - name: upload windows release asset
@@ -90,6 +91,9 @@ jobs:
           files=("${bins[@]}")
           if [ -d build/font ]; then
             files+=("build/font")
+          fi
+          if [ -d build/Release/font ]; then
+            files+=("build/Release/font")
           fi
           tar -czf "$out" "${files[@]}"
       - name: upload linux release asset
