@@ -1,4 +1,5 @@
 #include "app/DslAppRuntime.h"
+#include <GLFW/glfw3.h>
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -63,6 +64,15 @@ constexpr std::array<CitySpec, 27> kCities{{
 }};
 constexpr int kDefaultCityIndex = 20;
 constexpr std::size_t kMaxFavoriteCities = 8;
+
+std::string HitokotoText() {
+    EUINEO::DslApiTextOptions options;
+    options.fallback = "小手拍拍，大家的笑容闪闪发亮。";
+    options.refreshSeconds = 24.0f * 60.0f * 60.0f;
+    options.trim = true;
+    return EUINEO::UseDslApiText("clock.hitokoto", "https://v1.hitokoto.cn/?c=f&encode=text", options);
+}
+
 std::tm ToUtcTm(std::time_t value) {
     std::tm out{};
 #ifdef _WIN32
@@ -321,7 +331,7 @@ int main() {
         ui.panel("clock.split.1").position(contentX, splitY).size(contentW, 1.0f).background(palette.hairline).build();
         label("clock.city.title.line1", contentX, cityTitleY + 52.0f, 72.0f, palette.ink, cityTitleLine1);
         label("clock.city.title.line2", contentX, cityTitleY + 122.0f, 72.0f, palette.ink, selectedCity.countryEn);
-        label("clock.city.note", contentX + contentW * 0.33f, cityTitleY + 88.0f, 30.0f, palette.softText, "小手拍拍，大家的笑容闪闪发亮!");
+        label("clock.city.note", contentX + contentW * 0.33f, cityTitleY + 88.0f, 30.0f, palette.softText, HitokotoText());
         const bool alreadyFavorite = std::find(state.favoriteCityIndices.begin(), state.favoriteCityIndices.end(), state.selectedCityIndex) != state.favoriteCityIndices.end();
         label("clock.city.add", rightX - 250.0f, cityTitleY + 88.0f, 30.0f, palette.ink, alreadyFavorite ? "Already Added" : "Add Another City +");
         ui.button("clock.city.add.hit")

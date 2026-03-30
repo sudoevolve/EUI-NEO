@@ -159,6 +159,69 @@ config.fps = 120;
 - `config.fps > 0`：关闭 VSync，按目标帧率限帧
 - 不写 `fps` 时默认值是 `0`，等价于垂直同步
 
+## 网络请求与图片显示
+
+### 1) 文本 API（填 URL 即可）
+
+`src/app/DslAppRuntime.h` 提供了 `UseDslApiText(...)`，用于异步拉取文本并自动刷新界面：
+
+```cpp
+EUINEO::DslApiTextOptions options;
+options.fallback = "加载中...";
+options.refreshSeconds = 60.0f; // 0 表示只拉取一次
+options.trim = true;
+
+const std::string text = EUINEO::UseDslApiText(
+    "demo.hitokoto", // 建议唯一 key（同页面内不要重复）
+    "https://v1.hitokoto.cn/?c=f&encode=text",
+    options
+);
+```
+
+简写（`cacheKey` 默认用 `url`）：
+
+```cpp
+const std::string text = EUINEO::UseDslApiText("https://example.com/api/text", options);
+```
+
+说明：
+
+- 自动异步请求，不阻塞主线程
+- 请求成功后自动触发重绘，不需要手动切页刷新
+- 支持失败重试（带间隔节流）
+
+### 2) 图片 URL / API
+
+`Image` 组件支持直接填网络地址与 Bing 每日图：
+
+```cpp
+ui.image("demo.remote")
+    .size(320.0f, 180.0f)
+    .url("https://example.com/a.jpg")
+    .build();
+
+ui.image("demo.remote.alias")
+    .size(320.0f, 180.0f)
+    .api("https://example.com/b.jpg") // api() 是 url() 别名
+    .build();
+
+ui.image("demo.bing")
+    .size(320.0f, 180.0f)
+    .bingDaily(0, "zh-CN")
+    .build();
+```
+
+说明：
+
+- 图片下载与解码为异步流程
+- 下载完成后自动唤醒事件循环并刷新界面
+- 支持本地路径、HTTP/HTTPS、`bing://daily?...` 三种来源
+
+### 3) 跨平台支持
+
+- 优先使用 `libcurl`（Windows / Linux / macOS）
+- 在 Windows 且未启用 curl 时，自动回退 `urlmon`
+
 ## 字体与回退
 
 字体加载入口也在 `main.cpp`，当前主要配置是：

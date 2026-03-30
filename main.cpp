@@ -247,6 +247,9 @@ int main() {
         }
 
         bool shouldDraw = EUINEO::Renderer::ShouldRepaint();
+        if (shouldDraw && !frameRequestedBeforeUpdate) {
+            mainPage.Update();
+        }
         if (shouldDraw) {
             EUINEO::State.frameCount++;
             mainPage.Draw();

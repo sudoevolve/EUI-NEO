@@ -336,6 +336,10 @@ public:
                             float strokeWidth = 0.0f, const Color& strokeColor = Color(0, 0, 0, 0));
     static void DrawPolygon(const std::vector<Point2>& points, const Color& fillColor, const RectGradient& gradient,
                             float strokeWidth = 0.0f, const Color& strokeColor = Color(0, 0, 0, 0));
+    static GLuint LoadImageTexture(const std::string& imagePath, bool flipVertically = true);
+    static void ReleaseImageTexture(GLuint textureId);
+    static void DrawImage(GLuint textureId, float x, float y, float w, float h,
+                          float rounding = 0.0f, const Color& tint = Color(1, 1, 1, 1));
 
     static bool LoadFont(const std::string& fontPath, float fontSize = 24.0f,
                          unsigned int startChar = 32, unsigned int endChar = 128,

@@ -3,6 +3,7 @@
 #include "UIBuilder.h"
 #include "../components/Button.h"
 #include "../components/ComboBox.h"
+#include "../components/Image.h"
 #include "../components/InputBox.h"
 #include "../components/Label.h"
 #include "../components/Panel.h"

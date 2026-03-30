@@ -45,8 +45,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glad)
 
+FetchContent_Declare(
+    stb
+    URL https://github.com/nothings/stb/archive/refs/heads/master.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    TIMEOUT 30
+    TLS_VERIFY OFF
+)
+FetchContent_MakeAvailable(stb)
+
 # 自动检测并查找系统已安装的 OpenGL
 find_package(OpenGL REQUIRED)
+find_package(CURL QUIET)
 
 # 包含 src 目录和第三方库目录
 include_directories(src)
@@ -57,8 +67,14 @@ file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB APP_ENTRY_FILES CONFIGURE_DEPENDS "app/*.cpp")
 
 add_library(eui_neo_core STATIC ${SRC_FILES})
-target_include_directories(eui_neo_core PUBLIC src third_party)
+target_include_directories(eui_neo_core PUBLIC src third_party ${stb_SOURCE_DIR})
 target_link_libraries(eui_neo_core PUBLIC glfw glad OpenGL::GL)
+if(CURL_FOUND)
+    target_link_libraries(eui_neo_core PUBLIC CURL::libcurl)
+    target_compile_definitions(eui_neo_core PUBLIC EUI_HAS_CURL=1)
+elseif(WIN32)
+    target_link_libraries(eui_neo_core PUBLIC urlmon)
+endif()
 
 set(EUI_FONT_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/font")
 if(EXISTS "${EUI_FONT_SOURCE_DIR}")

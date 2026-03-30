@@ -127,9 +127,9 @@ private:
                     .style(ButtonStyle::Outline)
                     .build();
 
-                ui.panel(idPrefix + ".fill")
+                ui.image(idPrefix + ".fill")
                     .flex(1.0f)
-                    .background(visuals.softAccentColor)
+                    .path("bing://daily?idx=0&mkt=zh-CN")
                     .rounding(14.0f)
                     .build();
             });
@@ -173,9 +173,9 @@ private:
                     .value(std::clamp(flexWeight, 0.0f, 1.0f))
                     .build();
 
-                ui.panel(idPrefix + ".fill")
+                ui.image(idPrefix + ".fill")
                     .flex(1.0f)
-                    .background(visuals.mutedCardColor)
+                    .path("bing://daily?idx=1&mkt=zh-CN")
                     .rounding(14.0f)
                     .build();
             });

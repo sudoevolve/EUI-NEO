@@ -4,11 +4,27 @@
 #include "../ui/UIContext.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <functional>
+#include <mutex>
+#include <sstream>
 #include <string>
+#include <thread>
+#include <unordered_map>
+#ifdef EUI_HAS_CURL
+#include <curl/curl.h>
+#elif defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <urlmon.h>
+#endif
 
 namespace EUINEO {
 
@@ -95,6 +111,203 @@ inline void SetDslBackground(const Color& color) {
 inline void UseDslLightTheme(const Color& background = Color(1.0f, 1.0f, 1.0f, 1.0f)) {
     CurrentTheme = &LightTheme;
     SetDslBackground(background);
+}
+
+struct DslApiTextOptions {
+    std::string fallback = "";
+    float refreshSeconds = 0.0f;
+    bool trim = true;
+};
+
+namespace DslApiInternal {
+
+struct TextCacheEntry {
+    std::string value;
+    bool loaded = false;
+    bool inflight = false;
+    long long retryAfterMs = 0;
+    long long nextRefreshMs = 0;
+};
+
+inline std::unordered_map<std::string, TextCacheEntry>& TextCache() {
+    static std::unordered_map<std::string, TextCacheEntry> cache;
+    return cache;
+}
+
+inline std::mutex& TextCacheMutex() {
+    static std::mutex mutex;
+    return mutex;
+}
+
+inline long long NowMs() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+}
+
+inline std::string TrimSpace(std::string value) {
+    while (!value.empty() && (value.back() == '\r' || value.back() == '\n' || value.back() == ' ' || value.back() == '\t')) {
+        value.pop_back();
+    }
+    size_t begin = 0;
+    while (begin < value.size() && (value[begin] == ' ' || value[begin] == '\t' || value[begin] == '\r' || value[begin] == '\n')) {
+        ++begin;
+    }
+    return value.substr(begin);
+}
+
+inline std::string BuildTempTextFilePath(const std::string& key) {
+    const char* tempDir = std::getenv("TMPDIR");
+    if (tempDir == nullptr || tempDir[0] == '\0') {
+        tempDir = std::getenv("TEMP");
+    }
+    if (tempDir == nullptr || tempDir[0] == '\0') {
+        tempDir = std::getenv("TMP");
+    }
+    if (tempDir == nullptr || tempDir[0] == '\0') {
+#ifdef _WIN32
+        tempDir = ".";
+#else
+        tempDir = "/tmp";
+#endif
+    }
+    const size_t hashValue = std::hash<std::string>{}(key);
+    std::ostringstream oss;
+    oss << tempDir;
+    const char last = oss.str().empty() ? '\0' : oss.str().back();
+    if (last != '/' && last != '\\') {
+#ifdef _WIN32
+        oss << "\\";
+#else
+        oss << "/";
+#endif
+    }
+    oss << "eui_neo_text_" << hashValue << ".tmp";
+    return oss.str();
+}
+
+#ifdef EUI_HAS_CURL
+inline size_t CurlWriteToString(void* data, size_t size, size_t nmemb, void* userdata) {
+    const size_t bytes = size * nmemb;
+    std::string* output = reinterpret_cast<std::string*>(userdata);
+    output->append(reinterpret_cast<const char*>(data), bytes);
+    return bytes;
+}
+
+inline bool DownloadText(const std::string& url, std::string& output) {
+    static bool curlReady = curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK;
+    if (!curlReady) {
+        return false;
+    }
+    CURL* curl = curl_easy_init();
+    if (curl == nullptr) {
+        return false;
+    }
+    output.clear();
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 12L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlWriteToString);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
+    CURLcode code = curl_easy_perform(curl);
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    curl_easy_cleanup(curl);
+    return code == CURLE_OK && status >= 200 && status < 300;
+}
+#elif defined(_WIN32)
+inline bool DownloadText(const std::string& url, std::string& output) {
+    output.clear();
+    const std::string tempFilePath = BuildTempTextFilePath(url);
+    if (tempFilePath.empty()) {
+        return false;
+    }
+    const HRESULT hr = URLDownloadToFileA(nullptr, url.c_str(), tempFilePath.c_str(), 0, nullptr);
+    if (FAILED(hr)) {
+        return false;
+    }
+    std::ifstream input(tempFilePath, std::ios::binary);
+    if (!input.good()) {
+        std::remove(tempFilePath.c_str());
+        return false;
+    }
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    output = buffer.str();
+    input.close();
+    std::remove(tempFilePath.c_str());
+    return !output.empty();
+}
+#else
+inline bool DownloadText(const std::string& url, std::string& output) {
+    output.clear();
+    return false;
+}
+#endif
+
+} // namespace DslApiInternal
+
+inline std::string UseDslApiText(const std::string& cacheKey, const std::string& url, const DslApiTextOptions& options = {}) {
+    if (cacheKey.empty() || url.empty()) {
+        return options.fallback;
+    }
+    bool shouldStart = false;
+    std::string current = options.fallback;
+    {
+        std::lock_guard<std::mutex> lock(DslApiInternal::TextCacheMutex());
+        auto& cache = DslApiInternal::TextCache();
+        auto& entry = cache[cacheKey];
+        if (entry.value.empty()) {
+            entry.value = options.fallback;
+        }
+        const long long nowMs = DslApiInternal::NowMs();
+        const bool needInitial = !entry.loaded;
+        const bool needRefresh = entry.loaded && options.refreshSeconds > 0.0f && nowMs >= entry.nextRefreshMs;
+        if (!entry.inflight && nowMs >= entry.retryAfterMs && (needInitial || needRefresh)) {
+            entry.inflight = true;
+            shouldStart = true;
+        }
+        current = entry.value.empty() ? options.fallback : entry.value;
+    }
+    if (shouldStart) {
+        std::thread([cacheKey, url, options]() {
+            std::string payload;
+            bool ok = DslApiInternal::DownloadText(url, payload);
+            if (ok && options.trim) {
+                payload = DslApiInternal::TrimSpace(payload);
+            }
+            const long long nowMs = DslApiInternal::NowMs();
+            bool changed = false;
+            {
+                std::lock_guard<std::mutex> lock(DslApiInternal::TextCacheMutex());
+                auto& cache = DslApiInternal::TextCache();
+                auto& entry = cache[cacheKey];
+                entry.inflight = false;
+                if (ok && !payload.empty()) {
+                    changed = entry.value != payload;
+                    entry.value = payload;
+                    entry.loaded = true;
+                    entry.retryAfterMs = 0;
+                    entry.nextRefreshMs = options.refreshSeconds > 0.0f
+                        ? (nowMs + static_cast<long long>(options.refreshSeconds * 1000.0f))
+                        : (nowMs + 24LL * 60LL * 60LL * 1000LL);
+                } else {
+                    entry.retryAfterMs = nowMs + 3000;
+                    if (!entry.loaded && entry.value.empty()) {
+                        entry.value = options.fallback;
+                    }
+                }
+            }
+            if (ok || changed) {
+                Renderer::RequestRepaint(0.25f);
+                glfwPostEmptyEvent();
+            }
+        }).detach();
+    }
+    return current;
+}
+
+inline std::string UseDslApiText(const std::string& url, const DslApiTextOptions& options = {}) {
+    return UseDslApiText(url, url, options);
 }
 
 inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
@@ -394,11 +607,7 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
         State.deltaTime = dt > 0.05f ? 0.05f : dt;
         lastTime = currentTime;
 
-        const bool frameRequestedBeforeUpdate =
-            State.needsRepaint ||
-            State.animationTimeLeft > 0.0f ||
-            State.pointerMoved;
-        if (frameRequestedBeforeUpdate) {
+        auto composeAndUpdate = [&]() {
             ui.begin(pageId);
             compose(ui, RectFrame{0.0f, 0.0f, State.screenW, State.screenH});
             ui.end();
@@ -411,9 +620,20 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
                 compose(ui, RectFrame{0.0f, 0.0f, State.screenW, State.screenH});
                 ui.end();
             }
+        };
+
+        const bool frameRequestedBeforeUpdate =
+            State.needsRepaint ||
+            State.animationTimeLeft > 0.0f ||
+            State.pointerMoved;
+        if (frameRequestedBeforeUpdate) {
+            composeAndUpdate();
         }
 
         bool shouldDraw = Renderer::ShouldRepaint();
+        if (shouldDraw && !frameRequestedBeforeUpdate) {
+            composeAndUpdate();
+        }
         if (shouldDraw) {
             State.frameCount++;
             ui.render();

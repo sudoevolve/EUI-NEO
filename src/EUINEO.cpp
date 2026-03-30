@@ -1,12 +1,31 @@
 #include "EUINEO.h"
+#include "components/Image.h"
 #include "ui/ThemeTokens.h"
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <mutex>
+#include <atomic>
+#include <sstream>
+#include <thread>
 #include <unordered_map>
 #include <vector>
+#ifdef EUI_HAS_CURL
+#include <curl/curl.h>
+#elif defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#include <urlmon.h>
+#endif
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
@@ -258,6 +277,15 @@ static GLint CompositeSizeLoc = -1;
 static GLint CompositeTextureLoc = -1;
 static GLint CompositeUVPosLoc = -1;
 static GLint CompositeUVSizeLoc = -1;
+static GLuint ImageProgram = 0;
+static GLint ImageProjLoc = -1;
+static GLint ImagePosLoc = -1;
+static GLint ImageSizeLoc = -1;
+static GLint ImageTextureLoc = -1;
+static GLint ImageBoxPosLoc = -1;
+static GLint ImageBoxSizeLoc = -1;
+static GLint ImageRoundingLoc = -1;
+static GLint ImageTintLoc = -1;
 static GLuint PolygonProgram = 0;
 static GLuint PolygonVAO = 0;
 static GLuint PolygonVBO = 0;
@@ -275,6 +303,12 @@ static bool ActiveCustomSurface = false;
 static RectFrame ActiveCustomSurfaceBounds;
 static int ActiveCustomSurfaceWidth = 0;
 static int ActiveCustomSurfaceHeight = 0;
+static std::unordered_map<std::string, GLuint> ImageTextureCache;
+static std::unordered_map<std::string, std::string> DownloadedImagePathCache;
+static std::unordered_map<std::string, bool> RemoteImageDownloadInFlight;
+static std::unordered_map<std::string, long long> RemoteImageRetryAfterMs;
+static std::mutex RemoteImageMutex;
+static std::atomic<bool> RemoteImageReadyFlag = false;
 
 static const char* vShaderStr = R"(
 #version 330 core
@@ -479,6 +513,51 @@ void main() {
 }
 )";
 
+static const char* imageVShaderStr = R"(
+#version 330 core
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aUV;
+out vec2 vUV;
+out vec2 vPos;
+uniform mat4 projection;
+uniform vec2 uPos;
+uniform vec2 uSize;
+void main() {
+    vec2 pos = uPos + aPos * uSize;
+    vUV = aUV;
+    vPos = pos;
+    gl_Position = projection * vec4(pos, 0.0, 1.0);
+}
+)";
+
+static const char* imageFShaderStr = R"(
+#version 330 core
+in vec2 vUV;
+in vec2 vPos;
+uniform sampler2D uTexture;
+uniform vec2 uBoxPos;
+uniform vec2 uBoxSize;
+uniform float uRounding;
+uniform vec4 uTint;
+out vec4 FragColor;
+
+float roundedBoxSDF(vec2 centerPosition, vec2 size, float radius) {
+    return length(max(abs(centerPosition) - size + radius, 0.0)) - radius;
+}
+
+void main() {
+    vec2 center = uBoxPos + uBoxSize * 0.5;
+    vec2 p = vPos - center;
+    float d = roundedBoxSDF(p, uBoxSize * 0.5, uRounding);
+    float alpha = 1.0 - smoothstep(-1.0, 1.0, d);
+    if (alpha <= 0.0) {
+        discard;
+    }
+    vec4 sampled = texture(uTexture, vUV);
+    FragColor = vec4(sampled.rgb * uTint.rgb, sampled.a * uTint.a * alpha);
+}
+)";
+
 static const char* polygonVShaderStr = R"(
 #version 330 core
 layout(location = 0) in vec2 aPos;
@@ -528,6 +607,270 @@ static GLuint CreateProgram(const char* vertexSource, const char* fragmentSource
     glDeleteShader(vs);
     glDeleteShader(fs);
     return program;
+}
+
+static bool IsHttpUrl(const std::string& path) {
+    return path.rfind("http://", 0) == 0 || path.rfind("https://", 0) == 0;
+}
+
+static std::string BuildDownloadedImageFilePath(const std::string& url) {
+    const char* tempDir = std::getenv("TMPDIR");
+    if (tempDir == nullptr || tempDir[0] == '\0') {
+        tempDir = std::getenv("TEMP");
+    }
+    if (tempDir == nullptr || tempDir[0] == '\0') {
+        tempDir = std::getenv("TMP");
+    }
+    if (tempDir == nullptr || tempDir[0] == '\0') {
+#ifdef _WIN32
+        tempDir = ".";
+#else
+        tempDir = "/tmp";
+#endif
+    }
+    const size_t hashValue = std::hash<std::string>{}(url);
+    std::ostringstream oss;
+    oss << tempDir;
+    const char last = oss.str().empty() ? '\0' : oss.str().back();
+    if (last != '/' && last != '\\') {
+#ifdef _WIN32
+        oss << "\\";
+#else
+        oss << "/";
+#endif
+    }
+    oss << "eui_neo_img_" << hashValue << ".cache";
+    return oss.str();
+}
+
+#ifdef EUI_HAS_CURL
+static size_t CurlWriteToFile(void* data, size_t size, size_t nmemb, void* userdata) {
+    const size_t bytes = size * nmemb;
+    std::ofstream* output = reinterpret_cast<std::ofstream*>(userdata);
+    output->write(reinterpret_cast<const char*>(data), static_cast<std::streamsize>(bytes));
+    return bytes;
+}
+
+static size_t CurlWriteToString(void* data, size_t size, size_t nmemb, void* userdata) {
+    const size_t bytes = size * nmemb;
+    std::string* output = reinterpret_cast<std::string*>(userdata);
+    output->append(reinterpret_cast<const char*>(data), bytes);
+    return bytes;
+}
+
+static bool EnsureCurlReady() {
+    static bool initialized = false;
+    static bool ready = false;
+    if (!initialized) {
+        ready = curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK;
+        initialized = true;
+    }
+    return ready;
+}
+
+static bool DownloadUrlToString(const std::string& url, std::string& output) {
+    if (!EnsureCurlReady()) {
+        return false;
+    }
+    CURL* curl = curl_easy_init();
+    if (curl == nullptr) {
+        return false;
+    }
+    output.clear();
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlWriteToString);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
+    CURLcode code = curl_easy_perform(curl);
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    curl_easy_cleanup(curl);
+    return code == CURLE_OK && status >= 200 && status < 300;
+}
+
+static bool DownloadUrlToFile(const std::string& url, const std::string& localFilePath) {
+    if (!EnsureCurlReady()) {
+        return false;
+    }
+    std::ofstream output(localFilePath, std::ios::binary | std::ios::trunc);
+    if (!output.good()) {
+        return false;
+    }
+    CURL* curl = curl_easy_init();
+    if (curl == nullptr) {
+        return false;
+    }
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 20L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlWriteToFile);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &output);
+    CURLcode code = curl_easy_perform(curl);
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    curl_easy_cleanup(curl);
+    output.close();
+    return code == CURLE_OK && status >= 200 && status < 300;
+}
+#elif defined(_WIN32)
+static bool DownloadUrlToString(const std::string& url, std::string& output) {
+    const std::string tempFilePath = BuildDownloadedImageFilePath(url + "__meta");
+    if (tempFilePath.empty()) {
+        return false;
+    }
+    HRESULT hr = URLDownloadToFileA(nullptr, url.c_str(), tempFilePath.c_str(), 0, nullptr);
+    if (FAILED(hr)) {
+        return false;
+    }
+    std::ifstream input(tempFilePath, std::ios::binary);
+    if (!input.good()) {
+        std::remove(tempFilePath.c_str());
+        return false;
+    }
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    output = buffer.str();
+    input.close();
+    std::remove(tempFilePath.c_str());
+    return !output.empty();
+}
+
+static bool DownloadUrlToFile(const std::string& url, const std::string& localFilePath) {
+    HRESULT hr = URLDownloadToFileA(nullptr, url.c_str(), localFilePath.c_str(), 0, nullptr);
+    return SUCCEEDED(hr);
+}
+#else
+static bool DownloadUrlToString(const std::string& url, std::string& output) {
+    output.clear();
+    return false;
+}
+
+static bool DownloadUrlToFile(const std::string& url, const std::string& localFilePath) {
+    return false;
+}
+#endif
+
+static std::string ResolveBingDailyImageUrl(const std::string& uri) {
+#if defined(EUI_HAS_CURL) || defined(_WIN32)
+    const std::string api = ImageSource::BuildBingDailyApiUrl(uri);
+    std::string payload;
+    if (!DownloadUrlToString(api, payload)) {
+        return {};
+    }
+    return ImageSource::ExtractBingImageUrlFromJson(payload);
+#else
+    return {};
+#endif
+}
+
+static std::string DownloadUrlImageToFile(const std::string& url) {
+    std::lock_guard<std::mutex> lock(RemoteImageMutex);
+    auto cacheIt = DownloadedImagePathCache.find(url);
+    if (cacheIt == DownloadedImagePathCache.end()) {
+        return {};
+    }
+    std::ifstream cached(cacheIt->second, std::ios::binary);
+    if (!cached.good()) {
+        return {};
+    }
+    return cacheIt->second;
+}
+
+static long long CurrentTimeMs() {
+    return static_cast<long long>(glfwGetTime() * 1000.0);
+}
+
+static bool ShouldStartRemoteFetch(const std::string& key) {
+    std::lock_guard<std::mutex> lock(RemoteImageMutex);
+    auto readyIt = DownloadedImagePathCache.find(key);
+    if (readyIt != DownloadedImagePathCache.end()) {
+        std::ifstream file(readyIt->second, std::ios::binary);
+        if (file.good()) {
+            return false;
+        }
+    }
+    auto inflightIt = RemoteImageDownloadInFlight.find(key);
+    if (inflightIt != RemoteImageDownloadInFlight.end() && inflightIt->second) {
+        return false;
+    }
+    const long long nowMs = CurrentTimeMs();
+    auto retryIt = RemoteImageRetryAfterMs.find(key);
+    if (retryIt != RemoteImageRetryAfterMs.end() && nowMs < retryIt->second) {
+        return false;
+    }
+    RemoteImageDownloadInFlight[key] = true;
+    return true;
+}
+
+static void CompleteRemoteFetch(const std::string& key, const std::string& localPath) {
+    std::lock_guard<std::mutex> lock(RemoteImageMutex);
+    RemoteImageDownloadInFlight[key] = false;
+    if (!localPath.empty()) {
+        DownloadedImagePathCache[key] = localPath;
+        RemoteImageRetryAfterMs.erase(key);
+        RemoteImageReadyFlag.store(true);
+        glfwPostEmptyEvent();
+    } else {
+        RemoteImageRetryAfterMs[key] = CurrentTimeMs() + 5000;
+    }
+}
+
+static void StartRemoteFetchAsync(const std::string& key) {
+    if (!ShouldStartRemoteFetch(key)) {
+        return;
+    }
+    std::thread([key]() {
+        std::string localPath;
+        std::string url = key;
+        if (ImageSource::IsBingDailyScheme(key)) {
+            url = ResolveBingDailyImageUrl(key);
+        }
+        if (!url.empty()) {
+            const std::string targetFile = BuildDownloadedImageFilePath(url);
+            if (!targetFile.empty() && DownloadUrlToFile(url, targetFile)) {
+                localPath = targetFile;
+            }
+        }
+        CompleteRemoteFetch(key, localPath);
+    }).detach();
+}
+
+static std::string ResolveUrlImagePath(const std::string& path) {
+    const std::string cached = DownloadUrlImageToFile(path);
+    if (!cached.empty()) {
+        return cached;
+    }
+    StartRemoteFetchAsync(path);
+    return {};
+}
+
+static std::string ResolveImagePath(const std::string& path) {
+    if (path.empty()) {
+        return {};
+    }
+    if (IsHttpUrl(path) || ImageSource::IsBingDailyScheme(path)) {
+        const std::string resolvedUrlPath = ResolveUrlImagePath(path);
+        if (!resolvedUrlPath.empty()) {
+            return resolvedUrlPath;
+        }
+#if !defined(EUI_HAS_CURL) && !defined(_WIN32)
+        return {};
+#endif
+    }
+    std::ifstream direct(path, std::ios::binary);
+    if (direct.good()) {
+        return path;
+    }
+    static const char* prefixes[] = {"./", "../", "../../", "../../../", "../../../../"};
+    for (const char* prefix : prefixes) {
+        const std::string candidate = std::string(prefix) + path;
+        std::ifstream file(candidate, std::ios::binary);
+        if (file.good()) {
+            return candidate;
+        }
+    }
+    return {};
 }
 
 static bool FloatEq(float a, float b, float epsilon = 0.0001f) {
@@ -1400,6 +1743,7 @@ void Renderer::Init() {
     glDeleteShader(fs);
     CachedBlurProgram = CreateProgram(cachedBlurVShaderStr, cachedBlurFShaderStr);
     CompositeProgram = CreateProgram(compositeVShaderStr, compositeFShaderStr);
+    ImageProgram = CreateProgram(imageVShaderStr, imageFShaderStr);
     PolygonProgram = CreateProgram(polygonVShaderStr, polygonFShaderStr);
 
     ProjLoc = glGetUniformLocation(ShaderProgram, "projection");
@@ -1443,6 +1787,14 @@ void Renderer::Init() {
     CompositeTextureLoc = glGetUniformLocation(CompositeProgram, "uTexture");
     CompositeUVPosLoc = glGetUniformLocation(CompositeProgram, "uUVPos");
     CompositeUVSizeLoc = glGetUniformLocation(CompositeProgram, "uUVSize");
+    ImageProjLoc = glGetUniformLocation(ImageProgram, "projection");
+    ImagePosLoc = glGetUniformLocation(ImageProgram, "uPos");
+    ImageSizeLoc = glGetUniformLocation(ImageProgram, "uSize");
+    ImageTextureLoc = glGetUniformLocation(ImageProgram, "uTexture");
+    ImageBoxPosLoc = glGetUniformLocation(ImageProgram, "uBoxPos");
+    ImageBoxSizeLoc = glGetUniformLocation(ImageProgram, "uBoxSize");
+    ImageRoundingLoc = glGetUniformLocation(ImageProgram, "uRounding");
+    ImageTintLoc = glGetUniformLocation(ImageProgram, "uTint");
     PolygonProjLoc = glGetUniformLocation(PolygonProgram, "projection");
     PolygonColorLoc = glGetUniformLocation(PolygonProgram, "uColor");
     PolygonGradientEnabledLoc = glGetUniformLocation(PolygonProgram, "uGradientEnabled");
@@ -1456,6 +1808,8 @@ void Renderer::Init() {
     glUniform1i(CachedBlurTextureLoc, 0);
     glUseProgram(CompositeProgram);
     glUniform1i(CompositeTextureLoc, 0);
+    glUseProgram(ImageProgram);
+    glUniform1i(ImageTextureLoc, 0);
 
     glGenTextures(1, &BgTexture);
     glBindTexture(GL_TEXTURE_2D, BgTexture);
@@ -1580,6 +1934,7 @@ void Renderer::Shutdown() {
     glDeleteProgram(ShaderProgram);
     glDeleteProgram(CachedBlurProgram);
     glDeleteProgram(CompositeProgram);
+    glDeleteProgram(ImageProgram);
     glDeleteProgram(PolygonProgram);
     glDeleteVertexArrays(1, &CompositeVAO);
     glDeleteBuffers(1, &CompositeVBO);
@@ -1587,6 +1942,26 @@ void Renderer::Shutdown() {
     glDeleteBuffers(1, &PolygonVBO);
     glDeleteTextures(1, &BgTexture);
     if (CachedBlurTexture) glDeleteTextures(1, &CachedBlurTexture);
+    for (auto& entry : ImageTextureCache) {
+        if (entry.second) {
+            glDeleteTextures(1, &entry.second);
+        }
+    }
+    ImageTextureCache.clear();
+    {
+        std::lock_guard<std::mutex> lock(RemoteImageMutex);
+        for (const auto& entry : DownloadedImagePathCache) {
+            if (!entry.second.empty()) {
+                std::remove(entry.second.c_str());
+            }
+        }
+        DownloadedImagePathCache.clear();
+        RemoteImageDownloadInFlight.clear();
+        RemoteImageRetryAfterMs.clear();
+    }
+#ifdef EUI_HAS_CURL
+    curl_global_cleanup();
+#endif
 
     glDeleteVertexArrays(1, &TextVAO);
     glDeleteBuffers(1, &TextVBO);
@@ -1948,6 +2323,96 @@ void Renderer::DrawRect(float x, float y, float w, float h, const Color& color, 
     DrawRect(x, y, w, h, style);
 }
 
+GLuint Renderer::LoadImageTexture(const std::string& imagePath, bool flipVertically) {
+    const std::string resolvedPath = ResolveImagePath(imagePath);
+    if (resolvedPath.empty()) {
+        return 0;
+    }
+    auto cacheIt = ImageTextureCache.find(resolvedPath);
+    if (cacheIt != ImageTextureCache.end()) {
+        return cacheIt->second;
+    }
+
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    stbi_set_flip_vertically_on_load(flipVertically ? 1 : 0);
+    unsigned char* pixels = stbi_load(resolvedPath.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    if (pixels == nullptr || width <= 0 || height <= 0) {
+        if (pixels != nullptr) {
+            stbi_image_free(pixels);
+        }
+        return 0;
+    }
+
+    GLuint textureId = 0;
+    glGenTextures(1, &textureId);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    stbi_image_free(pixels);
+
+    if (textureId != 0) {
+        ImageTextureCache[resolvedPath] = textureId;
+    }
+    return textureId;
+}
+
+void Renderer::ReleaseImageTexture(GLuint textureId) {
+    if (textureId == 0) {
+        return;
+    }
+    for (auto it = ImageTextureCache.begin(); it != ImageTextureCache.end(); ++it) {
+        if (it->second == textureId) {
+            glDeleteTextures(1, &textureId);
+            ImageTextureCache.erase(it);
+            return;
+        }
+    }
+    glDeleteTextures(1, &textureId);
+}
+
+void Renderer::DrawImage(GLuint textureId, float x, float y, float w, float h, float rounding, const Color& tint) {
+    if (textureId == 0 || w <= 0.0f || h <= 0.0f) {
+        return;
+    }
+
+    float L = 0.0f;
+    float R = State.screenW;
+    float B = State.screenH;
+    float T = 0.0f;
+    CurrentProjectionBounds(L, R, T, B);
+    const float proj[16] = {
+        2.0f / (R - L), 0, 0, 0,
+        0, 2.0f / (T - B), 0, 0,
+        0, 0, -1, 0,
+        -(R + L) / (R - L), -(T + B) / (T - B), 0, 1
+    };
+
+    if (CurrentActiveProgram != ImageProgram) {
+        glUseProgram(ImageProgram);
+        CurrentActiveProgram = ImageProgram;
+    }
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glUniformMatrix4fv(ImageProjLoc, 1, GL_FALSE, proj);
+    glUniform2f(ImagePosLoc, x, y);
+    glUniform2f(ImageSizeLoc, w, h);
+    glUniform2f(ImageBoxPosLoc, x, y);
+    glUniform2f(ImageBoxSizeLoc, w, h);
+    glUniform1f(ImageRoundingLoc, std::max(0.0f, rounding));
+    glUniform4f(ImageTintLoc, tint.r, tint.g, tint.b, tint.a);
+    glBindVertexArray(CompositeVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureId);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
 RectBounds Renderer::MeasurePolygonBounds(const std::vector<Point2>& points, float strokeWidth) {
     return ComputePolygonBounds(points, strokeWidth);
 }
@@ -2294,6 +2759,12 @@ void Renderer::CaptureBackdrop() {
 }
 
 bool Renderer::ShouldRepaint() {
+    if (RemoteImageReadyFlag.exchange(false)) {
+        State.needsRepaint = true;
+        if (State.animationTimeLeft < 0.12f) {
+            State.animationTimeLeft = 0.12f;
+        }
+    }
     if (State.needsRepaint) {
         State.needsRepaint = false;
         return true;
