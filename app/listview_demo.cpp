@@ -5,7 +5,7 @@
 
 int main() {
     EUINEO::DslAppConfig config;
-    config.title = "EUI ListView 1,000,000 Items Demo";
+    config.title = "EUI ListView Demo";
     config.width = 800;
     config.height = 600;
     config.pageId = "listview_demo";
