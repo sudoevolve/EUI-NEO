@@ -47,6 +47,7 @@ struct UIPrimitive {
     bool enabled = true;
     RenderLayer renderLayer = RenderLayer::Content;
     int zIndex = 0;
+    bool hasExplicitZIndex = false;
     bool clipToParent = true;
     bool hasClipRect = false;
     UIClipRect clipRect;

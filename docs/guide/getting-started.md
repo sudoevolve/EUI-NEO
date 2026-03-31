@@ -1,13 +1,19 @@
-# EUI-NEO
+# 快速开始
 
-EUI-NEO 是一个基于 OpenGL + GLFW 的声明式 2D GUI 框架，支持组件化 UI、即时模式组合与事件驱动渲染。
+## 框架功能概览
 
-<p align="center">
-  <img src="./docs/1.jpg" alt="EUI-NEO Preview 1" width="49%" />
-  <img src="./docs/2.jpg" alt="EUI-NEO Preview 2" width="49%" />
-  <img src="./docs/3.jpg" alt="EUI-NEO Preview 3" width="49%" />
-  <img src="./docs/4.jpg" alt="EUI-NEO Preview 4" width="49%" />
-</p>
+- 声明式组件 DSL（`ui.xxx().build()`）
+- 事件驱动渲染（仅在需要时重绘）
+- 布局容器（`row/column/flex`）
+- 大列表虚拟渲染（`ListView::Compose`）
+- 图片资源加载（本地 / HTTP / Bing）
+- 主题与字体体系（Light/Dark + SDF 文本）
+
+## 项目结构
+
+- `app/`：业务页面入口与逻辑
+- `src/`：框架源码（渲染、组件、布局、运行时）
+- `docs/`：文档与示意图
 
 ## 编译
 
@@ -16,9 +22,7 @@ cmake -B build -G Ninja
 cmake --build build --config Release
 ```
 
-## 基础示例
-
-### 1) 最小 DSL 入口
+## 最小 DSL 入口
 
 ```cpp
 #include "app/DslAppRuntime.h"
@@ -49,14 +53,9 @@ int main() {
 }
 ```
 
-## 详细文档
+## 参考入口
 
-更多细节已拆分到 `docs/guide`：
-
-- `docs/guide/index.md`
-- `docs/guide/getting-started.md`
-- `docs/guide/primitives.md`
-- `docs/guide/listview.md`
-- `docs/guide/layout-and-anchor.md`
-- `docs/guide/components-and-custom-node.md`
-- `docs/guide/runtime-network-fonts.md`
+- `main.cpp`
+- `app/basic_demo.cpp`
+- `app/listview_demo.cpp`
+- `src/components/ListView.h`

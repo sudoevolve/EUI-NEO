@@ -261,6 +261,7 @@ public:
 
     Derived& zIndex(int value) {
         node_.primitive().zIndex = value;
+        node_.primitive().hasExplicitZIndex = true;
         return self();
     }
 

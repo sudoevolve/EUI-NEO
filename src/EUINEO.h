@@ -299,6 +299,7 @@ struct UIState {
     float scrollDeltaY = 0.0f;
     bool scrollConsumed = false;
     bool pointerMoved = false;
+    bool inputPriorityByZ = true;
 
     bool needsRepaint = true;
     float animationTimeLeft = 0.0f;

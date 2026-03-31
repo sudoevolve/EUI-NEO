@@ -142,6 +142,10 @@ inline void UseDslDarkTheme(const Color& background = Color(0.0f, 0.0f, 0.0f, 1.
     SetDslBackground(background);
 }
 
+inline void UseDslInputPriorityByZ(bool enabled = true) {
+    State.inputPriorityByZ = enabled;
+}
+
 struct DslApiTextOptions {
     std::string fallback = "";
     float refreshSeconds = 0.0f;

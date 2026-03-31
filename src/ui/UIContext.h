@@ -78,7 +78,8 @@ public:
     void pushClip(float x, float y, float width, float height);
     void popClip();
     float pushScrollArea(const std::string& id, float x, float y, float width, float height,
-                         float contentHeight, float scrollStep = 48.0f);
+                         float contentHeight, float scrollStep = 48.0f,
+                         RenderLayer scrollbarLayer = RenderLayer::Content);
     void popScrollArea();
     bool consumeRecomposeRequest();
 

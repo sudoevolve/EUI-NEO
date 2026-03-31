@@ -60,6 +60,10 @@ public:
         return primitive_.zIndex;
     }
 
+    bool hasExplicitZIndex() const {
+        return primitive_.hasExplicitZIndex;
+    }
+
     RenderLayer renderLayer() const {
         return primitive_.renderLayer;
     }
@@ -220,6 +224,7 @@ protected:
         primitive_.renderLayer = RenderLayer::Popup;
         primitive_.clipToParent = false;
         primitive_.zIndex = std::max(primitive_.zIndex, zIndex);
+        primitive_.hasExplicitZIndex = true;
     }
 
     void requestVisualRepaint(float duration = 0.0f) {
@@ -409,6 +414,7 @@ private:
                lhs.enabled == rhs.enabled &&
                lhs.renderLayer == rhs.renderLayer &&
                lhs.zIndex == rhs.zIndex &&
+               lhs.hasExplicitZIndex == rhs.hasExplicitZIndex &&
                lhs.clipToParent == rhs.clipToParent &&
                lhs.hasClipRect == rhs.hasClipRect &&
                (!lhs.hasClipRect || ClipEq(lhs.clipRect, rhs.clipRect, epsilon));

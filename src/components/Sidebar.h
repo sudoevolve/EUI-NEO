@@ -359,6 +359,7 @@ inline void SidebarNode::draw() {
 
 inline void SidebarNode::resetDefaults() {
     primitive_ = UIPrimitive{};
+    primitive_.renderLayer = RenderLayer::Chrome;
     primitive_.width = 200.0f;
     primitive_.height = 300.0f;
     primitive_.background = CurrentTheme->surface;

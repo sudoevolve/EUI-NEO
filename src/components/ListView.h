@@ -32,7 +32,7 @@ public:
                          int itemCount, float itemHeight, Fn&& composeItem, float scrollStep = 48.0f) {
         const float contentHeight = std::max(0.0f, static_cast<float>(itemCount) * itemHeight);
         
-        const float scrollOffsetY = ui.pushScrollArea(id, x, y, width, height, contentHeight, scrollStep);
+        const float scrollOffsetY = ui.pushScrollArea(id, x, y, width, height, contentHeight, scrollStep, RenderLayer::Chrome);
         
         if (itemCount > 0 && itemHeight > 0.0f) {
             // Calculate visible range based on current scroll offset
