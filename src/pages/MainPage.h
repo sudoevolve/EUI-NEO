@@ -194,6 +194,7 @@ private:
             actions.onProgressChange = [this](float value) { SetProgressValue(value); };
             actions.onSegmentedChange = [this](int index) { SetSegmentedIndex(index); };
             actions.onInputChange = [this](const std::string& text) { SetInputText(text); };
+            actions.onTextAreaChange = [this](const std::string& text) { SetTextAreaText(text); };
             actions.onComboChange = [this](int index) { SetComboSelection(index); };
 
             HomePage::Compose(
@@ -204,6 +205,7 @@ private:
                 progressValue_,
                 segmentedIndex_,
                 inputText_,
+                textAreaText_,
                 comboSelection_,
                 actions
             );
@@ -261,6 +263,14 @@ private:
         ++stateVersion_;
     }
 
+    void SetTextAreaText(const std::string& text) {
+        if (textAreaText_ == text) {
+            return;
+        }
+        textAreaText_ = text;
+        ++stateVersion_;
+    }
+
     void ToggleHomeIconAccent() {
         homeIconAccentEnabled_ = !homeIconAccentEnabled_;
         ++stateVersion_;
@@ -312,9 +322,10 @@ private:
     float sidebarWidth_ = 86.0f;
     float contentInset_ = 34.0f;
     float progressValue_ = 0.30f;
-    bool homeIconAccentEnabled_ = true;
+    bool homeIconAccentEnabled_ = false;
     int segmentedIndex_ = 0;
     std::string inputText_;
+    std::string textAreaText_;
     int comboSelection_ = -1;
     float layoutSplit_ = 0.42f;
     std::uint32_t randomSeed_ = 0xC0FFEE11u;

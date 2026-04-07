@@ -301,6 +301,7 @@ struct UIState {
     float scrollDeltaY = 0.0f;
     bool scrollConsumed = false;
     bool pointerMoved = false;
+    bool inputBlockedByPopup = false;
     bool inputPriorityByZ = true;
     bool imeCursorActive = false;
     float imeCursorX = 0.0f;

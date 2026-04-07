@@ -479,6 +479,14 @@ void UIContext::update() {
         drawOrderStamp_ = composeStamp_;
     }
 
+    State.inputBlockedByPopup = false;
+    for (const UINode* node : drawOrder_) {
+        if (node->visible() && node->blocksUnderlyingInput()) {
+            State.inputBlockedByPopup = true;
+            break;
+        }
+    }
+
     bool dirtyLayers[static_cast<std::size_t>(RenderLayer::Count)] = {};
     auto updateNode = [this, &dirtyLayers](UINode* node) {
         applyRuntimeContext(node);

@@ -502,8 +502,80 @@ private:
         }
         text_.insert(static_cast<std::size_t>(cursorPosition_), value);
         cursorPosition_ += static_cast<int>(value.size());
+        enforceSoftWrapAtCursor();
         clearSelection();
         preferredColumnX_ = -1.0f;
+    }
+
+    void enforceSoftWrapAtCursor() {
+        if (!multilineEnabled()) {
+            return;
+        }
+        const RectFrame frame = PrimitiveFrame(primitive_);
+        const UIFieldVisualTokens visuals = CurrentFieldVisuals();
+        const float textScale = fontSize_ / 24.0f;
+        const float maxWidth = std::max(24.0f, frame.width - visuals.horizontalInset * 2.0f);
+        if (maxWidth <= 24.0f) {
+            return;
+        }
+
+        int guard = 0;
+        while (guard < 24) {
+            ++guard;
+            int lineStart = cursorPosition_;
+            while (lineStart > 0 && text_[static_cast<std::size_t>(lineStart - 1)] != '\n') {
+                --lineStart;
+            }
+            int lineEndIndex = lineEnd(lineStart);
+            if (measureWidth(lineStart, lineEndIndex, textScale) <= maxWidth) {
+                break;
+            }
+
+            int breakPos = -1;
+            int scan = cursorPosition_;
+            while (scan > lineStart) {
+                scan = PrevUtf8Index(text_, scan);
+                if (scan > lineStart && (text_[static_cast<std::size_t>(scan)] == ' ' || text_[static_cast<std::size_t>(scan)] == '\t')) {
+                    breakPos = scan;
+                    break;
+                }
+            }
+            if (breakPos <= lineStart) {
+                int probe = lineStart;
+                float width = 0.0f;
+                while (probe < lineEndIndex) {
+                    const int next = NextUtf8Index(text_, probe);
+                    const float nextWidth = width + glyphAdvance(probe, next, textScale);
+                    if (nextWidth > maxWidth) {
+                        breakPos = probe;
+                        break;
+                    }
+                    width = nextWidth;
+                    probe = next;
+                }
+                if (breakPos <= lineStart) {
+                    break;
+                }
+            }
+
+            if (breakPos < static_cast<int>(text_.size()) && (text_[static_cast<std::size_t>(breakPos)] == ' ' || text_[static_cast<std::size_t>(breakPos)] == '\t')) {
+                text_[static_cast<std::size_t>(breakPos)] = '\n';
+            } else {
+                text_.insert(static_cast<std::size_t>(breakPos), "\n");
+                if (cursorPosition_ >= breakPos) {
+                    ++cursorPosition_;
+                }
+                ++lineEndIndex;
+            }
+
+            int trimPos = breakPos + 1;
+            while (trimPos < static_cast<int>(text_.size()) && (text_[static_cast<std::size_t>(trimPos)] == ' ' || text_[static_cast<std::size_t>(trimPos)] == '\t')) {
+                text_.erase(static_cast<std::size_t>(trimPos), 1);
+                if (cursorPosition_ > trimPos) {
+                    --cursorPosition_;
+                }
+            }
+        }
     }
 
     std::vector<int> lineStarts() const {

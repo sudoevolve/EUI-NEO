@@ -111,6 +111,9 @@ RectFrame PrimitiveFrame(const UIPrimitive& primitive) {
 }
 
 bool PrimitiveContains(const UIPrimitive& primitive, float x, float y) {
+    if (State.inputBlockedByPopup && primitive.renderLayer != RenderLayer::Popup) {
+        return false;
+    }
     const RectFrame frame = PrimitiveFrame(primitive);
     return x >= frame.x && x <= frame.x + frame.width &&
            y >= frame.y && y <= frame.y + frame.height;

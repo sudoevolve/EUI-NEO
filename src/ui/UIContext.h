@@ -14,6 +14,12 @@
 #include "../components/Sidebar.h"
 #include "../components/Slider.h"
 #include "../components/ListView.h"
+#include "../components/Switch.h"
+#include "../components/Checkbox.h"
+#include "../components/Radio.h"
+#include "../components/TextArea.h"
+#include "../components/Dialog.h"
+#include "../components/Tooltip.h"
 #include <memory>
 #include <string>
 #include <type_traits>

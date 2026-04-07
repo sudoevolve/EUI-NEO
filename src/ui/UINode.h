@@ -118,6 +118,10 @@ public:
         return true;
     }
 
+    virtual bool blocksUnderlyingInput() const {
+        return false;
+    }
+
     virtual const char* typeName() const = 0;
     virtual void update() = 0;
     virtual void draw() = 0;
@@ -199,6 +203,9 @@ protected:
     }
 
     bool containsPoint(float x, float y) const {
+        if (State.inputBlockedByPopup && primitive_.renderLayer != RenderLayer::Popup) {
+            return false;
+        }
         return PrimitiveContains(primitive_, x, y);
     }
 

@@ -77,6 +77,10 @@ public:
         return StaticTypeName();
     }
 
+    bool blocksUnderlyingInput() const override {
+        return popupPresentation_ && (isOpen_ || openAnim_ > 0.001f);
+    }
+
     bool wantsContinuousUpdate() const override {
         if (hoverAnim_ > 0.001f && hoverAnim_ < 0.999f) {
             return true;
