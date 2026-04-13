@@ -8,6 +8,7 @@ int main() {
     config.height = 640;
     config.pageId = "basic_demo";
     config.fps = 120;
+    config.darkTitleBar = true;
 
     return EUINEO::RunDslApp(config, [](EUINEO::UIContext& ui, const EUINEO::RectFrame& screen) {
         EUINEO::UseDslLightTheme(EUINEO::Color(0.0f, 0.0f, 0.0f, 1.0f));

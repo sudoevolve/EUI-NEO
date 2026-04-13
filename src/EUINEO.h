@@ -284,8 +284,10 @@ struct UIState {
     float mouseY = 0.0f;
     bool mouseDown = false;
     bool mouseClicked = false;
+    bool mouseReleased = false;
     bool mouseRightDown = false;
     bool mouseRightClicked = false;
+    bool mouseRightReleased = false;
     float deltaTime = 0.0f;
     float screenW = 800.0f;
     float screenH = 600.0f;
@@ -316,6 +318,7 @@ struct UIState {
 extern UIState State;
 
 bool ApplyDefaultWindowIcon(GLFWwindow* window, const std::string& svgPath = "docs/icon.svg");
+bool ApplyNativeWindowTitleBarTheme(GLFWwindow* window, bool darkMode);
 bool OpenExternalUrl(const std::string& url);
 
 class Renderer {

@@ -1,5 +1,7 @@
 #include "UIContext.h"
 #include <algorithm>
+#include <cstdint>
+#include <unordered_set>
 
 namespace EUINEO {
 
@@ -96,6 +98,53 @@ float ResolveCrossOffset(FlexDirection direction, CrossAxisAlignment alignment, 
     return 0.0f;
 }
 
+void HashCombine(std::uint64_t& seed, std::uint64_t value) {
+    seed ^= value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2);
+}
+
+bool HasFrameInputActivity() {
+    if (State.pointerMoved || State.mouseClicked || State.mouseReleased ||
+        State.mouseRightClicked || State.mouseRightReleased ||
+        State.mouseDown || State.mouseRightDown) {
+        return true;
+    }
+    if (State.scrollDeltaX != 0.0f || State.scrollDeltaY != 0.0f) {
+        return true;
+    }
+    if (!State.textInput.empty()) {
+        return true;
+    }
+    for (bool pressed : State.keysPressed) {
+        if (pressed) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool IsPointerMoveOnlyActivity() {
+    if (!State.pointerMoved) {
+        return false;
+    }
+    if (State.mouseClicked || State.mouseReleased ||
+        State.mouseRightClicked || State.mouseRightReleased ||
+        State.mouseDown || State.mouseRightDown) {
+        return false;
+    }
+    if (State.scrollDeltaX != 0.0f || State.scrollDeltaY != 0.0f) {
+        return false;
+    }
+    if (!State.textInput.empty()) {
+        return false;
+    }
+    for (bool pressed : State.keysPressed) {
+        if (pressed) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 void FinalizeUIBuild(UIContext& context, UINode& node, const LayoutBuildInfo& info) {
@@ -109,10 +158,12 @@ void UIContext::begin(const std::string& pageId) {
     // Garbage collection for Immediate Mode UI
     // Remove nodes that haven't been seen in the last 120 frames (approx 1-2 seconds)
     // This is crucial for Virtual Lists and dynamic data where IDs change frequently
+    bool removedNode = false;
     for (auto it = nodes_.begin(); it != nodes_.end(); ) {
         if (it->second && !it->second->composedIn(composeStamp_) && 
            (it->second->composedIn(0) || composeStamp_ - it->second->composeStamp() > 120)) {
             Renderer::ReleaseCachedSurface(it->second->key());
+            removedNode = true;
             it = nodes_.erase(it);
         } else {
             ++it;
@@ -120,8 +171,12 @@ void UIContext::begin(const std::string& pageId) {
     }
 
     order_.clear();
-    drawOrder_.clear();
-    drawOrderStamp_ = 0;
+    if (removedNode) {
+        drawOrder_.clear();
+        drawOrderInitialized_ = false;
+        drawOrderSignature_ = 0;
+        pointerHotNodes_.clear();
+    }
     clipStack_.clear();
     offsetStack_.clear();
     scrollScopeStack_.clear();
@@ -472,12 +527,29 @@ void UIContext::resolveLayout(LayoutState& layout, const RectFrame& frame) {
     }
 }
 
-void UIContext::update() {
-    if (drawOrderStamp_ != composeStamp_) {
+std::uint64_t UIContext::computeDrawOrderSignature() const {
+    std::uint64_t signature = 1469598103934665603ull;
+    for (const UINode* node : order_) {
+        HashCombine(signature, static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(node)));
+        HashCombine(signature, static_cast<std::uint64_t>(LayerDrawPriority(node->renderLayer())));
+        HashCombine(signature, static_cast<std::uint64_t>(node->zIndex()));
+        HashCombine(signature, node->hasExplicitZIndex() ? 1ull : 0ull);
+    }
+    return signature;
+}
+
+void UIContext::ensureDrawOrder() {
+    const std::uint64_t signature = computeDrawOrderSignature();
+    if (!drawOrderInitialized_ || signature != drawOrderSignature_) {
         drawOrder_ = order_;
         std::stable_sort(drawOrder_.begin(), drawOrder_.end(), NodeDrawBefore);
-        drawOrderStamp_ = composeStamp_;
+        drawOrderSignature_ = signature;
+        drawOrderInitialized_ = true;
     }
+}
+
+void UIContext::update() {
+    ensureDrawOrder();
 
     State.inputBlockedByPopup = false;
     for (const UINode* node : drawOrder_) {
@@ -487,14 +559,59 @@ void UIContext::update() {
         }
     }
 
+    const bool hasInputActivity = HasFrameInputActivity();
+    const bool pointerMoveOnly = IsPointerMoveOnlyActivity();
+    std::unordered_set<UINode*> pointerHotNodeSet;
+    if (pointerMoveOnly) {
+        std::vector<UINode*> currentPointerHotNodes;
+        currentPointerHotNodes.reserve(2);
+        for (auto it = drawOrder_.rbegin(); it != drawOrder_.rend(); ++it) {
+            UINode* node = *it;
+            applyRuntimeContext(node);
+            if (!node->visible()) {
+                continue;
+            }
+            const UIPrimitive& primitive = node->primitive();
+            if (!primitive.enabled) {
+                continue;
+            }
+            if (State.inputBlockedByPopup && primitive.renderLayer != RenderLayer::Popup) {
+                continue;
+            }
+            if (!PrimitiveContains(primitive, State.mouseX, State.mouseY)) {
+                continue;
+            }
+            currentPointerHotNodes.push_back(node);
+            if (State.inputPriorityByZ) {
+                break;
+            }
+        }
+        for (UINode* node : currentPointerHotNodes) {
+            pointerHotNodeSet.insert(node);
+        }
+        for (UINode* node : pointerHotNodes_) {
+            pointerHotNodeSet.insert(node);
+        }
+        pointerHotNodes_ = std::move(currentPointerHotNodes);
+    } else {
+        pointerHotNodes_.clear();
+    }
+
     bool dirtyLayers[static_cast<std::size_t>(RenderLayer::Count)] = {};
-    auto updateNode = [this, &dirtyLayers](UINode* node) {
+    auto updateNode = [this, &dirtyLayers, hasInputActivity, pointerMoveOnly, &pointerHotNodeSet](UINode* node) {
         applyRuntimeContext(node);
         const bool isVisible = node->visible();
-        if (isVisible) {
+        const bool pointerHot = pointerMoveOnly &&
+            pointerHotNodeSet.find(node) != pointerHotNodeSet.end();
+        const bool shouldRunUpdate = pointerMoveOnly
+            ? (pointerHot || node->wantsContinuousUpdate() || node->cacheDirty())
+            : (hasInputActivity || node->wantsContinuousUpdate() || node->cacheDirty());
+        if (isVisible && shouldRunUpdate) {
             node->update();
         } else {
-            node->clearCacheDirty();
+            if (!isVisible) {
+                node->clearCacheDirty();
+            }
         }
         if (isVisible && node->cacheDirty() && node->primitive().blur <= 0.0f && node->usesCachedSurface()) {
             const RectFrame bounds = node->paintBounds();
@@ -538,11 +655,7 @@ void UIContext::render() {
 }
 
 void UIContext::draw() {
-    if (drawOrderStamp_ != composeStamp_) {
-        drawOrder_ = order_;
-        std::stable_sort(drawOrder_.begin(), drawOrder_.end(), NodeDrawBefore);
-        drawOrderStamp_ = composeStamp_;
-    }
+    ensureDrawOrder();
 
     for (UINode* node : drawOrder_) {
         applyRuntimeContext(node);

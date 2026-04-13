@@ -304,6 +304,7 @@ int main() {
     config.height = 780;
     config.pageId = "clock_demo";
     config.fps = 120;
+    config.darkTitleBar = true;
     return EUINEO::RunDslApp(config, [](EUINEO::UIContext& ui, const EUINEO::RectFrame& screen) {
         static DemoState state;
         static CitySwitchTransition transition;

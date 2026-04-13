@@ -22,11 +22,13 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#define GLFW_EXPOSE_NATIVE_WIN32
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable: 4005)
 #endif
 #include <Windows.h>
+#include <GLFW/glfw3native.h>
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -42,10 +44,17 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4244)
+#endif
 #define NANOSVG_IMPLEMENTATION
 #define NANOSVGRAST_IMPLEMENTATION
 #include "nanosvg.h"
 #include "nanosvgrast.h"
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 namespace EUINEO {
 
@@ -285,6 +294,18 @@ struct CachedSurface {
 static LayerCache LayerCaches[static_cast<int>(RenderLayer::Count)];
 static std::unordered_map<std::string, CachedSurface> CachedSurfaces;
 static constexpr float CachedSurfaceSupersampleScale = 2.0f;
+
+static float ResolveCachedSurfaceSupersample(const RectFrame& bounds) {
+    const float area = std::max(0.0f, bounds.width) * std::max(0.0f, bounds.height);
+    if (area >= 520000.0f) {
+        return 1.0f;
+    }
+    if (area >= 180000.0f) {
+        return 1.5f;
+    }
+    return CachedSurfaceSupersampleScale;
+}
+
 static GLuint CompositeProgram = 0;
 static GLuint CompositeVAO = 0;
 static GLuint CompositeVBO = 0;
@@ -972,6 +993,47 @@ static bool RasterizeSvgFile(const std::string& path, int targetWidth, int targe
         outPixels.swap(flipped);
     }
     return !outPixels.empty();
+}
+
+bool ApplyNativeWindowTitleBarTheme(GLFWwindow* window, bool darkMode) {
+#if defined(_WIN32)
+    if (window == nullptr) {
+        return false;
+    }
+    HWND hwnd = glfwGetWin32Window(window);
+    if (hwnd == nullptr) {
+        return false;
+    }
+    using DwmSetWindowAttributeFn = HRESULT(WINAPI*)(HWND, DWORD, LPCVOID, DWORD);
+    HMODULE dwmapi = ::LoadLibraryA("dwmapi.dll");
+    if (dwmapi == nullptr) {
+        return false;
+    }
+    auto* setWindowAttribute = reinterpret_cast<DwmSetWindowAttributeFn>(
+        ::GetProcAddress(dwmapi, "DwmSetWindowAttribute"));
+    if (setWindowAttribute == nullptr) {
+        ::FreeLibrary(dwmapi);
+        return false;
+    }
+    BOOL dark = darkMode ? TRUE : FALSE;
+    constexpr DWORD kDarkModeAttribute = 20; // DWMWA_USE_IMMERSIVE_DARK_MODE
+    HRESULT hr = setWindowAttribute(hwnd, kDarkModeAttribute, &dark, sizeof(dark));
+    if (FAILED(hr)) {
+        constexpr DWORD kLegacyDarkModeAttribute = 19;
+        hr = setWindowAttribute(hwnd, kLegacyDarkModeAttribute, &dark, sizeof(dark));
+    }
+    if (SUCCEEDED(hr)) {
+        const UINT flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED;
+        ::SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, flags);
+        ::RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_FRAME | RDW_UPDATENOW);
+    }
+    ::FreeLibrary(dwmapi);
+    return SUCCEEDED(hr);
+#else
+    (void)window;
+    (void)darkMode;
+    return false;
+#endif
 }
 
 bool ApplyDefaultWindowIcon(GLFWwindow* window, const std::string& svgPath) {
@@ -2290,10 +2352,11 @@ void Renderer::DrawCachedSurface(const std::string& key, const RectFrame& bounds
     const int previousCustomSurfaceHeight = ActiveCustomSurfaceHeight;
 
     CachedSurface& cache = CachedSurfaces[key];
+    const float supersampleScale = ResolveCachedSurfaceSupersample(bounds);
     const int targetW = std::max(1, static_cast<int>(std::ceil(
-        bounds.width * CachedSurfaceSupersampleScale * std::max(State.dpiScaleX, 0.0001f))));
+        bounds.width * supersampleScale * std::max(State.dpiScaleX, 0.0001f))));
     const int targetH = std::max(1, static_cast<int>(std::ceil(
-        bounds.height * CachedSurfaceSupersampleScale * std::max(State.dpiScaleY, 0.0001f))));
+        bounds.height * supersampleScale * std::max(State.dpiScaleY, 0.0001f))));
     const bool sizeChanged =
         !FloatEq(cache.bounds.width, bounds.width) ||
         !FloatEq(cache.bounds.height, bounds.height);

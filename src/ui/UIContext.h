@@ -249,6 +249,8 @@ private:
         offsetStack_.pop_back();
     }
     void applyRuntimeContext(UINode* node);
+    void ensureDrawOrder();
+    std::uint64_t computeDrawOrderSignature() const;
 
     LayoutState* createLayout(FlexDirection direction);
     void beginLayout(LayoutState* layout);
@@ -278,9 +280,11 @@ private:
     std::vector<LayoutState*> layoutStack_;
     std::unordered_map<UINode*, Offset> baseContextOffset_;
     std::unordered_map<UINode*, std::vector<ScrollAreaNode*>> scrollBindings_;
+    std::vector<UINode*> pointerHotNodes_;
     bool treeChanged_ = false;
     bool needsRecompose_ = false;
-    std::uint64_t drawOrderStamp_ = 0;
+    std::uint64_t drawOrderSignature_ = 0;
+    bool drawOrderInitialized_ = false;
     float currentOffsetX_ = 0.0f;
     float currentOffsetY_ = 0.0f;
 };

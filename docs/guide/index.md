@@ -6,8 +6,8 @@
 - [ListView 指南](./listview.md)
 - [组件与自定义节点](./components-and-custom-node.md)
 - [运行时、网络与字体](./runtime-network-fonts.md)
+- [交互性能分析（阶段性）](./performance-analysis.md)
 
 历史分析文档：
 
 - [UI DSL 分析](../ui_dsl_analysis.md)
-- [全量重绘优化](../gpui_full_redraw_optimization.md)

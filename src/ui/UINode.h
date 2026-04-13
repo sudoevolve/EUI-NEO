@@ -236,7 +236,10 @@ protected:
 
     void requestVisualRepaint(float duration = 0.0f) {
         cacheDirty_ = true;
-        Renderer::RequestRepaint(duration);
+        Renderer::InvalidateLayer(primitive_.renderLayer);
+        if (duration > 0.0f) {
+            Renderer::RequestRepaint(duration);
+        }
     }
 
     void requestComposeRebuild(float duration = 0.0f) {

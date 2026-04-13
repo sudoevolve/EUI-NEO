@@ -42,6 +42,7 @@ struct DslAppConfig {
     int height = 640;
     std::string pageId = "app";
     int fps = 0;
+    bool darkTitleBar = true;
 };
 
 using DslComposeFn = std::function<void(UIContext&, const RectFrame&)>;
@@ -446,6 +447,7 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     GLFWwindow* window = glfwCreateWindow(config.width, config.height, config.title.c_str(), nullptr, nullptr);
     if (window == nullptr) {
@@ -453,6 +455,7 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
         return -1;
     }
     ApplyDefaultWindowIcon(window, "docs/icon.svg");
+    ApplyNativeWindowTitleBarTheme(window, config.darkTitleBar);
     {
         DslWindowState& state = ActiveDslWindowState();
         state.window = window;
@@ -583,22 +586,31 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
     updateMousePosition(initialMouseX, initialMouseY);
 
     glfwSetMouseButtonCallback(window, [](GLFWwindow*, int button, int action, int) {
+        bool shouldRepaint = false;
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
                 State.mouseDown = true;
                 State.mouseClicked = true;
+                shouldRepaint = true;
             } else if (action == GLFW_RELEASE) {
                 State.mouseDown = false;
+                State.mouseReleased = true;
+                shouldRepaint = true;
             }
         } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             if (action == GLFW_PRESS) {
                 State.mouseRightDown = true;
                 State.mouseRightClicked = true;
+                shouldRepaint = true;
             } else if (action == GLFW_RELEASE) {
                 State.mouseRightDown = false;
+                State.mouseRightReleased = true;
+                shouldRepaint = true;
             }
         }
-        Renderer::RequestRepaint();
+        if (shouldRepaint) {
+            Renderer::RequestRepaint();
+        }
     });
 
     glfwSetCharCallback(window, [](GLFWwindow* win, unsigned int codepoint) {
@@ -626,6 +638,9 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
     });
 
     glfwSetScrollCallback(window, [](GLFWwindow*, double xoffset, double yoffset) {
+        if (xoffset == 0.0 && yoffset == 0.0) {
+            return;
+        }
         State.scrollDeltaX += static_cast<float>(xoffset);
         State.scrollDeltaY += static_cast<float>(yoffset);
         Renderer::RequestRepaint();
@@ -673,6 +688,8 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
         }
     }
     Renderer::RegisterFontSource("C:/Windows/Fonts/msyh.ttc", 72.0f);
+    glfwShowWindow(window);
+    ApplyNativeWindowTitleBarTheme(window, config.darkTitleBar);
 
     UIContext ui;
     const std::string pageId = config.pageId.empty() ? std::string("app") : config.pageId;
@@ -722,7 +739,9 @@ inline int RunDslApp(const DslAppConfig& config, const DslComposeFn& compose) {
         State.scrollDeltaY = 0.0f;
         State.scrollConsumed = false;
         State.mouseClicked = false;
+        State.mouseReleased = false;
         State.mouseRightClicked = false;
+        State.mouseRightReleased = false;
         State.pointerMoved = false;
         std::memset(State.keysPressed, 0, sizeof(State.keysPressed));
 

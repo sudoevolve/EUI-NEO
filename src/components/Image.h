@@ -159,7 +159,7 @@ public:
             forceComposeDirty();
         }
         if (textureId_ == 0 && (ImageSource::IsHttpUrl(path_) || ImageSource::IsBingDailyScheme(path_))) {
-            Renderer::RequestRepaint(0.2f);
+            requestVisualRepaint(0.2f);
         }
         if (textureId_ != 0 || loadedPath_ != path_ || loadedFlipVertically_ != flipVertically_) {
             loadedPath_ = path_;

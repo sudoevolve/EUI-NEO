@@ -3,8 +3,6 @@
 #include <cstring>
 #include <algorithm>
 #include <string>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -12,23 +10,24 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4005)
-#endif
 #include <windows.h>
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 #include <imm.h>
 #pragma comment(lib, "imm32.lib")
+#endif
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#if defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <GLFW/glfw3native.h>
 #endif
 #include "src/EUINEO.h"
 #include "src/pages/MainPage.h"
 
 namespace {
+
+struct RuntimeWindowConfig {
+    bool darkTitleBar = true;
+};
 
 int gFramebufferW = 0;
 int gFramebufferH = 0;
@@ -121,6 +120,10 @@ void UpdateImeCandidateWindow(GLFWwindow* window) {
 }
 
 int main() {
+    const RuntimeWindowConfig runtimeWindowConfig{
+        true // darkTitleBar
+    };
+
     glfwInit();
     glfwWindowHint(GLFW_SAMPLES, 0);
     glfwWindowHint(GLFW_RED_BITS, 8);
@@ -133,9 +136,11 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "EUI-NEO", nullptr, nullptr);
     EUINEO::ApplyDefaultWindowIcon(window, "docs/icon.svg");
+    EUINEO::ApplyNativeWindowTitleBarTheme(window, runtimeWindowConfig.darkTitleBar);
     glfwMakeContextCurrent(window);
 
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow* win, int w, int h) {
@@ -184,22 +189,31 @@ int main() {
     UpdateMousePosition(initialMouseX, initialMouseY);
 
     glfwSetMouseButtonCallback(window, [](GLFWwindow*, int button, int action, int mods) {
+        bool shouldRepaint = false;
         if (button == GLFW_MOUSE_BUTTON_LEFT) {
             if (action == GLFW_PRESS) {
                 EUINEO::State.mouseDown = true;
                 EUINEO::State.mouseClicked = true;
+                shouldRepaint = true;
             } else if (action == GLFW_RELEASE) {
                 EUINEO::State.mouseDown = false;
+                EUINEO::State.mouseReleased = true;
+                shouldRepaint = true;
             }
         } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
             if (action == GLFW_PRESS) {
                 EUINEO::State.mouseRightDown = true;
                 EUINEO::State.mouseRightClicked = true;
+                shouldRepaint = true;
             } else if (action == GLFW_RELEASE) {
                 EUINEO::State.mouseRightDown = false;
+                EUINEO::State.mouseRightReleased = true;
+                shouldRepaint = true;
             }
         }
-        EUINEO::Renderer::RequestRepaint();
+        if (shouldRepaint) {
+            EUINEO::Renderer::RequestRepaint();
+        }
     });
 
     glfwSetCharCallback(window, [](GLFWwindow*, unsigned int codepoint) {
@@ -222,6 +236,9 @@ int main() {
     });
 
     glfwSetScrollCallback(window, [](GLFWwindow*, double xoffset, double yoffset) {
+        if (xoffset == 0.0 && yoffset == 0.0) {
+            return;
+        }
         EUINEO::State.scrollDeltaX += static_cast<float>(xoffset);
         EUINEO::State.scrollDeltaY += static_cast<float>(yoffset);
         EUINEO::Renderer::RequestRepaint();
@@ -288,6 +305,8 @@ int main() {
     }
 
     EUINEO::Renderer::RegisterFontSource("C:/Windows/Fonts/msyh.ttc", kCjkSdfLoadSize); // Deferred fallback for missing glyphs.
+    glfwShowWindow(window);
+    EUINEO::ApplyNativeWindowTitleBarTheme(window, runtimeWindowConfig.darkTitleBar);
 
     EUINEO::MainPage mainPage{}; // Force recompilation when header-only pages change.
     double lastTime = glfwGetTime();
@@ -325,7 +344,9 @@ int main() {
         EUINEO::State.scrollDeltaY = 0.0f;
         EUINEO::State.scrollConsumed = false;
         EUINEO::State.mouseClicked = false;
+        EUINEO::State.mouseReleased = false;
         EUINEO::State.mouseRightClicked = false;
+        EUINEO::State.mouseRightReleased = false;
         EUINEO::State.pointerMoved = false;
         memset(EUINEO::State.keysPressed, 0, sizeof(EUINEO::State.keysPressed));
 
