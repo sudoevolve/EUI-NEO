@@ -1,8 +1,1 @@
-build/
-.vs/
-out/
-*.user
-*.suo
-*.db
-.cache/
-.vscode/settings.json
+/build

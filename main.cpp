@@ -1,130 +1,58 @@
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <algorithm>
-#include <string>
-#if defined(_WIN32)
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#include <imm.h>
-#pragma comment(lib, "imm32.lib")
-#endif
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#if defined(_WIN32)
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
-#endif
-#include "src/EUINEO.h"
-#include "src/pages/MainPage.h"
 
-namespace {
+#include "app/app.h"
 
-struct RuntimeWindowConfig {
-    bool darkTitleBar = true;
+#include <chrono>
+#include <thread>
+
+struct WindowState {
+    bool needsRender = true;
 };
 
-int gFramebufferW = 0;
-int gFramebufferH = 0;
-int gWindowW = 0;
-int gWindowH = 0;
-float gContentScaleX = 1.0f;
-float gContentScaleY = 1.0f;
-
-void SyncSurfaceMetrics() {
-    const float fallbackScaleX = gWindowW > 0 ? static_cast<float>(gFramebufferW) / static_cast<float>(std::max(1, gWindowW)) : 1.0f;
-    const float fallbackScaleY = gWindowH > 0 ? static_cast<float>(gFramebufferH) / static_cast<float>(std::max(1, gWindowH)) : 1.0f;
-    const float scaleX = std::max(0.5f, std::max(gContentScaleX, fallbackScaleX));
-    const float scaleY = std::max(0.5f, std::max(gContentScaleY, fallbackScaleY));
-    const float logicalW = static_cast<float>(std::max(1, gFramebufferW)) / scaleX;
-    const float logicalH = static_cast<float>(std::max(1, gFramebufferH)) / scaleY;
-    const float framebufferW = static_cast<float>(std::max(1, gFramebufferW));
-    const float framebufferH = static_cast<float>(std::max(1, gFramebufferH));
-    EUINEO::State.screenW = logicalW;
-    EUINEO::State.screenH = logicalH;
-    EUINEO::State.framebufferW = framebufferW;
-    EUINEO::State.framebufferH = framebufferH;
-    EUINEO::State.dpiScaleX = scaleX;
-    EUINEO::State.dpiScaleY = scaleY;
+float getDpiScale(GLFWwindow* window) {
+    float scaleX = 1.0f;
+    float scaleY = 1.0f;
+    glfwGetWindowContentScale(window, &scaleX, &scaleY);
+    return (scaleX + scaleY) * 0.5f;
 }
 
-void UpdateMousePosition(double x, double y) {
-    const float rawX = static_cast<float>(x);
-    const float rawY = static_cast<float>(y);
-    const float windowW = static_cast<float>(std::max(1, gWindowW));
-    const float windowH = static_cast<float>(std::max(1, gWindowH));
-    const float framebufferW = static_cast<float>(std::max(1, gFramebufferW));
-    const float framebufferH = static_cast<float>(std::max(1, gFramebufferH));
+float getPointerScale(GLFWwindow* window) {
+    int windowWidth = 0;
+    int windowHeight = 0;
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
 
-    const bool cursorLooksLikeWindowSpaceX = rawX <= windowW + 0.5f;
-    const bool cursorLooksLikeWindowSpaceY = rawY <= windowH + 0.5f;
-    const float normalizedX = cursorLooksLikeWindowSpaceX ? (rawX / windowW) : (rawX / framebufferW);
-    const float normalizedY = cursorLooksLikeWindowSpaceY ? (rawY / windowH) : (rawY / framebufferH);
-    const float nextX = std::clamp(normalizedX, 0.0f, 1.0f) * EUINEO::State.screenW;
-    const float nextY = std::clamp(normalizedY, 0.0f, 1.0f) * EUINEO::State.screenH;
-    if (std::abs(EUINEO::State.mouseX - nextX) > 0.01f ||
-        std::abs(EUINEO::State.mouseY - nextY) > 0.01f) {
-        EUINEO::State.pointerMoved = true;
+    if (windowWidth <= 0 || windowHeight <= 0) {
+        return 1.0f;
     }
-    EUINEO::State.mouseX = nextX;
-    EUINEO::State.mouseY = nextY;
+
+    const float scaleX = static_cast<float>(framebufferWidth) / static_cast<float>(windowWidth);
+    const float scaleY = static_cast<float>(framebufferHeight) / static_cast<float>(windowHeight);
+    return (scaleX + scaleY) * 0.5f;
 }
 
-void UpdateImeCandidateWindow(GLFWwindow* window) {
-#if defined(_WIN32)
-    if (window == nullptr) {
-        return;
-    }
-    HWND hwnd = glfwGetWin32Window(window);
-    if (hwnd == nullptr) {
-        return;
-    }
-    HIMC imc = ImmGetContext(hwnd);
-    if (imc == nullptr) {
-        return;
-    }
-    if (EUINEO::State.imeCursorActive) {
-        const float scaleX = std::max(0.5f, EUINEO::State.dpiScaleX);
-        const float scaleY = std::max(0.5f, EUINEO::State.dpiScaleY);
-        const LONG caretX = static_cast<LONG>(std::lround(EUINEO::State.imeCursorX * scaleX));
-        const LONG caretTop = static_cast<LONG>(std::lround(EUINEO::State.imeCursorY * scaleY));
-        const LONG caretHeight = std::max<LONG>(1, static_cast<LONG>(std::lround(EUINEO::State.imeCursorH * scaleY)));
-        const LONG caretBottom = caretTop + caretHeight;
-        POINT point;
-        point.x = caretX;
-        point.y = caretBottom + 2;
-        COMPOSITIONFORM compositionForm{};
-        compositionForm.dwStyle = CFS_FORCE_POSITION;
-        compositionForm.ptCurrentPos = point;
-        ImmSetCompositionWindow(imc, &compositionForm);
-        CANDIDATEFORM candidateForm{};
-        candidateForm.dwStyle = CFS_EXCLUDE;
-        candidateForm.ptCurrentPos = point;
-        candidateForm.rcArea.left = caretX;
-        candidateForm.rcArea.top = caretTop;
-        candidateForm.rcArea.right = caretX + 2;
-        candidateForm.rcArea.bottom = caretBottom;
-        ImmSetCandidateWindow(imc, &candidateForm);
-    }
-    ImmReleaseContext(hwnd, imc);
-#else
-    (void)window;
-#endif
-}
+double getDisplayFrameInterval(GLFWwindow* window) {
+    double frameInterval = 1.0 / 60.0;
 
+    GLFWmonitor* monitor = glfwGetWindowMonitor(window);
+    if (!monitor) {
+        monitor = glfwGetPrimaryMonitor();
+    }
+
+    const GLFWvidmode* videoMode = monitor ? glfwGetVideoMode(monitor) : nullptr;
+    if (videoMode && videoMode->refreshRate > 0) {
+        frameInterval = 1.0 / static_cast<double>(videoMode->refreshRate);
+    }
+
+    return frameInterval;
 }
 
 int main() {
-    const RuntimeWindowConfig runtimeWindowConfig{
-        true // darkTitleBar
-    };
-
     glfwInit();
+
     glfwWindowHint(GLFW_SAMPLES, 0);
     glfwWindowHint(GLFW_RED_BITS, 8);
     glfwWindowHint(GLFW_GREEN_BITS, 8);
@@ -135,229 +63,81 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "EUI-NEO", nullptr, nullptr);
-    EUINEO::ApplyDefaultWindowIcon(window, "docs/icon.svg");
-    EUINEO::ApplyNativeWindowTitleBarTheme(window, runtimeWindowConfig.darkTitleBar);
+    GLFWwindow* window = glfwCreateWindow(app::initialWindowWidth(), app::initialWindowHeight(), app::windowTitle(), nullptr, nullptr);
+    if (!window) {
+        glfwTerminate();
+        return -1;
+    }
+
     glfwMakeContextCurrent(window);
-
-    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* win, int w, int h) {
-        glViewport(0, 0, w, h);
-        gFramebufferW = w;
-        gFramebufferH = h;
-        glfwGetWindowSize(win, &gWindowW, &gWindowH);
-        SyncSurfaceMetrics();
-        EUINEO::Renderer::InvalidateAll();
-    });
-
-    gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-    int initialFbW = 0;
-    int initialFbH = 0;
-    glfwGetFramebufferSize(window, &initialFbW, &initialFbH);
-    gFramebufferW = initialFbW;
-    gFramebufferH = initialFbH;
-    glViewport(0, 0, initialFbW, initialFbH);
-    glfwGetWindowSize(window, &gWindowW, &gWindowH);
-    glfwGetWindowContentScale(window, &gContentScaleX, &gContentScaleY);
-    SyncSurfaceMetrics();
-
-    glfwSetWindowSizeCallback(window, [](GLFWwindow* win, int w, int h) {
-        gWindowW = w;
-        gWindowH = h;
-        glfwGetWindowContentScale(win, &gContentScaleX, &gContentScaleY);
-        SyncSurfaceMetrics();
-        EUINEO::Renderer::InvalidateAll();
-    });
-
-    glfwSetWindowContentScaleCallback(window, [](GLFWwindow* win, float xscale, float yscale) {
-        gContentScaleX = xscale;
-        gContentScaleY = yscale;
-        glfwGetWindowSize(win, &gWindowW, &gWindowH);
-        glfwGetFramebufferSize(win, &gFramebufferW, &gFramebufferH);
-        SyncSurfaceMetrics();
-        EUINEO::Renderer::InvalidateAll();
-    });
-
-    glfwSetCursorPosCallback(window, [](GLFWwindow*, double x, double y) {
-        UpdateMousePosition(x, y);
-    });
-    double initialMouseX = 0.0;
-    double initialMouseY = 0.0;
-    glfwGetCursorPos(window, &initialMouseX, &initialMouseY);
-    UpdateMousePosition(initialMouseX, initialMouseY);
-
-    glfwSetMouseButtonCallback(window, [](GLFWwindow*, int button, int action, int mods) {
-        bool shouldRepaint = false;
-        if (button == GLFW_MOUSE_BUTTON_LEFT) {
-            if (action == GLFW_PRESS) {
-                EUINEO::State.mouseDown = true;
-                EUINEO::State.mouseClicked = true;
-                shouldRepaint = true;
-            } else if (action == GLFW_RELEASE) {
-                EUINEO::State.mouseDown = false;
-                EUINEO::State.mouseReleased = true;
-                shouldRepaint = true;
-            }
-        } else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-            if (action == GLFW_PRESS) {
-                EUINEO::State.mouseRightDown = true;
-                EUINEO::State.mouseRightClicked = true;
-                shouldRepaint = true;
-            } else if (action == GLFW_RELEASE) {
-                EUINEO::State.mouseRightDown = false;
-                EUINEO::State.mouseRightReleased = true;
-                shouldRepaint = true;
-            }
-        }
-        if (shouldRepaint) {
-            EUINEO::Renderer::RequestRepaint();
-        }
-    });
-
-    glfwSetCharCallback(window, [](GLFWwindow*, unsigned int codepoint) {
-        if (codepoint <= 0x7f) {
-            EUINEO::State.textInput += (char)codepoint;
-        } else if (codepoint <= 0x7ff) {
-            EUINEO::State.textInput += (char)(0xc0 | ((codepoint >> 6) & 0x1f));
-            EUINEO::State.textInput += (char)(0x80 | (codepoint & 0x3f));
-        } else if (codepoint <= 0xffff) {
-            EUINEO::State.textInput += (char)(0xe0 | ((codepoint >> 12) & 0x0f));
-            EUINEO::State.textInput += (char)(0x80 | ((codepoint >> 6) & 0x3f));
-            EUINEO::State.textInput += (char)(0x80 | (codepoint & 0x3f));
-        } else if (codepoint <= 0x10ffff) {
-            EUINEO::State.textInput += (char)(0xf0 | ((codepoint >> 18) & 0x07));
-            EUINEO::State.textInput += (char)(0x80 | ((codepoint >> 12) & 0x3f));
-            EUINEO::State.textInput += (char)(0x80 | ((codepoint >> 6) & 0x3f));
-            EUINEO::State.textInput += (char)(0x80 | (codepoint & 0x3f));
-        }
-        EUINEO::Renderer::RequestRepaint();
-    });
-
-    glfwSetScrollCallback(window, [](GLFWwindow*, double xoffset, double yoffset) {
-        if (xoffset == 0.0 && yoffset == 0.0) {
-            return;
-        }
-        EUINEO::State.scrollDeltaX += static_cast<float>(xoffset);
-        EUINEO::State.scrollDeltaY += static_cast<float>(yoffset);
-        EUINEO::Renderer::RequestRepaint();
-    });
-
-    glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
-        if (key >= 0 && key < 512) {
-            if (action == GLFW_PRESS) {
-                EUINEO::State.keys[key] = true;
-                EUINEO::State.keysPressed[key] = true;
-                EUINEO::Renderer::RequestRepaint();
-            } else if (action == GLFW_RELEASE) {
-                EUINEO::State.keys[key] = false;
-                EUINEO::Renderer::RequestRepaint();
-            } else if (action == GLFW_REPEAT) {
-                EUINEO::State.keysPressed[key] = true;
-                EUINEO::Renderer::RequestRepaint();
-            }
-        }
-    });
-
     glfwSwapInterval(1);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDisable(GL_MULTISAMPLE);
+    WindowState windowState;
+    glfwSetWindowUserPointer(window, &windowState);
+    glfwSetFramebufferSizeCallback(window, [](GLFWwindow* currentWindow, int w, int h) {
+        glViewport(0, 0, w, h);
+        static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow))->needsRender = true;
+    });
+    glfwSetWindowRefreshCallback(window, [](GLFWwindow* currentWindow) {
+        static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow))->needsRender = true;
+    });
+    glfwSetWindowContentScaleCallback(window, [](GLFWwindow* currentWindow, float, float) {
+        static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow))->needsRender = true;
+    });
 
-    EUINEO::Renderer::Init();
-
-    constexpr const char* kUIFontFile = "YouSheBiaoTiHei-2.ttf";
-    constexpr const char* kIconFontFile = "Font Awesome 7 Free-Solid-900.otf";
-    constexpr float kUiSdfLoadSize = 72.0f;
-    constexpr float kIconSdfLoadSize = 96.0f;
-    constexpr float kCjkSdfLoadSize = 72.0f;
-
-    const auto registerProjectFont = [](const char* fileName, float fontSize, bool useSdf = true) {
-        static const char* kFontDirs[] = {
-            "font/",
-            "src/font/"
-        };
-        for (const char* dir : kFontDirs) {
-            const std::string path = std::string(dir) + fileName;
-            if (EUINEO::Renderer::RegisterFontSource(path, fontSize, useSdf)) {
-                return true;
-            }
-        }
-        return false;
-    };
-
-    bool fontLoaded = false;
-    if (registerProjectFont(kUIFontFile, kUiSdfLoadSize, true)) {
-        fontLoaded = true;
-    }
-    registerProjectFont(kIconFontFile, kIconSdfLoadSize, false);
-
-    if (!fontLoaded) {
-        if (EUINEO::Renderer::RegisterFontSource("C:/Windows/Fonts/msyh.ttc", kUiSdfLoadSize, true)) {
-            fontLoaded = true;
-        } else if (EUINEO::Renderer::RegisterFontSource("C:/Windows/Fonts/arial.ttf", kUiSdfLoadSize, true)) {
-            fontLoaded = true;
-        } else {
-            printf("Failed to load fallback font!\n");
-        }
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        glfwTerminate();
+        return -1;
     }
 
-    EUINEO::Renderer::RegisterFontSource("C:/Windows/Fonts/msyh.ttc", kCjkSdfLoadSize); // Deferred fallback for missing glyphs.
-    glfwShowWindow(window);
-    EUINEO::ApplyNativeWindowTitleBarTheme(window, runtimeWindowConfig.darkTitleBar);
+    if (!app::initialize(window)) {
+        glfwTerminate();
+        return -1;
+    }
 
-    EUINEO::MainPage mainPage{}; // Force recompilation when header-only pages change.
-    double lastTime = glfwGetTime();
+    const double animationFrameInterval = getDisplayFrameInterval(window);
+    double lastFrameTime = glfwGetTime();
+
     while (!glfwWindowShouldClose(window)) {
+        const double currentFrameTime = glfwGetTime();
+        const float deltaSeconds = static_cast<float>(currentFrameTime - lastFrameTime);
+        lastFrameTime = currentFrameTime;
+
         if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
             glfwSetWindowShouldClose(window, 1);
+            break;
         }
 
-        double currentTime = glfwGetTime();
-        float dt = (float)(currentTime - lastTime);
-        EUINEO::State.deltaTime = dt > 0.05f ? 0.05f : dt;
-        lastTime = currentTime;
+        int framebufferWidth = 0;
+        int framebufferHeight = 0;
+        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+        const float dpiScale = getDpiScale(window);
+        const float pointerScale = getPointerScale(window);
 
-        const bool frameRequestedBeforeUpdate =
-            EUINEO::State.needsRepaint ||
-            EUINEO::State.animationTimeLeft > 0.0f ||
-            EUINEO::State.pointerMoved;
-        if (frameRequestedBeforeUpdate) {
-            mainPage.Update();
+        if (app::update(window, deltaSeconds, framebufferWidth, framebufferHeight, dpiScale, pointerScale)) {
+            windowState.needsRender = true;
         }
 
-        bool shouldDraw = EUINEO::Renderer::ShouldRepaint();
-        if (shouldDraw && !frameRequestedBeforeUpdate) {
-            mainPage.Update();
-        }
-        if (shouldDraw) {
-            EUINEO::State.frameCount++;
-            mainPage.Draw();
+        if (windowState.needsRender) {
+            app::render(framebufferWidth, framebufferHeight, dpiScale);
             glfwSwapBuffers(window);
+            windowState.needsRender = false;
         }
-        UpdateImeCandidateWindow(window);
 
-        EUINEO::State.textInput.clear();
-        EUINEO::State.scrollDeltaX = 0.0f;
-        EUINEO::State.scrollDeltaY = 0.0f;
-        EUINEO::State.scrollConsumed = false;
-        EUINEO::State.mouseClicked = false;
-        EUINEO::State.mouseReleased = false;
-        EUINEO::State.mouseRightClicked = false;
-        EUINEO::State.mouseRightReleased = false;
-        EUINEO::State.pointerMoved = false;
-        memset(EUINEO::State.keysPressed, 0, sizeof(EUINEO::State.keysPressed));
-
-        if (shouldDraw || EUINEO::State.animationTimeLeft > 0) {
+        if (app::isAnimating()) {
+            const double frameElapsed = glfwGetTime() - currentFrameTime;
+            const double sleepSeconds = animationFrameInterval - frameElapsed;
+            if (sleepSeconds > 0.0) {
+                std::this_thread::sleep_for(std::chrono::duration<double>(sleepSeconds));
+            }
             glfwPollEvents();
         } else {
             glfwWaitEvents();
         }
     }
 
-    EUINEO::Renderer::Shutdown();
+    app::shutdown();
     glfwTerminate();
     return 0;
 }
