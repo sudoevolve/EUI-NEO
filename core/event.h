@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
 namespace core {
@@ -83,9 +84,29 @@ struct InputQueue {
     bool escape = false;
 };
 
-inline InputQueue& inputQueue() {
-    static InputQueue queue;
-    return queue;
+struct PointerState {
+    double lastX = 0.0;
+    double lastY = 0.0;
+    bool lastDown = false;
+    bool lastRightDown = false;
+};
+
+inline std::unordered_map<GLFWwindow*, InputQueue>& inputQueues() {
+    static std::unordered_map<GLFWwindow*, InputQueue> queues;
+    return queues;
+}
+
+inline std::unordered_map<GLFWwindow*, PointerState>& pointerStates() {
+    static std::unordered_map<GLFWwindow*, PointerState> states;
+    return states;
+}
+
+inline InputQueue& inputQueue(GLFWwindow* window) {
+    return inputQueues()[window];
+}
+
+inline PointerState& pointerState(GLFWwindow* window) {
+    return pointerStates()[window];
 }
 
 inline void appendUtf8(std::string& output, unsigned int codepoint) {
@@ -116,12 +137,12 @@ inline void installInputCallbacks(GLFWwindow* window) {
         return;
     }
 
-    glfwSetCharCallback(window, [](GLFWwindow*, unsigned int codepoint) {
-        detail::appendUtf8(detail::inputQueue().text, codepoint);
+    glfwSetCharCallback(window, [](GLFWwindow* currentWindow, unsigned int codepoint) {
+        detail::appendUtf8(detail::inputQueue(currentWindow).text, codepoint);
     });
 
-    glfwSetScrollCallback(window, [](GLFWwindow*, double xoffset, double yoffset) {
-        detail::InputQueue& queue = detail::inputQueue();
+    glfwSetScrollCallback(window, [](GLFWwindow* currentWindow, double xoffset, double yoffset) {
+        detail::InputQueue& queue = detail::inputQueue(currentWindow);
         queue.scrollX += xoffset;
         queue.scrollY += yoffset;
     });
@@ -131,7 +152,7 @@ inline void installInputCallbacks(GLFWwindow* window) {
             return;
         }
 
-        detail::InputQueue& queue = detail::inputQueue();
+        detail::InputQueue& queue = detail::inputQueue(currentWindow);
         const bool ctrl = (mods & GLFW_MOD_CONTROL) != 0 || (mods & GLFW_MOD_SUPER) != 0;
         queue.shift = (mods & GLFW_MOD_SHIFT) != 0;
         if (ctrl && key == GLFW_KEY_V) {
@@ -185,8 +206,8 @@ inline void installInputCallbacks(GLFWwindow* window) {
     });
 }
 
-inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents() {
-    detail::InputQueue& queue = detail::inputQueue();
+inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents(GLFWwindow* window) {
+    detail::InputQueue& queue = detail::inputQueue(window);
     KeyboardEvent keyboard;
     keyboard.text = std::move(queue.text);
     keyboard.pasteText = std::move(queue.pasteText);
@@ -206,6 +227,15 @@ inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents() {
     ScrollEvent scroll{queue.scrollX, queue.scrollY};
     queue = {};
     return {std::move(keyboard), scroll};
+}
+
+inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents() {
+    return consumeInputEvents(glfwGetCurrentContext());
+}
+
+inline void releaseInputQueue(GLFWwindow* window) {
+    detail::inputQueues().erase(window);
+    detail::pointerStates().erase(window);
 }
 
 struct InteractionState {
@@ -277,10 +307,7 @@ struct InteractionState {
 };
 
 inline PointerEvent readPointerEvent(GLFWwindow* window, float dpiScale = 1.0f) {
-    static double lastX = 0.0;
-    static double lastY = 0.0;
-    static bool lastDown = false;
-    static bool lastRightDown = false;
+    detail::PointerState& state = detail::pointerState(window);
 
     double x = 0.0;
     double y = 0.0;
@@ -291,19 +318,19 @@ inline PointerEvent readPointerEvent(GLFWwindow* window, float dpiScale = 1.0f) 
     PointerEvent event;
     event.x = x;
     event.y = y;
-    event.deltaX = x - lastX;
-    event.deltaY = y - lastY;
+    event.deltaX = x - state.lastX;
+    event.deltaY = y - state.lastY;
     event.down = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     event.rightDown = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
-    event.pressedThisFrame = event.down && !lastDown;
-    event.releasedThisFrame = !event.down && lastDown;
-    event.rightPressedThisFrame = event.rightDown && !lastRightDown;
-    event.rightReleasedThisFrame = !event.rightDown && lastRightDown;
+    event.pressedThisFrame = event.down && !state.lastDown;
+    event.releasedThisFrame = !event.down && state.lastDown;
+    event.rightPressedThisFrame = event.rightDown && !state.lastRightDown;
+    event.rightReleasedThisFrame = !event.rightDown && state.lastRightDown;
 
-    lastX = x;
-    lastY = y;
-    lastDown = event.down;
-    lastRightDown = event.rightDown;
+    state.lastX = x;
+    state.lastY = y;
+    state.lastDown = event.down;
+    state.lastRightDown = event.rightDown;
     return event;
 }
 

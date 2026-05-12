@@ -9,8 +9,10 @@
 #include "core/network.h"
 #include "core/text.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace app {
@@ -68,6 +70,28 @@ struct DslAppConfig {
     }
 };
 
+struct DslWindowConfig {
+    std::string titleValue = "Window";
+    std::string pageIdValue = "window";
+    core::Color clearColorValue = {0.16f, 0.18f, 0.20f, 1.0f};
+    int windowWidthValue = 640;
+    int windowHeightValue = 420;
+    bool modalValue = false;
+
+    DslWindowConfig& title(std::string value) { titleValue = std::move(value); return *this; }
+    DslWindowConfig& pageId(std::string value) { pageIdValue = std::move(value); return *this; }
+    DslWindowConfig& clearColor(const core::Color& value) { clearColorValue = value; return *this; }
+    DslWindowConfig& background(const core::Color& value) { return clearColor(value); }
+    DslWindowConfig& windowSize(int width, int height) {
+        windowWidthValue = width;
+        windowHeightValue = height;
+        return *this;
+    }
+    DslWindowConfig& windowWidth(int value) { windowWidthValue = value; return *this; }
+    DslWindowConfig& windowHeight(int value) { windowHeightValue = value; return *this; }
+    DslWindowConfig& modal(bool value = true) { modalValue = value; return *this; }
+};
+
 const DslAppConfig& dslAppConfig();
 void compose(core::dsl::Ui& ui, const core::dsl::Screen& screen);
 
@@ -76,6 +100,11 @@ namespace detail {
 inline core::dsl::Runtime& dslRuntime() {
     static core::dsl::Runtime runtime;
     return runtime;
+}
+
+inline std::vector<DslWindowRequest>& dslWindowRequests() {
+    static std::vector<DslWindowRequest> requests;
+    return requests;
 }
 
 struct DslAppState {
@@ -147,6 +176,37 @@ inline void applyWindowIcon(GLFWwindow* window) {
 
 } // namespace detail
 
+void openWindow(const DslWindowConfig& config, DslWindowCompose composeFn) {
+    if (!composeFn) {
+        return;
+    }
+
+    DslWindowRequest request;
+    request.title = config.titleValue.empty() ? "Window" : config.titleValue;
+    request.pageId = config.pageIdValue.empty() ? request.title : config.pageIdValue;
+    request.clearColor = config.clearColorValue;
+    request.width = std::max(160, config.windowWidthValue);
+    request.height = std::max(120, config.windowHeightValue);
+    request.modal = config.modalValue;
+    request.compose = std::move(composeFn);
+    detail::dslWindowRequests().push_back(std::move(request));
+    glfwPostEmptyEvent();
+}
+
+void openWindow(const char* title, int width, int height, DslWindowCompose composeFn) {
+    openWindow(DslWindowConfig{}
+                   .title(title != nullptr ? title : "Window")
+                   .pageId(title != nullptr ? title : "window")
+                   .windowSize(width, height),
+               std::move(composeFn));
+}
+
+std::vector<DslWindowRequest> consumeWindowRequests() {
+    std::vector<DslWindowRequest> requests = std::move(detail::dslWindowRequests());
+    detail::dslWindowRequests().clear();
+    return requests;
+}
+
 const char* windowTitle() {
     return dslAppConfig().titleValue;
 }
@@ -200,6 +260,14 @@ bool initialize(GLFWwindow* window) {
 }
 
 bool update(GLFWwindow* window, float deltaSeconds, int windowWidth, int windowHeight, float dpiScale, float pointerScale) {
+    return update(window, deltaSeconds, windowWidth, windowHeight, dpiScale, pointerScale, core::network::consumeAnyTextReady());
+}
+
+bool update(GLFWwindow* window, float deltaSeconds, int windowWidth, int windowHeight, float dpiScale, float pointerScale, bool networkTextReady) {
+    return update(window, deltaSeconds, windowWidth, windowHeight, dpiScale, pointerScale, networkTextReady, true);
+}
+
+bool update(GLFWwindow* window, float deltaSeconds, int windowWidth, int windowHeight, float dpiScale, float pointerScale, bool networkTextReady, bool inputEnabled) {
     if (windowWidth <= 0 || windowHeight <= 0 || dpiScale <= 0.0f) {
         return false;
     }
@@ -223,16 +291,16 @@ bool update(GLFWwindow* window, float deltaSeconds, int windowWidth, int windowH
     }
 
     bool changed = false;
-    if (core::network::consumeAnyTextReady()) {
+    if (networkTextReady) {
         composeFrame();
         detail::dslRuntime().markFullRedraw();
         changed = true;
     }
 
-    changed = detail::dslRuntime().update(window, deltaSeconds, pointerScale, dpiScale) || changed;
+    changed = detail::dslRuntime().update(window, deltaSeconds, pointerScale, dpiScale, inputEnabled) || changed;
     if (detail::dslRuntime().needsCompose()) {
         composeFrame();
-        changed = detail::dslRuntime().update(window, 0.0f, pointerScale, dpiScale) || changed;
+        changed = detail::dslRuntime().update(window, 0.0f, pointerScale, dpiScale, inputEnabled) || changed;
         changed = true;
     }
 

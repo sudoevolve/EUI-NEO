@@ -485,7 +485,7 @@ void composeControlsPage(core::dsl::Ui& ui, float width, float height) {
     const float fieldWidth = std::max(0.0f, std::min(width, 680.0f));
     const float componentCardWidth = std::max(120.0f, std::min(340.0f, (width - 20.0f) * 0.5f));
     const float componentRowWidth = componentCardWidth * 2.0f + 20.0f;
-    const float feedbackWidth = std::max(120.0f, std::min(206.0f, (fieldWidth - 36.0f) / 3.0f));
+    const float feedbackWidth = std::max(112.0f, std::min(176.0f, (fieldWidth - 54.0f) / 4.0f));
     const float dataRowGap = 20.0f;
     const float dropdownWidth = std::max(180.0f, std::min(260.0f, fieldWidth * 0.36f));
     const float tableWidth = std::max(260.0f, fieldWidth - dropdownWidth - dataRowGap);
@@ -658,7 +658,7 @@ void composeControlsPage(core::dsl::Ui& ui, float width, float height) {
         .build();
 
     ui.row("controls.feedback")
-        .size(feedbackWidth * 3.0f + 36.0f, 82.0f)
+        .size(feedbackWidth * 4.0f + 54.0f, 82.0f)
         .gap(18.0f)
         .content([&] {
             components::button(ui, "control.dialog")
@@ -711,6 +711,60 @@ void composeControlsPage(core::dsl::Ui& ui, float width, float height) {
                     sampleContextMenuX = static_cast<float>(event.x);
                     sampleContextMenuY = static_cast<float>(event.y);
                     sampleFeedback = "Context menu opened";
+                })
+                .build();
+
+            components::button(ui, "control.window")
+                .theme(themeColors(), false)
+                .size(feedbackWidth, 54.0f)
+                .icon(0xF24D)
+                .text("Window")
+                .textColor(textPrimary())
+                .iconColor(accent())
+                .radius(12.0f)
+                .border(1.0f, borderColor(0.70f))
+                .shadow(10.0f, 0.0f, 3.0f, shadowColor(0.16f, 0.08f))
+                .transition(pageTransition())
+                .onClick([] {
+                    app::openWindow(
+                        app::DslWindowConfig{}
+                            .title("Inspector")
+                            .pageId("inspector")
+                            .windowSize(640, 420)
+                            .modal(true)
+                            .clearColor(appBg()),
+                        [](core::dsl::Ui& ui, const core::dsl::Screen& screen) {
+                            ui.stack("inspector.root")
+                                .size(screen.width, screen.height)
+                                .content([&] {
+                                    ui.rect("inspector.bg")
+                                        .size(screen.width, screen.height)
+                                        .color(appBg())
+                                        .build();
+
+                                    ui.text("inspector.title")
+                                        .x(28.0f)
+                                        .y(24.0f)
+                                        .size(std::max(0.0f, screen.width - 56.0f), 34.0f)
+                                        .text("Inspector Window")
+                                        .fontSize(28.0f)
+                                        .lineHeight(34.0f)
+                                        .color(textPrimary())
+                                        .build();
+
+                                    ui.text("inspector.note")
+                                        .x(28.0f)
+                                        .y(70.0f)
+                                        .size(std::max(0.0f, screen.width - 56.0f), 24.0f)
+                                        .text("This window was opened from a button callback.")
+                                        .fontSize(16.0f)
+                                        .lineHeight(22.0f)
+                                        .color(textMuted())
+                                        .build();
+                                })
+                                .build();
+                        });
+                    sampleFeedback = "Window opened";
                 })
                 .build();
         });

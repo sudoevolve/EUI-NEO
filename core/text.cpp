@@ -11,6 +11,10 @@
 #include "core/text.h"
 
 #include <glad/glad.h>
+#ifndef GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_NONE
+#endif
+#include <GLFW/glfw3.h>
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "3rd/stb_truetype.h"
@@ -79,8 +83,8 @@ SharedTextAtlas& sharedTextAtlas() {
 }
 
 SharedTextRenderResources& sharedTextRenderResources() {
-    static SharedTextRenderResources resources;
-    return resources;
+    static std::unordered_map<GLFWwindow*, SharedTextRenderResources> resourcesByContext;
+    return resourcesByContext[glfwGetCurrentContext()];
 }
 
 GLuint compileGlShader(GLenum type, const char* source) {

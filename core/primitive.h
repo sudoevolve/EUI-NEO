@@ -1,9 +1,14 @@
 #pragma once
 
 #include <glad/glad.h>
+#ifndef GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_NONE
+#endif
+#include <GLFW/glfw3.h>
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
 #include <vector>
 
 namespace core {
@@ -298,8 +303,8 @@ private:
     };
 
     static SharedResources& sharedResources() {
-        static SharedResources resources;
-        return resources;
+        static std::unordered_map<GLFWwindow*, SharedResources> resourcesByContext;
+        return resourcesByContext[glfwGetCurrentContext()];
     }
 
     static bool retainSharedResources(const char* vertexSource, const char* fragmentSource) {
@@ -772,8 +777,8 @@ private:
     };
 
     static SharedResources& sharedResources() {
-        static SharedResources resources;
-        return resources;
+        static std::unordered_map<GLFWwindow*, SharedResources> resourcesByContext;
+        return resourcesByContext[glfwGetCurrentContext()];
     }
 
     static bool retainSharedResources(const char* vertexSource, const char* fragmentSource) {

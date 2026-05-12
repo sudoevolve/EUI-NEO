@@ -85,11 +85,25 @@ public:
         logicalHeight_ = logicalHeight;
     }
 
-    bool update(GLFWwindow* window, float deltaSeconds, float pointerScale, float dpiScale) {
-        const PointerEvent event = readPointerEvent(window, pointerScale);
-        const auto inputEvents = consumeInputEvents();
-        const KeyboardEvent& keyboardEvent = inputEvents.first;
-        const ScrollEvent& scrollEvent = inputEvents.second;
+    bool update(GLFWwindow* window, float deltaSeconds, float pointerScale, float dpiScale, bool inputEnabled = true) {
+        PointerEvent event = readPointerEvent(window, pointerScale);
+        const auto inputEvents = consumeInputEvents(window);
+        KeyboardEvent keyboardEvent = inputEvents.first;
+        ScrollEvent scrollEvent = inputEvents.second;
+        if (!inputEnabled) {
+            event.x = -1000000.0;
+            event.y = -1000000.0;
+            event.deltaX = 0.0;
+            event.deltaY = 0.0;
+            event.down = false;
+            event.pressedThisFrame = false;
+            event.releasedThisFrame = true;
+            event.rightDown = false;
+            event.rightPressedThisFrame = false;
+            event.rightReleasedThisFrame = false;
+            keyboardEvent = {};
+            scrollEvent = {};
+        }
         animating_ = false;
         needsCompose_ = false;
         wantsHandCursor_ = false;
@@ -187,8 +201,8 @@ public:
         }
     }
 
-    void shutdown() {
-        releaseGraphicsResources();
+    void shutdown(bool releaseCachedImageTextures = true) {
+        releaseGraphicsResources(releaseCachedImageTextures);
         rects_.clear();
         polygons_.clear();
         texts_.clear();
@@ -201,7 +215,7 @@ public:
         elementStructure_.clear();
     }
 
-    void releaseGraphicsResources() {
+    void releaseGraphicsResources(bool releaseCachedImageTextures = true) {
         for (auto& item : rects_) {
             if (item.second.initialized) {
                 item.second.primitive->destroy();
@@ -226,7 +240,9 @@ public:
                 item.second.initialized = false;
             }
         }
-        ImagePrimitive::releaseCachedTextures();
+        if (releaseCachedImageTextures) {
+            ImagePrimitive::releaseCachedTextures();
+        }
         releaseRenderCache();
         destroyCursors();
         fullRedraw_ = true;

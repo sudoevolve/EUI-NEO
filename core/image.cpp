@@ -1,6 +1,11 @@
 #include "core/image.h"
 #include "core/network.h"
 
+#ifndef GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_NONE
+#endif
+#include <GLFW/glfw3.h>
+
 #include <algorithm>
 #include <atomic>
 #include <cctype>
@@ -593,8 +598,8 @@ void ImagePrimitive::releaseCachedTextures() {
 }
 
 ImagePrimitive::SharedResources& ImagePrimitive::sharedResources() {
-    static SharedResources resources;
-    return resources;
+    static std::unordered_map<GLFWwindow*, SharedResources> resourcesByContext;
+    return resourcesByContext[glfwGetCurrentContext()];
 }
 
 bool ImagePrimitive::retainSharedResources() {
