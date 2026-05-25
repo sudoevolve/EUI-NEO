@@ -203,7 +203,11 @@ void installWindowCallbacks(GLFWwindow* window, WindowState& windowState) {
     glfwSetWindowUserPointer(window, &windowState);
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow* currentWindow, int w, int h) {
         glViewport(0, 0, w, h);
-        static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow))->needsRender = true;
+        const float dpiScale = getDpiScale(currentWindow);
+        app::render(w, h, dpiScale);
+		glfwSwapBuffers(currentWindow);
+        static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow))->needsRender = false;
+        ++static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow))->renderedFrames;
     });
     glfwSetWindowRefreshCallback(window, [](GLFWwindow* currentWindow) {
         static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow))->needsRender = true;
