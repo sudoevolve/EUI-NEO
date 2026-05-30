@@ -104,6 +104,8 @@ ui.stack("root")
 
 `.zIndex(...)` 只影响同级元素的绘制顺序和 topmost hit-test，不参与布局计算；值越大越靠上。`.clip()` 会按该元素布局矩形裁剪自己和子树，并且命中测试也不会穿出裁剪区域。
 
+`Row / Column` 的主轴 flex 分配会把结果作为子项测量约束，fixed、wrapContent 和 fill 子项都可以参与 grow / shrink。`Stack.wrapContent()` 会把子项正向 x/y 偏移计入包裹尺寸；负向偏移仍视为向外溢出。
+
 ## 通用交互 DSL
 
 `Row / Column / Stack / Rect / Text / Image / Polygon` 都支持通用交互方法：

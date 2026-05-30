@@ -119,7 +119,7 @@ public:
         const std::string capturedId = capturedInteractionId();
         const std::string hoverTargetId = !capturedId.empty() ? capturedId : hitTestInteractive(event, dpiScale);
         updateElementTree(event, deltaSeconds, dpiScale, hoverTargetId);
-        updateDependentVisualDirtyRegions();
+        updateDependentVisualDirtyRegions(dpiScale);
 
         if (scrollEvent.active()) {
             updateScroll(scrollEvent, hitTestScrollable(event, dpiScale));
@@ -131,7 +131,7 @@ public:
         updateImeCursorRect(window, dpiScale);
         applyCursor(window);
 
-        promoteBackdropBlurDirtyRegions();
+        promoteBackdropBlurDirtyRegions(dpiScale);
         releaseUnseenInstances();
 
         const bool result = needsRender_;
@@ -726,7 +726,7 @@ private:
         addDirtyRect(unionRect(before, after));
     }
 
-    void promoteBackdropBlurDirtyRegions() {
+    void promoteBackdropBlurDirtyRegions(float dpiScale) {
         if (fullRedraw_ || dirtyRects_.empty()) {
             return;
         }
@@ -744,34 +744,49 @@ private:
 
         bool expandedAny = false;
         bool expandedThisPass = false;
+        const RenderTransform identity;
         do {
             expandedThisPass = false;
-            forEachElement([&](const Element& element) {
-                if (element.kind != ElementKind::Rect) {
-                    return;
-                }
-
-                const RectInstance& instance = rectInstance(element.id);
-                const float blur = std::max(element.blur, instance.blur.value());
-                if (blur <= 0.0f) {
-                    return;
-                }
-
-                const Rect captureRect = backdropCaptureRect(instance.frame.value(), blur, instance.transform.value());
-                if (!intersects(captureRect, mergedDirty) || containsRect(mergedDirty, captureRect)) {
-                    return;
-                }
-
-                mergedDirty = unionRect(mergedDirty, captureRect);
-                expandedThisPass = true;
-                expandedAny = true;
-            });
+            const std::vector<const Element*> roots = orderedElements(ui_.roots());
+            for (const Element* root : roots) {
+                expandBackdropBlurDirtyRegions(*root, dpiScale, identity, mergedDirty, expandedThisPass);
+            }
+            expandedAny = expandedAny || expandedThisPass;
         } while (expandedThisPass);
 
         if (expandedAny) {
             dirtyRects_.clear();
             dirtyRects_.push_back({mergedDirty.x, mergedDirty.y, mergedDirty.width, mergedDirty.height});
             needsRender_ = true;
+        }
+    }
+
+    void expandBackdropBlurDirtyRegions(const Element& element,
+                                        float dpiScale,
+                                        const RenderTransform& inheritedTransform,
+                                        Rect& mergedDirty,
+                                        bool& expanded) {
+        const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+        if (element.kind == ElementKind::Rect) {
+            const auto instance = rects_.find(element.id);
+            const LayoutRect frame = instance != rects_.end() ? instance->second.frame.value() : element.frame;
+            const Transform transform = instance != rects_.end() ? instance->second.transform.value() : element.transform;
+            const float blur = std::max(element.blur, instance != rects_.end() ? instance->second.blur.value() : element.blur);
+            if (blur > 0.0f) {
+                const Rect captureRect = applyRenderTransformToLogicalRect(
+                    backdropCaptureRect(frame, blur, transform),
+                    dpiScale,
+                    renderTransform);
+                if (intersects(captureRect, mergedDirty) && !containsRect(mergedDirty, captureRect)) {
+                    mergedDirty = unionRect(mergedDirty, captureRect);
+                    expanded = true;
+                }
+            }
+        }
+
+        const std::vector<const Element*> children = orderedElements(element.children);
+        for (const Element* child : children) {
+            expandBackdropBlurDirtyRegions(*child, dpiScale, renderTransform, mergedDirty, expanded);
         }
     }
 
@@ -918,13 +933,49 @@ private:
         return changed;
     }
 
-    void updateExplicitDirtyKey(const Element& element) {
+    Rect visualDirtyRectForElement(const Element& element,
+                                   float dpiScale,
+                                   const RenderTransform& inheritedTransform) const {
+        const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+        Rect local{element.frame.x, element.frame.y, element.frame.width, element.frame.height};
+        if (element.kind == ElementKind::Rect) {
+            const auto instance = rects_.find(element.id);
+            if (instance != rects_.end()) {
+                local = visualRect(instance->second.frame.value(),
+                                   instance->second.shadow.value(),
+                                   instance->second.blur.value(),
+                                   instance->second.transform.value());
+            } else {
+                local = visualRect(element.frame, element.shadow, element.blur, element.transform);
+            }
+        } else if (element.kind == ElementKind::Polygon) {
+            const auto instance = polygons_.find(element.id);
+            const LayoutRect frame = instance != polygons_.end() ? instance->second.frame.value() : element.frame;
+            const Transform transform = instance != polygons_.end() ? instance->second.transform.value() : element.transform;
+            local = transformRect({frame.x, frame.y, frame.width, frame.height}, frame, transform);
+        } else if (element.kind == ElementKind::Text) {
+            const auto instance = texts_.find(element.id);
+            const LayoutRect frame = instance != texts_.end() ? instance->second.frame.value() : element.frame;
+            const Transform transform = instance != texts_.end() ? instance->second.transform.value() : element.transform;
+            local = transformRect({frame.x, frame.y, frame.width, frame.height}, frame, transform);
+        } else if (element.kind == ElementKind::Image) {
+            const auto instance = images_.find(element.id);
+            const LayoutRect frame = instance != images_.end() ? instance->second.frame.value() : element.frame;
+            const Transform transform = instance != images_.end() ? instance->second.transform.value() : element.transform;
+            local = imageVisualRect(frame, transform);
+        }
+        return applyRenderTransformToLogicalRect(local, dpiScale, renderTransform);
+    }
+
+    void updateExplicitDirtyKey(const Element& element,
+                                float dpiScale,
+                                const RenderTransform& inheritedTransform) {
         if (element.dirtyKey.empty()) {
             return;
         }
 
         DirtyKeyInstance& instance = dirtyKeyInstance(element.id);
-        const Rect current{element.frame.x, element.frame.y, element.frame.width, element.frame.height};
+        const Rect current = visualDirtyRectForElement(element, dpiScale, inheritedTransform);
         if (!instance.initialized) {
             instance.key = element.dirtyKey;
             instance.rect = current;
@@ -958,7 +1009,7 @@ private:
                            const RenderTransform& inheritedTransform,
                            bool ancestorFrameChanged) {
         const bool frameTargetChanged = updateFrameTarget(element);
-        updateExplicitDirtyKey(element);
+        updateExplicitDirtyKey(element, dpiScale, inheritedTransform);
         updateInteraction(element, event, dpiScale, hoverTargetId);
         updateTimer(element, deltaSeconds);
         updateFrameCallback(element, deltaSeconds);
@@ -1748,9 +1799,11 @@ private:
         animating_ = animating_ || isImageAnimating(instance);
     }
 
-    DependentVisualState dependentVisualStateForElement(const Element& element) const {
+    DependentVisualState dependentVisualStateForElement(const Element& element,
+                                                        float dpiScale,
+                                                        const RenderTransform& inheritedTransform) const {
         DependentVisualState state;
-        state.rect = inflateRect({element.frame.x, element.frame.y, element.frame.width, element.frame.height},
+        state.rect = inflateRect(visualDirtyRectForElement(element, dpiScale, inheritedTransform),
                                  dependentVisualPadding());
 
         if (!element.hoverOpacitySourceId.empty()) {
@@ -1776,39 +1829,16 @@ private:
         return state;
     }
 
-    void updateDependentVisualDirtyRegions() {
+    void updateDependentVisualDirtyRegions(float dpiScale) {
         for (auto& item : dependentVisualStates_) {
             item.second.seen = false;
         }
 
-        forEachElement([&](const Element& element) {
-            if (element.hoverOpacitySourceId.empty() && element.visualStateSourceId.empty()) {
-                return;
-            }
-
-            const DependentVisualState current = dependentVisualStateForElement(element);
-            auto item = dependentVisualStates_.find(element.id);
-            if (item == dependentVisualStates_.end()) {
-                dependentVisualStates_.emplace(element.id, current);
-                if (!fullRedraw_ && current.opacity > 0.001f) {
-                    addDirtyRect(current.rect);
-                }
-                return;
-            }
-
-            DependentVisualState& previous = item->second;
-            previous.seen = true;
-            const bool changed =
-                !closeEnough(previous.rect, current.rect) ||
-                !closeEnough(previous.opacity, current.opacity) ||
-                !closeEnough(previous.scale, current.scale);
-            if (changed) {
-                addDirtyUnion(previous.rect, current.rect);
-                previous.rect = current.rect;
-                previous.opacity = current.opacity;
-                previous.scale = current.scale;
-            }
-        });
+        const RenderTransform identity;
+        const std::vector<const Element*> roots = orderedElements(ui_.roots());
+        for (const Element* root : roots) {
+            updateDependentVisualDirtyRegions(*root, dpiScale, identity);
+        }
 
         for (auto item = dependentVisualStates_.begin(); item != dependentVisualStates_.end(); ) {
             if (item->second.seen) {
@@ -1817,6 +1847,40 @@ private:
             }
             addDirtyRect(item->second.rect);
             item = dependentVisualStates_.erase(item);
+        }
+    }
+
+    void updateDependentVisualDirtyRegions(const Element& element,
+                                           float dpiScale,
+                                           const RenderTransform& inheritedTransform) {
+        if (!element.hoverOpacitySourceId.empty() || !element.visualStateSourceId.empty()) {
+            const DependentVisualState current = dependentVisualStateForElement(element, dpiScale, inheritedTransform);
+            auto item = dependentVisualStates_.find(element.id);
+            if (item == dependentVisualStates_.end()) {
+                dependentVisualStates_.emplace(element.id, current);
+                if (!fullRedraw_ && current.opacity > 0.001f) {
+                    addDirtyRect(current.rect);
+                }
+            } else {
+                DependentVisualState& previous = item->second;
+                previous.seen = true;
+                const bool changed =
+                    !closeEnough(previous.rect, current.rect) ||
+                    !closeEnough(previous.opacity, current.opacity) ||
+                    !closeEnough(previous.scale, current.scale);
+                if (changed) {
+                    addDirtyUnion(previous.rect, current.rect);
+                    previous.rect = current.rect;
+                    previous.opacity = current.opacity;
+                    previous.scale = current.scale;
+                }
+            }
+        }
+
+        const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+        const std::vector<const Element*> children = orderedElements(element.children);
+        for (const Element* child : children) {
+            updateDependentVisualDirtyRegions(*child, dpiScale, renderTransform);
         }
     }
 

@@ -119,6 +119,11 @@ public:
     const std::vector<std::unique_ptr<Node>>& children() const { return children_; }
 
     void measure(float availableWidth = 0.0f, float availableHeight = 0.0f) {
+        measure(availableWidth, availableHeight, false, false);
+    }
+
+private:
+    void measure(float availableWidth, float availableHeight, bool forceWidth, bool forceHeight) {
         const float innerAvailableWidth = availableWidth > 0.0f
             ? std::max(0.0f, availableWidth - padding_.left - padding_.right)
             : 0.0f;
@@ -127,10 +132,11 @@ public:
             : 0.0f;
 
         const LayoutRect content = measureContent(innerAvailableWidth, innerAvailableHeight);
-        measuredWidth_ = resolveSize(width_, content.width + padding_.left + padding_.right, availableWidth, minWidth_, maxWidth_);
-        measuredHeight_ = resolveSize(height_, content.height + padding_.top + padding_.bottom, availableHeight, minHeight_, maxHeight_);
+        measuredWidth_ = resolveSize(width_, content.width + padding_.left + padding_.right, availableWidth, minWidth_, maxWidth_, forceWidth);
+        measuredHeight_ = resolveSize(height_, content.height + padding_.top + padding_.bottom, availableHeight, minHeight_, maxHeight_, forceHeight);
     }
 
+public:
     void layout(float x, float y) {
         frame_ = {x, y, measuredWidth_, measuredHeight_};
 
@@ -155,9 +161,16 @@ private:
         return std::clamp(value, minValue, upper);
     }
 
-    static float resolveSize(const SizeValue& size, float contentSize, float availableSize, float minValue, float maxValue) {
+    static float resolveSize(const SizeValue& size,
+                             float contentSize,
+                             float availableSize,
+                             float minValue,
+                             float maxValue,
+                             bool forceAvailable = false) {
         float resolved = contentSize;
-        if (size.mode == SizeMode::Fixed) {
+        if (forceAvailable && availableSize > 0.0f) {
+            resolved = availableSize;
+        } else if (size.mode == SizeMode::Fixed) {
             resolved = size.value;
         } else if (size.mode == SizeMode::Fill) {
             resolved = availableSize > 0.0f ? availableSize : contentSize;
@@ -231,8 +244,10 @@ private:
         float maxWidth = 0.0f;
         for (const auto& child : children_) {
             child->measure(availableWidth, availableHeight);
-            maxWidth = std::max(maxWidth, outerWidth(*child));
-            maxHeight = std::max(maxHeight, outerHeight(*child));
+            const float childX = child->hasX_ ? std::max(0.0f, child->x_) : 0.0f;
+            const float childY = child->hasY_ ? std::max(0.0f, child->y_) : 0.0f;
+            maxWidth = std::max(maxWidth, childX + outerWidth(*child));
+            maxHeight = std::max(maxHeight, childY + outerHeight(*child));
         }
         return {0.0f, 0.0f, maxWidth, maxHeight};
     }
@@ -275,7 +290,7 @@ private:
                     assigned += remaining * (child.flexShrink_ / shrinkWeight);
                 }
                 assigned = std::max(0.0f, assigned);
-                child.measure(assigned, availableHeight);
+                child.measure(assigned, availableHeight, true, false);
                 contentHeight = std::max(contentHeight, outerHeight(child));
             }
         }
@@ -328,7 +343,7 @@ private:
                     assigned += remaining * (child.flexShrink_ / shrinkWeight);
                 }
                 assigned = std::max(0.0f, assigned);
-                child.measure(availableWidth, assigned);
+                child.measure(availableWidth, assigned, false, true);
                 contentWidth = std::max(contentWidth, outerWidth(child));
             }
         }
