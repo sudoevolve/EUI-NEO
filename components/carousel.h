@@ -3,6 +3,7 @@
 #include "components/mousearea.h"
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/image.h"
 
 #include <algorithm>
 #include <cmath>
@@ -294,7 +295,7 @@ private:
         const bool detailed = absDistance <= kDetailedDistance;
         const bool interactive = absDistance <= kInteractiveDistance;
         const std::string cardId = id_ + ".card." + std::to_string(itemIndex);
-        const bool imageReady = item.source.empty() || core::ImagePrimitive::isSourceReady(item.source);
+        const bool imageReady = item.source.empty() || eui::image::isSourceReady(item.source);
 
         ui_.stack(cardId)
             .x(x)

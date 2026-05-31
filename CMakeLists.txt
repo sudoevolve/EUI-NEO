@@ -41,6 +41,7 @@ set(CORE_SOURCES
     core/platform/native_bridge.c
     core/platform/platform.cpp
     core/render/image.cpp
+    core/render/image_facade.cpp
     core/render/text.cpp
     core/platform/tray_bridge.c
     core/platform/window_backend.cpp

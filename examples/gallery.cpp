@@ -393,7 +393,7 @@ void bingImageCard(eui::Ui& ui, const std::string& id, const std::string& title,
                    float width, float height = 122.0f, float imageHeight = 72.0f) {
     const float labelY = std::max(14.0f, height - 30.0f);
     const std::string imageSource = "bing://daily?idx=" + std::to_string(std::max(0, index)) + "&mkt=" + market;
-    const bool imageReady = eui::ImagePrimitive::isSourceReady(imageSource);
+    const bool imageReady = eui::image::isSourceReady(imageSource);
     ui.stack(id)
         .size(width, height)
         .content([&] {
