@@ -34,8 +34,33 @@ public:
     void setScissor(bool enabled, const core::Rect& rect, int framebufferHeight) override;
     void prepareBackdropBlur(const core::Rect& bounds, float blur, int windowWidth, int windowHeight) override;
     void drawRoundedRect(const RoundedRectDrawCommand& command, int windowWidth, int windowHeight) override;
+    void drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) override;
+    TextureHandle createTexture(const unsigned char* pixels, int width, int height) override;
+    bool updateTexture(TextureHandle handle, const unsigned char* pixels, int width, int height) override;
+    void destroyTexture(TextureHandle handle) override;
+    void drawTexture(TextureHandle handle,
+                     const float* vertices,
+                     std::size_t vertexFloatCount,
+                     const core::Color& tint,
+                     const core::Rect& rect,
+                     float radius,
+                     int windowWidth,
+                     int windowHeight) override;
 
 private:
+    struct TextureResource {
+        VkImage image = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        VkImageView view = VK_NULL_HANDLE;
+        VkSampler sampler = VK_NULL_HANDLE;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+        VkImageLayout layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        int width = 0;
+        int height = 0;
+        int channels = 0;
+        std::uint64_t generation = 0;
+    };
+
     bool createInstance();
     bool createSurface();
     bool pickDevice();
@@ -50,10 +75,24 @@ private:
     bool ensureBackdropDescriptor();
     void initializeBackdropImageIfNeeded();
     bool ensurePrimitiveVertexBuffer(std::size_t vertexCount);
+    bool ensureTextPipeline();
+    bool textAtlasNeedsUpload(const TextAtlasPageData& page) const;
+    bool ensureTextAtlas(const TextAtlasPageData& page);
+    bool ensureTextDescriptor();
+    bool ensureTextVertexBuffer(std::size_t floatCount);
+    bool ensureImagePipeline();
+    bool ensureImageDescriptor(TextureResource& texture);
+    bool ensureImageVertexBuffer();
     void destroyRoundedRectPipeline();
     void destroyBackdropResources();
     void destroyBackdropDescriptorPool();
     void destroyPrimitiveVertexBuffer();
+    void destroyTextPipeline();
+    void destroyTextResources();
+    void destroyImagePipeline();
+    void destroyImageResources();
+    void destroyTextureResource(TextureResource& texture);
+    void releasePendingUploads();
     void transitionSwapchainImage(VkImageLayout newLayout);
     std::uint32_t findMemoryType(std::uint32_t filter, VkMemoryPropertyFlags properties) const;
 
@@ -107,6 +146,31 @@ private:
     void* primitiveVertexMapped_ = nullptr;
     std::size_t primitiveVertexCapacity_ = 0;
     std::size_t primitiveVertexUsed_ = 0;
+
+    VkDescriptorSetLayout textDescriptorSetLayout_ = VK_NULL_HANDLE;
+    VkDescriptorPool textDescriptorPool_ = VK_NULL_HANDLE;
+    VkDescriptorSet textDescriptorSet_ = VK_NULL_HANDLE;
+    VkPipelineLayout textPipelineLayout_ = VK_NULL_HANDLE;
+    VkPipeline textPipeline_ = VK_NULL_HANDLE;
+    TextureResource textGrayAtlas_;
+    TextureResource textColorAtlas_;
+    bool textDescriptorDirty_ = true;
+    VkBuffer textVertexBuffer_ = VK_NULL_HANDLE;
+    VkDeviceMemory textVertexMemory_ = VK_NULL_HANDLE;
+    void* textVertexMapped_ = nullptr;
+    std::size_t textVertexCapacity_ = 0;
+    std::size_t textVertexUsed_ = 0;
+    VkDescriptorSetLayout imageDescriptorSetLayout_ = VK_NULL_HANDLE;
+    VkDescriptorPool imageDescriptorPool_ = VK_NULL_HANDLE;
+    VkPipelineLayout imagePipelineLayout_ = VK_NULL_HANDLE;
+    VkPipeline imagePipeline_ = VK_NULL_HANDLE;
+    VkBuffer imageVertexBuffer_ = VK_NULL_HANDLE;
+    VkDeviceMemory imageVertexMemory_ = VK_NULL_HANDLE;
+    void* imageVertexMapped_ = nullptr;
+    std::size_t imageVertexCapacity_ = 0;
+    std::size_t imageVertexUsed_ = 0;
+    std::vector<VkBuffer> pendingUploadBuffers_;
+    std::vector<VkDeviceMemory> pendingUploadMemories_;
 };
 
 } // namespace core::render::vulkan

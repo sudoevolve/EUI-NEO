@@ -323,11 +323,8 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
 }
 
 void OpenGLRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command, int windowWidth, int windowHeight) {
-    const float effectiveAlpha = command.gradient.enabled && !command.shadowPass
-        ? std::max(command.gradient.start.a, command.gradient.end.a)
-        : command.fillColor.a;
     if (command.vertices.empty() || windowWidth <= 0 || windowHeight <= 0 ||
-        command.opacity <= 0.001f || effectiveAlpha <= 0.001f || !ensurePrimitiveResources()) {
+        !roundedRectHasVisibleContent(command) || !ensurePrimitiveResources()) {
         return;
     }
 

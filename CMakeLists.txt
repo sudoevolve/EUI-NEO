@@ -78,6 +78,7 @@ set(CORE_SOURCES
     core/render/primitive.cpp
     core/render/render_backend.cpp
     core/render/stb_image_impl.cpp
+    core/render/text.cpp
     core/platform/tray_bridge.c
     core/window/window_backend.cpp
 )

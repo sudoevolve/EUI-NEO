@@ -29,6 +29,7 @@ public:
     void setScissor(bool enabled, const core::Rect& rect, int framebufferHeight) override;
     void prepareBackdropBlur(const core::Rect& bounds, float blur, int windowWidth, int windowHeight) override;
     void drawRoundedRect(const RoundedRectDrawCommand& command, int windowWidth, int windowHeight) override;
+    void drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) override;
 
 private:
     void releasePrimitiveResources();

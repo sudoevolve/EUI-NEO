@@ -27,6 +27,26 @@ struct RoundedRectDrawCommand {
     bool shadowPass = false;
 };
 
+inline float roundedRectFillAlpha(const RoundedRectDrawCommand& command) {
+    return command.gradient.enabled && !command.shadowPass
+        ? std::max(command.gradient.start.a, command.gradient.end.a)
+        : command.fillColor.a;
+}
+
+inline bool roundedRectHasVisibleContent(const RoundedRectDrawCommand& command) {
+    constexpr float kVisibleEpsilon = 0.001f;
+    if (command.opacity <= kVisibleEpsilon) {
+        return false;
+    }
+
+    const bool hasFill = roundedRectFillAlpha(command) > kVisibleEpsilon;
+    const bool hasBorder = !command.shadowPass &&
+                           command.border.width > kVisibleEpsilon &&
+                           command.border.color.a > kVisibleEpsilon;
+    const bool hasBackdropBlur = !command.shadowPass && command.backdropBlur > kVisibleEpsilon;
+    return hasFill || hasBorder || hasBackdropBlur;
+}
+
 inline Vec3 transformPrimitivePoint(const Rect& bounds,
                                     const Transform& transform,
                                     const TransformMatrix& matrix,
