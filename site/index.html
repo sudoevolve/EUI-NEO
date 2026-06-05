@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>EUI-NEO</title>
+  <link rel="icon" href="../assets/icon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="progress-bar" id="progressBar" aria-hidden="true"></div>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="EUI-NEO">
+        <img src="../assets/icon.svg" alt="">
+        <span>EUI-NEO</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="#docs" data-i18n="nav.docs">文档</a>
+        <a href="#rendering" data-i18n="nav.rendering">渲染</a>
+        <a href="#components" data-i18n="nav.components">组件</a>
+        <a href="#start" data-i18n="nav.start">开始</a>
+      </nav>
+      <div class="language" aria-label="Language">
+        <button class="theme-button" id="themeButton" type="button" aria-label="Toggle theme">◐</button>
+        <button class="lang-button active" type="button" data-lang="zh">中</button>
+        <button class="lang-button" type="button" data-lang="en">EN</button>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-media" aria-hidden="true">
+          <img class="hero-shot main-shot" src="../docs/pic/1.jpg" alt="">
+          <img class="hero-shot side-shot one" src="../docs/pic/2.jpg" alt="">
+          <img class="hero-shot side-shot two" src="../docs/pic/4.jpg" alt="">
+          <div class="scanline"></div>
+        </div>
+        <div class="hero-copy">
+          <p class="eyebrow" data-i18n="hero.eyebrow">C++17 · OpenGL / Vulkan · GLFW / SDL2</p>
+          <h1 data-i18n="hero.title">EUI-NEO</h1>
+          <p class="hero-lede" data-i18n="hero.lede">一个面向高性能桌面工具、仪表盘和组件系统的轻量级 UI 框架。</p>
+          <div class="hero-actions">
+            <a class="primary-action" href="#docs" data-i18n="hero.docs">查阅文档</a>
+            <a class="secondary-action" href="https://github.com/sudoevolve/EUI-NEO" data-i18n="hero.github">GitHub</a>
+            <a class="secondary-action" href="https://qm.qq.com/q/vEKvyhA9he" target="_blank" rel="noopener" data-i18n="hero.qq">加入 QQ 群</a>
+          </div>
+          <div class="hero-stats" aria-label="Highlights">
+            <div>
+              <strong>2</strong>
+              <span data-i18n="stats.window">窗口后端</span>
+            </div>
+            <div>
+              <strong>2</strong>
+              <span data-i18n="stats.render">渲染后端</span>
+            </div>
+            <div>
+              <strong>20+</strong>
+              <span data-i18n="stats.components">组件</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-index" aria-hidden="true">
+          <span>Runtime</span>
+          <span>Dirty Rect</span>
+          <span>Render Cache</span>
+          <span>HarfBuzz</span>
+        </div>
+        <a class="scroll-cue" href="#docs" data-i18n="hero.scroll">查看文档索引</a>
+      </section>
+
+      <section class="manifest">
+        <div class="manifest-copy">
+          <span class="section-index">01 / WHY</span>
+          <p class="eyebrow" data-i18n="why.eyebrow">Why EUI-NEO</p>
+          <h2 data-i18n="why.title">为 C++ 应用保留速度、控制力和现代 UI 体验。</h2>
+        </div>
+        <div class="why-grid" aria-label="EUI-NEO advantages">
+          <div class="why-item">
+            <span>01</span>
+            <h3 data-i18n="why.performance.title">按需渲染</h3>
+            <p data-i18n="why.performance.text">静止时等待事件，有动画才推进帧；脏区缓存减少重复绘制。</p>
+          </div>
+          <div class="why-item">
+            <span>02</span>
+            <h3 data-i18n="why.backends.title">后端可选</h3>
+            <p data-i18n="why.backends.text">GLFW / SDL2 窗口后端，OpenGL / Vulkan 渲染后端，同一套 DSL 输出。</p>
+          </div>
+          <div class="why-item">
+            <span>03</span>
+            <h3 data-i18n="why.cpp.title">C++ 直写</h3>
+            <p data-i18n="why.cpp.text">无需引入 WebView 或脚本运行时，直接在 C++17 项目里声明界面和状态。</p>
+          </div>
+          <div class="why-item">
+            <span>04</span>
+            <h3 data-i18n="why.components.title">组件齐全</h3>
+            <p data-i18n="why.components.text">输入、弹层、选择器、表格、图表和滚动容器覆盖工具型应用常见场景。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="doc-search" id="docs">
+        <div class="section-heading split-heading">
+          <div>
+            <span class="section-index">02 / INDEX</span>
+            <p class="eyebrow" data-i18n="docs.eyebrow">Documentation</p>
+            <h2 data-i18n="docs.title">查找架构、组件和集成文档</h2>
+          </div>
+          <p data-i18n="docs.lede">按渲染、输入、组件、平台能力或构建流程快速定位仓库文档。</p>
+        </div>
+        <div class="search-panel">
+          <label class="search-box">
+            <span data-i18n="docs.searchLabel">搜索</span>
+            <input id="docSearch" type="search" autocomplete="off" data-i18n-placeholder="docs.searchPlaceholder" placeholder="搜索 DSL、Vulkan、IME、组件、布局...">
+          </label>
+          <div class="filters" id="docFilters" aria-label="Document filters"></div>
+        </div>
+        <div class="docs-grid docs-index" id="docsGrid"></div>
+      </section>
+
+      <section class="rendering" id="rendering">
+        <div class="section-heading split-heading">
+          <div>
+            <span class="section-index">03 / RENDER</span>
+            <p class="eyebrow" data-i18n="rendering.eyebrow">Rendering Core</p>
+            <h2 data-i18n="rendering.title">统一 Runtime，双渲染后端</h2>
+          </div>
+          <p data-i18n="rendering.lede">窗口、输入、Runtime 和 GPU 后端各守边界，让同一套 DSL 输出到 OpenGL 或 Vulkan。</p>
+        </div>
+        <div class="render-flow">
+          <div class="flow-item">
+            <span>01</span>
+            <h3 data-i18n="flow.compose.title">Compose</h3>
+            <p data-i18n="flow.compose.text">C++ DSL 构建 UI 树，Runtime 负责布局、状态同步和交互派发。</p>
+          </div>
+          <div class="flow-item">
+            <span>02</span>
+            <h3 data-i18n="flow.dirty.title">Dirty Rect</h3>
+            <p data-i18n="flow.dirty.text">按 id 缓存图元，变化时计算保守脏区，必要时升级 full redraw。</p>
+          </div>
+          <div class="flow-item">
+            <span>03</span>
+            <h3 data-i18n="flow.backend.title">Backend</h3>
+            <p data-i18n="flow.backend.text">OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture 和 frame lifecycle。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="showcase" aria-label="Gallery">
+        <img src="../docs/pic/示例1.jpg" alt="EUI-NEO example interface">
+        <img src="../docs/pic/示例2.jpg" alt="EUI-NEO example interface">
+      </section>
+
+      <section class="components-band" id="components">
+        <div>
+          <span class="section-index">04 / LAYER</span>
+          <p class="eyebrow" data-i18n="components.eyebrow">Component Layer</p>
+          <h2 data-i18n="components.title">为工具型界面准备的组件层</h2>
+          <p data-i18n="components.lede">按钮、输入、弹层、选择器、图表和数据表都只组合 DSL 树，不穿透后端 primitive。</p>
+        </div>
+        <div class="component-list" id="componentList"></div>
+      </section>
+
+      <section class="start" id="start">
+        <div class="section-heading">
+          <span class="section-index">05 / BUILD</span>
+          <p class="eyebrow" data-i18n="start.eyebrow">Quick Start</p>
+          <h2 data-i18n="start.title">把 EUI-NEO 接入你的 CMake 项目</h2>
+        </div>
+        <div class="code-grid">
+          <article class="code-step">
+            <span>01</span>
+            <h3 data-i18n="start.cmake">CMake 引入</h3>
+            <pre><code>add_subdirectory(external/EUI-NEO)
+
+add_executable(my_app
+    external/EUI-NEO/core/app/glfw_app_main.cpp
+    app.cpp
+)
+eui_neo_configure_app(my_app)</code></pre>
+          </article>
+          <article class="code-step">
+            <span>02</span>
+            <h3 data-i18n="start.app">实现入口</h3>
+            <pre><code>#include "eui_neo.h"
+
+namespace app {
+const DslAppConfig& dslAppConfig();
+
+void compose(eui::Ui& ui, const eui::Screen& screen);
+}</code></pre>
+          </article>
+          <article class="code-step">
+            <span>03</span>
+            <h3 data-i18n="start.build">构建运行</h3>
+            <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+./build/my_app</code></pre>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <aside class="doc-reader" id="docReader" aria-hidden="true">
+    <div class="reader-backdrop" data-close-reader></div>
+    <article class="reader-panel">
+      <header class="reader-header">
+        <div>
+          <p class="reader-kicker" id="readerCategory">Docs</p>
+          <h2 id="readerTitle">Document</h2>
+        </div>
+        <button class="reader-close" type="button" data-close-reader aria-label="Close">×</button>
+      </header>
+      <div class="reader-body markdown-body" id="readerBody"></div>
+    </article>
+  </aside>
+
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -18,7 +18,7 @@
 <p align="center">
   <a href="README.md">English</a>
   ·
-  <a href="https://sudoevolve.github.io/pages/eui-neo.html">官网</a>
+  <a href="site/index.html">官网</a>
 </p>
 
 EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 GLFW/SDL2 窗口后端和 OpenGL/Vulkan 渲染后端。
@@ -92,6 +92,63 @@ sudo apt-get install -y libsdl2-dev
 ## 接入到你的项目
 
 推荐按下面三种方式选择。普通应用先走公共 facade 头文件，只有已有窗口循环时再直接接静态库。
+
+最小 CMake 项目可以这样引入：
+
+```cmake
+cmake_minimum_required(VERSION 3.14)
+project(MyProject LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_subdirectory(external/EUI-NEO)
+
+add_executable(my_app
+    external/EUI-NEO/core/app/glfw_app_main.cpp
+    app.cpp
+)
+eui_neo_configure_app(my_app)
+```
+
+`app.cpp` 只需要包含公共入口并实现配置和 compose：
+
+```cpp
+#include "eui_neo.h"
+
+namespace app {
+
+const DslAppConfig& dslAppConfig() {
+    static const DslAppConfig config = DslAppConfig{}
+        .title("My App")
+        .pageId("my_app")
+        .windowSize(960, 640);
+    return config;
+}
+
+void compose(eui::Ui& ui, const eui::Screen& screen) {
+    ui.column("root")
+        .size(screen.width, screen.height)
+        .padding(32.0f)
+        .content([&] {
+            ui.text("title")
+                .text("Hello EUI-NEO")
+                .fontSize(28.0f)
+                .build();
+        })
+        .build();
+}
+
+} // namespace app
+```
+
+构建自己的项目：
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+./build/my_app
+```
 
 ### 1. 公共头文件方式
 

@@ -18,7 +18,7 @@
 <p align="center">
   <a href="README.zh-CN.md">简体中文</a>
   ·
-  <a href="https://sudoevolve.github.io/pages/eui-neo.html">Website</a>
+  <a href="site/index.html">Website</a>
 </p>
 
 EUI-NEO is a cross-platform, high-performance, low-overhead C++17 UI framework with GLFW/SDL2 window backends and OpenGL/Vulkan render backends.
@@ -92,6 +92,63 @@ Tagged releases (`v*`) build Windows, Linux, and macOS packages through GitHub A
 ## Use In Your Project
 
 There are three practical integration paths. Start with the public facade header unless you already need a custom window loop.
+
+Minimal CMake project integration:
+
+```cmake
+cmake_minimum_required(VERSION 3.14)
+project(MyProject LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_subdirectory(external/EUI-NEO)
+
+add_executable(my_app
+    external/EUI-NEO/core/app/glfw_app_main.cpp
+    app.cpp
+)
+eui_neo_configure_app(my_app)
+```
+
+`app.cpp` only needs the public entry header plus an app config and compose function:
+
+```cpp
+#include "eui_neo.h"
+
+namespace app {
+
+const DslAppConfig& dslAppConfig() {
+    static const DslAppConfig config = DslAppConfig{}
+        .title("My App")
+        .pageId("my_app")
+        .windowSize(960, 640);
+    return config;
+}
+
+void compose(eui::Ui& ui, const eui::Screen& screen) {
+    ui.column("root")
+        .size(screen.width, screen.height)
+        .padding(32.0f)
+        .content([&] {
+            ui.text("title")
+                .text("Hello EUI-NEO")
+                .fontSize(28.0f)
+                .build();
+        })
+        .build();
+}
+
+} // namespace app
+```
+
+Build your project:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+./build/my_app
+```
 
 ### 1. Public Facade Header
 
