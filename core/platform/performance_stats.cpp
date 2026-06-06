@@ -1,5 +1,8 @@
 #include "core/platform/performance_stats.h"
 
+#include <algorithm>
+#include <ctime>
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -11,7 +14,6 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 
-#include <algorithm>
 #include <cwchar>
 #include <cwctype>
 #include <string>
@@ -166,8 +168,31 @@ struct ProcessUsageSampler::Impl {
 #else
 
 struct ProcessUsageSampler::Impl {
-    void reset() {}
-    bool sampleCpu(double, double&) { return false; }
+    std::clock_t lastProcessClock = std::clock();
+    bool hasLastProcessClock = false;
+
+    void reset() {
+        lastProcessClock = std::clock();
+        hasLastProcessClock = true;
+    }
+
+    bool sampleCpu(double elapsedSeconds, double& percent) {
+        if (elapsedSeconds <= 0.0) {
+            return false;
+        }
+        const std::clock_t current = std::clock();
+        if (!hasLastProcessClock) {
+            lastProcessClock = current;
+            hasLastProcessClock = true;
+            return false;
+        }
+
+        const double cpuSeconds = static_cast<double>(current - lastProcessClock) / static_cast<double>(CLOCKS_PER_SEC);
+        lastProcessClock = current;
+        percent = std::clamp(cpuSeconds / elapsedSeconds * 100.0, 0.0, 100.0);
+        return true;
+    }
+
     bool sampleGpu(double&) { return false; }
 };
 

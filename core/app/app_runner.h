@@ -137,7 +137,7 @@ struct AppRunner {
         } else if (!usage.hasGpuPercent) {
             std::snprintf(title,
                           sizeof(title),
-                          "%s - %.0f FPS | CPU %s | GPU n/a | Render %.2f ms",
+                          "%s - %.0f FPS | CPU %s | GPU %.2f ms",
                           windowTitle(),
                           renderedFrames / elapsed,
                           cpuText,
