@@ -43,6 +43,7 @@ public:
         const float contentWidth = std::max(0.0f, panelWidth - 44.0f);
         const float headerHeight = 104.0f;
         const float bodyHeight = std::max(0.0f, height_ - headerHeight - 44.0f);
+        const core::Transition motionTransition = resolveMotionTransition();
         const std::function<void()> onClose = onClose_;
 
         ui_.stack(id_)
@@ -53,7 +54,6 @@ public:
                 ui_.rect(id_ + ".scrim")
                     .size(panelX, height_)
                     .color(transparentColor())
-                    .opacity(1.0f)
                     .disabled(!open_)
                     .onClick(onClose)
                     .onScroll([](const core::ScrollEvent&) {})
@@ -63,7 +63,7 @@ public:
                     .x(panelX)
                     .size(panelWidth, height_)
                     .translateX(panelOffset)
-                    .transition(transition_)
+                    .transition(motionTransition)
                     .animate(core::AnimProperty::Transform)
                     .content([&] {
                         ui_.rect(id_ + ".panel.bg")
@@ -83,17 +83,15 @@ public:
                             .content([&] {
                                 composeHeader(contentWidth, headerHeight, onClose);
 
-                                if (open_) {
-                                    ui_.stack(id_ + ".body")
-                                        .size(contentWidth, bodyHeight)
-                                        .clip()
-                                        .content([&] {
-                                            if (content_) {
-                                                content_(ui_, contentWidth, bodyHeight);
-                                            }
-                                        })
-                                        .build();
-                                }
+                                ui_.stack(id_ + ".body")
+                                    .size(contentWidth, bodyHeight)
+                                    .clip()
+                                    .content([&] {
+                                        if (content_) {
+                                            content_(ui_, contentWidth, bodyHeight);
+                                        }
+                                    })
+                                    .build();
                             })
                             .build();
                     })
@@ -141,6 +139,16 @@ private:
         return tokens_.dark
             ? core::Color{0.0f, 0.0f, 0.0f, 0.34f}
             : core::Color{0.10f, 0.14f, 0.22f, 0.16f};
+    }
+
+    core::Transition resolveMotionTransition() const {
+        if (!transition_.enabled) {
+            return transition_;
+        }
+        core::Transition value = transition_;
+        value.ease = core::Ease::OutExpo;
+        value.durationSeconds = std::max(value.durationSeconds, 0.92f);
+        return value;
     }
 
     void composeHeader(float width, float height, const std::function<void()>& onClose) {

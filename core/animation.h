@@ -16,6 +16,7 @@ enum class Ease {
     InOutQuad,
     OutCubic,
     InOutCubic,
+    OutExpo,
     OutBack
 };
 
@@ -109,6 +110,8 @@ inline float applyEase(Ease ease, float t) {
         return 1.0f - std::pow(1.0f - t, 3.0f);
     case Ease::InOutCubic:
         return t < 0.5f ? 4.0f * t * t * t : 1.0f - std::pow(-2.0f * t + 2.0f, 3.0f) * 0.5f;
+    case Ease::OutExpo:
+        return t >= 1.0f ? 1.0f : 1.0f - std::pow(2.0f, -14.0f * t);
     case Ease::OutBack: {
         constexpr float c1 = 1.70158f;
         constexpr float c3 = c1 + 1.0f;
