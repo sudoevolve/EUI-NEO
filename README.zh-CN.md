@@ -37,39 +37,39 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 
 - CMake 3.14+
 - 支持 C++17 的编译器
-- OpenGL 开发文件。
-- Vulkan SDK 可选。默认渲染后端选择是 `auto`：检测到 SDK 时使用 Vulkan，否则回退 OpenGL。使用 `opengl-glfw-release` 或 `opengl-sdl2-release` 可强制 OpenGL。
+- 默认渲染器需要 OpenGL 开发文件。
+- Vulkan SDK 可选。只有需要 Vulkan 渲染器时才使用 `build-vk` 构建目录。
 - 平台 OpenGL/windowing 开发文件。Linux 构建还需要 X11 和 libcurl 开发包。
 
 GLFW、glad、tray、FreeType、HarfBuzz、libpng、zlib 等构建期第三方源码已内置在 `3rd/` 下。默认依赖模式是 `auto`：本地 `3rd/` 源码存在时直接使用，缺失时才从固定上游地址联网拉取。需要严格离线构建时，可配置 `-DEUI_DEPS_MODE=bundled`；需要强制联网拉取时，可配置 `-DEUI_DEPS_MODE=fetch`。HarfBuzz shaping 默认启用，可通过 `-DEUI_ENABLE_HARFBUZZ=OFF` 关闭。
 
 内置和 fetch 下载的依赖默认按静态链接构建，包括 GLFW。Release 包因此不需要额外携带 GLFW DLL / dylib / so。只有选择系统 SDL2 包时，SDL2 仍可能是动态库。
 
-默认窗口后端是 GLFW。SDL2 是可选后端，不放进 `3rd/`：构建 SDL2 后端时，要么使用系统 SDL2 包，要么显式选择 fetch 下载 SDL2：
+默认窗口后端是 GLFW。SDL2 是可选后端，不放进 `3rd/`：如果 GLFW 不可用，或需要测试 SDL2，在构建目录名里加 `sdl2`：
 
 ```sh
-cmake --preset sdl2-release
-cmake --build --preset sdl2-release
-cmake --preset sdl2-fetch-release
-cmake --build --preset sdl2-fetch-release
+cmake -S . -B build-sdl2
+cmake --build build-sdl2
 ```
+
+找不到系统 SDL2 包时，加 `-DEUI_DEPS_MODE=fetch` 下载固定版本 SDL2 源码。
 
 macOS / Linux 示例：
 
 ```sh
-cmake --preset glfw-release
-cmake --build --preset glfw-release
-./build/glfw-release/gallery
+cmake -S . -B build
+cmake --build build
+./build/gallery
 ```
 
 显式选择渲染后端示例：
 
 ```sh
-cmake --preset opengl-glfw-release
-cmake --build --preset opengl-glfw-release --target gallery
-cmake --preset vulkan-glfw-release
-cmake --build --preset vulkan-glfw-release --target gallery
+cmake -S . -B build-vk
+cmake --build build-vk --target gallery
 ```
+
+构建目录后缀会在首次配置时自动识别：`build` 表示 GLFW + OpenGL，`build-sdl2` 表示 SDL2 + OpenGL，`build-vk` 表示 GLFW + Vulkan，`build-sdl2-vk` 表示 SDL2 + Vulkan。已有构建目录存在 CMake cache 时，删除该目录或显式传入 `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...`。
 
 Windows / PowerShell 示例：
 
@@ -214,14 +214,12 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 - [事件](docs/事件.md)
 - [动画](docs/动画.md)
 - [异步](docs/异步.md)
-- [渲染流程](docs/渲染流程.md)
-- [渲染后端架构](docs/渲染后端架构.md)
+- [渲染后端架构与流程](docs/渲染后端架构.md)
 - [图片](docs/图片.md)
 - [网络](docs/网络.md)
 - [平台能力](docs/平台能力.md)
 - [集成指南](docs/集成指南.md)
 - [开发与发布](docs/开发与发布.md)
-- [Review 清单](docs/Review清单.md)
 
 ## 许可
 

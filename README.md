@@ -37,39 +37,39 @@ Requirements:
 
 - CMake 3.14+
 - A C++17 compiler
-- OpenGL development files.
-- Vulkan SDK is optional. The default render backend selection is `auto`: use Vulkan when the SDK is found, otherwise fall back to OpenGL. Use `opengl-glfw-release` or `opengl-sdl2-release` to force OpenGL.
+- OpenGL development files for the default renderer.
+- Vulkan SDK is optional. Use a `build-vk` directory only when you want the Vulkan renderer.
 - Platform OpenGL/windowing development files. Linux builds also need X11 and libcurl development packages.
 
 Build-time sources for GLFW, glad, tray, FreeType, HarfBuzz, libpng, and zlib are vendored under `3rd/`. The default dependency mode is `auto`: CMake uses the local `3rd/` sources when they are present, and fetches only missing dependencies from pinned upstream URLs. Use `-DEUI_DEPS_MODE=bundled` for strict offline builds, or `-DEUI_DEPS_MODE=fetch` to force online dependency fetches. HarfBuzz shaping is enabled by default and can be disabled with `-DEUI_ENABLE_HARFBUZZ=OFF`.
 
 Bundled and fetched dependencies are built for static linking by default, including GLFW. Release packages therefore do not need to ship a GLFW DLL / dylib / so. SDL2 may still be dynamic when you choose a system SDL2 package.
 
-GLFW is the default window backend. SDL2 is optional and is not vendored: build it with a system SDL2 package, or explicitly fetch SDL2 during configure:
+GLFW is the default window backend. SDL2 is optional and is not vendored. If GLFW is not available or you want to test SDL2, add `sdl2` to the build directory name:
 
 ```sh
-cmake --preset sdl2-release
-cmake --build --preset sdl2-release
-cmake --preset sdl2-fetch-release
-cmake --build --preset sdl2-fetch-release
+cmake -S . -B build-sdl2
+cmake --build build-sdl2
 ```
+
+If a system SDL2 package is not available, add `-DEUI_DEPS_MODE=fetch` to download the pinned SDL2 source.
 
 macOS / Linux example:
 
 ```sh
-cmake --preset glfw-release
-cmake --build --preset glfw-release
-./build/glfw-release/gallery
+cmake -S . -B build
+cmake --build build
+./build/gallery
 ```
 
 Explicit render backend examples:
 
 ```sh
-cmake --preset opengl-glfw-release
-cmake --build --preset opengl-glfw-release --target gallery
-cmake --preset vulkan-glfw-release
-cmake --build --preset vulkan-glfw-release --target gallery
+cmake -S . -B build-vk
+cmake --build build-vk --target gallery
 ```
+
+Build directory suffixes are recognized on first configure: `build` means GLFW + OpenGL, `build-sdl2` means SDL2 + OpenGL, `build-vk` means GLFW + Vulkan, and `build-sdl2-vk` means SDL2 + Vulkan. If a build directory already has a CMake cache, delete it or pass `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...` explicitly.
 
 Windows / PowerShell example:
 
@@ -214,14 +214,12 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 - [Events](docs/事件.md)
 - [Animation](docs/动画.md)
 - [Async](docs/异步.md)
-- [Rendering Pipeline](docs/渲染流程.md)
-- [Render Backend Architecture](docs/渲染后端架构.md)
+- [Render Backend Architecture And Pipeline](docs/渲染后端架构.md)
 - [Images](docs/图片.md)
 - [Network](docs/网络.md)
 - [Platform Capabilities](docs/平台能力.md)
 - [Integration Guide](docs/集成指南.md)
 - [Development And Release](docs/开发与发布.md)
-- [Review Checklist](docs/Review清单.md)
 
 ## License
 

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(EUI-NEO VERSION 1.0)
 
+# -----------------------------------------------------------------------------
+# Options
+# -----------------------------------------------------------------------------
+
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
     set(EUI_NEO_TOP_LEVEL_DEFAULT ON)
 else()
@@ -9,9 +13,21 @@ endif()
 option(EUI_BUILD_APPS "Build EUI-NEO bundled example applications" ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
-set(EUI_WINDOW_BACKEND "glfw" CACHE STRING "Window backend: glfw or sdl2")
+
+set(EUI_DEFAULT_WINDOW_BACKEND "glfw")
+set(EUI_DEFAULT_RENDER_BACKEND "opengl")
+get_filename_component(EUI_BUILD_DIR_NAME "${CMAKE_BINARY_DIR}" NAME)
+string(TOLOWER "${EUI_BUILD_DIR_NAME}" EUI_BUILD_DIR_NAME_LOWER)
+if(EUI_BUILD_DIR_NAME_LOWER MATCHES "(^|[-_])sdl2($|[-_])")
+    set(EUI_DEFAULT_WINDOW_BACKEND "sdl2")
+endif()
+if(EUI_BUILD_DIR_NAME_LOWER MATCHES "(^|[-_])(vk|vulkan)($|[-_])")
+    set(EUI_DEFAULT_RENDER_BACKEND "vulkan")
+endif()
+
+set(EUI_WINDOW_BACKEND "${EUI_DEFAULT_WINDOW_BACKEND}" CACHE STRING "Window backend: glfw or sdl2")
 set_property(CACHE EUI_WINDOW_BACKEND PROPERTY STRINGS glfw sdl2)
-set(EUI_RENDER_BACKEND "auto" CACHE STRING "Render backend: auto, opengl, or vulkan")
+set(EUI_RENDER_BACKEND "${EUI_DEFAULT_RENDER_BACKEND}" CACHE STRING "Render backend: auto, opengl, or vulkan")
 set_property(CACHE EUI_RENDER_BACKEND PROPERTY STRINGS auto opengl vulkan)
 if(NOT EUI_WINDOW_BACKEND MATCHES "^(glfw|sdl2)$")
     message(FATAL_ERROR "EUI_WINDOW_BACKEND must be one of: glfw, sdl2")
@@ -19,6 +35,43 @@ endif()
 if(NOT EUI_RENDER_BACKEND MATCHES "^(auto|opengl|vulkan)$")
     message(FATAL_ERROR "EUI_RENDER_BACKEND must be one of: auto, opengl, vulkan")
 endif()
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED TRUE)
+
+if(APPLE)
+    enable_language(OBJC)
+    set_source_files_properties(core/platform/native_bridge.c PROPERTIES LANGUAGE OBJC)
+    set_source_files_properties(core/platform/tray_bridge.c PROPERTIES LANGUAGE OBJC)
+    set_source_files_properties(core/platform/ime_bridge.c PROPERTIES LANGUAGE OBJC)
+endif()
+
+function(eui_apply_compile_options target_name)
+    if(MSVC)
+        target_compile_options(${target_name} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/O1> /GS- /sdl- /utf-8 /wd4819)
+    elseif(APPLE)
+        target_compile_options(${target_name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Os -fno-exceptions -fno-rtti>)
+    else()
+        target_compile_options(${target_name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Os -fno-exceptions -fno-rtti>)
+    endif()
+endfunction()
+
+function(eui_apply_app_link_options target_name)
+    if(MSVC)
+        set_target_properties(${target_name} PROPERTIES VS_GLOBAL_VcpkgXUseBuiltInApplocalDeps true)
+        target_link_options(${target_name} PRIVATE /OPT:REF /OPT:ICF /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS)
+    elseif(APPLE)
+        target_link_options(${target_name} PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(${target_name} PRIVATE -Wl,--gc-sections -s)
+    endif()
+endfunction()
+
+# -----------------------------------------------------------------------------
+# Dependencies and backend selection
+# -----------------------------------------------------------------------------
 
 set(EUI_VULKAN_BACKEND_SOURCES
     core/render/vulkan/vulkan_backend.cpp
@@ -46,19 +99,11 @@ elseif(EUI_RENDER_BACKEND STREQUAL "vulkan")
 endif()
 message(STATUS "EUI render backend: requested=${EUI_RENDER_BACKEND}, resolved=${EUI_RESOLVED_RENDER_BACKEND}")
 
-if(APPLE)
-    enable_language(OBJC)
-    set_source_files_properties(core/platform/native_bridge.c PROPERTIES LANGUAGE OBJC)
-    set_source_files_properties(core/platform/tray_bridge.c PROPERTIES LANGUAGE OBJC)
-    set_source_files_properties(core/platform/ime_bridge.c PROPERTIES LANGUAGE OBJC)
-endif()
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_STANDARD_REQUIRED TRUE)
-
 include("${CMAKE_CURRENT_SOURCE_DIR}/3rd/dependencies.cmake")
+
+# -----------------------------------------------------------------------------
+# Core library sources
+# -----------------------------------------------------------------------------
 
 set(CORE_SOURCES
     core/platform/async.cpp
@@ -92,10 +137,15 @@ if(EUI_WINDOW_BACKEND STREQUAL "glfw")
     list(APPEND CORE_SOURCES core/platform/ime_bridge.c)
 endif()
 
+# -----------------------------------------------------------------------------
+# Core library target
+# -----------------------------------------------------------------------------
+
 add_library(eui_neo STATIC ${CORE_SOURCES})
 add_library(eui::neo ALIAS eui_neo)
 target_include_directories(eui_neo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR} ${TRAY_INCLUDE_DIR})
 target_link_libraries(eui_neo PUBLIC Threads::Threads)
+eui_apply_compile_options(eui_neo)
 
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
     target_compile_definitions(eui_neo PUBLIC EUI_RENDER_BACKEND_OPENGL=1)
@@ -131,13 +181,9 @@ else()
     target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
 endif()
 
-if(MSVC)
-    target_compile_options(eui_neo PRIVATE $<$<NOT:$<CONFIG:Debug>>:/O1> /GS- /sdl- /utf-8 /wd4819)
-elseif(APPLE)
-    target_compile_options(eui_neo PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Os -fno-exceptions -fno-rtti>)
-else()
-    target_compile_options(eui_neo PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Os -fno-exceptions -fno-rtti>)
-endif()
+# -----------------------------------------------------------------------------
+# Platform capabilities
+# -----------------------------------------------------------------------------
 
 if(WIN32)
     target_compile_definitions(eui_neo PUBLIC EUI_TRAY_WINAPI=1 NOMINMAX)
@@ -157,6 +203,10 @@ if(TARGET CURL::libcurl)
     target_link_libraries(eui_neo PUBLIC CURL::libcurl)
     target_compile_definitions(eui_neo PUBLIC EUI_HAS_CURL=1)
 endif()
+
+# -----------------------------------------------------------------------------
+# App target helpers
+# -----------------------------------------------------------------------------
 
 set(APP_ASSET_FILES)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
@@ -184,21 +234,14 @@ endfunction()
 
 function(eui_neo_configure_app target_name)
     target_link_libraries(${target_name} PRIVATE eui::neo)
-
-    if(MSVC)
-        set_target_properties(${target_name} PROPERTIES VS_GLOBAL_VcpkgXUseBuiltInApplocalDeps true)
-        target_compile_options(${target_name} PRIVATE $<$<NOT:$<CONFIG:Debug>>:/O1> /GS- /sdl- /utf-8 /wd4819)
-        target_link_options(${target_name} PRIVATE /OPT:REF /OPT:ICF /ENTRY:mainCRTStartup /SUBSYSTEM:WINDOWS)
-    elseif(APPLE)
-        target_compile_options(${target_name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Os -fno-exceptions -fno-rtti>)
-        target_link_options(${target_name} PRIVATE -Wl,-dead_strip)
-    else()
-        target_compile_options(${target_name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Os -fno-exceptions -fno-rtti>)
-        target_link_options(${target_name} PRIVATE -Wl,--gc-sections -s)
-    endif()
-
+    eui_apply_compile_options(${target_name})
+    eui_apply_app_link_options(${target_name})
     eui_neo_copy_assets(${target_name})
 endfunction()
+
+# -----------------------------------------------------------------------------
+# Bundled apps and internal tests
+# -----------------------------------------------------------------------------
 
 if(EUI_BUILD_APPS)
     file(GLOB APP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")

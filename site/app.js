@@ -154,29 +154,16 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/渲染流程.md",
-    zh: {
-      title: "渲染流程",
-      desc: "主动帧率节流、按需渲染、脏区缓存和 blur。"
-    },
-    en: {
-      title: "Rendering Pipeline",
-      desc: "Frame pacing, on-demand rendering, dirty cache, and blur."
-    },
-    tags: "render dirty rect cache blur fps"
-  },
-  {
-    category: "rendering",
     href: "../docs/渲染后端架构.md",
     zh: {
-      title: "渲染后端架构",
-      desc: "GLFW/SDL2、OpenGL/Vulkan 和 Runtime 边界。"
+      title: "渲染后端架构与流程",
+      desc: "GLFW/SDL2、OpenGL/Vulkan、Runtime 边界和渲染流程。"
     },
     en: {
-      title: "Render Backend Architecture",
-      desc: "Boundaries across GLFW/SDL2, OpenGL/Vulkan, and Runtime."
+      title: "Render Backend Architecture And Pipeline",
+      desc: "Boundaries and pipeline across GLFW/SDL2, OpenGL/Vulkan, and Runtime."
     },
-    tags: "opengl vulkan glfw sdl2 backend runtime"
+    tags: "opengl vulkan glfw sdl2 backend runtime render dirty rect cache blur fps"
   },
   {
     category: "rendering",

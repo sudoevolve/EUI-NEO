@@ -9,7 +9,7 @@ set(EUI_THIRD_PARTY_DIR "${CMAKE_CURRENT_LIST_DIR}")
 list(PREPEND CMAKE_MODULE_PATH "${EUI_THIRD_PARTY_DIR}")
 
 include(FetchContent)
-include("${CMAKE_CURRENT_LIST_DIR}/../cmake/EuiThirdParty.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/EuiThirdParty.cmake")
 
 function(eui_use_bundled_dependency out_var dep_name source_dir marker_file)
     if(EUI_DEPS_MODE STREQUAL "fetch")
@@ -65,32 +65,34 @@ function(eui_silence_third_party_warnings target_name)
     endif()
 endfunction()
 
-eui_set_third_party_option(GLFW_BUILD_EXAMPLES OFF "Build the GLFW example programs")
-eui_set_third_party_option(GLFW_BUILD_TESTS OFF "Build the GLFW test programs")
-eui_set_third_party_option(GLFW_BUILD_DOCS OFF "Build the GLFW documentation")
-eui_set_third_party_option(GLFW_INSTALL OFF "Generate installation target")
+if(EUI_WINDOW_BACKEND STREQUAL "glfw")
+    eui_set_third_party_option(GLFW_BUILD_EXAMPLES OFF "Build the GLFW example programs")
+    eui_set_third_party_option(GLFW_BUILD_TESTS OFF "Build the GLFW test programs")
+    eui_set_third_party_option(GLFW_BUILD_DOCS OFF "Build the GLFW documentation")
+    eui_set_third_party_option(GLFW_INSTALL OFF "Generate installation target")
 
-eui_use_bundled_dependency(
-    EUI_USE_BUNDLED_GLFW
-    "GLFW"
-    "${EUI_THIRD_PARTY_DIR}/glfw"
-    "CMakeLists.txt"
-)
-
-eui_begin_static_third_party_config()
-if(EUI_USE_BUNDLED_GLFW)
-    add_subdirectory("${EUI_THIRD_PARTY_DIR}/glfw" "${CMAKE_CURRENT_BINARY_DIR}/_deps/glfw-bundled-build" EXCLUDE_FROM_ALL)
-else()
-    FetchContent_Declare(
-        glfw
-        URL https://github.com/glfw/glfw/archive/refs/tags/3.4.zip
-        URL_HASH SHA256=a133ddc3d3c66143eba9035621db8e0bcf34dba1ee9514a9e23e96afd39fd57a
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-        TIMEOUT 30
+    eui_use_bundled_dependency(
+        EUI_USE_BUNDLED_GLFW
+        "GLFW"
+        "${EUI_THIRD_PARTY_DIR}/glfw"
+        "CMakeLists.txt"
     )
-    FetchContent_MakeAvailable(glfw)
+
+    eui_begin_static_third_party_config()
+    if(EUI_USE_BUNDLED_GLFW)
+        add_subdirectory("${EUI_THIRD_PARTY_DIR}/glfw" "${CMAKE_CURRENT_BINARY_DIR}/_deps/glfw-bundled-build" EXCLUDE_FROM_ALL)
+    else()
+        FetchContent_Declare(
+            glfw
+            URL https://github.com/glfw/glfw/archive/refs/tags/3.4.zip
+            URL_HASH SHA256=a133ddc3d3c66143eba9035621db8e0bcf34dba1ee9514a9e23e96afd39fd57a
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            TIMEOUT 30
+        )
+        FetchContent_MakeAvailable(glfw)
+    endif()
+    eui_end_static_third_party_config()
 endif()
-eui_end_static_third_party_config()
 
 if(EUI_WINDOW_BACKEND STREQUAL "sdl2")
     if(EUI_DEPS_MODE STREQUAL "bundled")
@@ -132,40 +134,42 @@ if(EUI_WINDOW_BACKEND STREQUAL "sdl2")
     endif()
 endif()
 
-eui_use_bundled_dependency(
-    EUI_USE_BUNDLED_GLAD
-    "glad"
-    "${EUI_THIRD_PARTY_DIR}/glad"
-    "src/glad.c"
-)
-
-if(EUI_USE_BUNDLED_GLAD)
-    set(glad_SOURCE_DIR "${EUI_THIRD_PARTY_DIR}/glad")
-else()
-    FetchContent_Declare(
-        glad
-        URL https://github.com/libigl/libigl-glad/archive/651a425101365aa6e8504988ef9bb363d066c5ee.zip
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-        TIMEOUT 30
+if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
+    eui_use_bundled_dependency(
+        EUI_USE_BUNDLED_GLAD
+        "glad"
+        "${EUI_THIRD_PARTY_DIR}/glad"
+        "src/glad.c"
     )
-    FetchContent_GetProperties(glad)
-    if(NOT glad_POPULATED)
-        if(POLICY CMP0169)
-            cmake_policy(PUSH)
-            cmake_policy(SET CMP0169 OLD)
-        endif()
-        FetchContent_Populate(glad)
-        if(POLICY CMP0169)
-            cmake_policy(POP)
+
+    if(EUI_USE_BUNDLED_GLAD)
+        set(glad_SOURCE_DIR "${EUI_THIRD_PARTY_DIR}/glad")
+    else()
+        FetchContent_Declare(
+            glad
+            URL https://github.com/libigl/libigl-glad/archive/651a425101365aa6e8504988ef9bb363d066c5ee.zip
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            TIMEOUT 30
+        )
+        FetchContent_GetProperties(glad)
+        if(NOT glad_POPULATED)
+            if(POLICY CMP0169)
+                cmake_policy(PUSH)
+                cmake_policy(SET CMP0169 OLD)
+            endif()
+            FetchContent_Populate(glad)
+            if(POLICY CMP0169)
+                cmake_policy(POP)
+            endif()
         endif()
     endif()
+    add_library(glad "${glad_SOURCE_DIR}/src/glad.c")
+    target_include_directories(glad PUBLIC "${glad_SOURCE_DIR}/include")
+    if(NOT WIN32)
+        target_link_libraries(glad PUBLIC ${CMAKE_DL_LIBS})
+    endif()
+    set_target_properties(glad PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
-add_library(glad "${glad_SOURCE_DIR}/src/glad.c")
-target_include_directories(glad PUBLIC "${glad_SOURCE_DIR}/include")
-if(NOT WIN32)
-    target_link_libraries(glad PUBLIC ${CMAKE_DL_LIBS})
-endif()
-set_target_properties(glad PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 eui_use_bundled_dependency(
     EUI_USE_BUNDLED_TRAY
@@ -217,7 +221,16 @@ if(EUI_ENABLE_HARFBUZZ)
     )
 endif()
 
-find_package(OpenGL REQUIRED)
+if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
+    find_package(OpenGL QUIET)
+    if(NOT OpenGL_FOUND)
+        message(FATAL_ERROR
+            "Default EUI-NEO builds use the OpenGL render backend, but OpenGL development files were not found. "
+            "Install platform OpenGL/windowing development files, or configure a Vulkan build with "
+            "a Vulkan build directory, for example: cmake -S . -B build-vk"
+        )
+    endif()
+endif()
 find_package(Threads REQUIRED)
 
 if(EUI_USE_BUNDLED_ZLIB)

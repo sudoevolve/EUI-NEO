@@ -115,7 +115,7 @@ After adding or changing a workshop component:
 
 ```sh
 git diff --check
-cmake --build build/vulkan-glfw-release --target gallery --parallel
+cmake --build build-vk --target gallery --parallel
 ```
 
 If shader behavior changes, also update both:
