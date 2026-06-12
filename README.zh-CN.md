@@ -41,9 +41,9 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 - Vulkan SDK 可选。只有需要 Vulkan 渲染器时才使用 `build-vk` 构建目录。
 - 平台 OpenGL/windowing 开发文件。Linux 构建还需要 X11 和 libcurl 开发包。
 
-GLFW、glad、tray、FreeType、HarfBuzz、libpng、zlib 等构建期第三方源码已内置在 `3rd/` 下。默认依赖模式是 `auto`：本地 `3rd/` 源码存在时直接使用，缺失时才从固定上游地址联网拉取。需要严格离线构建时，可配置 `-DEUI_DEPS_MODE=bundled`；需要强制联网拉取时，可配置 `-DEUI_DEPS_MODE=fetch`。HarfBuzz shaping 默认启用，可通过 `-DEUI_ENABLE_HARFBUZZ=OFF` 关闭。
+仓库内只保留生成好的 OpenGL loader `3rd/glad/` 和 `3rd/stb_image.h`。其他第三方库默认从父项目已有 target、工具链或系统包中解析。EUI-NEO 不会默认联网；只有同时启用 `-DEUI_DEPS_ALLOW_FETCH=ON` 和对应 `-DEUI_FETCH_*` 选项时，才会通过 CPM 下载依赖。HarfBuzz shaping 默认启用，可通过 `-DEUI_ENABLE_HARFBUZZ=OFF` 关闭；Markdown 解析可通过 `-DEUI_ENABLE_MARKDOWN=OFF` 关闭。
 
-内置和 fetch 下载的依赖默认按静态链接构建，包括 GLFW。Release 包因此不需要额外携带 GLFW DLL / dylib / so。只有选择系统 SDL2 包时，SDL2 仍可能是动态库。
+常用依赖 target 包括 `glfw`、`Freetype::Freetype`、`NanoSVG::nanosvg`，以及可选的 `harfbuzz::harfbuzz`、`md4c::md4c`、`SDL2::SDL2`、`eui::tray`。显式允许 EUI-NEO 通过 CPM 构建 libpng / FreeType 源码时，还会用到 `ZLIB::ZLIB` 和 `PNG::PNG`。vcpkg、Conan 或系统包都可以提供这些依赖。
 
 默认窗口后端是 GLFW。SDL2 是可选后端，不放进 `3rd/`：如果 GLFW 不可用，或需要测试 SDL2，在构建目录名里加 `sdl2`：
 
@@ -52,7 +52,11 @@ cmake -S . -B build-sdl2
 cmake --build build-sdl2
 ```
 
-找不到系统 SDL2 包时，加 `-DEUI_DEPS_MODE=fetch` 下载固定版本 SDL2 源码。
+如果某个依赖无法由包管理器提供，可以显式允许 CPM 下载，例如：
+
+```sh
+cmake -S . -B build-sdl2 -DEUI_DEPS_ALLOW_FETCH=ON -DEUI_FETCH_SDL2=ON
+```
 
 macOS / Linux 示例：
 
@@ -164,7 +168,7 @@ docs/         项目实现文档
 examples/     独立 gallery 和示例应用源码
 include/      公共 include 路径：eui_neo.h 和 eui/* facade 头文件
 tests/        probe 源码、fixture 应用和本地 benchmark 记录
-3rd/          内置第三方构建源码和单文件依赖
+3rd/          仓库内保留的生成 loader 和单文件依赖
 ```
 
 ## Docs

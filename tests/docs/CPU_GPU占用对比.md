@@ -8,7 +8,7 @@
 - 系统：macOS 26.5，Darwin 25.5.0，arm64
 - CPU：Apple M5
 - 构建目录：`build/probes-opengl-glfw`
-- 构建配置：`Release`、`EUI_RENDER_BACKEND=opengl`、`EUI_WINDOW_BACKEND=glfw`、`EUI_BUILD_TEST_FIXTURES=ON`、`EUI_DEPS_MODE=bundled`
+- 构建配置：`Release`、`EUI_RENDER_BACKEND=opengl`、`EUI_WINDOW_BACKEND=glfw`、`EUI_BUILD_TEST_FIXTURES=ON`
 - CPU 采样方法：使用 `ps -o %cpu=` 每秒采样。
 - GPU 采样状态：本机 `powermetrics --samplers gpu_power` 需要 superuser 权限，本轮未采到可验证的 GPU utilization 数据。
 

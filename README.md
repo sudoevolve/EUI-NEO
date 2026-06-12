@@ -41,9 +41,9 @@ Requirements:
 - Vulkan SDK is optional. Use a `build-vk` directory only when you want the Vulkan renderer.
 - Platform OpenGL/windowing development files. Linux builds also need X11 and libcurl development packages.
 
-Build-time sources for GLFW, glad, tray, FreeType, HarfBuzz, libpng, and zlib are vendored under `3rd/`. The default dependency mode is `auto`: CMake uses the local `3rd/` sources when they are present, and fetches only missing dependencies from pinned upstream URLs. Use `-DEUI_DEPS_MODE=bundled` for strict offline builds, or `-DEUI_DEPS_MODE=fetch` to force online dependency fetches. HarfBuzz shaping is enabled by default and can be disabled with `-DEUI_ENABLE_HARFBUZZ=OFF`.
+Only the generated OpenGL loader `3rd/glad/` and `3rd/stb_image.h` are kept in-tree. Other third-party libraries are resolved from existing CMake targets or installed packages by default. EUI-NEO never downloads dependencies unless `-DEUI_DEPS_ALLOW_FETCH=ON` and the matching `-DEUI_FETCH_*` option are both enabled. HarfBuzz shaping is enabled by default and can be disabled with `-DEUI_ENABLE_HARFBUZZ=OFF`; Markdown parsing can be disabled with `-DEUI_ENABLE_MARKDOWN=OFF`.
 
-Bundled and fetched dependencies are built for static linking by default, including GLFW. Release packages therefore do not need to ship a GLFW DLL / dylib / so. SDL2 may still be dynamic when you choose a system SDL2 package.
+Required package targets include `glfw`, `Freetype::Freetype`, `NanoSVG::nanosvg`, and optionally `harfbuzz::harfbuzz`, `md4c::md4c`, `SDL2::SDL2`, and `eui::tray`. `ZLIB::ZLIB` and `PNG::PNG` are used when EUI-NEO is explicitly allowed to build libpng/FreeType from CPM sources. Package managers such as vcpkg, Conan, or system packages can provide them.
 
 GLFW is the default window backend. SDL2 is optional and is not vendored. If GLFW is not available or you want to test SDL2, add `sdl2` to the build directory name:
 
@@ -52,7 +52,11 @@ cmake -S . -B build-sdl2
 cmake --build build-sdl2
 ```
 
-If a system SDL2 package is not available, add `-DEUI_DEPS_MODE=fetch` to download the pinned SDL2 source.
+If a dependency is not available from your package manager, opt in to CPM downloads explicitly, for example:
+
+```sh
+cmake -S . -B build-sdl2 -DEUI_DEPS_ALLOW_FETCH=ON -DEUI_FETCH_SDL2=ON
+```
 
 macOS / Linux example:
 
@@ -164,7 +168,7 @@ docs/         Implementation notes and API documentation
 examples/     Standalone gallery and example application sources
 include/      Public include path: eui_neo.h and eui/* facade headers
 tests/        Probe sources, fixture apps, and local benchmark notes
-3rd/          Vendored third-party build sources and single-file dependencies
+3rd/          Generated loader and single-file dependencies kept in-tree
 ```
 
 ## Docs

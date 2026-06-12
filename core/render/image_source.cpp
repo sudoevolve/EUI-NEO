@@ -25,8 +25,8 @@
 #endif
 #define NANOSVG_IMPLEMENTATION
 #define NANOSVGRAST_IMPLEMENTATION
-#include "3rd/nanosvg.h"
-#include "3rd/nanosvgrast.h"
+#include <nanosvg.h>
+#include <nanosvgrast.h>
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
