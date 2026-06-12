@@ -99,7 +99,7 @@ elseif(EUI_RENDER_BACKEND STREQUAL "vulkan")
 endif()
 message(STATUS "EUI render backend: requested=${EUI_RENDER_BACKEND}, resolved=${EUI_RESOLVED_RENDER_BACKEND}")
 
-include("${CMAKE_CURRENT_SOURCE_DIR}/3rd/dependencies.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/EuiDependencies.cmake")
 
 # -----------------------------------------------------------------------------
 # Core library sources
@@ -143,8 +143,9 @@ endif()
 
 add_library(eui_neo STATIC ${CORE_SOURCES})
 add_library(eui::neo ALIAS eui_neo)
-target_include_directories(eui_neo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR} ${TRAY_INCLUDE_DIR})
+target_include_directories(eui_neo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(eui_neo PUBLIC Threads::Threads)
+target_link_libraries(eui_neo PRIVATE NanoSVG::nanosvg NanoSVG::nanosvgrast)
 eui_apply_compile_options(eui_neo)
 
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
@@ -159,9 +160,6 @@ elseif(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
 endif()
 
 if(EUI_WINDOW_BACKEND STREQUAL "sdl2")
-    if(NOT TARGET SDL2::SDL2)
-        find_package(SDL2 CONFIG REQUIRED)
-    endif()
     target_compile_definitions(eui_neo PUBLIC EUI_WINDOW_BACKEND_SDL2=1)
     target_link_libraries(eui_neo PUBLIC SDL2::SDL2)
     set(EUI_APP_MAIN_SOURCE core/app/sdl2_app_main.cpp)
@@ -170,15 +168,10 @@ else()
     set(EUI_APP_MAIN_SOURCE core/app/glfw_app_main.cpp)
 endif()
 
+target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
 if(TARGET harfbuzz::harfbuzz)
     target_link_libraries(eui_neo PUBLIC harfbuzz::harfbuzz)
     target_compile_definitions(eui_neo PUBLIC EUI_HAS_HARFBUZZ=1)
-elseif(TARGET PkgConfig::EUI_HARFBUZZ)
-    target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
-    target_link_libraries(eui_neo PUBLIC PkgConfig::EUI_HARFBUZZ)
-    target_compile_definitions(eui_neo PUBLIC EUI_HAS_HARFBUZZ=1)
-else()
-    target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -207,6 +200,10 @@ endif()
 if(TARGET md4c::md4c)
     target_link_libraries(eui_neo PUBLIC md4c::md4c)
     target_compile_definitions(eui_neo PUBLIC EUI_HAS_MD4C=1)
+endif()
+
+if(TARGET eui::tray)
+    target_link_libraries(eui_neo PRIVATE eui::tray)
 endif()
 
 # -----------------------------------------------------------------------------
