@@ -960,6 +960,7 @@ void composeSettingsDialog(eui::Ui& ui, const eui::Screen& screen, const std::st
                         .text("Night mode")
                         .onChange([](bool value) {
                             settings.dark = value;
+                            requestChatUpdate();
                         })
                         .build();
 
@@ -976,6 +977,7 @@ void composeSettingsDialog(eui::Ui& ui, const eui::Screen& screen, const std::st
                                 .fontSize(13.0f)
                                 .onChange([](int value) {
                                     settings.accent = value;
+                                    requestChatUpdate();
                                 })
                                 .build();
                         })
