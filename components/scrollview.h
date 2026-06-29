@@ -2,6 +2,7 @@
 
 #include "components/scroll.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -28,6 +29,11 @@ public:
     }
     ScrollViewBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     ScrollViewBuilder& offset(float value) { offset_ = std::max(0.0f, value); return *this; }
+    ScrollViewBuilder& bind(eui::Signal<float>& signal) {
+        offset(signal.get());
+        onChange([&signal](float value) { signal.set(value); });
+        return *this;
+    }
     ScrollViewBuilder& gap(float value) { gap_ = std::max(0.0f, value); return *this; }
     ScrollViewBuilder& step(float value) { step_ = std::max(1.0f, value); return *this; }
     ScrollViewBuilder& scrollbarWidth(float value) { scrollbarWidth_ = std::max(0.0f, value); return *this; }
@@ -97,7 +103,7 @@ public:
                 if (scrollable) {
                     components::scroll(ui_, id_ + ".scroll")
                         .style(scrollStyle_)
-                        .state(id_)
+                        .scrollStateId(id_)
                         .x(std::max(0.0f, width_ - scrollWidth))
                         .size(scrollWidth, height_)
                         .viewport(height_)

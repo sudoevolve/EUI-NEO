@@ -2,6 +2,7 @@
 
 #include "core/dsl.h"
 #include "core/render/text.h"
+#include "core/window/window_backend.h"
 
 #include <algorithm>
 #include <cmath>

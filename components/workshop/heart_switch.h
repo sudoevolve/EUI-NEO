@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <array>
@@ -41,6 +42,12 @@ public:
 
     HeartSwitchBuilder& checked(bool value) {
         checked_ = value;
+        return *this;
+    }
+
+    HeartSwitchBuilder& bind(eui::Signal<bool>& signal) {
+        checked(signal.get());
+        onChange([&signal](bool value) { signal.set(value); });
         return *this;
     }
 

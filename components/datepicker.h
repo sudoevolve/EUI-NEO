@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <array>
@@ -51,6 +52,11 @@ public:
         : ui_(ui), id_(std::move(id)) {}
 
     DatePickerBuilder& open(bool value = true) { open_ = value; return *this; }
+    DatePickerBuilder& bindOpen(eui::Signal<bool>& signal) {
+        open(signal.get());
+        onOpenChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     DatePickerBuilder& screen(float width, float height) { screenWidth_ = width; screenHeight_ = height; return *this; }
     DatePickerBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     DatePickerBuilder& date(int year, int month, int day) {

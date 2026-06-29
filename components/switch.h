@@ -3,6 +3,7 @@
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "core/render/text.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -38,6 +39,11 @@ public:
 
     SwitchBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     SwitchBuilder& checked(bool value) { checked_ = value; return *this; }
+    SwitchBuilder& bind(eui::Signal<bool>& signal) {
+        checked(signal.get());
+        onChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     SwitchBuilder& text(std::string value) { label_ = std::move(value); return *this; }
     SwitchBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     SwitchBuilder& trackSize(float width, float height) {

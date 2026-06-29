@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -42,6 +43,11 @@ public:
         : ui_(ui), id_(std::move(id)) {}
 
     ContextMenuBuilder& open(bool value = true) { open_ = value; return *this; }
+    ContextMenuBuilder& bindOpen(eui::Signal<bool>& signal) {
+        open(signal.get());
+        onOpenChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     ContextMenuBuilder& screen(float width, float height) { screenWidth_ = width; screenHeight_ = height; return *this; }
     ContextMenuBuilder& position(float x, float y) { x_ = x; y_ = y; return *this; }
     ContextMenuBuilder& size(float width, float itemHeight) { width_ = width; itemHeight_ = itemHeight; return *this; }
@@ -51,7 +57,7 @@ public:
     ContextMenuBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ContextMenuBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     ContextMenuBuilder& onSelect(std::function<void(int)> callback) { onSelect_ = std::move(callback); return *this; }
-    ContextMenuBuilder& onDismiss(std::function<void()> callback) { onDismiss_ = std::move(callback); return *this; }
+    ContextMenuBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
     void build() {
         if (items_.empty()) {
@@ -66,7 +72,7 @@ public:
         const float visible = open_ ? 1.0f : 0.0f;
         const float menuScale = open_ ? 1.0f : 0.94f;
         const float menuOffsetY = open_ ? 0.0f : -4.0f;
-        const std::function<void()> onDismiss = onDismiss_;
+        const std::function<void()> requestDismiss = dismissCallback();
         const std::function<void(int)> onSelect = onSelect_;
 
         ui_.stack(id_)
@@ -79,7 +85,7 @@ public:
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f))
                     .disabled(!open_)
-                    .onClick(onDismiss)
+                    .onClick(requestDismiss)
                     .onScroll([](const core::ScrollEvent&) {})
                     .build();
 
@@ -145,13 +151,22 @@ public:
     }
 
 private:
+    std::function<void()> dismissCallback() const {
+        const std::function<void(bool)> onOpenChange = onOpenChange_;
+        return [onOpenChange] {
+            if (onOpenChange) {
+                onOpenChange(false);
+            }
+        };
+    }
+
     core::dsl::Ui& ui_;
     std::string id_;
     std::vector<std::string> items_;
     ContextMenuStyle style_;
     core::Transition transition_ = core::Transition::make(0.12f, core::Ease::OutCubic);
     std::function<void(int)> onSelect_;
-    std::function<void()> onDismiss_;
+    std::function<void(bool)> onOpenChange_;
     bool open_ = false;
     float screenWidth_ = 800.0f;
     float screenHeight_ = 600.0f;

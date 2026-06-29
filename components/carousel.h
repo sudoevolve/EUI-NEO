@@ -4,6 +4,7 @@
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "eui/image.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -55,6 +56,11 @@ public:
     CarouselBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     CarouselBuilder& items(std::vector<CarouselItem> value) { items_ = std::move(value); return *this; }
     CarouselBuilder& index(float value) { index_ = value; return *this; }
+    CarouselBuilder& bind(eui::Signal<float>& signal) {
+        index(signal.get());
+        onChange([&signal](float value) { signal.set(value); });
+        return *this;
+    }
     CarouselBuilder& cardWidthRatio(float value) { cardWidthRatio_ = std::clamp(value, 0.32f, 1.0f); return *this; }
     CarouselBuilder& overlap(float value) { overlap_ = std::clamp(value, 0.0f, 0.60f); return *this; }
     CarouselBuilder& parallax(float value) { parallax_ = std::max(0.0f, value); return *this; }

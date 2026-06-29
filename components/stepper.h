@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -48,6 +49,11 @@ public:
 
     StepperBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     StepperBuilder& value(long long value) { value_ = value; return *this; }
+    StepperBuilder& bind(eui::Signal<long long>& signal) {
+        value(signal.get());
+        onChange([&signal](long long value) { signal.set(value); });
+        return *this;
+    }
     StepperBuilder& step(long long value) { step_ = value; return *this; }
     StepperBuilder& min(long long value) { min_ = value; hasMin_ = true; return *this; }
     StepperBuilder& max(long long value) { max_ = value; hasMax_ = true; return *this; }

@@ -3,6 +3,7 @@
 #include "components/slider.h"
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -52,9 +53,19 @@ public:
         : ui_(ui), id_(std::move(id)) {}
 
     ColorPickerBuilder& open(bool value = true) { open_ = value; return *this; }
+    ColorPickerBuilder& bindOpen(eui::Signal<bool>& signal) {
+        open(signal.get());
+        onOpenChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     ColorPickerBuilder& screen(float width, float height) { screenWidth_ = width; screenHeight_ = height; return *this; }
     ColorPickerBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     ColorPickerBuilder& value(core::Color value) { value_ = clampColor(value); return *this; }
+    ColorPickerBuilder& bind(eui::Signal<core::Color>& signal) {
+        value(signal.get());
+        onChange([&signal](core::Color value) { signal.set(value); });
+        return *this;
+    }
     ColorPickerBuilder& colors(std::vector<core::Color> value) { colors_ = std::move(value); return *this; }
     ColorPickerBuilder& style(const ColorPickerStyle& value) { style_ = value; return *this; }
     ColorPickerBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ColorPickerStyle(tokens); return *this; }

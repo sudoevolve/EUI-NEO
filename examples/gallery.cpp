@@ -515,8 +515,8 @@ void composeContent(eui::Ui& ui, float width, float height) {
                 .open(workshopOpen)
                 .zIndex(80)
                 .transition(pageTransition())
-                .onClose([] {
-                    workshopOpen = false;
+                .onOpenChange([](bool open) {
+                    workshopOpen = open;
                 })
                 .content([&](eui::Ui& panelUi, float panelWidth, float) {
                     panelUi.column("workshop.components")

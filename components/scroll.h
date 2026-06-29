@@ -41,7 +41,7 @@ public:
         return *this;
     }
     ScrollBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
-    ScrollBuilder& state(const std::string& id) { stateId_ = id; return *this; }
+    ScrollBuilder& scrollStateId(const std::string& id) { stateId_ = id; return *this; }
     ScrollBuilder& offset(float value) { offset_ = std::max(0.0f, value); return *this; }
     ScrollBuilder& viewport(float value) { viewport_ = std::max(0.0f, value); return *this; }
     ScrollBuilder& content(float value) { content_ = std::max(0.0f, value); return *this; }

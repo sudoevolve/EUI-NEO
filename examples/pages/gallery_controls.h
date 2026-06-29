@@ -1,17 +1,17 @@
 struct GalleryControlsPage {
     bool checked = true;
-    bool switchOn = true;
+    eui::Signal<bool> switchOn{true};
     bool radioA = true;
     std::string input = "Hello EUI-NEO 😉";
     std::string editor = "Hello EUI-NEO 😉\nType multiple lines here.";
-    float slider = 0.44f;
+    eui::Signal<float> slider{0.44f};
     int segment = 1;
     int tab = 0;
     int stepperDec = 42;
     int stepperHex = 0x2A;
     int stepperBin = 0x15;
     int dropdown = 1;
-    bool dropdownOpen = false;
+    eui::Signal<bool> dropdownOpen{false};
     int year = 2026;
     int month = 4;
     int day = 28;
@@ -20,7 +20,7 @@ struct GalleryControlsPage {
     bool dateOpen = false;
     bool timeOpen = false;
     bool colorOpen = false;
-    bool dialogOpen = false;
+    eui::Signal<bool> dialogOpen{false};
     bool toastVisible = false;
     bool contextMenuOpen = false;
     float contextMenuX = 0.0f;
@@ -216,9 +216,8 @@ struct GalleryControlsPage {
                     components::toggleSwitch(ui, "control.switch")
                         .theme(themeColors())
                         .size(componentCardWidth, 32.0f)
-                        .checked(switchOn)
+                        .bind(switchOn)
                         .text("Switch")
-                        .onChange([this](bool value) { switchOn = value; })
                         .build();
                 })
                 .build();
@@ -250,18 +249,15 @@ struct GalleryControlsPage {
     components::progress(ui, "control.progress")
         .theme(themeColors())
         .size(fieldWidth, 14.0f)
-        .value(slider)
+        .value(slider.get())
         .transition(eui::Transition::none())
         .build();
 
     components::slider(ui, "control.slider")
         .theme(themeColors())
         .size(fieldWidth, 32.0f)
-        .value(slider)
+        .bind(slider)
         .transition(pageTransition())
-        .onChange([this](float value) {
-            slider = value;
-        })
         .build();
 
     ui.column("controls.choice")
@@ -620,10 +616,10 @@ struct GalleryControlsPage {
                 .size(dropdownWidth, 44.0f)
                 .items({"Draft", "Review", "Published", "Archived"})
                 .selected(dropdown)
-                .open(dropdownOpen)
+                .open(dropdownOpen.get())
                 .transition(pageTransition())
                 .onOpenChange([this](bool open) {
-                    dropdownOpen = open;
+                    dropdownOpen.set(open);
                     if (open) {
                         dateOpen = false;
                         timeOpen = false;
@@ -726,7 +722,7 @@ struct GalleryControlsPage {
         .theme(themeColors())
         .screen(screen.width, screen.height)
         .size(430.0f, 228.0f)
-        .open(dialogOpen)
+        .open(dialogOpen.get())
         .title("Dialog Component")
         .message("A modal surface for focused confirmation. It uses the same theme tokens, buttons and dirty-region rendering path as the rest of the gallery.")
         .primaryText("Confirm")
@@ -740,9 +736,11 @@ struct GalleryControlsPage {
             dialogOpen = false;
             feedback = "Dialog cancelled";
         })
-        .onClose([this] {
-            dialogOpen = false;
-            feedback = "Dialog closed";
+        .onOpenChange([this](bool open) {
+            dialogOpen = open;
+            if (!open) {
+                feedback = "Dialog closed";
+            }
         })
         .build();
 
@@ -766,9 +764,11 @@ struct GalleryControlsPage {
                 toastVisible = false;
             }
         })
-        .onDismiss([this] {
-            contextMenuOpen = false;
-            feedback = "Context menu dismissed";
+        .onOpenChange([this](bool open) {
+            contextMenuOpen = open;
+            if (!open) {
+                feedback = "Context menu dismissed";
+            }
         })
         .build();
 

@@ -3,6 +3,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -38,6 +39,11 @@ public:
     TabsBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     TabsBuilder& items(std::vector<std::string> value) { items_ = std::move(value); return *this; }
     TabsBuilder& selected(int value) { selected_ = value; return *this; }
+    TabsBuilder& bind(eui::Signal<int>& signal) {
+        selected(signal.get());
+        onChange([&signal](int value) { signal.set(value); });
+        return *this;
+    }
     TabsBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     TabsBuilder& style(const TabsStyle& value) { style_ = value; return *this; }
     TabsBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = TabsStyle(tokens); return *this; }

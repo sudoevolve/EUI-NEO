@@ -3,6 +3,7 @@
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "core/render/text.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -50,6 +51,11 @@ public:
 
     CheckboxBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     CheckboxBuilder& checked(bool value) { checked_ = value; return *this; }
+    CheckboxBuilder& bind(eui::Signal<bool>& signal) {
+        checked(signal.get());
+        onChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     CheckboxBuilder& text(std::string value) { text_ = std::move(value); return *this; }
     CheckboxBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     CheckboxBuilder& boxSize(float value) { boxSize_ = std::max(10.0f, value); return *this; }

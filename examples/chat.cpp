@@ -940,8 +940,10 @@ void composeSettingsDialog(eui::Ui& ui, const eui::Screen& screen, const std::st
         .size(panelW, panelH)
         .open(open)
         .zIndex(5000)
-        .onClose([] {
-            settings.dialogOwner.clear();
+        .onOpenChange([](bool open) {
+            if (!open) {
+                settings.dialogOwner.clear();
+            }
         })
         .content([&] {
             ui.column(owner + ".settings.dialog.content")

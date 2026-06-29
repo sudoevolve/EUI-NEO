@@ -3,6 +3,7 @@
 #include "components/button.h"
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -50,6 +51,11 @@ public:
         : ui_(ui), id_(std::move(id)) {}
 
     DialogBuilder& open(bool value = true) { open_ = value; return *this; }
+    DialogBuilder& bindOpen(eui::Signal<bool>& signal) {
+        open(signal.get());
+        onOpenChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     DialogBuilder& screen(float width, float height) { screenWidth_ = width; screenHeight_ = height; return *this; }
     DialogBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     DialogBuilder& title(const std::string& value) { title_ = value; return *this; }
@@ -63,7 +69,7 @@ public:
     DialogBuilder& content(std::function<void()> callback) { content_ = std::move(callback); return *this; }
     DialogBuilder& onPrimary(std::function<void()> callback) { onPrimary_ = std::move(callback); return *this; }
     DialogBuilder& onSecondary(std::function<void()> callback) { onSecondary_ = std::move(callback); return *this; }
-    DialogBuilder& onClose(std::function<void()> callback) { onClose_ = std::move(callback); return *this; }
+    DialogBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
     void build() {
         const float width = std::min(width_, std::max(0.0f, screenWidth_ - 48.0f));
@@ -76,9 +82,9 @@ public:
         const float visible = open_ ? 1.0f : 0.0f;
         const float panelScale = open_ ? 1.0f : 0.965f;
         const float panelOffsetY = open_ ? 0.0f : 14.0f;
-        const std::function<void()> onClose = onClose_;
+        const std::function<void()> requestClose = closeCallback();
         const std::function<void()> onPrimary = onPrimary_;
-        const std::function<void()> onSecondary = onSecondary_ ? onSecondary_ : onClose_;
+        const std::function<void()> onSecondary = onSecondary_ ? onSecondary_ : requestClose;
 
         ui_.stack(id_)
             .size(screenWidth_, screenHeight_)
@@ -91,7 +97,7 @@ public:
                     .transition(transition_)
                     .animate(core::AnimProperty::Opacity)
                     .disabled(!open_)
-                    .onClick(onClose)
+                    .onClick(requestClose)
                     .onScroll([](const core::ScrollEvent&) {})
                     .build();
 
@@ -193,13 +199,22 @@ public:
     }
 
 private:
+    std::function<void()> closeCallback() const {
+        const std::function<void(bool)> onOpenChange = onOpenChange_;
+        return [onOpenChange] {
+            if (onOpenChange) {
+                onOpenChange(false);
+            }
+        };
+    }
+
     core::dsl::Ui& ui_;
     std::string id_;
     DialogStyle style_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void()> onPrimary_;
     std::function<void()> onSecondary_;
-    std::function<void()> onClose_;
+    std::function<void(bool)> onOpenChange_;
     std::function<void()> content_;
     std::string title_ = "Dialog";
     std::string message_ = "Use dialogs for focused confirmation or short blocking workflows.";

@@ -5,6 +5,7 @@
 #include "eui/image.h"
 #include "eui/network.h"
 #include "eui/platform.h"
+#include "eui/signal.h"
 #include "eui/types.h"
 
 #include "components/components.h"

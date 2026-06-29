@@ -3,6 +3,7 @@
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "core/render/text.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -40,6 +41,11 @@ public:
 
     RadioBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     RadioBuilder& selected(bool value) { selected_ = value; return *this; }
+    RadioBuilder& bind(eui::Signal<bool>& signal) {
+        selected(signal.get());
+        onChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     RadioBuilder& text(std::string value) { text_ = std::move(value); return *this; }
     RadioBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     RadioBuilder& dotSize(float value) { dotSize_ = std::max(10.0f, value); return *this; }

@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -18,14 +19,19 @@ public:
     SidebarBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     SidebarBuilder& drawerWidth(float value) { drawerWidth_ = std::max(280.0f, value); return *this; }
     SidebarBuilder& open(bool value = true) { open_ = value; return *this; }
+    SidebarBuilder& bindOpen(eui::Signal<bool>& signal) {
+        open(signal.get());
+        onOpenChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     SidebarBuilder& title(std::string value) { title_ = std::move(value); return *this; }
     SidebarBuilder& eyebrow(std::string value) { eyebrow_ = std::move(value); return *this; }
     SidebarBuilder& theme(const theme::ThemeColorTokens& tokens) { tokens_ = tokens; return *this; }
     SidebarBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     SidebarBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
 
-    SidebarBuilder& onClose(std::function<void()> callback) {
-        onClose_ = std::move(callback);
+    SidebarBuilder& onOpenChange(std::function<void(bool)> callback) {
+        onOpenChange_ = std::move(callback);
         return *this;
     }
 
@@ -43,7 +49,7 @@ public:
         const float headerHeight = 104.0f;
         const float bodyHeight = std::max(0.0f, height_ - headerHeight - 44.0f);
         const core::Transition motionTransition = resolveMotionTransition();
-        const std::function<void()> onClose = onClose_;
+        const std::function<void()> requestClose = closeCallback();
 
         ui_.stack(id_)
             .size(width_, height_)
@@ -54,7 +60,7 @@ public:
                     .size(panelX, height_)
                     .color(transparentColor())
                     .disabled(!open_)
-                    .onClick(onClose)
+                    .onClick(requestClose)
                     .onScroll([](const core::ScrollEvent&) {})
                     .build();
 
@@ -80,7 +86,7 @@ public:
                             .padding(22.0f, 22.0f)
                             .gap(18.0f)
                             .content([&] {
-                                composeHeader(contentWidth, headerHeight, onClose);
+                                composeHeader(contentWidth, headerHeight, requestClose);
 
                                 ui_.stack(id_ + ".body")
                                     .size(contentWidth, bodyHeight)
@@ -100,6 +106,15 @@ public:
     }
 
 private:
+    std::function<void()> closeCallback() const {
+        const std::function<void(bool)> onOpenChange = onOpenChange_;
+        return [onOpenChange] {
+            if (onOpenChange) {
+                onOpenChange(false);
+            }
+        };
+    }
+
     core::Color withOpacity(core::Color color, float opacity) const {
         color.a *= std::clamp(opacity, 0.0f, 1.0f);
         return color;
@@ -150,7 +165,7 @@ private:
         return value;
     }
 
-    void composeHeader(float width, float height, const std::function<void()>& onClose) {
+    void composeHeader(float width, float height, const std::function<void()>& requestClose) {
         const float closeSize = 38.0f;
         const float closeX = std::max(0.0f, width - closeSize);
         ui_.stack(id_ + ".header")
@@ -185,7 +200,7 @@ private:
                             .radius(10.0f)
                             .disabled(!open_)
                             .transition(transition_)
-                            .onClick(onClose)
+                            .onClick(requestClose)
                             .build();
 
                         ui_.text(id_ + ".close.icon")
@@ -209,7 +224,7 @@ private:
     std::string eyebrow_ = "WORKSHOP";
     theme::ThemeColorTokens tokens_ = theme::dark();
     core::Transition transition_ = core::Transition::make(0.24f, core::Ease::OutCubic);
-    std::function<void()> onClose_;
+    std::function<void(bool)> onOpenChange_;
     std::function<void(core::dsl::Ui&, float, float)> content_;
     float width_ = 960.0f;
     float height_ = 640.0f;

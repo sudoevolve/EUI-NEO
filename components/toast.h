@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -39,6 +40,12 @@ public:
         : ui_(ui), id_(std::move(id)) {}
 
     ToastBuilder& visible(bool value = true) { visible_ = value; return *this; }
+    ToastBuilder& bindVisible(eui::Signal<bool>& signal) {
+        visible(signal.get());
+        onDismiss([&signal] { signal.set(false); });
+        onAutoDismiss([&signal] { signal.set(false); });
+        return *this;
+    }
     ToastBuilder& screen(float width, float height) { screenWidth_ = width; screenHeight_ = height; return *this; }
     ToastBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     ToastBuilder& title(const std::string& value) { title_ = value; return *this; }

@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <functional>
@@ -54,8 +55,18 @@ public:
     DropdownBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     DropdownBuilder& items(std::vector<std::string> value) { items_ = std::move(value); return *this; }
     DropdownBuilder& selected(int value) { selected_ = value; return *this; }
+    DropdownBuilder& bind(eui::Signal<int>& signal) {
+        selected(signal.get());
+        onChange([&signal](int value) { signal.set(value); });
+        return *this;
+    }
     DropdownBuilder& placeholder(const std::string& value) { placeholder_ = value; return *this; }
     DropdownBuilder& open(bool value = true) { open_ = value; return *this; }
+    DropdownBuilder& bindOpen(eui::Signal<bool>& signal) {
+        open(signal.get());
+        onOpenChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     DropdownBuilder& itemHeight(float value) { itemHeight_ = std::max(24.0f, value); return *this; }
     DropdownBuilder& style(const DropdownStyle& value) { style_ = value; return *this; }
     DropdownBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DropdownStyle(tokens); return *this; }

@@ -2,6 +2,7 @@
 
 #include "components/theme.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -49,6 +50,11 @@ public:
         : ui_(ui), id_(std::move(id)) {}
 
     TimePickerBuilder& open(bool value = true) { open_ = value; return *this; }
+    TimePickerBuilder& bindOpen(eui::Signal<bool>& signal) {
+        open(signal.get());
+        onOpenChange([&signal](bool value) { signal.set(value); });
+        return *this;
+    }
     TimePickerBuilder& screen(float width, float height) { screenWidth_ = width; screenHeight_ = height; return *this; }
     TimePickerBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     TimePickerBuilder& time(int hour, int minute) {

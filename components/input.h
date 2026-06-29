@@ -3,6 +3,7 @@
 #include "components/theme.h"
 #include "components/input_model.h"
 #include "core/dsl.h"
+#include "eui/signal.h"
 
 #include <algorithm>
 #include <cmath>
@@ -48,6 +49,11 @@ public:
 
     InputBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     InputBuilder& value(std::string value) { text_ = std::move(value); return *this; }
+    InputBuilder& bind(eui::Signal<std::string>& signal) {
+        value(signal.get());
+        onChange([&signal](const std::string& value) { signal.set(value); });
+        return *this;
+    }
     InputBuilder& placeholder(std::string value) { placeholder_ = std::move(value); return *this; }
     InputBuilder& multiline(bool value = true) { multiline_ = value; return *this; }
     InputBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
