@@ -4,7 +4,7 @@
 #include "core/render/opengl/opengl_backend.h"
 #elif defined(EUI_RENDER_BACKEND_VULKAN)
 #include "core/render/vulkan/vulkan_backend.h"
-#if !defined(EUI_WINDOW_BACKEND_SDL2)
+#if !defined(EUI_WINDOW_BACKEND_SDL2) && !defined(EUI_WINDOW_BACKEND_SDL3)
 #include <vulkan/vulkan.h>
 #ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
@@ -16,7 +16,7 @@
 namespace core::render {
 
 void initializeRenderBackendLoader() {
-#if defined(EUI_RENDER_BACKEND_VULKAN) && !defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_RENDER_BACKEND_VULKAN) && !defined(EUI_WINDOW_BACKEND_SDL2) && !defined(EUI_WINDOW_BACKEND_SDL3)
     glfwInitVulkanLoader(vkGetInstanceProcAddr);
 #endif
 }

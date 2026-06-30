@@ -3,7 +3,7 @@
 #include "core/input/input_types.h"
 #include "core/window/window_backend.h"
 
-#if !defined(EUI_WINDOW_BACKEND_SDL2)
+#if !defined(EUI_WINDOW_BACKEND_SDL2) && !defined(EUI_WINDOW_BACKEND_SDL3)
 #include "core/platform/ime_bridge.h"
 
 #ifndef GLFW_INCLUDE_NONE
@@ -195,7 +195,7 @@ inline void installInputCallbacks(window::Handle window) {
         return;
     }
 
-#if !defined(EUI_WINDOW_BACKEND_SDL2)
+#if !defined(EUI_WINDOW_BACKEND_SDL2) && !defined(EUI_WINDOW_BACKEND_SDL3)
     GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window);
     eui_ime_install_message_filter(glfwWindow);
     glfwSetCharCallback(glfwWindow, [](GLFWwindow* currentWindow, unsigned int codepoint) {
@@ -274,7 +274,7 @@ inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents(window::Handle w
     if (!queuedCompositionChanged && keyboard.composing) {
         keyboard.compositionText = previousCompositionText;
     }
-#if !defined(EUI_WINDOW_BACKEND_SDL2) && (defined(_WIN32) || defined(__APPLE__))
+#if !defined(EUI_WINDOW_BACKEND_SDL2) && !defined(EUI_WINDOW_BACKEND_SDL3) && (defined(_WIN32) || defined(__APPLE__))
     char compositionBuffer[512];
     const int compositionLength = eui_ime_get_composition_string_utf8(
         static_cast<GLFWwindow*>(window),
@@ -320,7 +320,7 @@ inline bool hasPendingPointerInput(window::Handle window, float dpiScale = 1.0f)
 }
 
 inline void releaseInputQueue(window::Handle window) {
-#if !defined(EUI_WINDOW_BACKEND_SDL2)
+#if !defined(EUI_WINDOW_BACKEND_SDL2) && !defined(EUI_WINDOW_BACKEND_SDL3)
     if (window != nullptr) {
         eui_ime_uninstall_message_filter(static_cast<GLFWwindow*>(window));
     }

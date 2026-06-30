@@ -3,10 +3,14 @@
 
 #include <algorithm>
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
 
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+#include <SDL3/SDL.h>
+#else
 #include <SDL.h>
-#if defined(_WIN32) || defined(__APPLE__)
+#endif
+#if defined(EUI_WINDOW_BACKEND_SDL2) && (defined(_WIN32) || defined(__APPLE__))
 #include <SDL_syswm.h>
 #endif
 #if defined(_WIN32)
@@ -57,6 +61,26 @@ Handle createWindow(const WindowCreateRequest& request) {
         configureOpenGLWindowAttributes();
     }
 
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    SDL_WindowFlags flags = 0;
+    if (request.highDpi) {
+        flags |= SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    }
+    if (request.resizable) {
+        flags |= SDL_WINDOW_RESIZABLE;
+    }
+    flags |= request.renderApi == RenderApi::Vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL;
+
+    SDL_Window* window = SDL_CreateWindow(
+        request.title != nullptr ? request.title : "",
+        request.width,
+        request.height,
+        flags);
+    if (window != nullptr) {
+        SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+    }
+    return window;
+#else
     Uint32 flags = 0;
     if (request.highDpi) {
         flags |= SDL_WINDOW_ALLOW_HIGHDPI;
@@ -73,6 +97,7 @@ Handle createWindow(const WindowCreateRequest& request) {
         request.width,
         request.height,
         flags);
+#endif
 }
 
 void destroyWindow(Handle window) {
@@ -84,6 +109,20 @@ void destroyWindow(Handle window) {
 NativeWindowInfo nativeWindowInfo(Handle window) {
     NativeWindowInfo result;
     result.handle = window;
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    if (window == nullptr) {
+        return result;
+    }
+    SDL_PropertiesID properties = SDL_GetWindowProperties(static_cast<SDL_Window*>(window));
+    if (properties == 0) {
+        return result;
+    }
+#if defined(_WIN32)
+    result.platformWindow = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_WIN32_HWND_POINTER, nullptr);
+#elif defined(__APPLE__)
+    result.platformWindow = SDL_GetPointerProperty(properties, SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, nullptr);
+#endif
+#else
 #if defined(_WIN32) || defined(__APPLE__)
     if (window == nullptr) {
         return result;
@@ -103,6 +142,7 @@ NativeWindowInfo nativeWindowInfo(Handle window) {
     }
 #endif
 #endif
+#endif
     return result;
 }
 
@@ -119,21 +159,35 @@ double timeSeconds() {
 
 void postEmptyEvent() {
     SDL_Event event{};
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    event.type = SDL_EVENT_USER;
+#else
     event.type = SDL_USEREVENT;
+#endif
     SDL_PushEvent(&event);
 }
 
 void getCursorPosition(Handle, double& x, double& y) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    float cursorX = 0.0f;
+    float cursorY = 0.0f;
+#else
     int cursorX = 0;
     int cursorY = 0;
+#endif
     SDL_GetMouseState(&cursorX, &cursorY);
     x = static_cast<double>(cursorX);
     y = static_cast<double>(cursorY);
 }
 
 bool isMouseButtonDown(Handle, int button) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    const SDL_MouseButtonFlags state = SDL_GetMouseState(nullptr, nullptr);
+    const SDL_MouseButtonFlags mask = button == 1 ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+#else
     const Uint32 state = SDL_GetMouseState(nullptr, nullptr);
     const Uint32 mask = button == 1 ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
+#endif
     return (state & mask) != 0;
 }
 
@@ -152,7 +206,11 @@ void setClipboardText(const std::string& text) {
 }
 
 CursorHandle createStandardCursor(CursorType type) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    return SDL_CreateSystemCursor(type == CursorType::Hand ? SDL_SYSTEM_CURSOR_POINTER : SDL_SYSTEM_CURSOR_DEFAULT);
+#else
     return SDL_CreateSystemCursor(type == CursorType::Hand ? SDL_SYSTEM_CURSOR_HAND : SDL_SYSTEM_CURSOR_ARROW);
+#endif
 }
 
 void setCursor(Handle, CursorHandle cursor) {
@@ -160,18 +218,30 @@ void setCursor(Handle, CursorHandle cursor) {
 }
 
 void destroyCursor(CursorHandle cursor) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    SDL_DestroyCursor(static_cast<SDL_Cursor*>(cursor));
+#else
     SDL_FreeCursor(static_cast<SDL_Cursor*>(cursor));
+#endif
 }
 
 void setWindowIcon(Handle window, int width, int height, unsigned char* pixels) {
     if (window == nullptr || pixels == nullptr || width <= 0 || height <= 0) {
         return;
     }
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(width, height, SDL_PIXELFORMAT_RGBA32, pixels, width * 4);
+#else
     SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
         pixels, width, height, 32, width * 4, SDL_PIXELFORMAT_RGBA32);
+#endif
     if (surface != nullptr) {
         SDL_SetWindowIcon(static_cast<SDL_Window*>(window), surface);
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+        SDL_DestroySurface(surface);
+#else
         SDL_FreeSurface(surface);
+#endif
     }
     eui_set_application_icon_rgba(width, height, pixels);
 }
@@ -221,14 +291,22 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
         roundLong(width),
         roundLong(height)
     };
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    SDL_SetTextInputArea(static_cast<SDL_Window*>(window), &rect, rect.w);
+#else
     SDL_SetTextInputRect(&rect);
+#endif
 #else
     int windowWidth = 0;
     int windowHeight = 0;
     int drawableWidth = 0;
     int drawableHeight = 0;
     SDL_GetWindowSize(static_cast<SDL_Window*>(window), &windowWidth, &windowHeight);
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    SDL_GetWindowSizeInPixels(static_cast<SDL_Window*>(window), &drawableWidth, &drawableHeight);
+#else
     SDL_GL_GetDrawableSize(static_cast<SDL_Window*>(window), &drawableWidth, &drawableHeight);
+#endif
     const float scaleX = windowWidth > 0 && drawableWidth > 0
         ? static_cast<float>(drawableWidth) / static_cast<float>(windowWidth)
         : 1.0f;
@@ -241,7 +319,11 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
         static_cast<int>(width / scaleX),
         static_cast<int>(height / scaleY)
     };
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    SDL_SetTextInputArea(static_cast<SDL_Window*>(window), &rect, rect.w);
+#else
     SDL_SetTextInputRect(&rect);
+#endif
 #endif
 }
 

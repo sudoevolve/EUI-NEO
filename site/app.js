@@ -4,7 +4,7 @@ const copy = {
     "nav.rendering": "渲染",
     "nav.components": "组件",
     "nav.start": "开始",
-    "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2",
+    "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2 / SDL3",
     "hero.title": "EUI-NEO",
     "hero.lede": "一个面向高性能桌面工具、仪表盘和组件系统的轻量级 UI 框架。",
     "hero.docs": "查阅文档",
@@ -19,7 +19,7 @@ const copy = {
     "why.performance.title": "按需渲染",
     "why.performance.text": "静止时等待事件，有动画才推进帧；脏区、framebuffer cache 和 retained layer cache 减少重复绘制。",
     "why.backends.title": "后端可选",
-    "why.backends.text": "GLFW / SDL2 窗口后端，OpenGL / Vulkan 渲染后端，同一套 DSL 输出。",
+    "why.backends.text": "GLFW / SDL2 / SDL3 窗口后端，OpenGL / Vulkan 渲染后端，同一套 DSL 输出。",
     "why.cpp.title": "C++ 直写",
     "why.cpp.text": "无需引入 WebView 或脚本运行时，直接在 C++17 项目里声明界面和状态。",
     "why.components.title": "组件齐全",
@@ -56,7 +56,7 @@ const copy = {
     "nav.rendering": "Rendering",
     "nav.components": "Components",
     "nav.start": "Start",
-    "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2",
+    "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2 / SDL3",
     "hero.title": "EUI-NEO",
     "hero.lede": "A lightweight UI framework for high-performance desktop tools, dashboards, and component systems.",
     "hero.docs": "Browse Docs",
@@ -71,7 +71,7 @@ const copy = {
     "why.performance.title": "On-demand rendering",
     "why.performance.text": "Idle apps wait for events; animated views advance frames only when needed, while dirty regions, framebuffer cache, and retained layers reduce redraw work.",
     "why.backends.title": "Backend choice",
-    "why.backends.text": "Use GLFW or SDL2 for windows, OpenGL or Vulkan for rendering, with one shared DSL.",
+    "why.backends.text": "Use GLFW, SDL2, or SDL3 for windows, OpenGL or Vulkan for rendering, with one shared DSL.",
     "why.cpp.title": "Native C++ workflow",
     "why.cpp.text": "No WebView or scripting runtime. Declare UI and state directly inside a C++17 project.",
     "why.components.title": "Practical components",
@@ -170,13 +170,13 @@ const docs = [
     href: "../docs/渲染后端架构.md",
     zh: {
       title: "渲染后端架构与流程",
-      desc: "GLFW/SDL2、OpenGL/Vulkan、Runtime 边界和渲染流程。"
+      desc: "GLFW/SDL2/SDL3、OpenGL/Vulkan、Runtime 边界和渲染流程。"
     },
     en: {
       title: "Render Backend Architecture And Pipeline",
-      desc: "Boundaries and pipeline across GLFW/SDL2, OpenGL/Vulkan, and Runtime."
+      desc: "Boundaries and pipeline across GLFW/SDL2/SDL3, OpenGL/Vulkan, and Runtime."
     },
-    tags: "opengl vulkan glfw sdl2 backend runtime render dirty rect cache retained layer blur fps"
+    tags: "opengl vulkan glfw sdl2 sdl3 backend runtime render dirty rect cache retained layer blur fps"
   },
   {
     category: "rendering",
