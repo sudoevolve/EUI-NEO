@@ -18,9 +18,7 @@ struct InputStyle {
 
     explicit InputStyle(const theme::ThemeColorTokens& tokens) {
         background = tokens.surface;
-        hover = tokens.surfaceHover;
         focused = theme::resolveFieldFill(tokens, tokens.surface, 0.20f, 0.70f);
-        pressed = tokens.surfaceActive;
         border = theme::withOpacity(tokens.border, 0.78f);
         focusBorder = theme::withAlpha(tokens.primary, 0.86f);
         text = tokens.text;
@@ -30,9 +28,7 @@ struct InputStyle {
     }
 
     core::Color background;
-    core::Color hover;
     core::Color focused;
-    core::Color pressed;
     core::Color border;
     core::Color focusBorder;
     core::Color text;
@@ -137,9 +133,7 @@ public:
             .content([&] {
                 auto hit = ui_.rect(hitId)
                     .size(width_, height_)
-                    .states(style_.background,
-                            style_.background,
-                            style_.background)
+                    .color(style_.background)
                     .radius(style_.radius)
                     .border(1.0f, focused ? style_.focusBorder : style_.border)
                     .shadow(focused ? style_.shadow : core::Shadow{})
