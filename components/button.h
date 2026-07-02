@@ -90,9 +90,10 @@ public:
         const float font = fontSize_ > 0.0f ? fontSize_ * scale_ : h * 0.46f;
         const float iconFont = iconSize_ > 0.0f ? iconSize_ * scale_ : font * 0.92f;
         const bool hasIcon = !icon_.empty();
+        const bool hasText = !text_.empty();
         const float iconWidth = hasIcon ? iconFont * 1.15f : 0.0f;
-        const float gap = hasIcon ? std::max(6.0f * scale_, h * 0.12f) : 0.0f;
-        const float labelWidth = hasIcon ? std::max(0.0f, w - iconWidth - gap - 32.0f * scale_) : w;
+        const float gap = hasIcon && hasText ? std::max(6.0f * scale_, h * 0.12f) : 0.0f;
+        const float labelWidth = hasIcon && hasText ? std::max(0.0f, w - iconWidth - gap - 32.0f * scale_) : w;
         core::Border border = style_.border;
         border.width *= scale_;
 
@@ -143,16 +144,18 @@ public:
                                 .build();
                         }
 
-                        ui_.text(id_ + ".text")
-                            .size(labelWidth, h)
-                            .text(text_)
-                            .fontSize(font)
-                            .lineHeight(font)
-                            .color(textColor)
-                            .horizontalAlign(hasIcon ? core::HorizontalAlign::Left : core::HorizontalAlign::Center)
-                            .verticalAlign(core::VerticalAlign::Center)
-                            .transition(transition_)
-                            .build();
+                        if (hasText) {
+                            ui_.text(id_ + ".text")
+                                .size(labelWidth, h)
+                                .text(text_)
+                                .fontSize(font)
+                                .lineHeight(font)
+                                .color(textColor)
+                                .horizontalAlign(hasIcon ? core::HorizontalAlign::Left : core::HorizontalAlign::Center)
+                                .verticalAlign(core::VerticalAlign::Center)
+                                .transition(transition_)
+                                .build();
+                        }
                     })
                     .build();
             })

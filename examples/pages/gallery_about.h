@@ -31,7 +31,8 @@ struct GalleryAboutPage {
     const float licenseHeight = 92.0f;
 
     ui.column("about.body")
-        .size(width, height)
+        .width(width)
+        .height(eui::SizeValue::wrapContent())
         .alignItems(eui::Align::CENTER)
         .gap(20.0f)
         .content([&] {

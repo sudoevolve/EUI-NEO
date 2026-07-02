@@ -106,29 +106,36 @@ struct GalleryControlsPage {
             .build();
     }
     void compose(eui::Ui& ui, float width, float height) {
+    (void)height;
     const float cardGap = 18.0f;
-    const float cardWidth = std::max(72.0f, std::min(204.0f, (width - cardGap * 2.0f) / 3.0f));
-    const float rowHeight = 144.0f;
     const float fieldWidth = std::max(0.0f, std::min(width, 680.0f));
+    const bool compact = fieldWidth < 560.0f;
+    const bool narrow = fieldWidth < 420.0f;
+    const int propertyColumns = fieldWidth < 430.0f ? 1 : (fieldWidth < 640.0f ? 2 : 3);
+    const float cardWidth = std::max(72.0f, (fieldWidth - cardGap * static_cast<float>(propertyColumns - 1)) / static_cast<float>(propertyColumns));
     const float buttonGap = fieldWidth < 390.0f ? 10.0f : 18.0f;
-    const float buttonWidth = std::max(156.0f, std::min(178.0f, (fieldWidth - buttonGap * 2.0f) / 3.0f));
-    const float buttonRowWidth = buttonWidth * 3.0f + buttonGap * 2.0f;
-    const float componentCardWidth = std::max(120.0f, std::min(340.0f, (width - 20.0f) * 0.5f));
-    const float feedbackWidth = std::max(112.0f, std::min(176.0f, (fieldWidth - 54.0f) / 4.0f));
+    const float buttonWidth = narrow ? fieldWidth : std::max(156.0f, std::min(178.0f, (fieldWidth - buttonGap * 2.0f) / 3.0f));
+    const bool stackToggles = fieldWidth < 420.0f;
+    const float componentCardWidth = stackToggles ? fieldWidth : std::max(120.0f, (fieldWidth - 20.0f) * 0.5f);
+    const int feedbackColumns = fieldWidth < 420.0f ? 1 : (fieldWidth < 620.0f ? 2 : 4);
+    const float feedbackWidth = std::max(112.0f, (fieldWidth - 18.0f * static_cast<float>(feedbackColumns - 1)) / static_cast<float>(feedbackColumns));
     const float dataRowGap = 20.0f;
-    const float dropdownWidth = std::max(180.0f, std::min(260.0f, fieldWidth * 0.36f));
-    const float tableWidth = std::max(260.0f, fieldWidth - dropdownWidth - dataRowGap);
+    const bool stackData = fieldWidth < 560.0f;
+    const float dropdownWidth = stackData ? fieldWidth : std::max(180.0f, std::min(260.0f, fieldWidth * 0.36f));
+    const float tableWidth = stackData ? fieldWidth : std::max(260.0f, fieldWidth - dropdownWidth - dataRowGap);
     const float dataRowHeight = 200.0f;
     const float pickerGap = 18.0f;
     const float chartGap = 18.0f;
-    const float chartWidth = std::max(150.0f, std::min(206.0f, (fieldWidth - chartGap * 2.0f) / 3.0f));
+    const int chartColumns = fieldWidth < 500.0f ? 1 : 3;
+    const float chartWidth = std::max(150.0f, (fieldWidth - chartGap * static_cast<float>(chartColumns - 1)) / static_cast<float>(chartColumns));
     const float chartHeight = 236.0f;
     const float stepperGap = 18.0f;
-    const float stepperWidth = std::max(132.0f, std::min(214.0f, (fieldWidth - stepperGap * 2.0f) / 3.0f));
-    const float stepperRowWidth = stepperWidth * 3.0f + stepperGap * 2.0f;
-    const float pickerWidth = std::max(154.0f, std::min(210.0f, (fieldWidth - pickerGap * 2.0f) / 3.0f));
-    const float choiceWidth = std::max(180.0f, (fieldWidth - 18.0f) * 0.5f);
-    const float choiceRowWidth = choiceWidth * 2.0f + 18.0f;
+    const int stepperColumns = fieldWidth < 500.0f ? 1 : 3;
+    const float stepperWidth = std::max(132.0f, (fieldWidth - stepperGap * static_cast<float>(stepperColumns - 1)) / static_cast<float>(stepperColumns));
+    const int pickerColumns = fieldWidth < 500.0f ? 1 : 3;
+    const float pickerWidth = std::max(154.0f, (fieldWidth - pickerGap * static_cast<float>(pickerColumns - 1)) / static_cast<float>(pickerColumns));
+    const int choiceColumns = fieldWidth < 520.0f ? 1 : 2;
+    const float choiceWidth = std::max(180.0f, (fieldWidth - 18.0f * static_cast<float>(choiceColumns - 1)) / static_cast<float>(choiceColumns));
 
     ui.text("controls.components.title")
         .size(width, 30.0f)
@@ -138,9 +145,11 @@ struct GalleryControlsPage {
         .color(textPrimary())
         .build();
 
-    ui.row("controls.buttons")
-        .size(buttonRowWidth, 54.0f)
+    ui.flow("controls.buttons")
+        .width(fieldWidth)
+        .height(eui::SizeValue::wrapContent())
         .gap(buttonGap)
+        .lineGap(buttonGap)
         .content([&] {
             components::button(ui, "control.primary")
                 .size(buttonWidth, 54.0f)
@@ -199,10 +208,7 @@ struct GalleryControlsPage {
         })
         .build();
 
-    ui.row("controls.toggles")
-        .size(fieldWidth, 92.0f)
-        .gap(20.0f)
-        .content([&] {
+    auto composeToggleGroups = [&] {
             ui.column("controls.checks")
                 .size(componentCardWidth, 92.0f)
                 .gap(12.0f)
@@ -245,8 +251,22 @@ struct GalleryControlsPage {
                         .build();
                 })
                 .build();
-        })
-        .build();
+    };
+
+    if (stackToggles) {
+        ui.column("controls.toggles")
+            .width(fieldWidth)
+            .height(eui::SizeValue::wrapContent())
+            .gap(14.0f)
+            .content(composeToggleGroups)
+            .build();
+    } else {
+        ui.row("controls.toggles")
+            .size(fieldWidth, 92.0f)
+            .gap(20.0f)
+            .content(composeToggleGroups)
+            .build();
+    }
 
     components::progress(ui, "control.progress")
         .theme(themeColors())
@@ -268,9 +288,11 @@ struct GalleryControlsPage {
         .gap(18.0f)
         .alignItems(eui::Align::CENTER)
         .content([&] {
-            ui.row("controls.choice.row")
-                .size(choiceRowWidth, 42.0f)
+            ui.flow("controls.choice.row")
+                .width(fieldWidth)
+                .height(eui::SizeValue::wrapContent())
                 .gap(18.0f)
+                .lineGap(12.0f)
                 .content([&] {
                     components::segmented(ui, "control.segmented")
                         .theme(themeColors())
@@ -296,9 +318,11 @@ struct GalleryControlsPage {
                 })
                 .build();
 
-            ui.row("controls.stepper.row")
-                .size(stepperRowWidth, 84.0f)
+            ui.flow("controls.stepper.row")
+                .width(fieldWidth)
+                .height(eui::SizeValue::wrapContent())
                 .gap(stepperGap)
+                .lineGap(14.0f)
                 .content([&] {
                     ui.column("controls.stepper.dec")
                         .size(stepperWidth, 84.0f)
@@ -414,9 +438,11 @@ struct GalleryControlsPage {
         .color(textPrimary())
         .build();
 
-    ui.row("controls.feedback")
-        .size(fieldWidth, 54.0f)
+    ui.flow("controls.feedback")
+        .width(fieldWidth)
+        .height(eui::SizeValue::wrapContent())
         .gap(18.0f)
+        .lineGap(12.0f)
         .content([&] {
             components::button(ui, "control.dialog")
                 .theme(themeColors(), false)
@@ -543,9 +569,11 @@ struct GalleryControlsPage {
         .color(textPrimary())
         .build();
 
-    ui.row("controls.pickers.row")
-        .size(fieldWidth, 44.0f)
+    ui.flow("controls.pickers.row")
+        .width(fieldWidth)
+        .height(eui::SizeValue::wrapContent())
         .gap(pickerGap)
+        .lineGap(12.0f)
         .content([&] {
             components::button(ui, "control.datepicker.open")
                 .theme(themeColors(), false)
@@ -609,10 +637,45 @@ struct GalleryControlsPage {
         })
         .build();
 
-    ui.row("controls.data.row")
-        .size(fieldWidth, dataRowHeight)
-        .gap(dataRowGap)
-        .content([&] {
+    if (stackData) {
+        components::dropdown(ui, "control.dropdown")
+            .theme(themeColors())
+            .size(dropdownWidth, 44.0f)
+            .items({"Draft", "Review", "Published", "Archived"})
+            .selected(dropdown)
+            .open(dropdownOpen.get())
+            .transition(pageTransition())
+            .onOpenChange([this](bool open) {
+                dropdownOpen.set(open);
+                if (open) {
+                    dateOpen = false;
+                    timeOpen = false;
+                    colorOpen = false;
+                }
+            })
+            .onChange([this](int index) {
+                dropdown = index;
+                feedback = "Dropdown changed";
+            })
+            .build();
+
+        components::dataTable(ui, "control.table")
+            .theme(themeColors())
+            .size(tableWidth, 174.0f)
+            .columns({"Name", "Status", "Owner"})
+            .rows({
+                {"EUI Core", "Active", "Sudo"},
+                {"Gallery", "Review", "Design"},
+                {"Docs", "Draft", "DevRel"},
+                {"Runtime", "Stable", "Engine"}
+            })
+            .transition(pageTransition())
+            .build();
+    } else {
+        ui.row("controls.data.row")
+            .size(fieldWidth, dataRowHeight)
+            .gap(dataRowGap)
+            .content([&] {
             components::dropdown(ui, "control.dropdown")
                 .theme(themeColors())
                 .size(dropdownWidth, 44.0f)
@@ -646,8 +709,9 @@ struct GalleryControlsPage {
                 })
                 .transition(pageTransition())
                 .build();
-        })
-        .build();
+            })
+            .build();
+    }
 
     ui.text("controls.charts.title")
         .size(width, 30.0f)
@@ -657,9 +721,11 @@ struct GalleryControlsPage {
         .color(textPrimary())
         .build();
 
-    ui.row("controls.charts.row")
-        .size(fieldWidth, chartHeight)
+    ui.flow("controls.charts.row")
+        .width(fieldWidth)
+        .height(eui::SizeValue::wrapContent())
         .gap(chartGap)
+        .lineGap(chartGap)
         .content([&] {
             components::lineChart(ui, "control.chart.line")
                 .theme(themeColors())
@@ -699,20 +765,15 @@ struct GalleryControlsPage {
         .color(textPrimary())
         .build();
 
-    ui.row("properties.a")
-        .size(fieldWidth, rowHeight)
+    ui.flow("properties.grid")
+        .width(fieldWidth)
+        .height(eui::SizeValue::wrapContent())
         .gap(cardGap)
+        .lineGap(cardGap)
         .content([&] {
             propertyCard(ui, "prop.color", "Color", "hover + press", {0.22f, 0.48f, 0.82f, 1.0f}, "color", cardWidth);
             propertyCard(ui, "prop.border", "Border", "animated edge", surface(), "border", cardWidth);
             propertyCard(ui, "prop.shadow", "Shadow", "elevation", surfaceSoft(), "shadow", cardWidth);
-        })
-        .build();
-
-    ui.row("properties.b")
-        .size(fieldWidth, rowHeight)
-        .gap(cardGap)
-        .content([&] {
             propertyCard(ui, "prop.alpha", "Opacity", "transparent fill", {0.86f, 0.38f, 0.52f, 0.58f}, "color", cardWidth);
             propertyCard(ui, "prop.blur", "Blur", "glass card", {0.78f, 0.92f, 1.0f, 0.22f}, "blur", cardWidth);
             propertyCard(ui, "prop.rotate", "Rotate", "transform", {0.48f, 0.64f, 0.36f, 1.0f}, "rotate", cardWidth);

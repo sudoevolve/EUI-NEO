@@ -19,8 +19,9 @@ struct GalleryAnimationPage {
     const float actorBaseX = 46.0f;
     const float actorBaseY = 50.0f;
     const float actorTravel = std::max(0.0f, stageWidth - actorWidth * actorScale - 180.0f - actorBaseX);
-    const float buttonWidth = std::max(92.0f, std::min(166.0f, (stageWidth - 36.0f) / 3.0f));
-    const float buttonRowWidth = buttonWidth * 3.0f + 36.0f;
+    const int buttonColumns = stageWidth < 360.0f ? 2 : 3;
+    const float buttonGap = 18.0f;
+    const float buttonWidth = std::max(92.0f, std::min(166.0f, (stageWidth - buttonGap * static_cast<float>(buttonColumns - 1)) / static_cast<float>(buttonColumns)));
     const eui::Color rotateColor{0.84f, 0.46f, 0.60f, 1.0f};
     const eui::Color fadeColor{0.50f, 0.72f, 0.34f, 1.0f};
     const eui::Color scaleColor{0.92f, 0.62f, 0.26f, 1.0f};
@@ -47,9 +48,11 @@ struct GalleryAnimationPage {
             .build();
     };
 
-    ui.row("animation.controls")
-        .size(buttonRowWidth, 58.0f)
-        .gap(18.0f)
+    ui.flow("animation.controls")
+        .width(stageWidth)
+        .height(eui::SizeValue::wrapContent())
+        .gap(buttonGap)
+        .lineGap(10.0f)
         .content([&] {
             components::button(ui, "anim.move")
                 .size(buttonWidth, 50.0f)
@@ -94,9 +97,11 @@ struct GalleryAnimationPage {
                 .build();
         });
 
-    ui.row("animation.controls.extra")
-        .size(buttonRowWidth, 58.0f)
-        .gap(18.0f)
+    ui.flow("animation.controls.extra")
+        .width(stageWidth)
+        .height(eui::SizeValue::wrapContent())
+        .gap(buttonGap)
+        .lineGap(10.0f)
         .content([&] {
             components::button(ui, "anim.scale")
                 .size(buttonWidth, 50.0f)
@@ -141,9 +146,11 @@ struct GalleryAnimationPage {
                 .build();
         });
 
-    ui.row("animation.controls.matrix")
-        .size(buttonRowWidth, 58.0f)
-        .gap(18.0f)
+    ui.flow("animation.controls.matrix")
+        .width(stageWidth)
+        .height(eui::SizeValue::wrapContent())
+        .gap(buttonGap)
+        .lineGap(10.0f)
         .content([&] {
             matrixButton("anim.matrix.flipX", "Flip X", flipX, flipXColor, [this] {
                 flipX = !flipX;

@@ -25,17 +25,17 @@ Page currentPage = Page::Home;
 bool darkMode = true;
 eui::Color accentColor = components::theme::defaultPrimary();
 
-constexpr float kSidebarWidth = 260.0f;
+constexpr float kNavbarWidth = 260.0f;
+constexpr float kCompactNavbarWidth = 96.0f;
 constexpr float kPad = 34.0f;
 constexpr const char* kDocsUrl = "https://sudoevolve.github.io/EUI-NEO/";
 
-void composeSidebar(eui::Ui& ui, float height);
+void composeNavbar(eui::Ui& ui, float width, float height, bool compact);
 void composeContent(eui::Ui& ui, float width, float height);
 void composeHome(eui::Ui& ui, float width);
 void composeSettings(eui::Ui& ui, float width);
 void pageTitle(eui::Ui& ui, const std::string& title, const std::string& subtitle, float width);
 void panel(eui::Ui& ui, const std::string& id, float x, float y, float width, float height);
-void navItem(eui::Ui& ui, const std::string& id, const std::string& label, unsigned int icon, Page page);
 void colorSwatch(eui::Ui& ui, const std::string& id, float x, float y, eui::Color color);
 components::theme::ThemeColorTokens theme();
 eui::Transition motion();
@@ -49,48 +49,38 @@ std::string colorHex(eui::Color color);
 
 // Root UI.
 void compose(eui::Ui& ui, const eui::Screen& screen) {
+    const bool compactNavbar = screen.width < 820.0f;
+    const float navbarWidth = compactNavbar ? kCompactNavbarWidth : kNavbarWidth;
     ui.row("root")
         .size(screen.width, screen.height)
         .content([&] {
-            composeSidebar(ui, screen.height);
-            composeContent(ui, std::max(0.0f, screen.width - kSidebarWidth), screen.height);
+            composeNavbar(ui, navbarWidth, screen.height, compactNavbar);
+            composeContent(ui, std::max(0.0f, screen.width - navbarWidth), screen.height);
         })
         .build();
 }
 
 namespace {
 
-// Left sidebar.
-void composeSidebar(eui::Ui& ui, float height) {
-    ui.stack("sidebar")
-        .size(kSidebarWidth, height)
-        .content([&] {
-            ui.rect("sidebar.bg")
-                .size(kSidebarWidth, height)
-                .color(darkMode ? eui::Color{0.070f, 0.082f, 0.105f, 1.0f}
-                                : eui::Color{0.965f, 0.972f, 0.984f, 1.0f})
-                .transition(motion())
-                .animate(eui::AnimProperty::Color)
-                .build();
-
-            ui.text("brand.icon").position(28.0f, 48.0f).size(204.0f, 34.0f)
-                .icon(0xF5FD).fontSize(27.0f).lineHeight(32.0f)
-                .color(theme().primary).horizontalAlign(eui::HorizontalAlign::Center)
-                .transition(motion()).build();
-
-            ui.text("brand.title").position(28.0f, 116.0f).size(204.0f, 38.0f)
-                .text("Starter App").fontSize(28.0f).lineHeight(34.0f).fontWeight(820)
-                .color(textPrimary()).horizontalAlign(eui::HorizontalAlign::Center)
-                .transition(motion()).build();
-
-            ui.text("brand.path").position(28.0f, 170.0f).size(204.0f, 24.0f)
-                .text("apps/sidebar_starter").fontSize(14.0f).lineHeight(20.0f)
-                .color(textMuted()).horizontalAlign(eui::HorizontalAlign::Center).build();
-
-            ui.stack("nav.home.wrap").position(28.0f, 242.0f).size(204.0f, 50.0f)
-                .content([&] { navItem(ui, "nav.home", "Home", 0xF015, Page::Home); }).build();
-            ui.stack("nav.settings.wrap").position(28.0f, 314.0f).size(204.0f, 50.0f)
-                .content([&] { navItem(ui, "nav.settings", "Settings", 0xF013, Page::Settings); }).build();
+// Left navbar.
+void composeNavbar(eui::Ui& ui, float width, float height, bool compact) {
+    components::navbar(ui, "starter.navbar")
+        .theme(theme())
+        .size(width, height)
+        .compact(compact)
+        .brand("Starter App", 0xF5FD)
+        .subtitle("apps/sidebar_starter")
+        .selected(currentPage == Page::Home ? 0 : 1)
+        .items({
+            {"home", "Home", 0xF015, 0},
+            {"settings", "Settings", 0xF013, 1},
+        })
+        .footer(darkMode ? "Light Mode" : "Night Mode", darkMode ? 0xF185 : 0xF186, [] {
+            darkMode = !darkMode;
+        })
+        .transition(motion())
+        .onChange([](int page) {
+            currentPage = page == 0 ? Page::Home : Page::Settings;
         })
         .build();
 }
@@ -192,22 +182,6 @@ void panel(eui::Ui& ui, const std::string& id, float x, float y, float width, fl
         .position(x, y).size(width, height).radius(14.0f).border(1.0f, borderColor(0.72f))
         .shadow(18.0f, 0.0f, 8.0f, shadowColor()).transition(motion())
         .animate(eui::AnimProperty::Color | eui::AnimProperty::Border | eui::AnimProperty::Shadow).build();
-}
-
-void navItem(eui::Ui& ui, const std::string& id, const std::string& label, unsigned int icon, Page page) {
-    const bool active = currentPage == page;
-    const auto t = theme();
-    const eui::Color base = active ? t.primary : t.surface;
-
-    components::button(ui, id)
-        .size(204.0f, 50.0f).text(label).icon(icon).iconSize(16.0f).fontSize(16.0f)
-        .colors(base, active ? components::theme::buttonHover(t, t.primary) : t.surfaceHover,
-                active ? components::theme::buttonPressed(t, t.primary) : t.surfaceActive)
-        .textColor(active || darkMode ? eui::Color{0.96f, 0.98f, 1.0f, 1.0f} : textPrimary())
-        .iconColor(active ? eui::Color{1.0f, 1.0f, 1.0f, 1.0f} : t.primary)
-        .radius(12.0f).border(1.0f, active ? components::theme::withAlpha(t.primary, 0.62f) : borderColor(0.70f))
-        .shadow(12.0f, 0.0f, 4.0f, shadowColor()).transition(motion())
-        .onClick([page] { currentPage = page; }).build();
 }
 
 void colorSwatch(eui::Ui& ui, const std::string& id, float x, float y, eui::Color color) {

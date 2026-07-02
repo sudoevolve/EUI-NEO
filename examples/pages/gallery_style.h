@@ -147,29 +147,36 @@ components::markdown(ui, "style.markdown")
     }
 
     void compose(eui::Ui& ui, float width, float height) {
-        const float textWidth = std::max(240.0f, std::min(width, 760.0f));
+        (void)height;
+        const bool compact = width < 520.0f;
+        const float textWidth = std::max(0.0f, std::min(width, 760.0f));
         const float iconGap = 20.0f;
-        const float iconCardWidth = std::max(60.0f, std::min(120.0f, (width - iconGap * 3.0f) / 4.0f));
-        const float iconRowWidth = iconCardWidth * 4.0f + iconGap * 3.0f;
+        const int iconColumns = width < 360.0f ? 2 : 4;
+        const float iconCardWidth = std::max(60.0f, std::min(120.0f, (width - iconGap * static_cast<float>(iconColumns - 1)) / static_cast<float>(iconColumns)));
+        const float iconRowWidth = iconCardWidth * static_cast<float>(iconColumns) + iconGap * static_cast<float>(iconColumns - 1);
         const float swatchGap = 14.0f;
-        const float swatchWidth = std::max(94.0f, std::min(142.0f, (width - swatchGap * 3.0f) / 4.0f));
-        const float swatchRowWidth = swatchWidth * 4.0f + swatchGap * 3.0f;
+        const int swatchColumns = width < 340.0f ? 1 : (width < 560.0f ? 2 : 4);
+        const float swatchWidth = std::max(94.0f, std::min(142.0f, (width - swatchGap * static_cast<float>(swatchColumns - 1)) / static_cast<float>(swatchColumns)));
+        const float swatchRowWidth = swatchWidth * static_cast<float>(swatchColumns) + swatchGap * static_cast<float>(swatchColumns - 1);
         const components::theme::ThemeColorTokens tokens = themeColors();
         const components::theme::PageVisualTokens visuals = pageVisuals();
 
         ui.column("text.samples")
-            .size(width, std::min(height, 380.0f))
+            .width(width)
+            .height(eui::SizeValue::wrapContent())
             .gap(12.0f)
             .content([&] {
-                textSample(ui, "txt.display", "Display 48 - Gallery Title", 48.0f, 58.0f, textWidth, textPrimary());
-                textSample(ui, "txt.h1", "Heading 36 - Section Header", 36.0f, 46.0f, textWidth, withAlpha(textPrimary(), 0.92f));
-                textSample(ui, "txt.h2", "Heading 28 - Component Name", 28.0f, 38.0f, textWidth, withAlpha(textPrimary(), 0.82f));
+                textSample(ui, "txt.display", "Display 48 - Gallery Title", compact ? 38.0f : 48.0f, 58.0f, textWidth, textPrimary());
+                textSample(ui, "txt.h1", "Heading 36 - Section Header", compact ? 30.0f : 36.0f, 46.0f, textWidth, withAlpha(textPrimary(), 0.92f));
+                textSample(ui, "txt.h2", "Heading 28 - Component Name", compact ? 24.0f : 28.0f, 38.0f, textWidth, withAlpha(textPrimary(), 0.82f));
                 textSample(ui, "txt.body", "Body 20 - Text can wrap, align and use custom colors.", 20.0f, 30.0f, textWidth, bodyText());
                 textSample(ui, "txt.small", "Small 15 - Secondary metadata and compact labels.", 15.0f, 24.0f, textWidth, withAlpha(textPrimary(), 0.58f));
 
-                ui.row("text.icons")
-                    .size(iconRowWidth, 74.0f)
+                ui.flow("text.icons")
+                    .width(iconRowWidth)
+                    .height(eui::SizeValue::wrapContent())
                     .gap(iconGap)
+                    .lineGap(14.0f)
                     .content([&] {
                         const unsigned int icons[] = {0xF015, 0xF1FC, 0xF013, 0xF05A};
                         const char* names[] = {"Home", "Theme", "Settings", "Info"};
@@ -202,9 +209,11 @@ components::markdown(ui, "style.markdown")
             .color(textPrimary())
             .build();
 
-        ui.row("style.theme.tokens.a")
-            .size(swatchRowWidth, 88.0f)
+        ui.flow("style.theme.tokens.a")
+            .width(swatchRowWidth)
+            .height(eui::SizeValue::wrapContent())
             .gap(swatchGap)
+            .lineGap(swatchGap)
             .content([&] {
                 themeSwatch(ui, "style.color.background", "background", tokens.background, swatchWidth);
                 themeSwatch(ui, "style.color.primary", "primary", tokens.primary, swatchWidth);
@@ -212,9 +221,11 @@ components::markdown(ui, "style.markdown")
                 themeSwatch(ui, "style.color.surfaceHover", "surfaceHover", tokens.surfaceHover, swatchWidth);
             });
 
-        ui.row("style.theme.tokens.b")
-            .size(swatchRowWidth, 88.0f)
+        ui.flow("style.theme.tokens.b")
+            .width(swatchRowWidth)
+            .height(eui::SizeValue::wrapContent())
             .gap(swatchGap)
+            .lineGap(swatchGap)
             .content([&] {
                 themeSwatch(ui, "style.color.surfaceActive", "surfaceActive", tokens.surfaceActive, swatchWidth);
                 themeSwatch(ui, "style.color.text", "text", tokens.text, swatchWidth);
@@ -230,9 +241,11 @@ components::markdown(ui, "style.markdown")
             .color(textPrimary())
             .build();
 
-        ui.row("style.theme.visuals")
-            .size(swatchRowWidth, 88.0f)
+        ui.flow("style.theme.visuals")
+            .width(swatchRowWidth)
+            .height(eui::SizeValue::wrapContent())
             .gap(swatchGap)
+            .lineGap(swatchGap)
             .content([&] {
                 themeSwatch(ui, "style.color.title", "titleColor", visuals.titleColor, swatchWidth);
                 themeSwatch(ui, "style.color.subtitle", "subtitleColor", visuals.subtitleColor, swatchWidth);

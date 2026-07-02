@@ -29,9 +29,7 @@ bool workshopHeartLiked = false;
 float pageScroll[7] = {};
 
 constexpr float kSidebarWidth = 272.0f;
-constexpr float kNavTop = 128.0f;
-constexpr float kNavHeight = 50.0f;
-constexpr float kNavGap = 14.0f;
+constexpr float kCompactSidebarWidth = 96.0f;
 
 eui::Transition pageTransition() {
     if (!optionMotion) {
@@ -145,22 +143,6 @@ eui::Color accent() {
     return themeColors().primary;
 }
 
-int navOrderForPage(int page) {
-    if (page == 6) {
-        return 3;
-    }
-    if (page == 4) {
-        return 4;
-    }
-    if (page == 3) {
-        return 5;
-    }
-    if (page == 5) {
-        return 6;
-    }
-    return std::clamp(page, 0, 6);
-}
-
 const char* pageTitle() {
     if (selectedPage == 1) {
         return "Style";
@@ -217,111 +199,30 @@ void caption(eui::Ui& ui, const std::string& id, const std::string& text, float 
         .build();
 }
 
-void navItem(eui::Ui& ui, const std::string& id, const std::string& label, unsigned int icon, int page) {
-    const bool active = selectedPage == page;
-    const eui::Color activeAccent = accent();
-    const eui::Color normal = active ? activeAccent : surface();
-    const eui::Color hover = active ? buttonHover(activeAccent) : surfaceSoft();
-    const eui::Color pressed = active ? buttonPressed(activeAccent) : surfaceActive();
-    components::button(ui, id)
-        .size(212.0f, 50.0f)
-        .icon(icon)
-        .iconSize(16.0f)
-        .fontSize(17.0f)
-        .text(label)
-        .colors(normal, hover, pressed)
-        .textColor(active || optionNight ? eui::Color{0.94f, 0.97f, 1.0f, 1.0f} : textPrimary())
-        .iconColor(active || optionNight ? eui::Color{0.94f, 0.97f, 1.0f, 1.0f} : textPrimary())
-        .radius(12.0f)
-        .border(1.0f, active ? withAlpha(activeAccent, 0.58f) : borderColor(0.60f))
-        .shadow(12.0f, 0.0f, 4.0f, shadowColor(0.18f, 0.08f))
+void composeNavbar(eui::Ui& ui, float width, float height, bool compact) {
+    components::navbar(ui, "gallery.navbar")
+        .theme(themeColors())
+        .size(width, height)
+        .compact(compact)
+        .brand("EUI Gallery", 0xF5FD)
+        .selected(selectedPage)
+        .items({
+            {"controls", "Controls", 0xF1B2, 0},
+            {"style", "Style", 0xF1FC, 1},
+            {"animation", "Animation", 0xF2F1, 2},
+            {"layout", "Layout", 0xF0DB, 6},
+            {"bing", "Bing", 0xF1C5, 4},
+            {"settings", "Settings", 0xF013, 3},
+            {"about", "About", 0xF05A, 5},
+        })
+        .footer(optionNight ? "Light Mode" : "Night Mode", optionNight ? 0xF185 : 0xF186, [] {
+            optionNight = !optionNight;
+        })
         .transition(pageTransition())
-        .onClick([page] {
+        .onChange([](int page) {
             selectedPage = page;
         })
         .build();
-}
-
-void composeSidebar(eui::Ui& ui, float height) {
-    const eui::Color sidebarBg = optionNight ? mixTheme(appBg(), eui::Color{0.0f, 0.0f, 0.0f, 1.0f}, 0.24f) : surface();
-    ui.stack("sidebar")
-        .size(kSidebarWidth, height)
-        .content([&] {
-            ui.rect("sidebar.bg")
-                .size(kSidebarWidth, height)
-                .color(sidebarBg)
-                .build();
-
-            ui.rect("sidebar.accent")
-                .x(0.0f)
-                .y(kNavTop)
-                .size(4.0f, 50.0f)
-                .color(accent())
-                .radius(2.0f)
-                .translateY(static_cast<float>(navOrderForPage(selectedPage)) * (kNavHeight + kNavGap))
-                .transition(pageTransition())
-                .animate(eui::AnimProperty::Transform | eui::AnimProperty::Color)
-                .build();
-
-            ui.column("sidebar.content")
-                .size(kSidebarWidth, std::max(0.0f, height - 42.0f))
-                .margin(0.0f, 30.0f, 0.0f, 0.0f)
-                .gap(14.0f)
-                .alignItems(eui::Align::CENTER)
-                .content([&] {
-                    ui.text("brand.icon")
-                        .size(212.0f, 34.0f)
-                        .icon(0xF5FD)
-                        .fontSize(27.0f)
-                        .lineHeight(32.0f)
-                        .color(accent())
-                        .transition(textTransition())
-                        .horizontalAlign(eui::HorizontalAlign::Center)
-                        .build();
-
-                    ui.text("brand.title")
-                        .size(212.0f, 36.0f)
-                        .text("EUI Gallery")
-                        .fontSize(30.0f)
-                        .lineHeight(34.0f)
-                        .color(textPrimary())
-                        .horizontalAlign(eui::HorizontalAlign::Center)
-                        .build();
-
-                    navItem(ui, "nav.controls", "Controls", 0xF1B2, 0);
-                    navItem(ui, "nav.text", "Style", 0xF1FC, 1);
-                    navItem(ui, "nav.animation", "Animation", 0xF2F1, 2);
-                    navItem(ui, "nav.layout", "Layout", 0xF0DB, 6);
-                    navItem(ui, "nav.bing", "Bing", 0xF1C5, 4);
-                    navItem(ui, "nav.settings", "Settings", 0xF013, 3);
-                    navItem(ui, "nav.about", "About", 0xF05A, 5);
-                });
-
-            ui.stack("sidebar.theme")
-                .x(30.0f)
-                .y(std::max(0.0f, height - 82.0f))
-                .size(212.0f, 50.0f)
-                .content([&] {
-                    components::button(ui, "nav.theme")
-                        .size(212.0f, 50.0f)
-                        .icon(optionNight ? 0xF185 : 0xF186)
-                        .iconSize(16.0f)
-                        .fontSize(17.0f)
-                        .text(optionNight ? "Light Mode" : "Night Mode")
-                        .colors(surface(), surfaceSoft(), surfaceActive())
-                        .textColor(textPrimary())
-                        .iconColor(accent())
-                        .radius(12.0f)
-                        .border(1.0f, borderColor(0.80f))
-                        .shadow(12.0f, 0.0f, 4.0f, shadowColor(0.18f, 0.08f))
-                        .transition(pageTransition())
-                        .onClick([] {
-                            optionNight = !optionNight;
-                        })
-                        .build();
-                })
-                .build();
-        });
 }
 
 std::string colorHex(eui::Color color) {
@@ -408,10 +309,13 @@ void composePageBody(eui::Ui& ui, float width, float height) {
 }
 
 void composeContent(eui::Ui& ui, float width, float height) {
-    const float shellWidth = std::max(0.0f, width - 72.0f);
-    const float innerWidth = std::max(0.0f, shellWidth - 64.0f);
-    const float shellHeight = std::max(0.0f, height - 72.0f);
-    const float innerHeight = std::max(0.0f, shellHeight - 64.0f);
+    const bool compact = width < 760.0f;
+    const float shellMargin = compact ? 18.0f : 36.0f;
+    const float contentInset = compact ? 24.0f : 32.0f;
+    const float shellWidth = std::max(0.0f, width - shellMargin * 2.0f);
+    const float innerWidth = std::max(0.0f, shellWidth - contentInset * 2.0f);
+    const float shellHeight = std::max(0.0f, height - shellMargin * 2.0f);
+    const float innerHeight = std::max(0.0f, shellHeight - contentInset * 2.0f);
     const float headerGap = optionDense ? 18.0f : 26.0f;
     const float bodyHeight = std::max(0.0f, innerHeight - 46.0f - 30.0f - headerGap * 2.0f);
     const int page = std::clamp(selectedPage, 0, 6);
@@ -426,9 +330,9 @@ void composeContent(eui::Ui& ui, float width, float height) {
 
             ui.rect("page.shell")
                 .size(shellWidth, shellHeight)
-                .margin(36.0f)
+                .margin(shellMargin)
                 .color(surface())
-                .radius(26.0f)
+                .radius(compact ? 18.0f : 26.0f)
                 .border(1.0f, borderColor())
                 .shadow(30.0f, 0.0f, 16.0f, shadowColor(0.28f, 0.14f))
                 .transition(pageTransition())
@@ -436,7 +340,7 @@ void composeContent(eui::Ui& ui, float width, float height) {
 
             ui.column("page.content")
                 .size(innerWidth, innerHeight)
-                .margin(68.0f)
+                .margin(shellMargin + contentInset)
                 .padding(0.0f)
                 .gap(headerGap)
                 .content([&] {
@@ -449,7 +353,7 @@ void composeContent(eui::Ui& ui, float width, float height) {
                             ui.text("page.title")
                                 .size(std::max(0.0f, innerWidth - moreWidth), 46.0f)
                                 .text(pageTitle())
-                                .fontSize(38.0f)
+                                .fontSize(compact ? 30.0f : 38.0f)
                                 .lineHeight(44.0f)
                                 .color(accent())
                                 .transition(textTransition())
@@ -477,7 +381,7 @@ void composeContent(eui::Ui& ui, float width, float height) {
                     ui.text("page.subtitle")
                         .size(innerWidth, 30.0f)
                         .text(pageSubtitle())
-                        .fontSize(20.0f)
+                        .fontSize(compact ? 17.0f : 20.0f)
                         .lineHeight(28.0f)
                         .color(textMuted())
                         .transition(textTransition())
@@ -553,12 +457,14 @@ const DslAppConfig& dslAppConfig() {
 
 void compose(eui::Ui& ui, const eui::Screen& screen) {
     applyGlobalAnimationSpeed();
-    const float contentWidth = std::max(0.0f, screen.width - kSidebarWidth);
+    const bool compactShell = screen.width < 980.0f;
+    const float sidebarWidth = compactShell ? kCompactSidebarWidth : kSidebarWidth;
+    const float contentWidth = std::max(0.0f, screen.width - sidebarWidth);
 
     ui.row("root")
         .size(screen.width, screen.height)
         .content([&] {
-            composeSidebar(ui, screen.height);
+            composeNavbar(ui, sidebarWidth, screen.height, compactShell);
             composeContent(ui, contentWidth, screen.height);
         });
 

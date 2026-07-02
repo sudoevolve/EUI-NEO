@@ -18,11 +18,12 @@ Before writing code, inspect these local sources when available:
 - `README.md` or `README.zh-CN.md` for app setup and public entry points.
 - `docs/DSL.md` for DSL element capabilities.
 - `docs/*.md` with searches for `Row`, `Column`, `Stack`, `Flow`, `SizeValue`, `ignoreLayout`, and component names for layout and component behavior.
-- `examples/gallery.cpp` and `examples/pages/*.h` for idiomatic page composition.
+- `examples/gallery.cpp` and `examples/pages/*.h` only as references for idiomatic page composition.
 - `components/components.h` for the exported component list.
 - `components/workshop/SKILL.md` when porting an effect-heavy or CSS-like custom component.
 
 Create runnable user apps under `apps/`, not under `examples/`, unless the user explicitly asks to modify the built-in gallery or examples. Prefer a directory app such as `apps/my_app/app.cpp` when the UI may grow or needs assets; use `apps/my_app/assets/` for app-local media. A single-file `apps/my_app.cpp` is fine only for very small experiments.
+Before creating code, choose and state the app target name. The target name comes from the flat file stem (`apps/my_app.cpp` -> `my_app`) or directory name (`apps/my_app/app.cpp` -> `my_app`). Build that exact target for verification.
 
 Create a short implementation inventory:
 
@@ -105,6 +106,14 @@ Use `Stack` for overlays, absolute local coordinates, backgrounds behind content
 Use `Flow` for chips, tags, filter buttons, compact action groups, and any horizontal content that should wrap.
 
 Use `components::scrollView` for scrollable measured content. Use low-level `components::scroll` only when manually binding a runtime scroll state is necessary.
+
+Inside `scrollView`, make the scroll content root measure its real content height. Prefer `.height(SizeValue::wrapContent())` on the content root; do not lock it to the viewport height unless the content is intentionally non-scrollable.
+
+Keep one logical wrapping grid in one `Flow`. Do not split one continuous card grid into multiple sibling flows, because each flow wraps independently and will restart from a new line.
+
+Treat `Flow` as wrapping, not as a full responsive layout engine. Use explicit thresholds when structure changes: keep two-column `Row` layouts while both children fit, switch to single-column `Column` only when the width is truly too small.
+
+Avoid putting content with variable visible height inside a fixed-height parent just to group it. If a table, picker, markdown block, wrapped flow, or stacked section can grow, let it participate directly in the parent column or reserve enough measured height; otherwise later content can visually overlap.
 
 Prefer `.padding(...)` on containers over extra spacer containers. Prefer `.gap(...)` for repeated child spacing. Use `.fill()`, `SizeValue::wrapContent()`, `flexGrow`, `minWidth`, and `maxWidth` to handle responsive resizing instead of hard-coded screen branches everywhere.
 
@@ -209,11 +218,31 @@ Use Font Awesome icon codepoints through `.icon(...)` on `components::button` or
 
 Keep text boxes large enough for the intended strings. Set `fontSize`, `lineHeight`, `horizontalAlign`, and `verticalAlign` explicitly for polished compact controls.
 
+## App File Placement
+
+For user-facing generated apps, create or update one of these shapes:
+
+```text
+apps/
+  my_app/
+    app.cpp
+    assets/        # optional app-local assets
+```
+
+or, only for tiny throwaway experiments:
+
+```text
+apps/
+  my_app.cpp
+```
+
+Do not add new user apps to `examples/`. Use `examples/` only when the user explicitly asks for a built-in example, gallery page, release demo, or regression fixture.
+
 ## Page Skeleton
 
 Write application files so the UI reads from top to bottom. Put `dslAppConfig()` near the top, then `compose()` as the root overview, then the page or region composition functions in visual order, and put small reusable helpers after the UI sections. Use short forward declarations when needed to keep this order. Comments should label meaningful sections such as root layout, sidebar, content host, Home, Settings, overlays, and custom primitive pieces; avoid line-by-line comments that repeat the code.
 
-Use this shape for a standalone reproduced UI:
+Use this shape for `apps/<target>/app.cpp` or `apps/<target>.cpp`:
 
 ```cpp
 #include <algorithm>
@@ -356,10 +385,10 @@ After implementing a replica:
 
 ```powershell
 git diff --check
-cmake --build build --parallel
+cmake --build build --target <app_target> --parallel
 ```
 
-If the app is a gallery/example target, build the exact executable target when practical:
+Use `gallery` or other `examples/*` targets only when the task explicitly modified built-in examples:
 
 ```powershell
 cmake --build build --target gallery --parallel
