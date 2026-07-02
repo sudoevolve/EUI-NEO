@@ -160,6 +160,45 @@ if(EUI_WINDOW_BACKEND STREQUAL "sdl2")
     endif()
 endif()
 
+if(EUI_WINDOW_BACKEND STREQUAL "sdl3")
+    if(EUI_DEPS_MODE STREQUAL "bundled")
+        message(FATAL_ERROR
+            "SDL3 is not vendored under 3rd/. Use -DEUI_DEPS_MODE=auto to prefer a system SDL3 package "
+            "and fall back to fetching SDL3, or use -DEUI_DEPS_MODE=fetch to always download SDL3."
+        )
+    endif()
+
+    set(EUI_FETCH_SDL3 OFF)
+    if(EUI_DEPS_MODE STREQUAL "auto")
+        find_package(SDL3 CONFIG QUIET COMPONENTS SDL3)
+        if(NOT TARGET SDL3::SDL3)
+            message(STATUS "System SDL3 package was not found; fetching SDL3 instead.")
+            set(EUI_FETCH_SDL3 ON)
+        endif()
+    elseif(EUI_DEPS_MODE STREQUAL "fetch")
+        set(EUI_FETCH_SDL3 ON)
+    endif()
+
+    if(EUI_FETCH_SDL3)
+        eui_set_third_party_option(SDL_SHARED OFF "Build a shared version of SDL3")
+        eui_set_third_party_option(SDL_STATIC ON "Build a static version of SDL3")
+        eui_set_third_party_option(SDL_TESTS OFF "Build the SDL3 test programs")
+        eui_set_third_party_option(SDL_EXAMPLES OFF "Build the SDL3 example programs")
+        eui_set_third_party_option(SDL_INSTALL OFF "Generate installation target")
+
+        FetchContent_Declare(
+            sdl3
+            URL https://github.com/libsdl-org/SDL/releases/download/release-3.4.10/SDL3-3.4.10.tar.gz
+            URL_HASH SHA256=12b34280415ec8418c864408b93d008a20a6530687ee613d60bfbd20411f2785
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            TIMEOUT 30
+        )
+        FetchContent_MakeAvailable(sdl3)
+        eui_silence_third_party_warnings(SDL3-static)
+        eui_silence_third_party_warnings(SDL3-shared)
+    endif()
+endif()
+
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
     if(TARGET glad)
         message(STATUS "Using existing glad target: glad")

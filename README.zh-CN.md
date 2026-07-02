@@ -11,7 +11,7 @@
   <img alt="C++17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white">
   <img alt="CMake 3.14+" src="https://img.shields.io/badge/CMake-3.14%2B-064F8C?logo=cmake&logoColor=white">
   <img alt="OpenGL / Vulkan" src="https://img.shields.io/badge/OpenGL%20%2F%20Vulkan-rendering-5586A4?logo=vulkan&logoColor=white">
-  <img alt="GLFW / SDL2" src="https://img.shields.io/badge/GLFW%20%2F%20SDL2-windowing-111111">
+  <img alt="GLFW / SDL2 / SDL3" src="https://img.shields.io/badge/GLFW%20%2F%20SDL2%20%2F%20SDL3-windowing-111111">
   <a href="https://github.com/sudoevolve/EUI-NEO/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/sudoevolve/EUI-NEO?style=flat"></a>
 </p>
 
@@ -21,7 +21,7 @@
   <a href="https://sudoevolve.github.io/EUI-NEO/">官网</a>
 </p>
 
-EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 GLFW/SDL2 窗口后端和 OpenGL/Vulkan 渲染后端。
+EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 GLFW/SDL2/SDL3 窗口后端和 OpenGL/Vulkan 渲染后端。
 
 ## 预览
 
@@ -43,16 +43,19 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 
 GLFW、glad、tray、FreeType、HarfBuzz、libpng、zlib 等构建期第三方源码已内置在 `3rd/` 下。默认依赖模式是 `auto`：先复用父项目已有的 `glfw` / `glad` target，再尝试包管理器 target，最后才使用本地 `3rd/` 源码或固定上游兜底拉取。需要严格离线构建时，可配置 `-DEUI_DEPS_MODE=bundled`；需要强制联网拉取时，可配置 `-DEUI_DEPS_MODE=fetch`。HarfBuzz shaping 默认启用，可通过 `-DEUI_ENABLE_HARFBUZZ=OFF` 关闭。
 
-内置和 fetch 下载的依赖默认按静态链接构建，包括 GLFW。Release 包因此不需要额外携带 GLFW DLL / dylib / so。只有选择系统 SDL2 包时，SDL2 仍可能是动态库。
+内置和 fetch 下载的依赖默认按静态链接构建，包括 GLFW、SDL2 和 SDL3。Release 包因此不需要额外携带 GLFW DLL / dylib / so。选择系统 SDL2 或 SDL3 包时，对应 SDL 仍可能是动态库。
 
-默认窗口后端是 GLFW。SDL2 是可选后端，不放进 `3rd/`：如果 GLFW 不可用，或需要测试 SDL2，在构建目录名里加 `sdl2`：
+默认窗口后端是 GLFW。SDL2 和 SDL3 是可选后端，不放进 `3rd/`：如果 GLFW 不可用，或需要测试 SDL 后端，在构建目录名里加 `sdl2` 或 `sdl3`：
 
 ```sh
 cmake -S . -B build-sdl2
 cmake --build build-sdl2
+
+cmake -S . -B build-sdl3
+cmake --build build-sdl3
 ```
 
-找不到系统 SDL2 包时，加 `-DEUI_DEPS_MODE=fetch` 下载固定版本 SDL2 源码。
+找不到系统 SDL2 或 SDL3 包时，加 `-DEUI_DEPS_MODE=fetch` 下载固定版本 SDL 源码。
 
 macOS / Linux 示例：
 
@@ -69,7 +72,7 @@ cmake -S . -B build-vk
 cmake --build build-vk --target gallery
 ```
 
-构建目录后缀会在首次配置时自动识别：`build` 表示 GLFW + OpenGL，`build-sdl2` 表示 SDL2 + OpenGL，`build-vk` 表示 GLFW + Vulkan，`build-sdl2-vk` 表示 SDL2 + Vulkan。已有构建目录存在 CMake cache 时，删除该目录或显式传入 `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...`。
+构建目录后缀会在首次配置时自动识别：`build` 表示 GLFW + OpenGL，`build-sdl2` 表示 SDL2 + OpenGL，`build-sdl3` 表示 SDL3 + OpenGL，`build-vk` 表示 GLFW + Vulkan，`build-sdl2-vk` 表示 SDL2 + Vulkan，`build-sdl3-vk` 表示 SDL3 + Vulkan。已有构建目录存在 CMake cache 时，删除该目录或显式传入 `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...`。
 
 Windows / PowerShell 示例：
 
@@ -85,6 +88,8 @@ Linux 依赖提示：
 sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libcurl4-openssl-dev
 # -DEUI_WINDOW_BACKEND=sdl2 可选安装：
 sudo apt-get install -y libsdl2-dev
+# -DEUI_WINDOW_BACKEND=sdl3 可选安装：
+sudo apt-get install -y libsdl3-dev
 ```
 
 顶层构建会为 `examples/*.cpp` 下的每个页面源文件生成一个可执行程序，例如 `gallery`、`chat` 和 `eui_demo`。构建后会自动把 `assets/` 复制到可执行文件目录。
@@ -154,7 +159,7 @@ cmake --build build --parallel
 ./build/my_app
 ```
 
-这种方式下，EUI-NEO 会接管窗口、事件循环、当前选择的渲染后端和资源复制。SDL2、Vulkan、`FetchContent`、自定义 main loop，以及在父项目里构建仓库自带示例的写法，见 [集成指南](docs/集成指南.md)。
+这种方式下，EUI-NEO 会接管窗口、事件循环、当前选择的渲染后端和资源复制。SDL2、SDL3、Vulkan、`FetchContent`、自定义 main loop，以及在父项目里构建仓库自带示例的写法，见 [集成指南](docs/集成指南.md)。
 
 ## 目录结构
 

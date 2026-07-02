@@ -2,7 +2,10 @@
 
 #include "core/render/render_types.h"
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
+#elif defined(EUI_WINDOW_BACKEND_SDL2)
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #else
@@ -472,7 +475,14 @@ bool VulkanRenderBackend::createInstance() {
     appInfo.apiVersion = VK_API_VERSION_1_0;
 
     std::vector<const char*> extensions;
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    Uint32 sdlExtensionCount = 0;
+    const char* const* sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount);
+    if (sdlExtensions == nullptr) {
+        return false;
+    }
+    extensions.assign(sdlExtensions, sdlExtensions + sdlExtensionCount);
+#elif defined(EUI_WINDOW_BACKEND_SDL2)
     unsigned int sdlExtensionCount = 0;
     if (SDL_Vulkan_GetInstanceExtensions(static_cast<SDL_Window*>(window_), &sdlExtensionCount, nullptr) != SDL_TRUE) {
         return false;
@@ -523,7 +533,9 @@ bool VulkanRenderBackend::createInstance() {
 }
 
 bool VulkanRenderBackend::createSurface() {
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    return SDL_Vulkan_CreateSurface(static_cast<SDL_Window*>(window_), instance_, nullptr, &surface_);
+#elif defined(EUI_WINDOW_BACKEND_SDL2)
     return SDL_Vulkan_CreateSurface(static_cast<SDL_Window*>(window_), instance_, &surface_) == SDL_TRUE;
 #else
     return glfwCreateWindowSurface(instance_, static_cast<GLFWwindow*>(window_), nullptr, &surface_) == VK_SUCCESS;

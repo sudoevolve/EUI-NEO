@@ -6,7 +6,9 @@
 #include <cmath>
 #include <glad/glad.h>
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+#include <SDL3/SDL.h>
+#elif defined(EUI_WINDOW_BACKEND_SDL2)
 #include <SDL.h>
 #else
 #ifndef GLFW_INCLUDE_NONE
@@ -24,7 +26,7 @@ bool& gladLoaded() {
     return loaded;
 }
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
 bool loadOpenGLFunctions() {
     if (gladLoaded()) {
         return true;
@@ -67,9 +69,13 @@ OpenGLRenderBackend::~OpenGLRenderBackend() {
     releasePolygonResources();
     releaseTextResources();
     releaseImageResources();
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     if (context_ != nullptr) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+        SDL_GL_DestroyContext(static_cast<SDL_GLContext>(context_));
+#else
         SDL_GL_DeleteContext(context_);
+#endif
         context_ = nullptr;
     }
 #endif
@@ -81,7 +87,7 @@ bool OpenGLRenderBackend::initialize() {
         return false;
     }
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     if (shareContext_ != nullptr) {
         shareContext_->makeCurrent();
     }
@@ -100,7 +106,10 @@ bool OpenGLRenderBackend::initialize() {
 #endif
 
     if (!loadOpenGLFunctions()) {
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+        SDL_GL_DestroyContext(static_cast<SDL_GLContext>(context_));
+        context_ = nullptr;
+#elif defined(EUI_WINDOW_BACKEND_SDL2)
         SDL_GL_DeleteContext(context_);
         context_ = nullptr;
 #endif
@@ -214,9 +223,13 @@ void OpenGLRenderBackend::makeCurrent() {
     if (window_ == nullptr) {
         return;
     }
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     if (context_ != nullptr) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+        SDL_GL_MakeCurrent(static_cast<SDL_Window*>(window_), static_cast<SDL_GLContext>(context_));
+#else
         SDL_GL_MakeCurrent(static_cast<SDL_Window*>(window_), context_);
+#endif
     }
 #else
     glfwMakeContextCurrent(static_cast<GLFWwindow*>(window_));
@@ -235,7 +248,7 @@ void OpenGLRenderBackend::present() {
     if (window_ == nullptr) {
         return;
     }
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     SDL_GL_SwapWindow(static_cast<SDL_Window*>(window_));
 #else
     glfwSwapBuffers(static_cast<GLFWwindow*>(window_));
