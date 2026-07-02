@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <initializer_list>
 #include <memory>
 #include <limits>
 #include <string>
@@ -213,6 +214,18 @@ std::string existingPath(const std::filesystem::path& path) {
     return {};
 }
 
+std::string firstExistingPath(std::initializer_list<const char*> paths) {
+    for (const char* path : paths) {
+        if (path == nullptr || path[0] == '\0') {
+            continue;
+        }
+        if (const std::string existing = existingPath(path); !existing.empty()) {
+            return existing;
+        }
+    }
+    return {};
+}
+
 std::string& defaultUiFontFileOverride() {
     static std::string value;
     return value;
@@ -224,6 +237,114 @@ std::string& defaultIconFontFileOverride() {
 }
 
 std::string resolveFontFilePath(const std::string& path);
+
+std::string resolveSystemUiFontPath() {
+#ifdef _WIN32
+    return firstExistingPath({
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/msyh.ttc",
+        "C:/Windows/Fonts/arial.ttf"
+    });
+#elif defined(__APPLE__)
+    return firstExistingPath({
+        "/System/Library/Fonts/SFNS.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf"
+    });
+#else
+    return firstExistingPath({
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/google-noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+    });
+#endif
+}
+
+std::string resolveSystemIconFontPath() {
+#ifdef _WIN32
+    return firstExistingPath({
+        "C:/Windows/Fonts/seguisym.ttf",
+        "C:/Windows/Fonts/SegMDL2.ttf",
+        "C:/Windows/Fonts/seguiemj.ttf",
+        "C:/Windows/Fonts/segoeui.ttf"
+    });
+#elif defined(__APPLE__)
+    return firstExistingPath({
+        "/System/Library/Fonts/Apple Symbols.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/System/Library/Fonts/Helvetica.ttc"
+    });
+#else
+    return firstExistingPath({
+        "/usr/share/fonts/fontawesome/fa-solid-900.ttf",
+        "/usr/share/fonts/TTF/fa-solid-900.ttf",
+        "/usr/share/fonts/truetype/font-awesome/fa-solid-900.ttf",
+        "/usr/share/fonts/opentype/font-awesome/Font Awesome 6 Free-Solid-900.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/noto/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/google-noto/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansSymbols-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf"
+    });
+#endif
+}
+
+std::string resolveSystemEmojiFontPath() {
+#ifdef _WIN32
+    return firstExistingPath({
+        "C:/Windows/Fonts/seguiemj.ttf",
+        "C:/Windows/Fonts/seguisym.ttf"
+    });
+#elif defined(__APPLE__)
+    return firstExistingPath({
+        "/System/Library/Fonts/Apple Color Emoji.ttc"
+    });
+#else
+    return firstExistingPath({
+        "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+        "/usr/share/fonts/noto/NotoColorEmoji.ttf",
+        "/usr/share/fonts/google-noto/NotoColorEmoji.ttf"
+    });
+#endif
+}
+
+std::string resolveSystemMonospaceFontPath() {
+#ifdef _WIN32
+    return firstExistingPath({
+        "C:/Windows/Fonts/CascadiaMono.ttf",
+        "C:/Windows/Fonts/CascadiaCode.ttf",
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/cour.ttf"
+    });
+#elif defined(__APPLE__)
+    return firstExistingPath({
+        "/System/Library/Fonts/SFNSMono.ttf",
+        "/System/Library/Fonts/Supplemental/Menlo.ttc",
+        "/System/Library/Fonts/Menlo.ttc",
+        "/System/Library/Fonts/Monaco.ttf"
+    });
+#else
+    return firstExistingPath({
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationMono-Regular.ttf",
+        "/usr/share/fonts/liberation/LiberationMono-Regular.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansMono-Regular.ttf",
+        "/usr/share/fonts/noto/NotoSansMono-Regular.ttf",
+        "/usr/share/fonts/google-noto/NotoSansMono-Regular.ttf",
+        "/usr/share/fonts/TTF/Hack-Regular.ttf"
+    });
+#endif
+}
 
 std::filesystem::path executableDirectory() {
 #ifdef _WIN32
@@ -265,19 +386,13 @@ std::filesystem::path executableDirectory() {
 #endif
 }
 
-std::filesystem::path sourceRootDirectory() {
-    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path();
-}
-
 std::string resolveProjectAssetPath(const std::string& filename) {
-    const std::filesystem::path sourceRoot = sourceRootDirectory();
     const std::filesystem::path exeDir = executableDirectory();
     const std::filesystem::path candidates[] = {
         exeDir / "assets" / filename,
         std::filesystem::path("assets") / filename,
         std::filesystem::path("..") / "assets" / filename,
-        std::filesystem::path("..") / ".." / "assets" / filename,
-        sourceRoot / "assets" / filename
+        std::filesystem::path("..") / ".." / "assets" / filename
     };
 
     for (const auto& candidate : candidates) {
@@ -285,17 +400,25 @@ std::string resolveProjectAssetPath(const std::string& filename) {
             return path;
         }
     }
-    return (sourceRoot / "assets" / filename).string();
+    return {};
 }
 
 std::string resolveDefaultUiFontPath() {
     const std::string& override = defaultUiFontFileOverride();
-    return override.empty() ? resolveProjectAssetPath(kDefaultUiFontFile) : resolveFontFilePath(override);
+    const std::string path = override.empty() ? resolveProjectAssetPath(kDefaultUiFontFile) : resolveFontFilePath(override);
+    if (const std::string existing = existingPath(path); !existing.empty()) {
+        return existing;
+    }
+    return resolveSystemUiFontPath();
 }
 
 std::string resolveDefaultIconFontPath() {
     const std::string& override = defaultIconFontFileOverride();
-    return override.empty() ? resolveProjectAssetPath(kDefaultIconFontFile) : resolveFontFilePath(override);
+    const std::string path = override.empty() ? resolveProjectAssetPath(kDefaultIconFontFile) : resolveFontFilePath(override);
+    if (const std::string existing = existingPath(path); !existing.empty()) {
+        return existing;
+    }
+    return resolveSystemIconFontPath();
 }
 
 std::string resolveFontFilePath(const std::string& path) {
@@ -304,15 +427,13 @@ std::string resolveFontFilePath(const std::string& path) {
         return existing;
     }
 
-    const std::filesystem::path sourceRoot = sourceRootDirectory();
     const std::filesystem::path exeDir = executableDirectory();
     const std::filesystem::path candidates[] = {
         exeDir / "assets" / raw.filename(),
         exeDir / raw,
         std::filesystem::path("assets") / raw.filename(),
         std::filesystem::path("..") / "assets" / raw.filename(),
-        std::filesystem::path("..") / ".." / "assets" / raw.filename(),
-        sourceRoot / "assets" / raw.filename()
+        std::filesystem::path("..") / ".." / "assets" / raw.filename()
     };
 
     for (const auto& candidate : candidates) {
@@ -418,11 +539,30 @@ std::shared_ptr<FontInfoHolder> loadSharedFontStack(const std::string& fontPath,
 
     auto holder = std::make_shared<FontInfoHolder>();
 
-    FontFace primary;
-    if (!loadFontFace(fontPath, fontSize, primary)) {
+    auto addLoadedFace = [&](const std::string& path) {
+        if (path.empty()) {
+            return false;
+        }
+        const bool alreadyLoaded = std::any_of(holder->faces.begin(), holder->faces.end(),
+                                               [&](const FontFace& loadedFace) {
+                                                   return loadedFace.path == path;
+                                               });
+        if (alreadyLoaded) {
+            return true;
+        }
+        FontFace face;
+        if (!loadFontFace(path, fontSize, face)) {
+            return false;
+        }
+        holder->faces.push_back(std::move(face));
+        return true;
+    };
+
+    if (!addLoadedFace(fontPath) &&
+        !addLoadedFace(resolveDefaultUiFontPath()) &&
+        !addLoadedFace(resolveSystemUiFontPath())) {
         return {};
     }
-    holder->faces.push_back(std::move(primary));
 
     auto addLazyFallback = [&](const std::string& fallbackPath) {
         if (fallbackPath.empty() || fallbackPath == fontPath) {
@@ -435,6 +575,9 @@ std::shared_ptr<FontInfoHolder> loadSharedFontStack(const std::string& fontPath,
 
     addLazyFallback(resolveDefaultUiFontPath());
     addLazyFallback(resolveDefaultIconFontPath());
+    addLazyFallback(resolveSystemUiFontPath());
+    addLazyFallback(resolveSystemIconFontPath());
+    addLazyFallback(resolveSystemEmojiFontPath());
 
 #ifdef _WIN32
     addLazyFallback("C:/Windows/Fonts/seguiemj.ttf");
@@ -1650,13 +1793,7 @@ std::string TextPrimitive::Impl::resolveFontPath(const std::string& fontFamily, 
 #ifdef _WIN32
     if (fontFamily == "monospace" || fontFamily == "Mono" ||
         fontFamily == "Cascadia Mono" || fontFamily == "Cascadia Code") {
-        if (const std::string path = existingPath("C:/Windows/Fonts/CascadiaMono.ttf"); !path.empty()) {
-            return path;
-        }
-        if (const std::string path = existingPath("C:/Windows/Fonts/CascadiaCode.ttf"); !path.empty()) {
-            return path;
-        }
-        if (const std::string path = existingPath("C:/Windows/Fonts/consola.ttf"); !path.empty()) {
+        if (const std::string path = resolveSystemMonospaceFontPath(); !path.empty()) {
             return path;
         }
     }
@@ -1664,7 +1801,10 @@ std::string TextPrimitive::Impl::resolveFontPath(const std::string& fontFamily, 
         return "C:/Windows/Fonts/msyh.ttc";
     }
     if (fontFamily == "Segoe UI Emoji" || fontFamily == "Emoji") {
-        return "C:/Windows/Fonts/seguiemj.ttf";
+        if (const std::string path = resolveSystemEmojiFontPath(); !path.empty()) {
+            return path;
+        }
+        return resolveDefaultUiFontPath();
     }
     if (fontFamily == "SimHei") {
         return "C:/Windows/Fonts/simhei.ttf";
@@ -1676,21 +1816,15 @@ std::string TextPrimitive::Impl::resolveFontPath(const std::string& fontFamily, 
 #elif defined(__APPLE__)
     if (fontFamily == "monospace" || fontFamily == "Mono" ||
         fontFamily == "SF Mono" || fontFamily == "Menlo" || fontFamily == "Monaco") {
-        if (const std::string path = existingPath("/System/Library/Fonts/SFNSMono.ttf"); !path.empty()) {
-            return path;
-        }
-        if (const std::string path = existingPath("/System/Library/Fonts/Supplemental/Menlo.ttc"); !path.empty()) {
-            return path;
-        }
-        if (const std::string path = existingPath("/System/Library/Fonts/Menlo.ttc"); !path.empty()) {
-            return path;
-        }
-        if (const std::string path = existingPath("/System/Library/Fonts/Monaco.ttf"); !path.empty()) {
+        if (const std::string path = resolveSystemMonospaceFontPath(); !path.empty()) {
             return path;
         }
     }
     if (fontFamily == "Noto Color Emoji" || fontFamily == "Apple Color Emoji" || fontFamily == "Emoji") {
-        return "/System/Library/Fonts/Apple Color Emoji.ttc";
+        if (const std::string path = resolveSystemEmojiFontPath(); !path.empty()) {
+            return path;
+        }
+        return resolveDefaultUiFontPath();
     }
     if (fontWeight >= 600) {
         return resolveDefaultUiFontPath();
@@ -1699,22 +1833,16 @@ std::string TextPrimitive::Impl::resolveFontPath(const std::string& fontFamily, 
 #else
     (void)fontWeight;
     if (fontFamily == "monospace" || fontFamily == "Mono") {
-        if (const std::string path = existingPath("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"); !path.empty()) {
+        if (const std::string path = resolveSystemMonospaceFontPath(); !path.empty()) {
             return path;
         }
-        if (const std::string path = existingPath("/usr/share/fonts/truetype/liberation2/LiberationMono-Regular.ttf"); !path.empty()) {
-            return path;
-        }
-        if (const std::string path = existingPath("/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"); !path.empty()) {
-            return path;
-        }
-        if (const std::string path = existingPath("/usr/share/fonts/opentype/noto/NotoSansMono-Regular.ttf"); !path.empty()) {
-            return path;
-        }
-        return "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf";
+        return resolveDefaultUiFontPath();
     }
     if (fontFamily == "Noto Color Emoji" || fontFamily == "Emoji") {
-        return "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf";
+        if (const std::string path = resolveSystemEmojiFontPath(); !path.empty()) {
+            return path;
+        }
+        return resolveDefaultUiFontPath();
     }
     return resolveDefaultUiFontPath();
 #endif
