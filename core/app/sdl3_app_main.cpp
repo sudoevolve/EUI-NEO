@@ -260,11 +260,6 @@ void processMainEvent(SDL_Window* window, WindowState& state, const SDL_Event& e
             core::queueKeyInput(window, key, ctrl, shift);
             state.paintRequested = true;
         }
-        if (event.key.key == SDLK_ESCAPE && !state.trayAvailable) {
-            state.running = false;
-        } else if (event.key.key == SDLK_ESCAPE) {
-            hideToTray(window, state);
-        }
         return;
     }
     if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
@@ -398,9 +393,6 @@ void processManagedEvent(ManagedWindow& managed, const SDL_Event& event) {
             core::queueKeyInput(managed.window, key, ctrl, shift);
             managed.content.requestPaint();
         }
-        if (event.key.key == SDLK_ESCAPE) {
-            managed.closeRequested = true;
-        }
         return;
     }
     if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
@@ -449,7 +441,6 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool update
 int main() {
     core::platform::repairCurrentWorkingDirectory();
 #ifdef _WIN32
-    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
     SDL_SetHint(SDL_HINT_IME_IMPLEMENTED_UI, "composition");
 #endif
     if (!SDL_Init(SDL_INIT_VIDEO)) {
