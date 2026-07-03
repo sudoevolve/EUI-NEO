@@ -9,6 +9,9 @@
 #include <mmsystem.h>
 #endif
 
+#ifndef SDL_MAIN_HANDLED
+#define SDL_MAIN_HANDLED
+#endif
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #if defined(EUI_RENDER_BACKEND_VULKAN)
