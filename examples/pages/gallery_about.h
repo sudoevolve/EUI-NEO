@@ -1,6 +1,8 @@
 struct GalleryAboutPage {
     const char* windowBackendName() {
-    #if defined(EUI_WINDOW_BACKEND_SDL2)
+    #if defined(EUI_WINDOW_BACKEND_SDL3)
+        return "SDL3";
+    #elif defined(EUI_WINDOW_BACKEND_SDL2)
         return "SDL2";
     #else
         return "GLFW";
@@ -231,4 +233,3 @@ struct GalleryAboutPage {
         });
     }
 };
-

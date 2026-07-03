@@ -1,11 +1,16 @@
 #include "core/render/render_backend.h"
 #include "core/window/window_backend.h"
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#else
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#endif
 #else
 #ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
@@ -40,11 +45,15 @@ void sleepBriefly() {
 }
 
 bool pollOnce(core::window::Handle window) {
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     SDL_Event event{};
     while (SDL_PollEvent(&event)) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+        if (event.type == SDL_EVENT_QUIT || event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+#else
         if (event.type == SDL_QUIT ||
             (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE)) {
+#endif
             return false;
         }
     }
@@ -58,7 +67,7 @@ bool pollOnce(core::window::Handle window) {
 }
 
 void shutdownWindowSystem() {
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     SDL_Quit();
 #else
     glfwTerminate();
@@ -66,7 +75,9 @@ void shutdownWindowSystem() {
 }
 
 bool initializeWindowSystem() {
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    return SDL_Init(SDL_INIT_VIDEO);
+#elif defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_SetMainReady();
     return SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) == 0;
 #else

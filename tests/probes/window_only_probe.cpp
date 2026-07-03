@@ -1,10 +1,15 @@
 #include "core/window/window_backend.h"
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
+#else
 #ifndef SDL_MAIN_HANDLED
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#endif
 #else
 #ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
@@ -46,11 +51,15 @@ int frameCountFromArgs(int argc, char** argv) {
 }
 
 bool pollOnce(core::window::Handle window) {
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     SDL_Event event{};
     while (SDL_PollEvent(&event)) {
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+        if (event.type == SDL_EVENT_QUIT || event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+#else
         if (event.type == SDL_QUIT ||
             (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE)) {
+#endif
             return false;
         }
     }
@@ -68,7 +77,11 @@ bool pollOnce(core::window::Handle window) {
 int main(int argc, char** argv) {
     const int frames = frameCountFromArgs(argc, argv);
 
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL3)
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        return 1;
+    }
+#elif defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_SetMainReady();
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         return 1;
@@ -87,7 +100,7 @@ int main(int argc, char** argv) {
 
     core::window::Handle window = core::window::createWindow(request);
     if (window == nullptr) {
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
         SDL_Quit();
 #else
         glfwTerminate();
@@ -105,7 +118,7 @@ int main(int argc, char** argv) {
     }
 
     core::window::destroyWindow(window);
-#if defined(EUI_WINDOW_BACKEND_SDL2)
+#if defined(EUI_WINDOW_BACKEND_SDL2) || defined(EUI_WINDOW_BACKEND_SDL3)
     SDL_Quit();
 #else
     glfwTerminate();

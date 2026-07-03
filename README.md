@@ -11,7 +11,7 @@
   <img alt="C++17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white">
   <img alt="CMake 3.14+" src="https://img.shields.io/badge/CMake-3.14%2B-064F8C?logo=cmake&logoColor=white">
   <img alt="OpenGL / Vulkan" src="https://img.shields.io/badge/OpenGL%20%2F%20Vulkan-rendering-5586A4?logo=vulkan&logoColor=white">
-  <img alt="GLFW / SDL2" src="https://img.shields.io/badge/GLFW%20%2F%20SDL2-windowing-111111">
+  <img alt="GLFW / SDL2 / SDL3" src="https://img.shields.io/badge/GLFW%20%2F%20SDL2%20%2F%20SDL3-windowing-111111">
   <a href="https://github.com/sudoevolve/EUI-NEO/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/sudoevolve/EUI-NEO?style=flat"></a>
 </p>
 
@@ -21,7 +21,7 @@
   <a href="https://sudoevolve.github.io/EUI-NEO/">Website</a>
 </p>
 
-EUI-NEO is a cross-platform, high-performance, low-overhead C++17 UI framework with GLFW/SDL2 window backends and OpenGL/Vulkan render backends.
+EUI-NEO is a cross-platform, high-performance, low-overhead C++17 UI framework with GLFW/SDL2/SDL3 window backends and OpenGL/Vulkan render backends.
 
 ## Preview
 
@@ -43,16 +43,19 @@ Requirements:
 
 Build-time sources for GLFW, glad, tray, FreeType, HarfBuzz, libpng, and zlib are vendored under `3rd/`. The default dependency mode is `auto`: CMake uses existing parent targets for `glfw` / `glad` first, then package targets, then the local `3rd/` sources or pinned fetch fallback. Use `-DEUI_DEPS_MODE=bundled` for strict offline builds, or `-DEUI_DEPS_MODE=fetch` to force online dependency fetches. HarfBuzz shaping is enabled by default and can be disabled with `-DEUI_ENABLE_HARFBUZZ=OFF`.
 
-Bundled and fetched dependencies are built for static linking by default, including GLFW. Release packages therefore do not need to ship a GLFW DLL / dylib / so. SDL2 may still be dynamic when you choose a system SDL2 package. The `eui_neo` target itself is static by default; configure with `-DEUI_BUILD_SHARED=ON` when you want to build and install it as a shared library.
+Bundled and fetched dependencies are built for static linking by default, including GLFW, SDL2, and SDL3. Release packages therefore do not need to ship a GLFW DLL / dylib / so. SDL2 or SDL3 may still be dynamic when you choose a system package. The `eui_neo` target itself is static by default; configure with `-DEUI_BUILD_SHARED=ON` when you want to build and install it as a shared library.
 
-GLFW is the default window backend. SDL2 is optional and is not vendored. If GLFW is not available or you want to test SDL2, add `sdl2` to the build directory name:
+GLFW is the default window backend. SDL2 and SDL3 are optional and are not vendored. If GLFW is not available or you want to test an SDL backend, add `sdl2` or `sdl3` to the build directory name:
 
 ```sh
 cmake -S . -B build-sdl2
 cmake --build build-sdl2
+
+cmake -S . -B build-sdl3
+cmake --build build-sdl3
 ```
 
-If a system SDL2 package is not available, add `-DEUI_DEPS_MODE=fetch` to download the pinned SDL2 source.
+If a system SDL2 or SDL3 package is not available, add `-DEUI_DEPS_MODE=fetch` to download the pinned SDL source.
 
 macOS / Linux example:
 
@@ -69,7 +72,7 @@ cmake -S . -B build-vk
 cmake --build build-vk --target gallery
 ```
 
-Build directory suffixes are recognized on first configure: `build` means GLFW + OpenGL, `build-sdl2` means SDL2 + OpenGL, `build-vk` means GLFW + Vulkan, and `build-sdl2-vk` means SDL2 + Vulkan. If a build directory already has a CMake cache, delete it or pass `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...` explicitly.
+Build directory suffixes are recognized on first configure: `build` means GLFW + OpenGL, `build-sdl2` means SDL2 + OpenGL, `build-sdl3` means SDL3 + OpenGL, `build-vk` means GLFW + Vulkan, `build-sdl2-vk` means SDL2 + Vulkan, and `build-sdl3-vk` means SDL3 + Vulkan. If a build directory already has a CMake cache, delete it or pass `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...` explicitly.
 
 Windows / PowerShell example:
 
@@ -85,6 +88,8 @@ Linux package hint:
 sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libcurl4-openssl-dev
 # Optional for -DEUI_WINDOW_BACKEND=sdl2:
 sudo apt-get install -y libsdl2-dev
+# Optional for -DEUI_WINDOW_BACKEND=sdl3:
+sudo apt-get install -y libsdl3-dev
 ```
 
 Top-level builds create one executable for each `examples/*.cpp` page source, such as `gallery`, `chat`, and `eui_demo`. After build, `assets/` is copied next to the executable automatically.
@@ -154,7 +159,7 @@ cmake --build build --parallel
 ./build/my_app
 ```
 
-EUI-NEO owns the window, event loop, selected render backend, and asset copying in this setup. For SDL2, Vulkan, `FetchContent`, custom main loops, or building the bundled examples from a parent project, see the [Integration Guide](docs/集成指南.md).
+EUI-NEO owns the window, event loop, selected render backend, and asset copying in this setup. For SDL2, SDL3, Vulkan, `FetchContent`, custom main loops, or building the bundled examples from a parent project, see the [Integration Guide](docs/集成指南.md).
 
 ## Project Layout
 
