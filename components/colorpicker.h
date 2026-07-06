@@ -214,14 +214,14 @@ private:
     }
 
     void panel(float width, float height, ColorDraft* draft) {
-        const float pad = 24.0f;
-        const float titleHeight = 60.0f;
+        const float pad = 32.0f;
+        const float titleHeight = 84.0f;
         const float previewY = titleHeight;
-        const float previewHeight = 58.0f;
-        const float slidersY = previewY + previewHeight + 18.0f;
-        const float sliderRowHeight = 34.0f;
-        const float swatchesY = height - 48.0f;
-        const float sliderWidth = std::max(90.0f, width - pad * 2.0f - 90.0f);
+        const float previewHeight = 88.0f;
+        const float slidersY = previewY + previewHeight + 28.0f;
+        const float sliderRowHeight = 58.0f;
+        const float swatchesY = height - 82.0f;
+        const float sliderWidth = std::max(90.0f, width - pad * 2.0f - 132.0f);
         const std::function<void(bool)> onOpenChange = onOpenChange_;
         const std::function<void(core::Color)> onChange = onChange_;
         const core::Color committed = value_;
@@ -247,18 +247,18 @@ private:
 
         ui_.text(id_ + ".title")
             .x(24.0f)
-            .y(18.0f)
+            .y(24.0f)
             .size(std::max(0.0f, width - 124.0f), 30.0f)
             .text("Color")
-            .fontSize(24.0f)
-            .lineHeight(29.0f)
+            .fontSize(34.0f)
+            .lineHeight(40.0f)
             .color(style_.text)
             .build();
 
         ui_.rect(id_ + ".done.bg")
             .x(std::max(0.0f, width - 86.0f))
-            .y(18.0f)
-            .size(62.0f, 30.0f)
+            .y(24.0f)
+            .size(70.0f, 42.0f)
             .states(style_.accent,
                     core::mixColor(style_.accent, theme::color(1.0f, 1.0f, 1.0f), 0.12f),
                     core::mixColor(style_.accent, theme::color(0.0f, 0.0f, 0.0f), 0.14f))
@@ -276,11 +276,11 @@ private:
 
         ui_.text(id_ + ".done.text")
             .x(std::max(0.0f, width - 86.0f))
-            .y(18.0f)
-            .size(62.0f, 30.0f)
+            .y(24.0f)
+            .size(70.0f, 42.0f)
             .text("Done")
-            .fontSize(15.0f)
-            .lineHeight(18.0f)
+            .fontSize(22.0f)
+            .lineHeight(26.0f)
             .color(theme::color(1.0f, 1.0f, 1.0f))
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -302,8 +302,8 @@ private:
             .y(previewY)
             .size(std::max(0.0f, width - pad * 2.0f - 16.0f), previewHeight)
             .text(formatHex(current))
-            .fontSize(17.0f)
-            .lineHeight(22.0f)
+            .fontSize(26.0f)
+            .lineHeight(32.0f)
             .color(theme::color(1.0f, 1.0f, 1.0f, 0.94f))
             .horizontalAlign(core::HorizontalAlign::Right)
             .verticalAlign(core::VerticalAlign::Center)
@@ -315,8 +315,8 @@ private:
             channelSlider(2, "B", theme::color(0.20f, 0.46f, 0.92f), pad, slidersY + sliderRowHeight * 2.0f, sliderWidth, sliderRowHeight, current, draft);
 
             const std::vector<core::Color> swatches = palette();
-            const float swatchSize = 24.0f;
-            const float swatchGap = 8.0f;
+            const float swatchSize = 42.0f;
+            const float swatchGap = 12.0f;
             for (int index = 0; index < static_cast<int>(swatches.size()); ++index) {
                 const float swatchX = pad + static_cast<float>(index) * (swatchSize + swatchGap);
                 if (swatchX + swatchSize > width - pad) {
@@ -363,25 +363,25 @@ private:
         ui_.text(id_ + ".slider.label." + std::to_string(channel))
             .x(x)
             .y(y)
-            .size(24.0f, rowHeight)
+            .size(30.0f, rowHeight)
             .text(label)
-            .fontSize(14.0f)
-            .lineHeight(18.0f)
+            .fontSize(22.0f)
+            .lineHeight(28.0f)
             .color(style_.text)
             .verticalAlign(core::VerticalAlign::Center)
             .build();
 
         ui_.stack(id_ + ".slider.wrap." + std::to_string(channel))
             .x(x + 32.0f)
-            .y(y + 5.0f)
-            .size(sliderWidth, 22.0f)
+            .y(y + 12.0f)
+            .size(sliderWidth, 34.0f)
             .content([&] {
                 SliderStyle sliderStyle;
                 sliderStyle.track = style_.track;
                 sliderStyle.fill = fill;
                 sliderStyle.knob = style_.knob;
                 components::slider(ui_, id_ + ".slider." + std::to_string(channel))
-                    .size(sliderWidth, 22.0f)
+                    .size(sliderWidth, 34.0f)
                     .value(channelValue(current, channel))
                     .style(sliderStyle)
                     .transition(transition_)
@@ -397,10 +397,10 @@ private:
         ui_.text(id_ + ".slider.value." + std::to_string(channel))
             .x(x + 42.0f + sliderWidth)
             .y(y)
-            .size(40.0f, rowHeight)
+            .size(72.0f, rowHeight)
             .text(std::to_string(channelToInt(channelValue(current, channel))))
-            .fontSize(12.0f)
-            .lineHeight(16.0f)
+            .fontSize(20.0f)
+            .lineHeight(26.0f)
             .color(style_.mutedText)
             .verticalAlign(core::VerticalAlign::Center)
             .build();

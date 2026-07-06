@@ -1,0 +1,134 @@
+plugins {
+    id "com.android.application"
+}
+
+def sdl2Version = "2.32.10"
+def sdl2Url = "https://www.libsdl.org/release/SDL2-${sdl2Version}.tar.gz"
+def sdl2DirValue = providers.gradleProperty("sdl2Dir")
+        .orElse(providers.environmentVariable("SDL2_DIR"))
+        .getOrElse("")
+def usesManagedSdl2 = sdl2DirValue.isEmpty()
+def sdl2Archive = file("${rootDir}/.deps/SDL2-${sdl2Version}.tar.gz")
+def managedSdl2Dir = file("${rootDir}/.deps/SDL2-${sdl2Version}")
+def sdl2Dir = usesManagedSdl2 ? managedSdl2Dir : file(sdl2DirValue)
+def euiRoot = file("../..")
+def generatedAssetsDir = file("$buildDir/generated/euiAssets")
+def generatedIconResDir = file("$buildDir/generated/euiLauncherIcon")
+
+tasks.register("downloadSdl2") {
+    outputs.file(sdl2Archive)
+    onlyIf {
+        usesManagedSdl2 && !sdl2Archive.exists()
+    }
+    doLast {
+        sdl2Archive.parentFile.mkdirs()
+        println "Downloading SDL2 ${sdl2Version}..."
+        new URL(sdl2Url).withInputStream { input ->
+            sdl2Archive.withOutputStream { output ->
+                output << input
+            }
+        }
+    }
+}
+
+tasks.register("prepareSdl2") {
+    dependsOn("downloadSdl2")
+    outputs.dir(sdl2Dir)
+    doLast {
+        if (usesManagedSdl2 && !sdl2Dir.exists()) {
+            copy {
+                from tarTree(resources.gzip(sdl2Archive))
+                into sdl2Archive.parentFile
+            }
+        }
+        if (!file("${sdl2Dir}/CMakeLists.txt").exists()) {
+            throw new GradleException("SDL2 was not found at ${sdl2Dir}. Set -Psdl2Dir=<SDL2 source dir> to use a custom checkout.")
+        }
+    }
+}
+
+tasks.register("syncEuiAssets", Copy) {
+    dependsOn("prepareSdl2")
+    from file("../../assets")
+    into file("$generatedAssetsDir/assets")
+}
+
+tasks.register("syncLauncherIcon", Copy) {
+    from file("../../assets/icon.png")
+    into file("$generatedIconResDir/drawable")
+    rename { "app_icon.png" }
+}
+
+android {
+    namespace "com.sudoevolve.euineo"
+    compileSdk 36
+    ndkVersion "27.0.12077973"
+
+    defaultConfig {
+        applicationId "com.sudoevolve.euineo"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0"
+
+        externalNativeBuild {
+            cmake {
+                arguments(
+                        "-DEUI_ANDROID_SDL2_DIR=${sdl2Dir.absolutePath.replace("\\", "/")}",
+                        "-DEUI_NEO_ROOT=${euiRoot.absolutePath.replace("\\", "/")}",
+                        "-DEUI_ANDROID_APP_SOURCE=${file("src/main/cpp/android_app.cpp").absolutePath.replace("\\", "/")}"
+                )
+            }
+        }
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            debuggable false
+        }
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += [
+                    "src/main/java",
+                    "${sdl2Dir.absolutePath}/android-project/app/src/main/java"
+            ]
+            assets.srcDirs += [
+                    "src/main/assets",
+                    generatedAssetsDir
+            ]
+            res.srcDirs += [
+                    generatedIconResDir
+            ]
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file("../cmake/CMakeLists.txt")
+            version "3.22.1"
+        }
+    }
+}
+
+preBuild.dependsOn("syncEuiAssets", "syncLauncherIcon", "prepareSdl2")
+tasks.matching {
+    it.name.startsWith("configureCMake") ||
+            it.name.startsWith("buildCMake") ||
+            it.name.startsWith("externalNativeBuild")
+}.configureEach {
+    dependsOn("prepareSdl2")
+}

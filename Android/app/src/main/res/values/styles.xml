@@ -1,0 +1,9 @@
+<resources>
+    <style name="EuiNeoTheme" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentTransitions">false</item>
+        <item name="android:colorAccent">#4f8cff</item>
+    </style>
+</resources>

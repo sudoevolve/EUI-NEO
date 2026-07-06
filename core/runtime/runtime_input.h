@@ -291,16 +291,21 @@ inline void Runtime::updateTextInput(const KeyboardEvent& event) {
 
 inline void Runtime::updateImeCursorRect(core::window::Handle window, float dpiScale) {
     if (window == nullptr) {
+        if (imeCursorWindow_ != nullptr) {
+            core::platform::setTextInputActive(imeCursorWindow_, false);
+        }
         imeCursorRectValid_ = false;
         return;
     }
     if (focusedId_.empty()) {
+        core::platform::setTextInputActive(window, false);
         imeCursorRectValid_ = false;
         return;
     }
 
     const Element* element = ui_.find(focusedId_);
     if (element == nullptr || isElementInDisabledTree(focusedId_) || !element->hasImeRect) {
+        core::platform::setTextInputActive(window, false);
         imeCursorRectValid_ = false;
         return;
     }
@@ -315,11 +320,13 @@ inline void Runtime::updateImeCursorRect(core::window::Handle window, float dpiS
     if (imeCursorRectValid_ &&
         imeCursorWindow_ == window &&
         closeEnough(imeCursorRect_, pixelRect)) {
+        core::platform::setTextInputActive(window, true);
         return;
     }
     imeCursorWindow_ = window;
     imeCursorRect_ = pixelRect;
     imeCursorRectValid_ = true;
+    core::platform::setTextInputActive(window, true);
     core::platform::setImeCursorRect(
         window,
         pixelRect.x,

@@ -1,0 +1,119 @@
+name: android apk
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - Android
+    paths:
+      - "Android/**"
+      - "assets/**"
+      - "components/**"
+      - "core/**"
+      - "include/**"
+      - "3rd/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  debug:
+    name: debug apk
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: setup java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: setup android sdk
+        uses: android-actions/setup-android@v3
+
+      - name: install android packages
+        shell: bash
+        run: |
+          sdkmanager \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.0.12077973" \
+            "cmake;3.22.1"
+
+      - name: setup gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: cache sdl2
+        uses: actions/cache@v4
+        with:
+          path: Android/.deps
+          key: android-sdl2-2.32.10
+
+      - name: build debug apk
+        shell: bash
+        run: |
+          chmod +x Android/gradlew
+          Android/gradlew -p Android :app:assembleDebug
+
+      - name: upload debug apk
+        uses: actions/upload-artifact@v6
+        with:
+          name: eui-neo-debug-apk
+          path: Android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+  release:
+    name: release apk
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v5
+
+      - name: setup java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: setup android sdk
+        uses: android-actions/setup-android@v3
+
+      - name: install android packages
+        shell: bash
+        run: |
+          sdkmanager \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;27.0.12077973" \
+            "cmake;3.22.1"
+
+      - name: setup gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: cache sdl2
+        uses: actions/cache@v4
+        with:
+          path: Android/.deps
+          key: android-sdl2-2.32.10
+
+      - name: build release apk
+        shell: bash
+        run: |
+          chmod +x Android/gradlew
+          Android/gradlew -p Android :app:assembleRelease
+
+      - name: upload release apk
+        uses: actions/upload-artifact@v6
+        with:
+          name: eui-neo-release-apk
+          path: Android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

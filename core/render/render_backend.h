@@ -174,6 +174,7 @@ public:
     virtual bool initialize() = 0;
     virtual bool valid() const = 0;
     virtual void makeCurrent() = 0;
+    virtual void resetSurface() {}
     virtual void beginFrame(const RenderSurface& surface) = 0;
     virtual void present() = 0;
     virtual bool ensureRenderCache(int width, int height) = 0;

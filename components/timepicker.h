@@ -258,7 +258,7 @@ private:
     void panel(float width, float height, TimeDraft* draft) {
         const float titleHeight = 58.0f;
         const float bottomPad = 24.0f;
-        const float rowHeight = 38.0f;
+        const float rowHeight = 58.0f;
         const float columnY = titleHeight + 8.0f;
         const float columnHeight = std::max(150.0f, height - titleHeight - bottomPad - 8.0f);
         const float gap = 12.0f;
@@ -292,8 +292,8 @@ private:
             .y(18.0f)
             .size(std::max(0.0f, width - 124.0f), 30.0f)
             .text("Time")
-            .fontSize(24.0f)
-            .lineHeight(29.0f)
+            .fontSize(34.0f)
+            .lineHeight(40.0f)
             .color(style_.text)
             .build();
 
@@ -321,8 +321,8 @@ private:
             .y(18.0f)
             .size(62.0f, 30.0f)
             .text("Done")
-            .fontSize(15.0f)
-            .lineHeight(18.0f)
+            .fontSize(22.0f)
+            .lineHeight(26.0f)
             .color(theme::color(1.0f, 1.0f, 1.0f))
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -395,8 +395,8 @@ private:
                 .size(std::max(0.0f, width - 8.0f), rowHeight)
                 .zIndex(10 - distance)
                 .text(itemText(column, value, offset, step))
-                .fontSize(active ? 24.0f : 16.0f)
-                .lineHeight(active ? 28.0f : 20.0f)
+                .fontSize(active ? 36.0f : 26.0f)
+                .lineHeight(active ? 42.0f : 32.0f)
                 .color(active ? style_.text : style_.mutedText)
                 .opacity(visual.opacity)
                 .translateY(visual.translateY)

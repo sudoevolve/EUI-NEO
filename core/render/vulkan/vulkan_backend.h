@@ -22,6 +22,7 @@ public:
     bool initialize() override;
     bool valid() const override;
     void makeCurrent() override;
+    void resetSurface() override;
     void beginFrame(const RenderSurface& surface) override;
     void present() override;
     bool ensureRenderCache(int width, int height) override;

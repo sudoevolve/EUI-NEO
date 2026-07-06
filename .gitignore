@@ -9,3 +9,10 @@
 /tmp/
 /temp/
 /.github/skills/
+/Android/.gradle/
+/Android/.idea/
+/Android/build/
+/Android/app/build/
+/Android/app/.cxx/
+/Android/local.properties
+/Android/.deps/

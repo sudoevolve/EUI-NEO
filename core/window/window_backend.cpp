@@ -6,6 +6,9 @@
 #if defined(EUI_WINDOW_BACKEND_SDL2)
 
 #include <SDL.h>
+#if defined(EUI_RENDER_BACKEND_VULKAN)
+#include <SDL_vulkan.h>
+#endif
 #if defined(_WIN32) || defined(__APPLE__)
 #include <SDL_syswm.h>
 #endif
@@ -228,7 +231,11 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
     int drawableWidth = 0;
     int drawableHeight = 0;
     SDL_GetWindowSize(static_cast<SDL_Window*>(window), &windowWidth, &windowHeight);
+#if defined(EUI_RENDER_BACKEND_VULKAN)
+    SDL_Vulkan_GetDrawableSize(static_cast<SDL_Window*>(window), &drawableWidth, &drawableHeight);
+#else
     SDL_GL_GetDrawableSize(static_cast<SDL_Window*>(window), &drawableWidth, &drawableHeight);
+#endif
     const float scaleX = windowWidth > 0 && drawableWidth > 0
         ? static_cast<float>(drawableWidth) / static_cast<float>(windowWidth)
         : 1.0f;

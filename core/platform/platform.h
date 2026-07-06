@@ -47,6 +47,7 @@ void pollTray(bool blocking = false);
 bool consumeTrayShowRequested();
 bool consumeTrayExitRequested();
 void shutdownTray();
+void setTextInputActive(window::Handle window, bool active);
 void setImeCursorRect(window::Handle window, float x, float y, float width, float height);
 void requestFrame();
 void requestUiUpdate();

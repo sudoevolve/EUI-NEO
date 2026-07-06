@@ -14,6 +14,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(EUI_WINDOW_BACKEND_SDL2)
+#include <SDL.h>
+#endif
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -99,6 +103,9 @@ std::filesystem::path executableDirectory() {
     }
     std::error_code error;
     return std::filesystem::absolute(std::filesystem::path(buffer.data()), error).parent_path();
+#elif defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+    const char* path = SDL_AndroidGetInternalStoragePath();
+    return path != nullptr ? std::filesystem::path(path) : std::filesystem::path{};
 #elif defined(__linux__)
     std::vector<char> buffer(4096);
     const ssize_t length = readlink("/proc/self/exe", buffer.data(), buffer.size() - 1);
@@ -574,6 +581,15 @@ std::filesystem::path resolveIconPath(const std::string& iconPath) {
 } // namespace
 
 bool repairCurrentWorkingDirectory() {
+#if defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+    const std::filesystem::path fallback = executableDirectory();
+    if (fallback.empty()) {
+        return false;
+    }
+    std::error_code error;
+    std::filesystem::current_path(fallback, error);
+    return !error;
+#else
     std::error_code error;
     (void)std::filesystem::current_path(error);
     if (!error) {
@@ -588,6 +604,7 @@ bool repairCurrentWorkingDirectory() {
     error.clear();
     std::filesystem::current_path(fallback, error);
     return !error;
+#endif
 }
 
 bool openUrl(const std::string& url) {
@@ -601,6 +618,10 @@ bool openUrl(const std::string& url) {
 #elif defined(__APPLE__)
     const std::string command = "open " + shellQuote(url) + " >/dev/null 2>&1 &";
     return std::system(command.c_str()) == 0;
+#elif defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+    return SDL_OpenURL(url.c_str()) == 0;
+#elif defined(__ANDROID__)
+    return false;
 #else
     const std::string command = "xdg-open " + shellQuote(url) + " >/dev/null 2>&1 &";
     return std::system(command.c_str()) == 0;
@@ -716,6 +737,20 @@ void shutdownTray() {
         eui_tray_shutdown();
     }
     state = {};
+}
+
+void setTextInputActive(window::Handle window, bool active) {
+    (void)window;
+#if defined(EUI_WINDOW_BACKEND_SDL2)
+    const bool currentlyActive = SDL_IsTextInputActive() == SDL_TRUE;
+    if (active && !currentlyActive) {
+        SDL_StartTextInput();
+    } else if (!active && currentlyActive) {
+        SDL_StopTextInput();
+    }
+#else
+    (void)active;
+#endif
 }
 
 void setImeCursorRect(window::Handle window, float x, float y, float width, float height) {

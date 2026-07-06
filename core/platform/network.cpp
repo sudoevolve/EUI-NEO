@@ -13,6 +13,11 @@
 #include <urlmon.h>
 #endif
 
+#if defined(__ANDROID__)
+#include <SDL_system.h>
+#include <jni.h>
+#endif
+
 #if defined(EUI_HAS_CURL)
 #include <curl/curl.h>
 #endif
@@ -84,6 +89,96 @@ bool ensureCurlReady() {
 
 } // namespace
 
+#if defined(__ANDROID__)
+bool androidClearException(JNIEnv* env) {
+    if (env != nullptr && env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return true;
+    }
+    return false;
+}
+
+jclass androidMainActivityClass(JNIEnv* env) {
+    if (env == nullptr) {
+        return nullptr;
+    }
+    jobject activity = static_cast<jobject>(SDL_AndroidGetActivity());
+    if (activity == nullptr) {
+        return nullptr;
+    }
+    jclass local = env->GetObjectClass(activity);
+    env->DeleteLocalRef(activity);
+    if (androidClearException(env) || local == nullptr) {
+        return nullptr;
+    }
+    return local;
+}
+
+bool androidDownloadUrlToString(const std::string& url, std::string& output) {
+    output.clear();
+    JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+    jclass cls = androidMainActivityClass(env);
+    if (env == nullptr || cls == nullptr) {
+        return false;
+    }
+    jmethodID method = env->GetStaticMethodID(cls, "downloadUrlToString", "(Ljava/lang/String;)Ljava/lang/String;");
+    if (androidClearException(env) || method == nullptr) {
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+    jstring jUrl = env->NewStringUTF(url.c_str());
+    if (jUrl == nullptr) {
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+    auto result = static_cast<jstring>(env->CallStaticObjectMethod(cls, method, jUrl));
+    env->DeleteLocalRef(jUrl);
+    if (androidClearException(env) || result == nullptr) {
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+    const char* chars = env->GetStringUTFChars(result, nullptr);
+    if (chars != nullptr) {
+        output = chars;
+        env->ReleaseStringUTFChars(result, chars);
+    }
+    env->DeleteLocalRef(result);
+    env->DeleteLocalRef(cls);
+    return !output.empty();
+}
+
+bool androidDownloadUrlToFile(const std::string& url, const std::string& localPath) {
+    JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+    jclass cls = androidMainActivityClass(env);
+    if (env == nullptr || cls == nullptr) {
+        return false;
+    }
+    jmethodID method = env->GetStaticMethodID(cls, "downloadUrlToFile", "(Ljava/lang/String;Ljava/lang/String;)Z");
+    if (androidClearException(env) || method == nullptr) {
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+    jstring jUrl = env->NewStringUTF(url.c_str());
+    jstring jPath = env->NewStringUTF(localPath.c_str());
+    if (jUrl == nullptr || jPath == nullptr) {
+        if (jUrl != nullptr) {
+            env->DeleteLocalRef(jUrl);
+        }
+        if (jPath != nullptr) {
+            env->DeleteLocalRef(jPath);
+        }
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+    const bool ok = env->CallStaticBooleanMethod(cls, method, jUrl, jPath) == JNI_TRUE;
+    const bool failed = androidClearException(env);
+    env->DeleteLocalRef(jUrl);
+    env->DeleteLocalRef(jPath);
+    env->DeleteLocalRef(cls);
+    return ok && !failed;
+}
+#endif
+
 bool isHttpUrl(const std::string& url) {
     return url.rfind("http://", 0) == 0 || url.rfind("https://", 0) == 0;
 }
@@ -113,7 +208,10 @@ bool downloadUrlToFile(const std::string& url, const std::string& localPath, con
     if (cancelToken != nullptr && cancelToken->canceled()) {
         return false;
     }
-#if defined(EUI_HAS_CURL)
+#if defined(__ANDROID__)
+    (void)cancelToken;
+    return androidDownloadUrlToFile(url, localPath);
+#elif defined(EUI_HAS_CURL)
     if (!ensureCurlReady()) {
         return false;
     }
@@ -157,7 +255,10 @@ bool downloadUrlToString(const std::string& url, std::string& output, const asyn
         output.clear();
         return false;
     }
-#if defined(EUI_HAS_CURL)
+#if defined(__ANDROID__)
+    (void)cancelToken;
+    return androidDownloadUrlToString(url, output);
+#elif defined(EUI_HAS_CURL)
     if (!ensureCurlReady()) {
         return false;
     }

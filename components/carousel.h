@@ -315,7 +315,7 @@ private:
                                 .x((visualWidth - loaderSize) * 0.5f)
                                 .y((cardHeight - loaderSize) * 0.5f)
                                 .size(loaderSize, loaderSize)
-                                .source("mona-loading-default.gif")
+                                .source("assets/mona-loading-default.gif")
                                 .contain()
                                 .opacity(0.82f)
                                 .build();

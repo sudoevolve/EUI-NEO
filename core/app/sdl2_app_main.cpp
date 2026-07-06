@@ -30,8 +30,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -39,6 +41,9 @@ namespace {
 struct WindowState : app::AppRunner {
     bool running = true;
     core::render::RenderBackend* renderBackend = nullptr;
+#ifdef __ANDROID__
+    bool surfaceResetPending = false;
+#endif
 #if defined(EUI_RENDER_BACKEND_OPENGL) && (defined(_WIN32) || defined(__APPLE__))
     // SDL2 can expose the OpenGL window before the drawable/backbuffer settles.
     int startupFullPaintFrames = 4;
@@ -51,6 +56,19 @@ struct ManagedWindow {
     SDL_Window* parentWindow = nullptr;
     app::DslWindowRuntime content;
     std::unique_ptr<core::render::RenderBackend> renderBackend;
+};
+
+struct TouchScrollState {
+    SDL_FingerID fingerId = 0;
+    double lastX = 0.0;
+    double lastY = 0.0;
+    double totalX = 0.0;
+    double totalY = 0.0;
+    double downTime = 0.0;
+    bool active = false;
+    bool scrolling = false;
+    bool contextQueued = false;
+    bool contextReleaseQueued = false;
 };
 
 struct TimerResolutionGuard {
@@ -151,6 +169,214 @@ bool mapKey(SDL_Keycode key, core::InputKey& mapped) {
     }
 }
 
+bool isFingerEvent(Uint32 type) {
+    return type == SDL_FINGERDOWN || type == SDL_FINGERMOTION || type == SDL_FINGERUP;
+}
+
+bool isAndroidLifecycleEvent(Uint32 type) {
+#ifdef __ANDROID__
+    return type == SDL_APP_WILLENTERBACKGROUND ||
+           type == SDL_APP_DIDENTERBACKGROUND ||
+           type == SDL_APP_WILLENTERFOREGROUND ||
+           type == SDL_APP_DIDENTERFOREGROUND ||
+           type == SDL_APP_LOWMEMORY;
+#else
+    (void)type;
+    return false;
+#endif
+}
+
+bool isRoutedEvent(const SDL_Event& event) {
+    return event.type == SDL_WINDOWEVENT ||
+           event.type == SDL_KEYDOWN ||
+           event.type == SDL_TEXTINPUT ||
+           event.type == SDL_TEXTEDITING ||
+           event.type == SDL_MOUSEWHEEL ||
+           isFingerEvent(event.type);
+}
+
+Uint32 routedWindowId(const SDL_Event& event) {
+    if (event.type == SDL_WINDOWEVENT) {
+        return event.window.windowID;
+    }
+    if (event.type == SDL_KEYDOWN) {
+        return event.key.windowID;
+    }
+    if (event.type == SDL_TEXTINPUT) {
+        return event.text.windowID;
+    }
+    if (event.type == SDL_TEXTEDITING) {
+        return event.edit.windowID;
+    }
+    if (event.type == SDL_MOUSEWHEEL) {
+        return event.wheel.windowID;
+    }
+    if (isFingerEvent(event.type)) {
+        return event.tfinger.windowID;
+    }
+    return 0;
+}
+
+void queueFingerPointer(SDL_Window* window, const SDL_TouchFingerEvent& finger, bool down) {
+    int windowWidth = 0;
+    int windowHeight = 0;
+    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+    if (windowWidth <= 0 || windowHeight <= 0) {
+        return;
+    }
+    core::queuePointerInput(window,
+                            static_cast<double>(finger.x) * static_cast<double>(windowWidth),
+                            static_cast<double>(finger.y) * static_cast<double>(windowHeight),
+                            down);
+}
+
+std::unordered_map<SDL_Window*, TouchScrollState>& touchScrollStates() {
+    static std::unordered_map<SDL_Window*, TouchScrollState> states;
+    return states;
+}
+
+bool fingerWindowPosition(SDL_Window* window, const SDL_TouchFingerEvent& finger, double& x, double& y) {
+    int windowWidth = 0;
+    int windowHeight = 0;
+    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+    if (windowWidth <= 0 || windowHeight <= 0) {
+        return false;
+    }
+    x = static_cast<double>(finger.x) * static_cast<double>(windowWidth);
+    y = static_cast<double>(finger.y) * static_cast<double>(windowHeight);
+    return true;
+}
+
+void queueFingerInput(SDL_Window* window, const SDL_TouchFingerEvent& finger) {
+    double x = 0.0;
+    double y = 0.0;
+    if (!fingerWindowPosition(window, finger, x, y)) {
+        return;
+    }
+
+    TouchScrollState& state = touchScrollStates()[window];
+    if (finger.type == SDL_FINGERDOWN) {
+        state = {};
+        state.fingerId = finger.fingerId;
+        state.lastX = x;
+        state.lastY = y;
+        state.downTime = core::window::timeSeconds();
+        state.active = true;
+        core::queuePointerInput(window, x, y, true);
+        return;
+    }
+
+    if (!state.active || state.fingerId != finger.fingerId) {
+        state = {};
+        state.fingerId = finger.fingerId;
+        state.lastX = x;
+        state.lastY = y;
+        state.active = finger.type != SDL_FINGERUP;
+    }
+
+    const double dx = x - state.lastX;
+    const double dy = y - state.lastY;
+    state.lastX = x;
+    state.lastY = y;
+    state.totalX += dx;
+    state.totalY += dy;
+
+    if (finger.type == SDL_FINGERUP) {
+        core::queuePointerInput(window, x, y, false);
+        touchScrollStates().erase(window);
+        return;
+    }
+
+    constexpr double scrollStartThreshold = 14.0;
+    constexpr double verticalIntentRatio = 1.15;
+    constexpr double logicalScrollStep = 96.0;
+    if (!state.scrolling &&
+        std::fabs(state.totalY) >= scrollStartThreshold &&
+        std::fabs(state.totalY) >= std::fabs(state.totalX) * verticalIntentRatio) {
+        state.scrolling = true;
+    }
+
+    if (state.scrolling) {
+        core::queuePointerInput(window, x, y, false);
+        if (dy != 0.0) {
+            core::queueScrollInput(window, 0.0, dy / logicalScrollStep);
+        }
+    } else {
+        core::queuePointerInput(window, x, y, true);
+    }
+}
+
+void pollFingerLongPress(SDL_Window* window) {
+    auto it = touchScrollStates().find(window);
+    if (it == touchScrollStates().end()) {
+        return;
+    }
+    TouchScrollState& state = it->second;
+    if (!state.active || state.scrolling) {
+        return;
+    }
+    if (state.contextReleaseQueued) {
+        core::queuePointerInput(window, state.lastX, state.lastY, false, false);
+        state.contextReleaseQueued = false;
+        return;
+    }
+    constexpr double longPressSeconds = 0.58;
+    constexpr double maxMovement = 18.0;
+    if (!state.contextQueued &&
+        core::window::timeSeconds() - state.downTime >= longPressSeconds &&
+        std::fabs(state.totalX) <= maxMovement &&
+        std::fabs(state.totalY) <= maxMovement) {
+        core::queuePointerInput(window, state.lastX, state.lastY, false, true);
+        state.contextQueued = true;
+        state.contextReleaseQueued = true;
+    }
+}
+
+void handleAndroidLifecycleEvent(SDL_Window* window, WindowState& state, const SDL_Event& event) {
+#ifdef __ANDROID__
+    if (!isAndroidLifecycleEvent(event.type)) {
+        return;
+    }
+    if (event.type == SDL_APP_WILLENTERBACKGROUND ||
+        event.type == SDL_APP_DIDENTERBACKGROUND ||
+        event.type == SDL_APP_LOWMEMORY) {
+        core::platform::setTextInputActive(window, false);
+        touchScrollStates().erase(window);
+        if (state.renderBackend != nullptr) {
+            state.renderBackend->makeCurrent();
+            state.renderBackend->releaseRenderCache();
+        }
+        state.surfaceResetPending = true;
+        app::detail::requestFullPaint();
+        state.paintRequested = false;
+        return;
+    }
+    if (event.type == SDL_APP_WILLENTERFOREGROUND) {
+        app::detail::requestFullPaint();
+        state.paintRequested = true;
+        core::platform::requestFrame();
+        return;
+    }
+    if (event.type == SDL_APP_DIDENTERFOREGROUND) {
+        if (state.renderBackend != nullptr) {
+            state.renderBackend->makeCurrent();
+            if (state.surfaceResetPending) {
+                state.renderBackend->resetSurface();
+                state.surfaceResetPending = false;
+            }
+            state.renderBackend->releaseRenderCache();
+        }
+        app::detail::requestFullPaint();
+        state.paintRequested = true;
+        core::platform::requestFrame();
+    }
+#else
+    (void)window;
+    (void)state;
+    (void)event;
+#endif
+}
+
 void hideToTray(SDL_Window* window, WindowState& state) {
     if (!state.trayAvailable || state.hiddenToTray) {
         return;
@@ -190,6 +416,18 @@ void requestClose(SDL_Window* window, WindowState& state) {
 void processMainEvent(SDL_Window* window, WindowState& state, const SDL_Event& event, bool inputEnabled) {
     if (event.type == SDL_QUIT) {
         requestClose(window, state);
+        return;
+    }
+    if (isAndroidLifecycleEvent(event.type)) {
+        handleAndroidLifecycleEvent(window, state, event);
+        return;
+    }
+    if (isFingerEvent(event.type)) {
+        if (!inputEnabled) {
+            return;
+        }
+        queueFingerInput(window, event.tfinger);
+        state.paintRequested = true;
         return;
     }
     if (event.type == SDL_TEXTINPUT) {
@@ -241,6 +479,7 @@ void processMainEvent(SDL_Window* window, WindowState& state, const SDL_Event& e
         case SDL_WINDOWEVENT_SIZE_CHANGED:
         case SDL_WINDOWEVENT_SHOWN:
         case SDL_WINDOWEVENT_RESTORED:
+        case SDL_WINDOWEVENT_FOCUS_GAINED:
             state.paintRequested = true;
             app::detail::requestFullPaint();
             break;
@@ -345,6 +584,11 @@ ManagedWindow* findModalWindow(app::DslWindowManager<ManagedWindow>& windows) {
 }
 
 void processManagedEvent(ManagedWindow& managed, const SDL_Event& event) {
+    if (isFingerEvent(event.type)) {
+        queueFingerInput(managed.window, event.tfinger);
+        managed.content.requestPaint();
+        return;
+    }
     if (event.type == SDL_TEXTINPUT) {
         core::queueTextInput(managed.window, event.text.text);
         managed.content.requestPaint();
@@ -377,7 +621,8 @@ void processManagedEvent(ManagedWindow& managed, const SDL_Event& event) {
                    event.window.event == SDL_WINDOWEVENT_RESIZED ||
                    event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
                    event.window.event == SDL_WINDOWEVENT_SHOWN ||
-                   event.window.event == SDL_WINDOWEVENT_RESTORED) {
+                   event.window.event == SDL_WINDOWEVENT_RESTORED ||
+                   event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
             managed.content.requestFullPaint();
         }
     }
@@ -419,13 +664,17 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool update
 
 } // namespace
 
-int main() {
+int runSdlApp() {
     core::platform::repairCurrentWorkingDirectory();
     SDL_SetMainReady();
 #ifdef _WIN32
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
     SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
     SDL_SetHint(SDL_HINT_IME_INTERNAL_EDITING, "1");
+#endif
+#ifdef __ANDROID__
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+    SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         return -1;
@@ -462,7 +711,7 @@ int main() {
         SDL_Quit();
         return -1;
     }
-    SDL_StartTextInput();
+    core::platform::setTextInputActive(window, false);
 
     WindowState state;
     state.resetTiming(core::window::timeSeconds());
@@ -493,14 +742,8 @@ int main() {
         if (!animating) {
             SDL_Event event{};
             if (SDL_WaitEventTimeout(&event, 100)) {
-                if (event.type == SDL_WINDOWEVENT || event.type == SDL_KEYDOWN ||
-                    event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING ||
-                    event.type == SDL_MOUSEWHEEL) {
-                    const Uint32 eventWindowId = event.type == SDL_WINDOWEVENT ? event.window.windowID :
-                        event.type == SDL_KEYDOWN ? event.key.windowID :
-                        event.type == SDL_TEXTINPUT ? event.text.windowID :
-                        event.type == SDL_TEXTEDITING ? event.edit.windowID :
-                        event.wheel.windowID;
+                if (isRoutedEvent(event)) {
+                    const Uint32 eventWindowId = routedWindowId(event);
                     if (ManagedWindow* managed = findWindow(childWindows, eventWindowId)) {
                         processManagedEvent(*managed, event);
                     } else {
@@ -519,14 +762,8 @@ int main() {
 
         SDL_Event event{};
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_WINDOWEVENT || event.type == SDL_KEYDOWN ||
-                event.type == SDL_TEXTINPUT || event.type == SDL_TEXTEDITING ||
-                event.type == SDL_MOUSEWHEEL) {
-                const Uint32 eventWindowId = event.type == SDL_WINDOWEVENT ? event.window.windowID :
-                    event.type == SDL_KEYDOWN ? event.key.windowID :
-                    event.type == SDL_TEXTINPUT ? event.text.windowID :
-                    event.type == SDL_TEXTEDITING ? event.edit.windowID :
-                    event.wheel.windowID;
+            if (isRoutedEvent(event)) {
+                const Uint32 eventWindowId = routedWindowId(event);
                 if (ManagedWindow* managed = findWindow(childWindows, eventWindowId)) {
                     processManagedEvent(*managed, event);
                 } else {
@@ -540,6 +777,7 @@ int main() {
         if (!state.running || state.hiddenToTray) {
             continue;
         }
+        pollFingerLongPress(window);
 
         const double now = core::window::timeSeconds();
 
@@ -587,6 +825,7 @@ int main() {
 
     childWindows.destroyAll(destroyManagedWindow);
     core::releaseInputQueue(window);
+    touchScrollStates().erase(window);
     core::platform::shutdownTray();
     renderBackend->makeCurrent();
     renderBackend->releaseRenderCache();
@@ -595,8 +834,20 @@ int main() {
         app::shutdown();
     }
     renderBackend.reset();
-    SDL_StopTextInput();
+    core::platform::setTextInputActive(window, false);
     core::window::destroyWindow(window);
     SDL_Quit();
     return 0;
 }
+
+#if defined(__ANDROID__)
+extern "C" int SDL_main(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
+    return runSdlApp();
+}
+#else
+int main() {
+    return runSdlApp();
+}
+#endif

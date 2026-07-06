@@ -293,6 +293,21 @@ void VulkanRenderBackend::makeCurrent() {
     }
 }
 
+void VulkanRenderBackend::resetSurface() {
+    if (!initialized_ || instance_ == VK_NULL_HANDLE || device_ == VK_NULL_HANDLE || window_ == nullptr) {
+        return;
+    }
+    vkDeviceWaitIdle(device_);
+    destroySwapchain();
+    if (surface_ != VK_NULL_HANDLE) {
+        vkDestroySurfaceKHR(instance_, surface_, nullptr);
+        surface_ = VK_NULL_HANDLE;
+    }
+    if (!createSurface()) {
+        std::fprintf(stderr, "EUI Vulkan: resetSurface failed: createSurface\n");
+    }
+}
+
 void VulkanRenderBackend::beginFrame(const RenderSurface& surface) {
     if (!initialized_ || surface.framebufferWidth <= 0 || surface.framebufferHeight <= 0) {
         return;

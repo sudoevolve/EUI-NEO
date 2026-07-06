@@ -52,6 +52,9 @@ public:
     ToastBuilder& message(const std::string& value) { message_ = value; return *this; }
     ToastBuilder& icon(unsigned int codepoint) { icon_ = core::dsl::utf8(codepoint); return *this; }
     ToastBuilder& icon(const std::string& value) { icon_ = value; return *this; }
+    ToastBuilder& titleFontSize(float value) { titleFontSize_ = std::max(1.0f, value); return *this; }
+    ToastBuilder& messageFontSize(float value) { messageFontSize_ = std::max(1.0f, value); return *this; }
+    ToastBuilder& iconSize(float value) { iconSize_ = std::max(1.0f, value); return *this; }
     ToastBuilder& style(const ToastStyle& value) { style_ = value; return *this; }
     ToastBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ToastStyle(tokens); return *this; }
     ToastBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
@@ -65,8 +68,8 @@ public:
         const float height = std::min(height_, std::max(0.0f, screenHeight_ - 32.0f));
         const float x = std::max(16.0f, screenWidth_ - width - 28.0f);
         const float y = std::max(16.0f, screenHeight_ - height - 28.0f);
-        const float iconSize = 22.0f;
-        const float textX = 54.0f;
+        const float iconSize = iconSize_;
+        const float textX = std::max(54.0f, iconSize + 32.0f);
         const float closeSize = 28.0f;
         const float textWidth = std::max(0.0f, width - textX - closeSize - 22.0f);
         const float visible = visible_ ? 1.0f : 0.0f;
@@ -109,8 +112,8 @@ public:
                     .y(16.0f)
                     .size(textWidth, 24.0f)
                     .text(title_)
-                    .fontSize(18.0f)
-                    .lineHeight(22.0f)
+                    .fontSize(titleFontSize_)
+                    .lineHeight(titleFontSize_ + 6.0f)
                     .color(style_.text)
                     .build();
 
@@ -119,8 +122,8 @@ public:
                     .y(42.0f)
                     .size(textWidth, std::max(0.0f, height - 50.0f))
                     .text(message_)
-                    .fontSize(14.0f)
-                    .lineHeight(18.0f)
+                    .fontSize(messageFontSize_)
+                    .lineHeight(messageFontSize_ + 6.0f)
                     .maxWidth(textWidth)
                     .wrap(true)
                     .color(style_.mutedText)
@@ -177,6 +180,9 @@ private:
     float screenHeight_ = 600.0f;
     float width_ = 360.0f;
     float height_ = 88.0f;
+    float titleFontSize_ = 18.0f;
+    float messageFontSize_ = 14.0f;
+    float iconSize_ = 22.0f;
     float autoDismissSeconds_ = 0.0f;
     int zIndex_ = 1100;
 };
