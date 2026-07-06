@@ -58,6 +58,7 @@ public:
     InputBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     InputBuilder& fontFamily(std::string value) { fontFamily_ = std::move(value); return *this; }
     InputBuilder& inset(float value) { inset_ = std::max(0.0f, value); return *this; }
+    InputBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
     InputBuilder& style(const InputStyle& value) { style_ = value; return *this; }
     InputBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = InputStyle(tokens); return *this; }
     InputBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }

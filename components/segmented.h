@@ -46,6 +46,7 @@ public:
         return *this;
     }
     SegmentedBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
+    SegmentedBuilder& radius(float value) { radius_ = std::max(0.0f, value); return *this; }
     SegmentedBuilder& style(const SegmentedStyle& value) { style_ = value; return *this; }
     SegmentedBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = SegmentedStyle(tokens); return *this; }
     SegmentedBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }

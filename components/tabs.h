@@ -58,8 +58,8 @@ public:
         const int count = static_cast<int>(items_.size());
         const int selected = count > 0 ? std::clamp(selected_, 0, count - 1) : 0;
         const float tabWidth = count > 0 ? width_ / static_cast<float>(count) : width_;
-        const float labelLineHeight = fontSize_ + 6.0f;
-        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f);
+        const float labelLineHeight = fontSize_ + 8.0f;
+        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f + 3.0f);
         const std::function<void(int)> onChange = onChange_;
 
         ui_.stack(id_)

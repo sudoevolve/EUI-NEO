@@ -67,10 +67,18 @@ components::theme::ThemeColorTokens theme() {
     return tokens;
 }
 
-eui::Transition motion() {
+float motionDuration(float baseDuration) {
     const float speed = std::clamp(animationSpeed.get(), 0.0f, 1.0f);
     const float factor = 1.85f - speed * 1.35f;
-    return eui::Transition::make(optionMotion ? 0.18f * factor : 0.0f, eui::Ease::OutCubic);
+    return optionMotion ? baseDuration * factor : 0.0f;
+}
+
+eui::Transition motion(float baseDuration, eui::Ease ease = eui::Ease::OutCubic) {
+    return eui::Transition::make(motionDuration(baseDuration), ease);
+}
+
+eui::Transition motion() {
+    return motion(0.18f, eui::Ease::OutCubic);
 }
 
 eui::Color alpha(eui::Color color, float value) {
@@ -92,6 +100,10 @@ eui::Color bodyText() {
 
 eui::Color transparent() {
     return {0.0f, 0.0f, 0.0f, 0.0f};
+}
+
+float desktopRadius(float androidHeight, float desktopHeight, float sourceRadius) {
+    return desktopHeight > 0.0f ? androidHeight * sourceRadius / desktopHeight : sourceRadius;
 }
 
 std::string percentText(float value) {
@@ -343,6 +355,8 @@ void composeButtons(eui::Ui& ui, float width) {
     const float gap = 18.0f;
     const float columns = width < 520.0f ? 2.0f : 3.0f;
     const float w = (width - gap * (columns - 1.0f)) / columns;
+    const float buttonHeight = 88.0f;
+    const float buttonRadius = desktopRadius(buttonHeight, 54.0f, 16.0f);
     ui.flow("basic.buttons")
         .width(width)
         .height(eui::SizeValue::wrapContent())
@@ -351,17 +365,19 @@ void composeButtons(eui::Ui& ui, float width) {
         .content([&] {
             components::button(ui, "button.primary")
                 .theme(tokens, true)
-                .size(w, 88.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF00C)
                 .iconSize(27.0f)
                 .text("Filled")
                 .fontSize(24.0f)
-                .onClick([] { modalOpen = true; })
+                .onClick([] { feedback = "Filled clicked"; })
                 .transition(motion())
                 .build();
             components::button(ui, "button.secondary")
                 .theme(tokens, false)
-                .size(w, 88.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF0C8)
                 .iconSize(26.0f)
                 .text("Outline")
@@ -369,7 +385,8 @@ void composeButtons(eui::Ui& ui, float width) {
                 .transition(motion())
                 .build();
             components::button(ui, "button.outline")
-                .size(w, 88.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF1FC)
                 .iconSize(26.0f)
                 .text("Ghost")
@@ -390,6 +407,7 @@ void composeInputs(eui::Ui& ui, float width) {
     components::input(ui, "input.single")
         .theme(tokens)
         .size(width, 102.0f)
+        .radius(22.0f)
         .value(singleInput)
         .placeholder("Single line input")
         .fontSize(36.0f)
@@ -400,6 +418,7 @@ void composeInputs(eui::Ui& ui, float width) {
     components::input(ui, "input.multi")
         .theme(tokens)
         .size(width, 210.0f)
+        .radius(22.0f)
         .value(multiInput)
         .placeholder("Multiline input")
         .multiline(true)
@@ -478,6 +497,7 @@ void composeChoice(eui::Ui& ui, float width) {
     components::segmented(ui, "choice.segmented")
         .theme(tokens)
         .size(width, 88.0f)
+        .radius(desktopRadius(88.0f, 38.0f, 9.0f))
         .items({"Small", "Medium", "Large"})
         .selected(segment)
         .fontSize(30.0f)
@@ -504,6 +524,7 @@ void composeChoice(eui::Ui& ui, float width) {
             components::stepper(ui, "choice.stepper")
                 .theme(tokens)
                 .size(half, 96.0f)
+                .radius(desktopRadius(96.0f, 40.0f, 12.0f))
                 .value(stepperValue)
                 .min(0)
                 .max(99)
@@ -514,6 +535,7 @@ void composeChoice(eui::Ui& ui, float width) {
             components::dropdown(ui, "choice.dropdown")
                 .theme(tokens)
                 .size(half, 96.0f)
+                .radius(desktopRadius(96.0f, 44.0f, 12.0f))
                 .items({"Alpha", "Beta", "Gamma"})
                 .selected(dropdown)
                 .open(dropdownOpen.get())
@@ -538,6 +560,8 @@ void composeFeedback(eui::Ui& ui, float width) {
     const auto tokens = theme();
     const float gap = 16.0f;
     const float w = (width - gap) * 0.5f;
+    const float buttonHeight = 92.0f;
+    const float buttonRadius = desktopRadius(buttonHeight, 54.0f, 12.0f);
     ui.flow("feedback.buttons")
         .width(width)
         .height(eui::SizeValue::wrapContent())
@@ -546,7 +570,8 @@ void composeFeedback(eui::Ui& ui, float width) {
         .content([&] {
             components::button(ui, "feedback.dialog")
                 .theme(tokens, false)
-                .size(w, 92.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF2D0)
                 .iconSize(30.0f)
                 .text("Dialog")
@@ -559,7 +584,8 @@ void composeFeedback(eui::Ui& ui, float width) {
                 .build();
             components::button(ui, "feedback.toast")
                 .theme(tokens, false)
-                .size(w, 92.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF0F3)
                 .iconSize(30.0f)
                 .text("Toast")
@@ -572,7 +598,8 @@ void composeFeedback(eui::Ui& ui, float width) {
                 .build();
             components::button(ui, "feedback.menu")
                 .theme(tokens, false)
-                .size(w, 92.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF0C9)
                 .iconSize(30.0f)
                 .text("Context")
@@ -588,7 +615,8 @@ void composeFeedback(eui::Ui& ui, float width) {
                 .build();
             components::button(ui, "feedback.window")
                 .theme(tokens, false)
-                .size(w, 92.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF24D)
                 .iconSize(30.0f)
                 .text("Window")
@@ -605,6 +633,8 @@ void composePickers(eui::Ui& ui, float width) {
     const auto tokens = theme();
     const float gap = 16.0f;
     const float w = (width - gap * 2.0f) / 3.0f;
+    const float buttonHeight = 92.0f;
+    const float buttonRadius = desktopRadius(buttonHeight, 44.0f, 12.0f);
     ui.flow("pickers.buttons")
         .width(width)
         .height(eui::SizeValue::wrapContent())
@@ -613,7 +643,8 @@ void composePickers(eui::Ui& ui, float width) {
         .content([&] {
             components::button(ui, "picker.date")
                 .theme(tokens, false)
-                .size(w, 92.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF073)
                 .iconSize(28.0f)
                 .text(dateText())
@@ -628,7 +659,8 @@ void composePickers(eui::Ui& ui, float width) {
                 .build();
             components::button(ui, "picker.time")
                 .theme(tokens, false)
-                .size(w, 92.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF017)
                 .iconSize(28.0f)
                 .text(timeText())
@@ -643,7 +675,8 @@ void composePickers(eui::Ui& ui, float width) {
                 .build();
             components::button(ui, "picker.color")
                 .theme(tokens, true)
-                .size(w, 92.0f)
+                .size(w, buttonHeight)
+                .radius(buttonRadius)
                 .icon(0xF53F)
                 .iconSize(28.0f)
                 .text(colorHex(pickedColor.get()))
@@ -1114,8 +1147,10 @@ void composeStylePage(eui::Ui& ui, float width, float height) {
 
 void animButton(eui::Ui& ui, const std::string& id, const std::string& label, bool active, eui::Color color, float width, const std::function<void()>& onClick) {
     const auto tokens = theme();
+    const float buttonHeight = 82.0f;
     components::button(ui, id)
-        .size(width, 82.0f)
+        .size(width, buttonHeight)
+        .radius(desktopRadius(buttonHeight, 50.0f, 16.0f))
         .text(label)
         .fontSize(28.0f)
         .colors(active ? color : tokens.surfaceHover,
@@ -1194,7 +1229,7 @@ void composeAnimationPage(eui::Ui& ui, float width, float height) {
                         .transformOrigin(0.5f, 0.5f)
                         .transformedHitTest()
                         .opacity(animFaded ? 0.38f : 1.0f)
-                        .transition(eui::Transition::make(optionMotion ? 0.42f : 0.0f, eui::Ease::OutBack))
+                        .transition(motion(0.42f, eui::Ease::OutBack))
                         .animate(eui::AnimProperty::Opacity | eui::AnimProperty::Transform)
                         .content([&] {
                             ui.rect("animation.actor.bg")
@@ -1205,7 +1240,7 @@ void composeAnimationPage(eui::Ui& ui, float width, float height) {
                                 .shadow(animGlowing ? 48.0f : 24.0f, 0.0f, animGlowing ? 0.0f : 10.0f,
                                         animGlowing ? alpha(eui::Color{0.28f, 0.76f, 0.72f, 1.0f}, optionNight ? 0.46f : 0.28f)
                                                     : eui::Color{0, 0, 0, optionNight ? 0.30f : 0.12f})
-                                .transition(eui::Transition::make(optionMotion ? 0.42f : 0.0f, eui::Ease::OutBack))
+                                .transition(motion(0.42f, eui::Ease::OutBack))
                                 .animate(eui::AnimProperty::Color | eui::AnimProperty::Radius | eui::AnimProperty::Shadow)
                                 .build();
                             ui.image("animation.actor.icon")
@@ -1369,6 +1404,7 @@ void composeSettingsPage(eui::Ui& ui, float width, float height) {
                         .theme(tokens, true)
                         .position(28.0f, 188.0f)
                         .size(buttonWidth, 76.0f)
+                        .radius(20.0f)
                         .icon(0xF0C1)
                         .iconSize(28.0f)
                         .text("GitHub")
@@ -1380,6 +1416,7 @@ void composeSettingsPage(eui::Ui& ui, float width, float height) {
                         .theme(tokens, false)
                         .position(28.0f + buttonWidth + buttonGap, 188.0f)
                         .size(buttonWidth, 76.0f)
+                        .radius(20.0f)
                         .icon(0xF0C0)
                         .iconSize(28.0f)
                         .text("Group")
@@ -1494,6 +1531,7 @@ void composeMobileModal(eui::Ui& ui, const eui::Screen& screen) {
                         .theme(tokens, true)
                         .position(32.0f, height - 100.0f)
                         .size(width - 64.0f, 72.0f)
+                        .radius(20.0f)
                         .text("Done")
                         .fontSize(30.0f)
                         .onClick([] { modalOpen = false; })
@@ -1541,6 +1579,7 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
                 .theme(tokens, false)
                 .position(34.0f, dialogHeight - 102.0f)
                 .size(buttonWidth, 74.0f)
+                .radius(20.0f)
                 .text("Cancel")
                 .fontSize(29.0f)
                 .onClick([] {
@@ -1553,6 +1592,7 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
                 .theme(tokens, true)
                 .position(34.0f + buttonWidth + gap, dialogHeight - 102.0f)
                 .size(buttonWidth, 74.0f)
+                .radius(20.0f)
                 .icon(0xF00C)
                 .iconSize(28.0f)
                 .text("Confirm")
@@ -1578,6 +1618,7 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
         .screen(screen.width, screen.height)
         .position(contextMenuX, contextMenuY)
         .size(430.0f, 88.0f)
+        .radius(desktopRadius(88.0f, 36.0f, 12.0f))
         .fontSize(20.0f)
         .items({"Inspect", "Duplicate", "Copy Token", "Dismiss"})
         .open(contextMenuOpen)
@@ -1758,7 +1799,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
     const float safeBottom = 18.0f;
     const float side = 18.0f;
     const float contentWidth = std::max(0.0f, screen.width - side * 2.0f);
-    const float navHeight = 86.0f;
+    const float navHeight = 96.0f;
     const float gap = 12.0f;
     const float scrollTop = safeTop + navHeight + gap;
     const float scrollHeight = std::max(0.0f, screen.height - scrollTop - safeBottom);
@@ -1781,7 +1822,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                         .size(contentWidth, navHeight)
                         .items({"Controls", "Style", "Animation", "Settings"})
                         .selected(navPage)
-                        .fontSize(22.0f)
+                        .fontSize(26.0f)
                         .onChange([](int value) { navPage = value; })
                         .transition(motion())
                         .build();

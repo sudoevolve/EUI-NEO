@@ -71,6 +71,7 @@ public:
     DropdownBuilder& itemFontSize(float value) { itemFontSize_ = std::max(1.0f, value); return *this; }
     DropdownBuilder& chevronSize(float value) { chevronSize_ = std::max(1.0f, value); return *this; }
     DropdownBuilder& itemHeight(float value) { itemHeight_ = std::max(24.0f, value); return *this; }
+    DropdownBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
     DropdownBuilder& style(const DropdownStyle& value) { style_ = value; return *this; }
     DropdownBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DropdownStyle(tokens); return *this; }
     DropdownBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }

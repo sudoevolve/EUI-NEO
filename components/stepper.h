@@ -64,6 +64,7 @@ public:
     StepperBuilder& prefix(std::string value) { prefix_ = std::move(value); return *this; }
     StepperBuilder& uppercase(bool value = true) { uppercase_ = value; return *this; }
     StepperBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
+    StepperBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
     StepperBuilder& style(const StepperStyle& value) { style_ = value; return *this; }
     StepperBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = StepperStyle(tokens); return *this; }
     StepperBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }

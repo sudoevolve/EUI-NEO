@@ -55,6 +55,7 @@ public:
     ContextMenuBuilder& style(const ContextMenuStyle& value) { style_ = value; return *this; }
     ContextMenuBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ContextMenuStyle(tokens); return *this; }
     ContextMenuBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
+    ContextMenuBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
     ContextMenuBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ContextMenuBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     ContextMenuBuilder& onSelect(std::function<void(int)> callback) { onSelect_ = std::move(callback); return *this; }

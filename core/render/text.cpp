@@ -17,6 +17,7 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_BITMAP_H
 
 #if defined(EUI_HAS_HARFBUZZ)
 #include <hb.h>
@@ -44,6 +45,7 @@ constexpr const char* kDefaultIconFontFile = "Font Awesome 7 Free-Solid-900.otf"
 constexpr int kGrayAtlasSize = 2048;
 constexpr int kColorAtlasSize = 1024;
 constexpr FT_Int32 kGlyphLoadFlags = FT_LOAD_DEFAULT | FT_LOAD_COLOR | FT_LOAD_NO_SVG | FT_LOAD_TARGET_LIGHT;
+constexpr FT_Int32 kGlyphLoadFlagsNoColor = FT_LOAD_DEFAULT | FT_LOAD_NO_SVG | FT_LOAD_TARGET_LIGHT;
 
 struct FontFace {
     std::string path;
@@ -812,7 +814,8 @@ float loadGlyphAdvance(const FontFace& face, unsigned int glyphIndex, unsigned i
     if (isCombiningMark(codepoint)) {
         return 0.0f;
     }
-    if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0) {
+    if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0 &&
+        FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlagsNoColor) != 0) {
         return fontSize * 0.5f;
     }
 
@@ -1048,6 +1051,30 @@ std::vector<unsigned char> copyGrayBitmap(const FT_Bitmap& bitmap) {
             : base - static_cast<ptrdiff_t>(row) * pitch;
         std::copy(source, source + bitmap.width, compact.begin() + static_cast<ptrdiff_t>(row) * bitmap.width);
     }
+    return compact;
+}
+
+std::vector<unsigned char> copyBitmapAsGray(FT_Library library, const FT_Bitmap& bitmap, int& width, int& height) {
+    width = static_cast<int>(bitmap.width);
+    height = static_cast<int>(bitmap.rows);
+    if (!library) {
+        return {};
+    }
+    if (bitmap.pixel_mode == FT_PIXEL_MODE_GRAY) {
+        return copyGrayBitmap(bitmap);
+    }
+
+    FT_Bitmap converted;
+    FT_Bitmap_Init(&converted);
+    if (FT_Bitmap_Convert(library, &bitmap, &converted, 1) != 0) {
+        FT_Bitmap_Done(library, &converted);
+        return {};
+    }
+
+    width = static_cast<int>(converted.width);
+    height = static_cast<int>(converted.rows);
+    std::vector<unsigned char> compact = copyGrayBitmap(converted);
+    FT_Bitmap_Done(library, &converted);
     return compact;
 }
 
@@ -1493,7 +1520,8 @@ bool TextPrimitive::Impl::ensureGlyph(const ShapedGlyph& shaped) {
         return true;
     }
 
-    if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0) {
+    if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0 &&
+        FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlagsNoColor) != 0) {
         cacheGlyph(shaped.key, glyph);
         return true;
     }
@@ -1549,20 +1577,19 @@ bool TextPrimitive::Impl::ensureGlyph(const ShapedGlyph& shaped) {
             return true;
         }
         atlas.color.glyphs[cacheKey] = glyph;
-    } else if (bitmap.pixel_mode == FT_PIXEL_MODE_GRAY) {
-        std::vector<unsigned char> gray = copyGrayBitmap(bitmap);
+    } else {
+        int grayWidth = static_cast<int>(bitmap.width);
+        int grayHeight = static_cast<int>(bitmap.rows);
+        std::vector<unsigned char> gray = copyBitmapAsGray(sharedFreeTypeLibrary(), bitmap, grayWidth, grayHeight);
         if (gray.empty()) {
             cacheGlyph(shaped.key, glyph);
             return true;
         }
-        if (!appendToAtlas(atlas.gray, gray.data(), static_cast<int>(bitmap.width), static_cast<int>(bitmap.rows), 1, glyph)) {
+        if (!appendToAtlas(atlas.gray, gray.data(), grayWidth, grayHeight, 1, glyph)) {
             cacheGlyph(shaped.key, glyph);
             return true;
         }
         atlas.gray.glyphs[cacheKey] = glyph;
-    } else {
-        cacheGlyph(shaped.key, glyph);
-        return true;
     }
 
     cacheGlyph(shaped.key, glyph);
