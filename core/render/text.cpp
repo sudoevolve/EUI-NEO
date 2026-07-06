@@ -19,6 +19,11 @@
 #include FT_FREETYPE_H
 #include FT_BITMAP_H
 
+#if defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+#include <jni.h>
+#include <SDL_system.h>
+#endif
+
 #if defined(EUI_HAS_HARFBUZZ)
 #include <hb.h>
 #include <hb-ft.h>
@@ -27,6 +32,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <initializer_list>
 #include <memory>
@@ -696,8 +702,31 @@ bool isEmojiJoiner(unsigned int codepoint) {
 }
 
 bool isEmojiCodepoint(unsigned int codepoint) {
+    if (codepoint == 0x00A9 || codepoint == 0x00AE ||
+        codepoint == 0x203C || codepoint == 0x2049 ||
+        codepoint == 0x2122 || codepoint == 0x2139 ||
+        codepoint == 0x3030 || codepoint == 0x303D ||
+        codepoint == 0x3297 || codepoint == 0x3299) {
+        return true;
+    }
     return (codepoint >= 0x1F000 && codepoint <= 0x1FAFF) ||
+           (codepoint >= 0x2194 && codepoint <= 0x21AA) ||
+           (codepoint >= 0x231A && codepoint <= 0x23FF) ||
+           codepoint == 0x24C2 ||
+           (codepoint >= 0x25AA && codepoint <= 0x25FE) ||
            (codepoint >= 0x2600 && codepoint <= 0x27BF);
+}
+
+bool textSliceLooksEmoji(const std::string& text) {
+    bool hasEmojiBase = false;
+    bool hasEmojiPresentation = false;
+    size_t index = 0;
+    while (index < text.size()) {
+        const unsigned int codepoint = readUtf8Codepoint(text, index);
+        hasEmojiBase = hasEmojiBase || isEmojiCodepoint(codepoint);
+        hasEmojiPresentation = hasEmojiPresentation || codepoint == 0xFE0F;
+    }
+    return hasEmojiBase || hasEmojiPresentation;
 }
 
 bool nextCodepointIsEmojiPresentation(const std::string& text, size_t index) {
@@ -1158,6 +1187,146 @@ std::vector<unsigned char> copyBgraBitmapAsRgba(const FT_Bitmap& bitmap) {
     return compact;
 }
 
+#if defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+bool androidClearException(JNIEnv* env) {
+    if (env == nullptr || !env->ExceptionCheck()) {
+        return false;
+    }
+    env->ExceptionClear();
+    return true;
+}
+
+jclass androidMainActivityClass(JNIEnv* env) {
+    if (env == nullptr) {
+        return nullptr;
+    }
+    jobject activity = static_cast<jobject>(SDL_AndroidGetActivity());
+    if (activity == nullptr) {
+        return nullptr;
+    }
+    jclass cls = env->GetObjectClass(activity);
+    env->DeleteLocalRef(activity);
+    if (androidClearException(env) || cls == nullptr) {
+        return nullptr;
+    }
+    return cls;
+}
+
+int readLittleEndianInt(const unsigned char* data) {
+    return static_cast<int>(data[0]) |
+           (static_cast<int>(data[1]) << 8) |
+           (static_cast<int>(data[2]) << 16) |
+           (static_cast<int>(data[3]) << 24);
+}
+
+float readLittleEndianFloat(const unsigned char* data) {
+    const std::uint32_t bits = static_cast<std::uint32_t>(data[0]) |
+                               (static_cast<std::uint32_t>(data[1]) << 8) |
+                               (static_cast<std::uint32_t>(data[2]) << 16) |
+                               (static_cast<std::uint32_t>(data[3]) << 24);
+    float value = 0.0f;
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+std::vector<jchar> utf8ToJChars(const std::string& text) {
+    std::vector<jchar> output;
+    output.reserve(text.size());
+    size_t index = 0;
+    while (index < text.size()) {
+        unsigned int codepoint = readUtf8Codepoint(text, index);
+        if (codepoint <= 0xFFFF) {
+            output.push_back(static_cast<jchar>(codepoint));
+        } else if (codepoint <= 0x10FFFF) {
+            codepoint -= 0x10000;
+            output.push_back(static_cast<jchar>(0xD800 + ((codepoint >> 10) & 0x3FF)));
+            output.push_back(static_cast<jchar>(0xDC00 + (codepoint & 0x3FF)));
+        }
+    }
+    return output;
+}
+
+bool renderAndroidEmojiGlyph(const std::string& text,
+                             float fontSize,
+                             float ascent,
+                             TextPrimitive::Glyph& glyph) {
+    if (text.empty() || fontSize <= 0.0f) {
+        return false;
+    }
+
+    JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+    if (env == nullptr) {
+        return false;
+    }
+
+    jclass cls = androidMainActivityClass(env);
+    if (cls == nullptr) {
+        return false;
+    }
+
+    jmethodID method = env->GetStaticMethodID(cls, "renderEmojiBitmap", "(Ljava/lang/String;F)[B");
+    if (androidClearException(env) || method == nullptr) {
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+
+    const std::vector<jchar> utf16 = utf8ToJChars(text);
+    if (utf16.empty()) {
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+
+    jstring jText = env->NewString(utf16.data(), static_cast<jsize>(utf16.size()));
+    if (androidClearException(env) || jText == nullptr) {
+        env->DeleteLocalRef(cls);
+        return false;
+    }
+
+    auto result = static_cast<jbyteArray>(env->CallStaticObjectMethod(cls, method, jText, static_cast<jfloat>(fontSize)));
+    env->DeleteLocalRef(jText);
+    env->DeleteLocalRef(cls);
+    if (androidClearException(env) || result == nullptr) {
+        return false;
+    }
+
+    const jsize length = env->GetArrayLength(result);
+    if (length < 20) {
+        env->DeleteLocalRef(result);
+        return false;
+    }
+
+    std::vector<unsigned char> bytes(static_cast<std::size_t>(length));
+    env->GetByteArrayRegion(result, 0, length, reinterpret_cast<jbyte*>(bytes.data()));
+    env->DeleteLocalRef(result);
+    if (androidClearException(env)) {
+        return false;
+    }
+
+    const int width = readLittleEndianInt(bytes.data());
+    const int height = readLittleEndianInt(bytes.data() + 4);
+    const int padding = readLittleEndianInt(bytes.data() + 8);
+    const int baseline = readLittleEndianInt(bytes.data() + 12);
+    const float advance = readLittleEndianFloat(bytes.data() + 16);
+    const std::size_t pixelBytes = static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u;
+    if (width <= 0 || height <= 0 || static_cast<std::size_t>(length) < 20u + pixelBytes) {
+        return false;
+    }
+
+    SharedTextAtlas& atlas = sharedTextAtlas();
+    if (!ensureAtlasPage(atlas.color, kColorAtlasSize, kColorAtlasSize, 4)) {
+        return false;
+    }
+
+    glyph.colored = true;
+    glyph.advance = advance > 0.0f ? advance : glyph.advance;
+    glyph.xOffset = -static_cast<float>(padding);
+    glyph.yOffset = ascent - static_cast<float>(baseline);
+    glyph.width = static_cast<float>(width);
+    glyph.height = static_cast<float>(height);
+    return appendToAtlas(atlas.color, bytes.data() + 20, width, height, 4, glyph);
+}
+#endif
+
 } // namespace
 
 struct TextPrimitive::Impl {
@@ -1570,6 +1739,30 @@ bool TextPrimitive::Impl::ensureGlyph(const ShapedGlyph& shaped) {
     glyph.advance = shaped.advance;
     glyph.colored = face.colored;
 
+#if defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+    const auto tryAndroidEmojiFallback = [&]() {
+        if (shaped.byteStart < 0 ||
+            shaped.byteEnd <= shaped.byteStart ||
+            shaped.byteEnd > static_cast<int>(style_.text.size())) {
+            return false;
+        }
+        const std::string emojiText = style_.text.substr(
+            static_cast<std::size_t>(shaped.byteStart),
+            static_cast<std::size_t>(shaped.byteEnd - shaped.byteStart));
+        if (!textSliceLooksEmoji(emojiText)) {
+            return false;
+        }
+        if (!renderAndroidEmojiGlyph(emojiText, style_.fontSize, ascent_, glyph)) {
+            return false;
+        }
+        cacheGlyph(shaped.key, glyph);
+        return true;
+    };
+    if (tryAndroidEmojiFallback()) {
+        return true;
+    }
+#endif
+
     if (glyphIndex == 0 || shaped.codepoint == ' ' || shaped.codepoint == '\t') {
         cacheGlyph(shaped.key, glyph);
         return true;
@@ -1693,6 +1886,9 @@ void TextPrimitive::Impl::rebuildLayout() {
 
         const std::vector<ShapedGlyph> shaped = shapeText(paragraph);
         for (const ShapedGlyph& glyph : shaped) {
+            ShapedGlyph adjustedGlyph = glyph;
+            adjustedGlyph.byteStart += static_cast<int>(paragraphStart);
+            adjustedGlyph.byteEnd += static_cast<int>(paragraphStart);
             const float advance = glyph.advance;
             if (style_.wrap && maxWidth > 0.0f && cursorX > 0.0f && cursorX + advance > maxWidth) {
                 measuredSize_.x = std::max(measuredSize_.x, currentLine.width);
@@ -1701,7 +1897,7 @@ void TextPrimitive::Impl::rebuildLayout() {
                 cursorX = 0.0f;
             }
 
-            appendShapedGlyphToLine(currentLine, glyph, cursorX);
+            appendShapedGlyphToLine(currentLine, adjustedGlyph, cursorX);
         }
 
         if (newline == std::string::npos) {

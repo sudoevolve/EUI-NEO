@@ -1,6 +1,11 @@
 package com.sudoevolve.euineo;
 
 import android.os.Bundle;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Typeface;
 
 import org.libsdl.app.SDLActivity;
 
@@ -11,6 +16,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends SDLActivity {
@@ -37,6 +44,50 @@ public class MainActivity extends SDLActivity {
 
     public float displayDensity() {
         return getResources().getDisplayMetrics().density;
+    }
+
+    public static byte[] renderEmojiBitmap(String text, float textSize) {
+        if (text == null || text.isEmpty() || textSize <= 0.0f) {
+            return null;
+        }
+
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
+        paint.setColor(Color.WHITE);
+        paint.setTextSize(textSize);
+        paint.setTypeface(Typeface.DEFAULT);
+        if (!paint.hasGlyph(text)) {
+            return null;
+        }
+
+        Paint.FontMetricsInt metrics = paint.getFontMetricsInt();
+        float advance = Math.max(1.0f, paint.measureText(text));
+        int padding = Math.max(2, (int)Math.ceil(textSize * 0.10f));
+        int width = Math.max(1, (int)Math.ceil(advance) + padding * 2);
+        int height = Math.max(1, metrics.descent - metrics.ascent + padding * 2);
+        int baseline = padding - metrics.ascent;
+
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(Color.TRANSPARENT);
+        canvas.drawText(text, padding, baseline, paint);
+
+        int[] pixels = new int[width * height];
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+        bitmap.recycle();
+
+        ByteBuffer output = ByteBuffer.allocate(20 + width * height * 4).order(ByteOrder.LITTLE_ENDIAN);
+        output.putInt(width);
+        output.putInt(height);
+        output.putInt(padding);
+        output.putInt(baseline);
+        output.putFloat(advance);
+        for (int pixel : pixels) {
+            output.put((byte)((pixel >> 16) & 0xFF));
+            output.put((byte)((pixel >> 8) & 0xFF));
+            output.put((byte)(pixel & 0xFF));
+            output.put((byte)((pixel >> 24) & 0xFF));
+        }
+        return output.array();
     }
 
     private void copyAssetTree(String assetPath, File targetDir) throws IOException {
