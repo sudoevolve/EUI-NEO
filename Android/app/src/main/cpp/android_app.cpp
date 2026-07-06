@@ -44,8 +44,8 @@ bool animGlowing = false;
 bool animFlipX = false;
 bool animFlipY = false;
 bool animDepth = false;
-std::string singleInput = "Tap to edit";
-std::string multiInput = "Large touch targets\nAndroid IME test\nScroll the page";
+std::string singleInput = "Tap to edit 😀";
+std::string multiInput = "Large touch targets 🚀\nAndroid IME test\nScroll the page";
 eui::Signal<float> basicScroll{0.0f};
 eui::Signal<float> styleScroll{0.0f};
 eui::Signal<float> animationScroll{0.0f};
@@ -67,10 +67,17 @@ components::theme::ThemeColorTokens theme() {
     return tokens;
 }
 
-float motionDuration(float baseDuration) {
+float animationDurationScale() {
     const float speed = std::clamp(animationSpeed.get(), 0.0f, 1.0f);
-    const float factor = 1.85f - speed * 1.35f;
-    return optionMotion ? baseDuration * factor : 0.0f;
+    return optionMotion ? 1.85f - speed * 1.35f : 0.0f;
+}
+
+void syncGlobalMotion() {
+    core::setGlobalTransitionDurationScale(animationDurationScale());
+}
+
+float motionDuration(float baseDuration) {
+    return optionMotion ? baseDuration : 0.0f;
 }
 
 eui::Transition motion(float baseDuration, eui::Ease ease = eui::Ease::OutCubic) {
@@ -1794,8 +1801,9 @@ const DslAppConfig& dslAppConfig() {
 }
 
 void compose(eui::Ui& ui, const eui::Screen& screen) {
+    syncGlobalMotion();
     const auto tokens = theme();
-    const float safeTop = 44.0f;
+    const float safeTop = 72.0f;
     const float safeBottom = 18.0f;
     const float side = 18.0f;
     const float contentWidth = std::max(0.0f, screen.width - side * 2.0f);

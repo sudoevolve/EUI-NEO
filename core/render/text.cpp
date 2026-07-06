@@ -228,6 +228,41 @@ std::string firstExistingPath(std::initializer_list<const char*> paths) {
     return {};
 }
 
+std::string firstExistingStringPath(std::initializer_list<std::string> paths) {
+    for (const std::string& path : paths) {
+        if (path.empty()) {
+            continue;
+        }
+        if (const std::string existing = existingPath(path); !existing.empty()) {
+            return existing;
+        }
+    }
+    return {};
+}
+
+std::string firstEmojiFontInDirectory(const std::filesystem::path& directory) {
+    std::error_code error;
+    if (!std::filesystem::exists(directory, error) || !std::filesystem::is_directory(directory, error)) {
+        return {};
+    }
+
+    for (const auto& entry : std::filesystem::directory_iterator(directory, error)) {
+        if (error) {
+            break;
+        }
+        const std::filesystem::path path = entry.path();
+        const std::string filename = path.filename().string();
+        const std::string extension = path.extension().string();
+        const bool fontFile = extension == ".ttf" || extension == ".ttc" || extension == ".otf";
+        const bool emojiName = filename.find("Emoji") != std::string::npos ||
+                               filename.find("emoji") != std::string::npos;
+        if (fontFile && emojiName) {
+            return path.string();
+        }
+    }
+    return {};
+}
+
 std::string& defaultUiFontFileOverride() {
     static std::string value;
     return value;
@@ -315,13 +350,29 @@ std::string resolveSystemEmojiFontPath() {
         "/System/Library/Fonts/Apple Color Emoji.ttc"
     });
 #else
-    return firstExistingPath({
+    if (const std::string direct = firstExistingPath({
         "/system/fonts/NotoColorEmoji.ttf",
         "/system/fonts/NotoColorEmojiFlags.ttf",
         "/system/fonts/NotoEmoji-Regular.ttf",
+        "/product/fonts/NotoColorEmoji.ttf",
+        "/product/fonts/NotoColorEmojiFlags.ttf",
+        "/system_ext/fonts/NotoColorEmoji.ttf",
+        "/apex/com.android.i18n/fonts/NotoColorEmoji.ttf",
         "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
         "/usr/share/fonts/noto/NotoColorEmoji.ttf",
         "/usr/share/fonts/google-noto/NotoColorEmoji.ttf"
+    }); !direct.empty()) {
+        return direct;
+    }
+
+    return firstExistingStringPath({
+        firstEmojiFontInDirectory("/system/fonts"),
+        firstEmojiFontInDirectory("/product/fonts"),
+        firstEmojiFontInDirectory("/system_ext/fonts"),
+        firstEmojiFontInDirectory("/apex/com.android.i18n/fonts"),
+        firstEmojiFontInDirectory("/usr/share/fonts/truetype/noto"),
+        firstEmojiFontInDirectory("/usr/share/fonts/noto"),
+        firstEmojiFontInDirectory("/usr/share/fonts/google-noto")
     });
 #endif
 }
@@ -604,6 +655,10 @@ std::shared_ptr<FontInfoHolder> loadSharedFontStack(const std::string& fontPath,
     addLazyFallback("/system/fonts/NotoColorEmoji.ttf");
     addLazyFallback("/system/fonts/NotoColorEmojiFlags.ttf");
     addLazyFallback("/system/fonts/NotoEmoji-Regular.ttf");
+    addLazyFallback("/product/fonts/NotoColorEmoji.ttf");
+    addLazyFallback("/product/fonts/NotoColorEmojiFlags.ttf");
+    addLazyFallback("/system_ext/fonts/NotoColorEmoji.ttf");
+    addLazyFallback("/apex/com.android.i18n/fonts/NotoColorEmoji.ttf");
     addLazyFallback("/system/fonts/NotoSansCJK-Regular.ttc");
     addLazyFallback("/system/fonts/Roboto-Regular.ttf");
     addLazyFallback("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf");

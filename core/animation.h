@@ -101,7 +101,7 @@ inline float& transitionDurationScaleStorage() {
 }
 
 inline void setGlobalTransitionDurationScale(float value) {
-    transitionDurationScaleStorage() = std::clamp(value, 0.05f, 8.0f);
+    transitionDurationScaleStorage() = std::clamp(value, 0.0f, 8.0f);
 }
 
 inline float globalTransitionDurationScale() {
@@ -286,7 +286,8 @@ public:
         }
 
         target_ = target;
-        if (!transition.enabled || !animateProperty || transition.durationSeconds <= 0.0f) {
+        const Transition scaled = scaledTransition(transition);
+        if (!scaled.enabled || !animateProperty || scaled.durationSeconds <= 0.0f) {
             start_ = target;
             current_ = target;
             active_ = false;
@@ -295,7 +296,7 @@ public:
         }
 
         start_ = current_;
-        spec_ = scaledTransition(transition);
+        spec_ = scaled;
         elapsedSeconds_ = 0.0f;
         active_ = true;
         return true;
