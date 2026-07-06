@@ -13,6 +13,10 @@
 #define SDL_MAIN_HANDLED
 #endif
 #include <SDL.h>
+#if defined(__ANDROID__)
+#include <SDL_system.h>
+#include <jni.h>
+#endif
 #if defined(EUI_RENDER_BACKEND_VULKAN)
 #include <SDL_vulkan.h>
 #endif
@@ -124,6 +128,43 @@ float dpiScale(SDL_Window* window) {
         const UINT dpi = GetDpiForWindow(hwnd);
         if (dpi > 0) {
             return static_cast<float>(dpi) / 96.0f;
+        }
+    }
+#endif
+#ifdef __ANDROID__
+    JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
+    jobject activity = static_cast<jobject>(SDL_AndroidGetActivity());
+    if (env != nullptr && activity != nullptr) {
+        jclass cls = env->GetObjectClass(activity);
+        if (cls != nullptr) {
+            jmethodID method = env->GetMethodID(cls, "displayDensity", "()F");
+            if (method != nullptr && !env->ExceptionCheck()) {
+                const float density = env->CallFloatMethod(activity, method);
+                if (!env->ExceptionCheck() && density > 0.0f) {
+                    env->DeleteLocalRef(cls);
+                    env->DeleteLocalRef(activity);
+                    return std::clamp(density, 1.0f, 6.0f);
+                }
+            }
+            if (env->ExceptionCheck()) {
+                env->ExceptionClear();
+            }
+            env->DeleteLocalRef(cls);
+        }
+        env->DeleteLocalRef(activity);
+    }
+
+    const int display = SDL_GetWindowDisplayIndex(window);
+    float diagonalDpi = 0.0f;
+    float horizontalDpi = 0.0f;
+    float verticalDpi = 0.0f;
+    if (display >= 0 &&
+        SDL_GetDisplayDPI(display, &diagonalDpi, &horizontalDpi, &verticalDpi) == 0) {
+        const float dpi = horizontalDpi > 0.0f && verticalDpi > 0.0f
+            ? (horizontalDpi + verticalDpi) * 0.5f
+            : diagonalDpi;
+        if (dpi > 0.0f) {
+            return std::clamp(dpi / 160.0f, 1.0f, 6.0f);
         }
     }
 #endif

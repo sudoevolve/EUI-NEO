@@ -69,8 +69,6 @@ public:
     LineChartBuilder& title(const std::string& value) { title_ = value; return *this; }
     LineChartBuilder& values(std::vector<float> value) { values_ = std::move(value); return *this; }
     LineChartBuilder& labels(std::vector<std::string> value) { labels_ = std::move(value); return *this; }
-    LineChartBuilder& titleFontSize(float value) { titleFontSize_ = std::max(1.0f, value); return *this; }
-    LineChartBuilder& labelFontSize(float value) { labelFontSize_ = std::max(1.0f, value); return *this; }
     LineChartBuilder& style(const LineChartStyle& value) { style_ = value; return *this; }
     LineChartBuilder& style(LineStyle value) { lineStyle_ = value; return *this; }
     LineChartBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = LineChartStyle(tokens); return *this; }
@@ -115,10 +113,10 @@ public:
                 ui_.text(id_ + ".title")
                     .x(titleX)
                     .y(titleY)
-                    .size(std::max(0.0f, width_ - titleX * 2.0f), titleFontSize_ + 10.0f)
+                    .size(std::max(0.0f, width_ - titleX * 2.0f), 28.0f)
                     .text(title_)
-                    .fontSize(titleFontSize_)
-                    .lineHeight(titleFontSize_ + 6.0f)
+                    .fontSize(22.0f)
+                    .lineHeight(26.0f)
                     .color(style_.title)
                     .build();
 
@@ -378,10 +376,10 @@ private:
         ui_.text(id)
             .x(x)
             .y(y)
-            .size(width, labelFontSize_ + 10.0f)
+            .size(width, 22.0f)
             .text(value)
-            .fontSize(labelFontSize_)
-            .lineHeight(labelFontSize_ + 6.0f)
+            .fontSize(14.0f)
+            .lineHeight(18.0f)
             .color(style_.label)
             .horizontalAlign(core::HorizontalAlign::Center)
             .build();
@@ -416,8 +414,6 @@ private:
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     float width_ = 206.0f;
     float height_ = 236.0f;
-    float titleFontSize_ = 22.0f;
-    float labelFontSize_ = 14.0f;
 };
 
 inline LineChartBuilder lineChart(core::dsl::Ui& ui, const std::string& id) {

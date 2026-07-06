@@ -67,9 +67,6 @@ public:
         onOpenChange([&signal](bool value) { signal.set(value); });
         return *this;
     }
-    DropdownBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
-    DropdownBuilder& itemFontSize(float value) { itemFontSize_ = std::max(1.0f, value); return *this; }
-    DropdownBuilder& chevronSize(float value) { chevronSize_ = std::max(1.0f, value); return *this; }
     DropdownBuilder& itemHeight(float value) { itemHeight_ = std::max(24.0f, value); return *this; }
     DropdownBuilder& style(const DropdownStyle& value) { style_ = value; return *this; }
     DropdownBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DropdownStyle(tokens); return *this; }
@@ -113,8 +110,8 @@ public:
                     .x(14.0f)
                     .size(std::max(0.0f, width_ - 48.0f), height_)
                     .text(label)
-                    .fontSize(fontSize_)
-                    .lineHeight(fontSize_ + 6.0f)
+                    .fontSize(16.0f)
+                    .lineHeight(20.0f)
                     .color(selected >= 0 ? style_.text : style_.mutedText)
                     .verticalAlign(core::VerticalAlign::Center)
                     .build();
@@ -123,8 +120,8 @@ public:
                     .x(std::max(0.0f, width_ - 34.0f))
                     .size(20.0f, height_)
                     .icon(open_ ? 0xF077 : 0xF078)
-                    .fontSize(chevronSize_)
-                    .lineHeight(chevronSize_ + 5.0f)
+                    .fontSize(13.0f)
+                    .lineHeight(18.0f)
                     .color(style_.accent)
                     .horizontalAlign(core::HorizontalAlign::Center)
                     .verticalAlign(core::VerticalAlign::Center)
@@ -182,13 +179,12 @@ public:
 
                             ui_.text(id_ + ".item.label." + std::to_string(index))
                                 .x(popupPadding + 12.0f)
-                                .y(itemY)
-                                .size(std::max(0.0f, width_ - popupPadding * 2.0f - 24.0f), itemHeight_)
+                                .y(itemY + std::max(0.0f, (itemHeight_ - 18.0f) * 0.5f))
+                                .size(std::max(0.0f, width_ - popupPadding * 2.0f - 24.0f), 20.0f)
                                 .text(items_[index])
-                                .fontSize(itemFontSize_)
-                                .lineHeight(itemFontSize_ + 6.0f)
+                                .fontSize(15.0f)
+                                .lineHeight(18.0f)
                                 .color(active ? style_.accent : style_.text)
-                                .verticalAlign(core::VerticalAlign::Center)
                                 .transition(transition_)
                                 .animate(core::AnimProperty::TextColor)
                                 .build();
@@ -213,9 +209,6 @@ private:
     float width_ = 260.0f;
     float height_ = 42.0f;
     float itemHeight_ = 34.0f;
-    float fontSize_ = 16.0f;
-    float itemFontSize_ = 15.0f;
-    float chevronSize_ = 13.0f;
     int zIndex_ = 20;
 };
 

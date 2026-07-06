@@ -35,6 +35,10 @@ public class MainActivity extends SDLActivity {
         }
     }
 
+    public float displayDensity() {
+        return getResources().getDisplayMetrics().density;
+    }
+
     private void copyAssetTree(String assetPath, File targetDir) throws IOException {
         String[] entries = getAssets().list(assetPath);
         if (entries == null || entries.length == 0) {

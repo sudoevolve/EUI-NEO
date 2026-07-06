@@ -261,7 +261,7 @@ private:
     void panel(float width, float height, DateDraft* draft) {
         const float titleHeight = 58.0f;
         const float bottomPad = 24.0f;
-        const float rowHeight = 58.0f;
+        const float rowHeight = 38.0f;
         const float columnY = titleHeight + 8.0f;
         const float columnHeight = std::max(150.0f, height - titleHeight - bottomPad - 8.0f);
         const float gap = 12.0f;
@@ -298,8 +298,8 @@ private:
             .y(18.0f)
             .size(std::max(0.0f, width - 124.0f), 30.0f)
             .text("Date")
-            .fontSize(34.0f)
-            .lineHeight(40.0f)
+            .fontSize(24.0f)
+            .lineHeight(29.0f)
             .color(style_.text)
             .build();
 
@@ -328,8 +328,8 @@ private:
             .y(18.0f)
             .size(62.0f, 30.0f)
             .text("Done")
-            .fontSize(22.0f)
-            .lineHeight(26.0f)
+            .fontSize(15.0f)
+            .lineHeight(18.0f)
             .color(theme::color(1.0f, 1.0f, 1.0f))
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -402,8 +402,8 @@ private:
                 .size(std::max(0.0f, width - 8.0f), rowHeight)
                 .zIndex(10 - distance)
                 .text(text)
-                .fontSize(active ? 34.0f : 25.0f)
-                .lineHeight(active ? 40.0f : 31.0f)
+                .fontSize(active ? 22.0f : 15.0f)
+                .lineHeight(active ? 26.0f : 19.0f)
                 .color(active ? style_.text : style_.mutedText)
                 .opacity(visual.opacity)
                 .translateY(visual.translateY)

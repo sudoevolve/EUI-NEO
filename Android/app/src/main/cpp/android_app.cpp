@@ -513,9 +513,6 @@ void composeChoice(eui::Ui& ui, float width) {
                 .items({"Alpha", "Beta", "Gamma"})
                 .selected(dropdown)
                 .open(dropdownOpen.get())
-                .fontSize(31.0f)
-                .itemFontSize(31.0f)
-                .chevronSize(24.0f)
                 .itemHeight(82.0f)
                 .onOpenChange([](bool open) { dropdownOpen.set(open); })
                 .onChange([](int index) {
@@ -784,8 +781,6 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
             components::dataTable(ui, "control.table")
                 .theme(tokens)
                 .size(width, 390.0f)
-                .headerFontSize(27.0f)
-                .fontSize(28.0f)
                 .columns({"Name", "Status", "Owner"})
                 .rows({
                     {"EUI Core", "Active", "Sudo"},
@@ -800,8 +795,6 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
                 .theme(tokens)
                 .size(width, 360.0f)
                 .title("LineChart")
-                .titleFontSize(32.0f)
-                .labelFontSize(22.0f)
                 .values({0.22f, 0.30f, 0.20f, 0.55f, 0.42f, 0.86f})
                 .labels({"Jan", "Feb", "Mar", "Apr", "May", "Jun"})
                 .style(components::LineStyle::Curve)
@@ -816,8 +809,6 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
                         .theme(tokens)
                         .size(chartWidth, 360.0f)
                         .title("BarChart")
-                        .titleFontSize(30.0f)
-                        .labelFontSize(21.0f)
                         .values({0.92f, 0.36f, 0.68f, 0.52f})
                         .labels({"D1", "D2", "D3", "D4"})
                         .transition(motion())
@@ -826,7 +817,6 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
                         .theme(tokens)
                         .size(chartWidth, 360.0f)
                         .title("PieChart")
-                        .titleFontSize(30.0f)
                         .values({0.42f, 0.24f, 0.18f, 0.16f})
                         .labels({"Blue", "Green", "Orange", "Pink"})
                         .transition(motion())
@@ -1565,7 +1555,6 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
         .screen(screen.width, screen.height)
         .position(contextMenuX, contextMenuY)
         .size(430.0f, 88.0f)
-        .fontSize(31.0f)
         .items({"Inspect", "Duplicate", "Copy Token", "Dismiss"})
         .open(contextMenuOpen)
         .transition(motion())
@@ -1649,9 +1638,6 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
         .visible(toastVisible)
         .duration(3.0f)
         .icon(0xF058)
-        .iconSize(32.0f)
-        .titleFontSize(28.0f)
-        .messageFontSize(23.0f)
         .title("Gallery Feedback")
         .message(feedback)
         .transition(motion())
@@ -1729,12 +1715,12 @@ const DslAppConfig& dslAppConfig() {
 
 void compose(eui::Ui& ui, const eui::Screen& screen) {
     const auto tokens = theme();
-    const float safeTop = 150.0f;
-    const float safeBottom = 34.0f;
-    const float side = 36.0f;
+    const float safeTop = 44.0f;
+    const float safeBottom = 18.0f;
+    const float side = 18.0f;
     const float contentWidth = std::max(0.0f, screen.width - side * 2.0f);
-    const float navHeight = 124.0f;
-    const float gap = 18.0f;
+    const float navHeight = 64.0f;
+    const float gap = 12.0f;
     const float scrollTop = safeTop + navHeight + gap;
     const float scrollHeight = std::max(0.0f, screen.height - scrollTop - safeBottom);
 
@@ -1756,7 +1742,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                         .size(contentWidth, navHeight)
                         .items({"Controls", "Style", "Animation", "Settings"})
                         .selected(navPage)
-                        .fontSize(34.0f)
+                        .fontSize(17.0f)
                         .onChange([](int value) { navPage = value; })
                         .transition(motion())
                         .build();
