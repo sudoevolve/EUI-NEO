@@ -52,6 +52,7 @@ eui::Signal<float> animationScroll{0.0f};
 eui::Signal<float> settingsScroll{0.0f};
 eui::Signal<float> virtualListScroll{0.0f};
 eui::Signal<float> sliderValue{0.58f};
+eui::Signal<float> animationSpeed{0.58f};
 eui::Signal<eui::Color> pickedColor{components::theme::defaultPrimary()};
 eui::Signal<eui::Color> sampleColor{components::theme::defaultPrimary()};
 eui::Signal<bool> dropdownOpen{false};
@@ -67,7 +68,9 @@ components::theme::ThemeColorTokens theme() {
 }
 
 eui::Transition motion() {
-    return eui::Transition::make(optionMotion ? 0.18f : 0.0f, eui::Ease::OutCubic);
+    const float speed = std::clamp(animationSpeed.get(), 0.0f, 1.0f);
+    const float factor = 1.85f - speed * 1.35f;
+    return eui::Transition::make(optionMotion ? 0.18f * factor : 0.0f, eui::Ease::OutCubic);
 }
 
 eui::Color alpha(eui::Color color, float value) {
@@ -514,6 +517,9 @@ void composeChoice(eui::Ui& ui, float width) {
                 .items({"Alpha", "Beta", "Gamma"})
                 .selected(dropdown)
                 .open(dropdownOpen.get())
+                .fontSize(20.0f)
+                .itemFontSize(20.0f)
+                .chevronSize(17.0f)
                 .itemHeight(82.0f)
                 .onOpenChange([](bool open) { dropdownOpen.set(open); })
                 .onChange([](int index) {
@@ -782,6 +788,8 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
             components::dataTable(ui, "control.table")
                 .theme(tokens)
                 .size(width, 390.0f)
+                .headerFontSize(18.0f)
+                .fontSize(18.0f)
                 .columns({"Name", "Status", "Owner"})
                 .rows({
                     {"EUI Core", "Active", "Sudo"},
@@ -796,6 +804,8 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
                 .theme(tokens)
                 .size(width, 360.0f)
                 .title("LineChart")
+                .titleFontSize(24.0f)
+                .labelFontSize(17.0f)
                 .values({0.22f, 0.30f, 0.20f, 0.55f, 0.42f, 0.86f})
                 .labels({"Jan", "Feb", "Mar", "Apr", "May", "Jun"})
                 .style(components::LineStyle::Curve)
@@ -810,6 +820,8 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
                         .theme(tokens)
                         .size(chartWidth, 360.0f)
                         .title("BarChart")
+                        .titleFontSize(23.0f)
+                        .labelFontSize(17.0f)
                         .values({0.92f, 0.36f, 0.68f, 0.52f})
                         .labels({"D1", "D2", "D3", "D4"})
                         .transition(motion())
@@ -818,6 +830,7 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
                         .theme(tokens)
                         .size(chartWidth, 360.0f)
                         .title("PieChart")
+                        .titleFontSize(23.0f)
                         .values({0.42f, 0.24f, 0.18f, 0.16f})
                         .labels({"Blue", "Green", "Orange", "Pink"})
                         .transition(motion())
@@ -949,6 +962,7 @@ void composeVirtualListCard(eui::Ui& ui, float width) {
                 .rowHeight(78.0f)
                 .bind(virtualListScroll)
                 .step(110.0f)
+                .overscanViewports(0.2f)
                 .scrollbarWidth(9.0f)
                 .scrollbarGap(8.0f)
                 .theme(tokens)
@@ -1308,11 +1322,11 @@ void composeSettingsPage(eui::Ui& ui, float width, float height) {
                     swatch(ui, "settings.color.pink", "Pink", {0.86f, 0.36f, 0.58f, 1.0f}, w);
                 })
                 .build();
-            rowText(ui, "settings.slider.label", "Accent strength", percentText(sliderValue.get()), width);
+            rowText(ui, "settings.slider.label", "Animation speed", percentText(animationSpeed.get()), width);
             components::slider(ui, "settings.slider")
                 .theme(tokens)
                 .size(width, 88.0f)
-                .bind(sliderValue)
+                .bind(animationSpeed)
                 .transition(motion())
                 .build();
             section(ui, "section.about", "About", width);
@@ -1373,8 +1387,16 @@ void composeSettingsPage(eui::Ui& ui, float width, float height) {
                         .onClick([] { eui::platform::openUrl("https://qm.qq.com/q/kaPB4paOpa"); })
                         .transition(motion())
                         .build();
+                    ui.text("about.emoji")
+                        .position(28.0f, 276.0f)
+                        .size(width - 56.0f, 36.0f)
+                        .text("Emoji fallback: 😀 🚀 ✨ ❤️")
+                        .fontSize(24.0f)
+                        .lineHeight(32.0f)
+                        .color(textPrimary())
+                        .build();
                     ui.text("about.runtime.title")
-                        .position(28.0f, 292.0f)
+                        .position(28.0f, 322.0f)
                         .size(width - 56.0f, 36.0f)
                         .text("Runtime")
                         .fontSize(30.0f)
@@ -1382,7 +1404,7 @@ void composeSettingsPage(eui::Ui& ui, float width, float height) {
                         .color(textPrimary())
                         .build();
                     ui.text("about.runtime.copy")
-                        .position(28.0f, 336.0f)
+                        .position(28.0f, 364.0f)
                         .size(width - 56.0f, 34.0f)
                         .text("Window: SDL2     Render: Vulkan")
                         .fontSize(26.0f)
@@ -1390,7 +1412,7 @@ void composeSettingsPage(eui::Ui& ui, float width, float height) {
                         .color(textMuted())
                         .build();
                     ui.text("about.license")
-                        .position(28.0f, 380.0f)
+                        .position(28.0f, 398.0f)
                         .size(width - 56.0f, 34.0f)
                         .text("Copyright @2026 SudoEvolve, Apache-2.0")
                         .fontSize(24.0f)
@@ -1556,6 +1578,7 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
         .screen(screen.width, screen.height)
         .position(contextMenuX, contextMenuY)
         .size(430.0f, 88.0f)
+        .fontSize(20.0f)
         .items({"Inspect", "Duplicate", "Copy Token", "Dismiss"})
         .open(contextMenuOpen)
         .transition(motion())
@@ -1585,8 +1608,12 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
     components::datePicker(ui, "feedback.datepicker.overlay")
         .theme(tokens)
         .screen(screen.width, screen.height)
-        .size(std::min(820.0f, screen.width - 72.0f), 560.0f)
+        .size(std::min(520.0f, screen.width - 48.0f), 360.0f)
         .date(year, month, day)
+        .titleFontSize(25.0f)
+        .buttonFontSize(18.0f)
+        .activeItemFontSize(25.0f)
+        .itemFontSize(18.0f)
         .open(dateOpen)
         .transition(motion())
         .zIndex(1220)
@@ -1602,9 +1629,13 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
     components::timePicker(ui, "feedback.timepicker.overlay")
         .theme(tokens)
         .screen(screen.width, screen.height)
-        .size(std::min(760.0f, screen.width - 72.0f), 540.0f)
+        .size(std::min(480.0f, screen.width - 48.0f), 340.0f)
         .time(hour, minute)
         .minuteStep(5)
+        .titleFontSize(25.0f)
+        .buttonFontSize(18.0f)
+        .activeItemFontSize(26.0f)
+        .itemFontSize(19.0f)
         .open(timeOpen)
         .transition(motion())
         .zIndex(1220)
@@ -1619,8 +1650,12 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
     components::colorPicker(ui, "feedback.colorpicker.overlay")
         .theme(tokens)
         .screen(screen.width, screen.height)
-        .size(std::min(820.0f, screen.width - 72.0f), 620.0f)
+        .size(std::min(520.0f, screen.width - 48.0f), 420.0f)
         .value(pickedColor.get())
+        .titleFontSize(25.0f)
+        .buttonFontSize(18.0f)
+        .labelFontSize(17.0f)
+        .valueFontSize(16.0f)
         .open(colorOpen)
         .transition(motion())
         .zIndex(1220)
@@ -1639,6 +1674,9 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
         .visible(toastVisible)
         .duration(3.0f)
         .icon(0xF058)
+        .iconSize(30.0f)
+        .titleFontSize(22.0f)
+        .messageFontSize(18.0f)
         .title("Gallery Feedback")
         .message(feedback)
         .transition(motion())
@@ -1670,8 +1708,8 @@ void composeTopNav(eui::Ui& ui, float width, float height) {
                 const bool active = navPage == i;
                 const float x = static_cast<float>(i) * itemWidth;
                 ui.rect("top.nav.hit." + std::to_string(i))
-                    .position(x + 4.0f, 12.0f)
-                    .size(std::max(0.0f, itemWidth - 8.0f), height - 24.0f)
+                    .position(x + 4.0f, 10.0f)
+                    .size(std::max(0.0f, itemWidth - 8.0f), height - 20.0f)
                     .states(active ? alpha(tokens.primary, 0.16f) : transparent(),
                             alpha(tokens.primary, active ? 0.20f : 0.10f),
                             alpha(tokens.primary, 0.24f))
@@ -1680,10 +1718,10 @@ void composeTopNav(eui::Ui& ui, float width, float height) {
                     .build();
                 ui.text("top.nav.label." + std::to_string(i))
                     .position(x, 0.0f)
-                    .size(itemWidth, height - 8.0f)
+                    .size(itemWidth, height - 10.0f)
                     .text(labels[static_cast<std::size_t>(i)])
-                    .fontSize(35.0f)
-                    .lineHeight(42.0f)
+                    .fontSize(28.0f)
+                    .lineHeight(36.0f)
                     .color(active ? tokens.primary : textPrimary())
                     .horizontalAlign(eui::HorizontalAlign::Center)
                     .verticalAlign(eui::VerticalAlign::Center)
@@ -1720,7 +1758,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
     const float safeBottom = 18.0f;
     const float side = 18.0f;
     const float contentWidth = std::max(0.0f, screen.width - side * 2.0f);
-    const float navHeight = 64.0f;
+    const float navHeight = 86.0f;
     const float gap = 12.0f;
     const float scrollTop = safeTop + navHeight + gap;
     const float scrollHeight = std::max(0.0f, screen.height - scrollTop - safeBottom);
@@ -1743,7 +1781,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                         .size(contentWidth, navHeight)
                         .items({"Controls", "Style", "Animation", "Settings"})
                         .selected(navPage)
-                        .fontSize(17.0f)
+                        .fontSize(22.0f)
                         .onChange([](int value) { navPage = value; })
                         .transition(motion())
                         .build();

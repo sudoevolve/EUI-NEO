@@ -54,6 +54,7 @@ public:
     ContextMenuBuilder& items(std::vector<std::string> value) { items_ = std::move(value); return *this; }
     ContextMenuBuilder& style(const ContextMenuStyle& value) { style_ = value; return *this; }
     ContextMenuBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ContextMenuStyle(tokens); return *this; }
+    ContextMenuBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     ContextMenuBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ContextMenuBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     ContextMenuBuilder& onSelect(std::function<void(int)> callback) { onSelect_ = std::move(callback); return *this; }
@@ -141,11 +142,11 @@ public:
 
                             ui_.text(id_ + ".label." + std::to_string(index))
                                 .x(inset + 12.0f)
-                                .y(itemY + std::max(0.0f, (itemHeight_ - 18.0f) * 0.5f))
-                                .size(std::max(0.0f, width - inset * 2.0f - 24.0f), 20.0f)
+                                .y(itemY + std::max(0.0f, (itemHeight_ - (fontSize_ + 4.0f)) * 0.5f))
+                                .size(std::max(0.0f, width - inset * 2.0f - 24.0f), fontSize_ + 6.0f)
                                 .text(items_[index])
-                                .fontSize(15.0f)
-                                .lineHeight(18.0f)
+                                .fontSize(fontSize_)
+                                .lineHeight(fontSize_ + 4.0f)
                                 .color(index == static_cast<int>(items_.size()) - 1 ? style_.mutedText : style_.text)
                                 .build();
                         }
@@ -179,6 +180,7 @@ private:
     float y_ = 0.0f;
     float width_ = 190.0f;
     float itemHeight_ = 36.0f;
+    float fontSize_ = 15.0f;
     int zIndex_ = 1050;
 };
 

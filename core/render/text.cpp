@@ -254,6 +254,9 @@ std::string resolveSystemUiFontPath() {
     });
 #else
     return firstExistingPath({
+        "/system/fonts/Roboto-Regular.ttf",
+        "/system/fonts/NotoSans-Regular.ttf",
+        "/system/fonts/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
         "/usr/share/fonts/noto/NotoSans-Regular.ttf",
         "/usr/share/fonts/google-noto/NotoSans-Regular.ttf",
@@ -283,6 +286,8 @@ std::string resolveSystemIconFontPath() {
     });
 #else
     return firstExistingPath({
+        "/system/fonts/NotoSansSymbols2-Regular.ttf",
+        "/system/fonts/NotoSansSymbols-Regular.ttf",
         "/usr/share/fonts/fontawesome/fa-solid-900.ttf",
         "/usr/share/fonts/TTF/fa-solid-900.ttf",
         "/usr/share/fonts/truetype/font-awesome/fa-solid-900.ttf",
@@ -309,6 +314,9 @@ std::string resolveSystemEmojiFontPath() {
     });
 #else
     return firstExistingPath({
+        "/system/fonts/NotoColorEmoji.ttf",
+        "/system/fonts/NotoColorEmojiFlags.ttf",
+        "/system/fonts/NotoEmoji-Regular.ttf",
         "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
         "/usr/share/fonts/noto/NotoColorEmoji.ttf",
         "/usr/share/fonts/google-noto/NotoColorEmoji.ttf"
@@ -333,6 +341,8 @@ std::string resolveSystemMonospaceFontPath() {
     });
 #else
     return firstExistingPath({
+        "/system/fonts/DroidSansMono.ttf",
+        "/system/fonts/RobotoMono-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
         "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationMono-Regular.ttf",
@@ -589,6 +599,11 @@ std::shared_ptr<FontInfoHolder> loadSharedFontStack(const std::string& fontPath,
     addLazyFallback("/System/Library/Fonts/Supplemental/Arial Unicode.ttf");
     addLazyFallback("/System/Library/Fonts/Supplemental/Arial.ttf");
 #else
+    addLazyFallback("/system/fonts/NotoColorEmoji.ttf");
+    addLazyFallback("/system/fonts/NotoColorEmojiFlags.ttf");
+    addLazyFallback("/system/fonts/NotoEmoji-Regular.ttf");
+    addLazyFallback("/system/fonts/NotoSansCJK-Regular.ttc");
+    addLazyFallback("/system/fonts/Roboto-Regular.ttf");
     addLazyFallback("/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf");
     addLazyFallback("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc");
     addLazyFallback("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");

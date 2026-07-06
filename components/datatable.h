@@ -49,6 +49,8 @@ public:
     DataTableBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     DataTableBuilder& columns(std::vector<std::string> value) { columns_ = std::move(value); return *this; }
     DataTableBuilder& rows(std::vector<std::vector<std::string>> value) { rows_ = std::move(value); return *this; }
+    DataTableBuilder& headerFontSize(float value) { headerFontSize_ = std::max(1.0f, value); return *this; }
+    DataTableBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     DataTableBuilder& style(const DataTableStyle& value) { style_ = value; return *this; }
     DataTableBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DataTableStyle(tokens); return *this; }
     DataTableBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
@@ -113,8 +115,8 @@ public:
                                 .x(x + textInset)
                                 .size(std::max(0.0f, columnWidth - textInset * 2.0f), headerHeight)
                                 .text(label)
-                                .fontSize(14.0f)
-                                .lineHeight(18.0f)
+                                .fontSize(headerFontSize_)
+                                .lineHeight(headerFontSize_ + 4.0f)
                                 .color(column == 0 ? style_.accent : style_.mutedText)
                                 .verticalAlign(core::VerticalAlign::Center)
                                 .build();
@@ -162,8 +164,8 @@ public:
                                     .y(y)
                                     .size(std::max(0.0f, columnWidth - textInset * 2.0f), height)
                                     .text(value)
-                                    .fontSize(14.0f)
-                                    .lineHeight(18.0f)
+                                    .fontSize(fontSize_)
+                                    .lineHeight(fontSize_ + 4.0f)
                                     .color(column == 0 ? style_.text : style_.mutedText)
                                     .verticalAlign(core::VerticalAlign::Center)
                                     .transition(transition_)
@@ -186,6 +188,8 @@ private:
     core::Transition transition_ = core::Transition::make(0.12f, core::Ease::OutCubic);
     float width_ = 420.0f;
     float height_ = 174.0f;
+    float headerFontSize_ = 14.0f;
+    float fontSize_ = 14.0f;
 };
 
 inline DataTableBuilder dataTable(core::dsl::Ui& ui, const std::string& id) {

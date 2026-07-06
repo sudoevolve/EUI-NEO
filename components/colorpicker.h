@@ -69,6 +69,10 @@ public:
     ColorPickerBuilder& colors(std::vector<core::Color> value) { colors_ = std::move(value); return *this; }
     ColorPickerBuilder& style(const ColorPickerStyle& value) { style_ = value; return *this; }
     ColorPickerBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ColorPickerStyle(tokens); return *this; }
+    ColorPickerBuilder& titleFontSize(float value) { titleFontSize_ = std::max(1.0f, value); return *this; }
+    ColorPickerBuilder& buttonFontSize(float value) { buttonFontSize_ = std::max(1.0f, value); return *this; }
+    ColorPickerBuilder& labelFontSize(float value) { labelFontSize_ = std::max(1.0f, value); return *this; }
+    ColorPickerBuilder& valueFontSize(float value) { valueFontSize_ = std::max(1.0f, value); return *this; }
     ColorPickerBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ColorPickerBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     ColorPickerBuilder& onChange(std::function<void(core::Color)> callback) { onChange_ = std::move(callback); return *this; }
@@ -250,8 +254,8 @@ private:
             .y(18.0f)
             .size(std::max(0.0f, width - 124.0f), 30.0f)
             .text("Color")
-            .fontSize(24.0f)
-            .lineHeight(29.0f)
+            .fontSize(titleFontSize_)
+            .lineHeight(titleFontSize_ + 5.0f)
             .color(style_.text)
             .build();
 
@@ -279,8 +283,8 @@ private:
             .y(18.0f)
             .size(62.0f, 30.0f)
             .text("Done")
-            .fontSize(15.0f)
-            .lineHeight(18.0f)
+            .fontSize(buttonFontSize_)
+            .lineHeight(buttonFontSize_ + 3.0f)
             .color(theme::color(1.0f, 1.0f, 1.0f))
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -302,8 +306,8 @@ private:
             .y(previewY)
             .size(std::max(0.0f, width - pad * 2.0f - 16.0f), previewHeight)
             .text(formatHex(current))
-            .fontSize(17.0f)
-            .lineHeight(22.0f)
+            .fontSize(valueFontSize_)
+            .lineHeight(valueFontSize_ + 5.0f)
             .color(theme::color(1.0f, 1.0f, 1.0f, 0.94f))
             .horizontalAlign(core::HorizontalAlign::Right)
             .verticalAlign(core::VerticalAlign::Center)
@@ -365,8 +369,8 @@ private:
             .y(y)
             .size(24.0f, rowHeight)
             .text(label)
-            .fontSize(14.0f)
-            .lineHeight(18.0f)
+            .fontSize(labelFontSize_)
+            .lineHeight(labelFontSize_ + 4.0f)
             .color(style_.text)
             .verticalAlign(core::VerticalAlign::Center)
             .build();
@@ -399,8 +403,8 @@ private:
             .y(y)
             .size(40.0f, rowHeight)
             .text(std::to_string(channelToInt(channelValue(current, channel))))
-            .fontSize(12.0f)
-            .lineHeight(16.0f)
+            .fontSize(valueFontSize_)
+            .lineHeight(valueFontSize_ + 4.0f)
             .color(style_.mutedText)
             .verticalAlign(core::VerticalAlign::Center)
             .build();
@@ -418,6 +422,10 @@ private:
     float screenHeight_ = 600.0f;
     float width_ = 420.0f;
     float height_ = 320.0f;
+    float titleFontSize_ = 24.0f;
+    float buttonFontSize_ = 15.0f;
+    float labelFontSize_ = 14.0f;
+    float valueFontSize_ = 12.0f;
     bool open_ = false;
     int zIndex_ = 1000;
 };

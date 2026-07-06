@@ -60,6 +60,7 @@ public:
     PieChartBuilder& values(std::vector<float> value) { values_ = std::move(value); return *this; }
     PieChartBuilder& labels(std::vector<std::string> value) { labels_ = std::move(value); return *this; }
     PieChartBuilder& colors(std::vector<core::Color> value) { style_.palette = std::move(value); return *this; }
+    PieChartBuilder& titleFontSize(float value) { titleFontSize_ = std::max(1.0f, value); return *this; }
     PieChartBuilder& style(const PieChartStyle& value) { style_ = value; return *this; }
     PieChartBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = PieChartStyle(tokens); return *this; }
     PieChartBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
@@ -97,8 +98,8 @@ public:
                     .y(18.0f)
                     .size(std::max(0.0f, width_ - titleX * 2.0f), 28.0f)
                     .text(title_)
-                    .fontSize(22.0f)
-                    .lineHeight(26.0f)
+                    .fontSize(titleFontSize_)
+                    .lineHeight(titleFontSize_ + 4.0f)
                     .color(style_.title)
                     .build();
 
@@ -268,6 +269,7 @@ private:
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     float width_ = 206.0f;
     float height_ = 236.0f;
+    float titleFontSize_ = 22.0f;
 };
 
 inline PieChartBuilder pieChart(core::dsl::Ui& ui, const std::string& id) {

@@ -696,7 +696,7 @@ inline void Runtime::updateRuntimeScrollDrag(const Element& element, double drag
         return;
     }
     const float logicalDeltaY = static_cast<float>(dragDeltaY) / std::max(0.001f, dpiScale);
-    const float next = state->second.dragStartOffset +
+    const float next = state->second.dragStartOffset -
                        logicalDeltaY * (state->second.maxOffset / element.scrollDragTravel);
     setScrollOffset(element.scrollDragSourceId, next);
 }

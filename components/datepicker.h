@@ -67,6 +67,10 @@ public:
     }
     DatePickerBuilder& style(const DatePickerStyle& value) { style_ = value; return *this; }
     DatePickerBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DatePickerStyle(tokens); return *this; }
+    DatePickerBuilder& titleFontSize(float value) { titleFontSize_ = std::max(1.0f, value); return *this; }
+    DatePickerBuilder& buttonFontSize(float value) { buttonFontSize_ = std::max(1.0f, value); return *this; }
+    DatePickerBuilder& itemFontSize(float value) { itemFontSize_ = std::max(1.0f, value); return *this; }
+    DatePickerBuilder& activeItemFontSize(float value) { activeItemFontSize_ = std::max(1.0f, value); return *this; }
     DatePickerBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DatePickerBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     DatePickerBuilder& onChange(std::function<void(int, int, int)> callback) { onChange_ = std::move(callback); return *this; }
@@ -298,8 +302,8 @@ private:
             .y(18.0f)
             .size(std::max(0.0f, width - 124.0f), 30.0f)
             .text("Date")
-            .fontSize(24.0f)
-            .lineHeight(29.0f)
+            .fontSize(titleFontSize_)
+            .lineHeight(titleFontSize_ + 5.0f)
             .color(style_.text)
             .build();
 
@@ -328,8 +332,8 @@ private:
             .y(18.0f)
             .size(62.0f, 30.0f)
             .text("Done")
-            .fontSize(15.0f)
-            .lineHeight(18.0f)
+            .fontSize(buttonFontSize_)
+            .lineHeight(buttonFontSize_ + 3.0f)
             .color(theme::color(1.0f, 1.0f, 1.0f))
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -402,8 +406,8 @@ private:
                 .size(std::max(0.0f, width - 8.0f), rowHeight)
                 .zIndex(10 - distance)
                 .text(text)
-                .fontSize(active ? 22.0f : 15.0f)
-                .lineHeight(active ? 26.0f : 19.0f)
+                .fontSize(active ? activeItemFontSize_ : itemFontSize_)
+                .lineHeight((active ? activeItemFontSize_ : itemFontSize_) + 4.0f)
                 .color(active ? style_.text : style_.mutedText)
                 .opacity(visual.opacity)
                 .translateY(visual.translateY)
@@ -430,6 +434,10 @@ private:
     float screenHeight_ = 600.0f;
     float width_ = 420.0f;
     float height_ = 270.0f;
+    float titleFontSize_ = 24.0f;
+    float buttonFontSize_ = 15.0f;
+    float itemFontSize_ = 15.0f;
+    float activeItemFontSize_ = 22.0f;
     bool open_ = false;
     int zIndex_ = 1000;
 };
