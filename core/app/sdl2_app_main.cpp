@@ -121,6 +121,15 @@ double refreshRate(SDL_Window* window) {
     return 60.0;
 }
 
+#ifdef __ANDROID__
+float androidUiScaleFromDensity(float density) {
+    // The gallery and current EUI examples are authored closer to desktop logical
+    // pixels than native Android dp. Full 3x+ phone density makes the UI cramped,
+    // so cap Android's effective logical scale while preserving high-DPI rendering.
+    return std::clamp(density, 1.0f, 2.0f);
+}
+#endif
+
 float dpiScale(SDL_Window* window) {
 #ifdef _WIN32
     HWND hwnd = static_cast<HWND>(core::window::nativeWindowInfo(window).platformWindow);
@@ -143,7 +152,7 @@ float dpiScale(SDL_Window* window) {
                 if (!env->ExceptionCheck() && density > 0.0f) {
                     env->DeleteLocalRef(cls);
                     env->DeleteLocalRef(activity);
-                    return std::clamp(density, 1.0f, 6.0f);
+                    return androidUiScaleFromDensity(density);
                 }
             }
             if (env->ExceptionCheck()) {
@@ -164,7 +173,7 @@ float dpiScale(SDL_Window* window) {
             ? (horizontalDpi + verticalDpi) * 0.5f
             : diagonalDpi;
         if (dpi > 0.0f) {
-            return std::clamp(dpi / 160.0f, 1.0f, 6.0f);
+            return androidUiScaleFromDensity(dpi / 160.0f);
         }
     }
 #endif

@@ -204,22 +204,22 @@ std::string bingApiText() {
 
 void title(eui::Ui& ui, const std::string& id, const std::string& text, const std::string& sub, float width) {
     ui.stack(id)
-        .size(width, 146.0f)
+        .size(width, 122.0f)
         .content([&] {
             ui.text(id + ".title")
                 .position(0.0f, 0.0f)
-                .size(width, 54.0f)
+                .size(width, 44.0f)
                 .text(text)
-                .fontSize(42.0f)
-                .lineHeight(50.0f)
+                .fontSize(34.0f)
+                .lineHeight(42.0f)
                 .color(textPrimary())
                 .build();
             ui.text(id + ".sub")
-                .position(0.0f, 64.0f)
-                .size(width, 82.0f)
+                .position(0.0f, 54.0f)
+                .size(width, 68.0f)
                 .text(sub)
-                .fontSize(28.0f)
-                .lineHeight(36.0f)
+                .fontSize(22.0f)
+                .lineHeight(30.0f)
                 .wrap(true)
                 .color(textMuted())
                 .build();
@@ -229,10 +229,10 @@ void title(eui::Ui& ui, const std::string& id, const std::string& text, const st
 
 void section(eui::Ui& ui, const std::string& id, const std::string& text, float width) {
     ui.text(id)
-        .size(width, 54.0f)
+        .size(width, 44.0f)
         .text(text)
-        .fontSize(36.0f)
-        .lineHeight(46.0f)
+        .fontSize(28.0f)
+        .lineHeight(36.0f)
         .color(textPrimary())
         .build();
 }
@@ -338,7 +338,8 @@ void barChart(eui::Ui& ui, const std::string& id, const std::string& label, cons
 void composeButtons(eui::Ui& ui, float width) {
     const auto tokens = theme();
     const float gap = 18.0f;
-    const float w = (width - gap * 2.0f) / 3.0f;
+    const float columns = width < 520.0f ? 2.0f : 3.0f;
+    const float w = (width - gap * (columns - 1.0f)) / columns;
     ui.flow("basic.buttons")
         .width(width)
         .height(eui::SizeValue::wrapContent())
@@ -347,29 +348,29 @@ void composeButtons(eui::Ui& ui, float width) {
         .content([&] {
             components::button(ui, "button.primary")
                 .theme(tokens, true)
-                .size(w, 104.0f)
+                .size(w, 88.0f)
                 .icon(0xF00C)
-                .iconSize(34.0f)
+                .iconSize(27.0f)
                 .text("Filled")
-                .fontSize(34.0f)
+                .fontSize(24.0f)
                 .onClick([] { modalOpen = true; })
                 .transition(motion())
                 .build();
             components::button(ui, "button.secondary")
                 .theme(tokens, false)
-                .size(w, 104.0f)
+                .size(w, 88.0f)
                 .icon(0xF0C8)
-                .iconSize(32.0f)
+                .iconSize(26.0f)
                 .text("Outline")
-                .fontSize(34.0f)
+                .fontSize(24.0f)
                 .transition(motion())
                 .build();
             components::button(ui, "button.outline")
-                .size(w, 104.0f)
+                .size(w, 88.0f)
                 .icon(0xF1FC)
-                .iconSize(32.0f)
+                .iconSize(26.0f)
                 .text("Ghost")
-                .fontSize(32.0f)
+                .fontSize(24.0f)
                 .colors({0, 0, 0, 0}, alpha(tokens.primary, 0.14f), alpha(tokens.primary, 0.22f))
                 .textColor(tokens.primary)
                 .iconColor(tokens.primary)
