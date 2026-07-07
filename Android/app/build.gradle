@@ -3,7 +3,10 @@ plugins {
 }
 
 def sdl2Version = "2.32.10"
-def sdl2Url = "https://www.libsdl.org/release/SDL2-${sdl2Version}.tar.gz"
+def sdl2Urls = [
+        "https://github.com/libsdl-org/SDL/releases/download/release-${sdl2Version}/SDL2-${sdl2Version}.tar.gz",
+        "https://www.libsdl.org/release/SDL2-${sdl2Version}.tar.gz"
+]
 def sdl2DirValue = providers.gradleProperty("sdl2Dir")
         .orElse(providers.environmentVariable("SDL2_DIR"))
         .getOrElse("")
@@ -18,16 +21,34 @@ def generatedIconResDir = file("$buildDir/generated/euiLauncherIcon")
 tasks.register("downloadSdl2") {
     outputs.file(sdl2Archive)
     onlyIf {
-        usesManagedSdl2 && !sdl2Archive.exists()
+        usesManagedSdl2 && (!sdl2Archive.exists() || sdl2Archive.length() < 1024 * 1024)
     }
     doLast {
         sdl2Archive.parentFile.mkdirs()
-        println "Downloading SDL2 ${sdl2Version}..."
-        new URL(sdl2Url).withInputStream { input ->
-            sdl2Archive.withOutputStream { output ->
-                output << input
+        File tempArchive = file("${sdl2Archive}.download")
+        Exception lastFailure = null
+        for (String sdl2Url : sdl2Urls) {
+            try {
+                println "Downloading SDL2 ${sdl2Version} from ${sdl2Url}..."
+                tempArchive.delete()
+                new URL(sdl2Url).withInputStream { input ->
+                    tempArchive.withOutputStream { output ->
+                        output << input
+                    }
+                }
+                if (tempArchive.length() < 1024 * 1024) {
+                    throw new GradleException("Downloaded SDL2 archive is unexpectedly small: ${tempArchive.length()} bytes")
+                }
+                sdl2Archive.delete()
+                if (!tempArchive.renameTo(sdl2Archive)) {
+                    throw new GradleException("Could not move SDL2 archive into ${sdl2Archive}")
+                }
+                return
+            } catch (Exception ex) {
+                lastFailure = ex
             }
         }
+        throw new GradleException("Could not download SDL2 ${sdl2Version}", lastFailure)
     }
 }
 
@@ -35,7 +56,8 @@ tasks.register("prepareSdl2") {
     dependsOn("downloadSdl2")
     outputs.dir(sdl2Dir)
     doLast {
-        if (usesManagedSdl2 && !sdl2Dir.exists()) {
+        if (usesManagedSdl2 && !file("${sdl2Dir}/CMakeLists.txt").exists()) {
+            delete(sdl2Dir)
             copy {
                 from tarTree(resources.gzip(sdl2Archive))
                 into sdl2Archive.parentFile
