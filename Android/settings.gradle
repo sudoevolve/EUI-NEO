@@ -1,22 +1,28 @@
 pluginManagement {
+    def useAliyunMirror = System.getenv("GITHUB_ACTIONS") != "true"
     repositories {
-        maven { url "https://maven.aliyun.com/repository/google" }
-        maven { url "https://maven.aliyun.com/repository/central" }
-        maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
         google()
         mavenCentral()
         gradlePluginPortal()
+        if (useAliyunMirror) {
+            maven { url "https://maven.aliyun.com/repository/google" }
+            maven { url "https://maven.aliyun.com/repository/central" }
+            maven { url "https://maven.aliyun.com/repository/gradle-plugin" }
+        }
     }
 }
 
 dependencyResolutionManagement {
+    def useAliyunMirror = System.getenv("GITHUB_ACTIONS") != "true"
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven { url "https://maven.aliyun.com/repository/google" }
-        maven { url "https://maven.aliyun.com/repository/central" }
-        maven { url "https://maven.aliyun.com/repository/public" }
         google()
         mavenCentral()
+        if (useAliyunMirror) {
+            maven { url "https://maven.aliyun.com/repository/google" }
+            maven { url "https://maven.aliyun.com/repository/central" }
+            maven { url "https://maven.aliyun.com/repository/public" }
+        }
     }
 }
 

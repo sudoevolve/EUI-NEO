@@ -1043,8 +1043,16 @@ std::vector<TextPrimitive::ShapedGlyph> shapeTextWithFontStack(FontInfoHolder& h
     return shaped;
 }
 
+#if defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+bool androidEmojiAdvance(const std::string& text, float fontSize, float& advance);
+#endif
+
 TextPrimitive::TextMetrics makeTextMetrics(const std::string& text,
-                                           const std::vector<TextPrimitive::ShapedGlyph>& shaped) {
+                                           const std::vector<TextPrimitive::ShapedGlyph>& shaped,
+                                           float fontSize) {
+#if !defined(__ANDROID__) || !defined(EUI_WINDOW_BACKEND_SDL2)
+    (void)fontSize;
+#endif
     TextPrimitive::TextMetrics metrics;
     auto addStop = [&](int byteIndex, float x) {
         byteIndex = std::clamp(byteIndex, 0, static_cast<int>(text.size()));
@@ -1064,7 +1072,21 @@ TextPrimitive::TextMetrics makeTextMetrics(const std::string& text,
     float cursorX = 0.0f;
     for (const TextPrimitive::ShapedGlyph& glyph : shaped) {
         const float startX = cursorX;
-        cursorX += glyph.advance;
+        float advance = glyph.advance;
+#if defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+        if (glyph.byteStart >= 0 &&
+            glyph.byteEnd > glyph.byteStart &&
+            glyph.byteEnd <= static_cast<int>(text.size())) {
+            const std::string emojiText = text.substr(
+                static_cast<std::size_t>(glyph.byteStart),
+                static_cast<std::size_t>(glyph.byteEnd - glyph.byteStart));
+            float fallbackAdvance = 0.0f;
+            if (textSliceLooksEmoji(emojiText) && androidEmojiAdvance(emojiText, fontSize, fallbackAdvance)) {
+                advance = fallbackAdvance;
+            }
+        }
+#endif
+        cursorX += advance;
         addStop(glyph.byteStart, startX);
         addStop(glyph.byteEnd, cursorX);
     }
@@ -1188,6 +1210,15 @@ std::vector<unsigned char> copyBgraBitmapAsRgba(const FT_Bitmap& bitmap) {
 }
 
 #if defined(__ANDROID__) && defined(EUI_WINDOW_BACKEND_SDL2)
+struct AndroidEmojiBitmap {
+    int width = 0;
+    int height = 0;
+    int padding = 0;
+    int baseline = 0;
+    float advance = 0.0f;
+    std::vector<unsigned char> pixels;
+};
+
 bool androidClearException(JNIEnv* env) {
     if (env == nullptr || !env->ExceptionCheck()) {
         return false;
@@ -1246,12 +1277,20 @@ std::vector<jchar> utf8ToJChars(const std::string& text) {
     return output;
 }
 
-bool renderAndroidEmojiGlyph(const std::string& text,
-                             float fontSize,
-                             float ascent,
-                             TextPrimitive::Glyph& glyph) {
+std::string androidEmojiCacheKey(const std::string& text, float fontSize) {
+    return std::to_string(static_cast<int>(std::round(fontSize * 64.0f))) + "#" + text;
+}
+
+bool loadAndroidEmojiBitmap(const std::string& text, float fontSize, AndroidEmojiBitmap& bitmap) {
     if (text.empty() || fontSize <= 0.0f) {
         return false;
+    }
+
+    static std::unordered_map<std::string, AndroidEmojiBitmap> cache;
+    const std::string cacheKey = androidEmojiCacheKey(text, fontSize);
+    if (const auto cached = cache.find(cacheKey); cached != cache.end()) {
+        bitmap = cached->second;
+        return true;
     }
 
     JNIEnv* env = static_cast<JNIEnv*>(SDL_AndroidGetJNIEnv());
@@ -1312,18 +1351,46 @@ bool renderAndroidEmojiGlyph(const std::string& text,
         return false;
     }
 
+    bitmap.width = width;
+    bitmap.height = height;
+    bitmap.padding = padding;
+    bitmap.baseline = baseline;
+    bitmap.advance = advance;
+    bitmap.pixels.assign(bytes.begin() + 20, bytes.begin() + static_cast<std::ptrdiff_t>(20u + pixelBytes));
+    cache[cacheKey] = bitmap;
+    return true;
+}
+
+bool androidEmojiAdvance(const std::string& text, float fontSize, float& advance) {
+    AndroidEmojiBitmap bitmap;
+    if (!loadAndroidEmojiBitmap(text, fontSize, bitmap) || bitmap.advance <= 0.0f) {
+        return false;
+    }
+    advance = bitmap.advance;
+    return true;
+}
+
+bool renderAndroidEmojiGlyph(const std::string& text,
+                             float fontSize,
+                             float ascent,
+                             TextPrimitive::Glyph& glyph) {
+    AndroidEmojiBitmap bitmap;
+    if (!loadAndroidEmojiBitmap(text, fontSize, bitmap)) {
+        return false;
+    }
+
     SharedTextAtlas& atlas = sharedTextAtlas();
     if (!ensureAtlasPage(atlas.color, kColorAtlasSize, kColorAtlasSize, 4)) {
         return false;
     }
 
     glyph.colored = true;
-    glyph.advance = advance > 0.0f ? advance : glyph.advance;
-    glyph.xOffset = -static_cast<float>(padding);
-    glyph.yOffset = ascent - static_cast<float>(baseline);
-    glyph.width = static_cast<float>(width);
-    glyph.height = static_cast<float>(height);
-    return appendToAtlas(atlas.color, bytes.data() + 20, width, height, 4, glyph);
+    glyph.advance = bitmap.advance > 0.0f ? bitmap.advance : glyph.advance;
+    glyph.xOffset = -static_cast<float>(bitmap.padding);
+    glyph.yOffset = ascent - static_cast<float>(bitmap.baseline);
+    glyph.width = static_cast<float>(bitmap.width);
+    glyph.height = static_cast<float>(bitmap.height);
+    return appendToAtlas(atlas.color, bitmap.pixels.data(), bitmap.width, bitmap.height, 4, glyph);
 }
 #endif
 
@@ -1639,7 +1706,7 @@ TextPrimitive::TextMetrics TextPrimitive::Impl::measureTextMetrics(const std::st
         return empty;
     }
 
-    return makeTextMetrics(text, shapeTextWithFontStack(*holder, text, size));
+    return makeTextMetrics(text, shapeTextWithFontStack(*holder, text, size), size);
 }
 
 void TextPrimitive::Impl::setDefaultFontFiles(const std::string& textFontFile, const std::string& iconFontFile) {
@@ -2044,7 +2111,9 @@ void TextPrimitive::Impl::appendShapedGlyphToLine(Line& line, const ShapedGlyph&
     }
 
     const Glyph* glyph = findGlyph(shaped.key);
+    float advance = shaped.advance;
     if (glyph && shaped.key != 0 && shaped.codepoint != ' ' && shaped.codepoint != '\t') {
+        advance = glyph->advance;
         line.glyphs.push_back({*glyph, cursorX + shaped.xOffset, shaped.yOffset});
         const float top = shaped.yOffset + glyph->yOffset;
         const float bottom = top + glyph->height;
@@ -2057,7 +2126,7 @@ void TextPrimitive::Impl::appendShapedGlyphToLine(Line& line, const ShapedGlyph&
             line.inkBottom = std::max(line.inkBottom, bottom);
         }
     }
-    cursorX += shaped.advance;
+    cursorX += advance;
     line.width = cursorX;
 }
 
