@@ -87,7 +87,7 @@ sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev lib
 sudo apt-get install -y libsdl2-dev
 ```
 
-顶层构建会为 `examples/*.cpp` 下的每个页面源文件生成一个可执行程序，例如 `gallery`、`chat` 和 `eui_demo`。构建后会自动把 `assets/` 复制到可执行文件目录。
+顶层构建会为 `examples/*.cpp` 下的每个页面源文件生成一个可执行程序，例如 `gallery`、`card_slider` 和 `eui_demo`。构建后会自动把 `assets/` 复制到可执行文件目录。
 
 用户应用可以放在 `apps/` 下，顶层构建默认会像 examples 一样生成可执行文件。支持两种写法：单文件 `apps/my_app.cpp`，或目录式 `apps/my_app/app.cpp`。目录式应用可以带自己的 `apps/my_app/assets/`，构建后会在框架资源复制完成后继续复制到可执行文件旁边的 `assets/` 目录。需要关闭自动扫描时传入 `-DEUI_BUILD_USER_APPS=OFF`。
 

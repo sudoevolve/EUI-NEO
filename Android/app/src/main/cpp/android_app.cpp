@@ -848,7 +848,7 @@ void composeBasicPage(eui::Ui& ui, float width, float height) {
                 .labelFontSize(17.0f)
                 .values({0.22f, 0.30f, 0.20f, 0.55f, 0.42f, 0.86f})
                 .labels({"Jan", "Feb", "Mar", "Apr", "May", "Jun"})
-                .style(components::LineStyle::Curve)
+                .style(components::LineStyle::Linear)
                 .transition(motion())
                 .build();
             ui.row("control.charts.row")
@@ -1627,19 +1627,28 @@ void composeOverlays(eui::Ui& ui, const eui::Screen& screen) {
         .size(430.0f, 88.0f)
         .radius(desktopRadius(88.0f, 36.0f, 12.0f))
         .fontSize(20.0f)
-        .items({"Inspect", "Duplicate", "Copy Token", "Dismiss"})
+        .items(std::vector<components::ContextMenuItem>{
+            {"Inspect"},
+            {"Duplicate"},
+            {"Copy", {{"Token"}, {"Style", {{"CSS"}, {"JSON"}}}}},
+            {"Dismiss"}
+        })
         .open(contextMenuOpen)
         .transition(motion())
         .zIndex(1210)
-        .onSelect([](int index) {
+        .onSelectPath([](const std::vector<int>& path) {
             contextMenuOpen = false;
             toastVisible = true;
-            if (index == 0) {
+            if (path == std::vector<int>{0}) {
                 feedback = "Inspect selected";
-            } else if (index == 1) {
+            } else if (path == std::vector<int>{1}) {
                 feedback = "Duplicate selected";
-            } else if (index == 2) {
+            } else if (path == std::vector<int>{2, 0}) {
                 feedback = "Copy Token selected";
+            } else if (path == std::vector<int>{2, 1, 0}) {
+                feedback = "Copy CSS selected";
+            } else if (path == std::vector<int>{2, 1, 1}) {
+                feedback = "Copy JSON selected";
             } else {
                 feedback = "Context menu dismissed";
                 toastVisible = false;

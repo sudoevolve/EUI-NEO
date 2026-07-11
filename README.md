@@ -87,7 +87,7 @@ sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev lib
 sudo apt-get install -y libsdl2-dev
 ```
 
-Top-level builds create one executable for each `examples/*.cpp` page source, such as `gallery`, `chat`, and `eui_demo`. After build, `assets/` is copied next to the executable automatically.
+Top-level builds create one executable for each `examples/*.cpp` page source, such as `gallery`, `card_slider`, and `eui_demo`. After build, `assets/` is copied next to the executable automatically.
 
 User apps can live under `apps/` and are built the same way by default in a top-level checkout. Use either a flat `apps/my_app.cpp` file or a directory app such as `apps/my_app/app.cpp`. Directory apps may include their own `apps/my_app/assets/`; those files are copied into the executable `assets/` directory after the framework assets. Disable this scan with `-DEUI_BUILD_USER_APPS=OFF`.
 

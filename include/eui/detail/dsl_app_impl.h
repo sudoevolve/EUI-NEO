@@ -52,8 +52,8 @@ inline DslAppState& dslAppState() {
     return state;
 }
 
-inline std::string resolveIconPath(const char* iconPath) {
-    if (iconPath == nullptr || iconPath[0] == '\0') {
+inline std::string resolveIconPath(const std::string& iconPath) {
+    if (iconPath.empty()) {
         return {};
     }
 
@@ -163,7 +163,7 @@ std::vector<DslWindowRequest> consumeWindowRequests() {
 }
 
 const char* windowTitle() {
-    return dslAppConfig().titleValue;
+    return dslAppConfig().titleValue.c_str();
 }
 
 bool showDebugStatsInTitle() {
@@ -188,16 +188,12 @@ bool trayEnabled() {
 
 const char* trayTitle() {
     const DslAppConfig& config = dslAppConfig();
-    return (config.trayTitleValue != nullptr && config.trayTitleValue[0] != '\0')
-        ? config.trayTitleValue
-        : config.titleValue;
+    return (config.trayTitleValue.empty() ? config.titleValue : config.trayTitleValue).c_str();
 }
 
 const char* trayIconPath() {
     const DslAppConfig& config = dslAppConfig();
-    return (config.trayIconPathValue != nullptr && config.trayIconPathValue[0] != '\0')
-        ? config.trayIconPathValue
-        : config.iconPathValue;
+    return (config.trayIconPathValue.empty() ? config.iconPathValue : config.trayIconPathValue).c_str();
 }
 
 void requestUpdate() {
@@ -215,9 +211,7 @@ void requestFullPaint() {
 
 bool initialize(core::window::Handle window) {
     const DslAppConfig& config = dslAppConfig();
-    core::TextPrimitive::setDefaultFontFiles(
-        config.textFontFileValue != nullptr ? config.textFontFileValue : "",
-        config.iconFontFileValue != nullptr ? config.iconFontFileValue : "");
+    core::TextPrimitive::setDefaultFontFiles(config.textFontFileValue, config.iconFontFileValue);
 
     detail::DslAppState& state = detail::dslAppState();
     if (!state.iconApplied) {

@@ -34,6 +34,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -47,6 +48,12 @@ namespace {
 
 std::unordered_map<std::string, std::weak_ptr<const StaticImageData>> gStaticImageCache;
 std::unordered_map<std::string, std::weak_ptr<const GifFrameData>> gGifCache;
+struct ThemeColorCacheEntry {
+    std::string imageVersionKey;
+    core::Color color;
+};
+
+std::unordered_map<std::string, ThemeColorCacheEntry> gThemeColorCache;
 std::unordered_map<std::string, std::string> gDownloadedPathCache;
 std::unordered_map<std::string, bool> gDownloadInFlight;
 std::unordered_map<std::string, bool> gDownloadFailed;
@@ -521,10 +528,50 @@ bool readBinaryFile(const std::string& path, std::vector<unsigned char>& bytes) 
     return true;
 }
 
+float colorLuminance(const core::Color& color) {
+    return color.r * 0.299f + color.g * 0.587f + color.b * 0.114f;
+}
+
+float colorSaturation(float r, float g, float b) {
+    const float hi = std::max({r, g, b});
+    const float lo = std::min({r, g, b});
+    return hi <= 0.001f ? 0.0f : (hi - lo) / hi;
+}
+
+core::Color readableThemeColor(core::Color color) {
+    color.a = 1.0f;
+    const float luma = colorLuminance(color);
+    if (luma < 0.34f) {
+        color = core::mixColor(color, core::Color{1.0f, 1.0f, 1.0f, 1.0f}, 0.24f);
+    } else if (luma > 0.74f) {
+        color = core::mixColor(color, core::Color{0.0f, 0.0f, 0.0f, 1.0f}, 0.22f);
+    }
+    return color;
+}
+
+std::string baseImageCacheKey(const std::string& resolvedPath, bool flipVertically) {
+    return resolvedPath + (flipVertically ? "#flip" : "#noflip");
+}
+
+std::string imageFileVersionSuffix(const std::string& resolvedPath) {
+    std::error_code error;
+    const std::filesystem::file_time_type modified = std::filesystem::last_write_time(resolvedPath, error);
+    if (error) {
+        return {};
+    }
+
+    const auto size = std::filesystem::file_size(resolvedPath, error);
+    if (error) {
+        return {};
+    }
+
+    return "#size=" + std::to_string(size) +
+           "#mtime=" + std::to_string(modified.time_since_epoch().count());
+}
 } // namespace
 
 std::string imageCacheKey(const std::string& resolvedPath, bool flipVertically) {
-    return resolvedPath + (flipVertically ? "#flip" : "#noflip");
+    return baseImageCacheKey(resolvedPath, flipVertically) + imageFileVersionSuffix(resolvedPath);
 }
 
 std::string resolveImagePath(const std::string& source, bool* pending) {
@@ -603,6 +650,97 @@ std::shared_ptr<const StaticImageData> loadStaticImageFromPath(const std::string
     }
     gStaticImageCache[cacheKey] = image;
     return image;
+}
+
+static bool trySampleThemeColor(const StaticImageData& image, core::Color& color) {
+    const std::size_t expectedBytes =
+        static_cast<std::size_t>(image.width) * static_cast<std::size_t>(image.height) * 4u;
+    if (image.width <= 0 || image.height <= 0 || image.pixels.size() < expectedBytes) {
+        return false;
+    }
+
+    const int pixelCount = image.width * image.height;
+    const int step = std::max(1, pixelCount / 2500);
+    float weightedR = 0.0f;
+    float weightedG = 0.0f;
+    float weightedB = 0.0f;
+    float totalWeight = 0.0f;
+    float averageR = 0.0f;
+    float averageG = 0.0f;
+    float averageB = 0.0f;
+    float averageCount = 0.0f;
+
+    for (int pixel = 0; pixel < pixelCount; pixel += step) {
+        const std::size_t offset = static_cast<std::size_t>(pixel) * 4u;
+        const float alpha = image.pixels[offset + 3] / 255.0f;
+        if (alpha < 0.25f) {
+            continue;
+        }
+
+        const float r = image.pixels[offset] / 255.0f;
+        const float g = image.pixels[offset + 1] / 255.0f;
+        const float b = image.pixels[offset + 2] / 255.0f;
+        const float luma = r * 0.299f + g * 0.587f + b * 0.114f;
+        averageR += r;
+        averageG += g;
+        averageB += b;
+        averageCount += 1.0f;
+
+        if (luma < 0.10f || luma > 0.92f) {
+            continue;
+        }
+        const float sat = colorSaturation(r, g, b);
+        const float weight = alpha * (0.20f + sat * 1.80f) * (1.0f - std::fabs(luma - 0.52f));
+        weightedR += r * weight;
+        weightedG += g * weight;
+        weightedB += b * weight;
+        totalWeight += weight;
+    }
+
+    if (totalWeight > 0.001f) {
+        color = readableThemeColor({weightedR / totalWeight, weightedG / totalWeight, weightedB / totalWeight, 1.0f});
+        return true;
+    }
+    if (averageCount > 0.0f) {
+        color = readableThemeColor({averageR / averageCount, averageG / averageCount, averageB / averageCount, 1.0f});
+        return true;
+    }
+    return false;
+}
+
+core::Color sampleThemeColor(const StaticImageData& image, core::Color fallback) {
+    core::Color color;
+    return trySampleThemeColor(image, color) ? color : fallback;
+}
+
+core::Color sampleThemeColor(const std::string& source,
+                             core::Color fallback,
+                             bool flipVertically,
+                             bool* pending) {
+    const std::string resolvedPath = resolveImagePath(source, pending);
+    if (resolvedPath.empty()) {
+        return fallback;
+    }
+
+    const std::string baseCacheKey = baseImageCacheKey(resolvedPath, flipVertically);
+    const std::string imageVersionKey = imageCacheKey(resolvedPath, flipVertically);
+    const auto cached = gThemeColorCache.find(baseCacheKey);
+    if (cached != gThemeColorCache.end() && cached->second.imageVersionKey == imageVersionKey) {
+        return cached->second.color;
+    }
+
+    const auto image = loadStaticImageFromPath(resolvedPath, flipVertically);
+    if (!image) {
+        return fallback;
+    }
+
+    core::Color color;
+    if (!trySampleThemeColor(*image, color)) {
+        return fallback;
+    }
+
+    gThemeColorCache[baseCacheKey] = {imageVersionKey, color};
+    return color;
 }
 
 std::shared_ptr<const StaticImageData> loadStaticSvg(const std::string& cacheKey,
