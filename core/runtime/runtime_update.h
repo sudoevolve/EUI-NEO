@@ -114,6 +114,11 @@ inline Rect Runtime::visualDirtyRectForElement(
         const LayoutRect frame = instance != images_.end() ? instance->second.frame.value() : element.frame;
         const Transform transform = instance != images_.end() ? instance->second.transform.value() : element.transform;
         local = imageVisualRect(frame, transform);
+    } else if (element.kind == ElementKind::Video) {
+        const auto instance = videos_.find(element.id);
+        const LayoutRect frame = instance != videos_.end() ? instance->second.frame.value() : element.frame;
+        const Transform transform = instance != videos_.end() ? instance->second.transform.value() : element.transform;
+        local = imageVisualRect(frame, transform);
     }
     return applyRenderTransformToLogicalRect(local, dpiScale, renderTransform);
 }
@@ -326,6 +331,10 @@ inline bool Runtime::elementHasActiveAnimation(const Element& element) const {
         const auto item = images_.find(element.id);
         return item != images_.end() && isImageAnimating(item->second);
     }
+    if (element.kind == ElementKind::Video) {
+        const auto item = videos_.find(element.id);
+        return item != videos_.end() && isVideoAnimating(item->second);
+    }
     return false;
 }
 
@@ -380,6 +389,12 @@ inline runtime::ImageInstance& Runtime::imageInstance(const std::string& id) {
     return instance;
 }
 
+inline runtime::VideoInstance& Runtime::videoInstance(const std::string& id) {
+    runtime::VideoInstance& instance = videos_.try_emplace(id).first->second;
+    instance.seen = true;
+    return instance;
+}
+
 inline runtime::InteractionInstance& Runtime::interactionInstance(const std::string& id) {
     runtime::InteractionInstance& instance = interactions_.try_emplace(id).first->second;
     instance.seen = true;
@@ -419,6 +434,7 @@ inline void Runtime::markInstancesUnseen() {
     runtime::markEntriesUnseen(polygons_);
     runtime::markEntriesUnseen(texts_);
     runtime::markEntriesUnseen(images_);
+    runtime::markEntriesUnseen(videos_);
     runtime::markEntriesUnseen(interactions_);
     runtime::markEntriesUnseen(dirtyKeys_);
     runtime::markEntriesUnseen(layouts_);
@@ -450,6 +466,7 @@ inline void Runtime::releaseUnseenInstances() {
     runtime::releaseUnseenEntries(polygons_, releasePrimitive);
     runtime::releaseUnseenEntries(texts_, releasePrimitive);
     runtime::releaseUnseenEntries(images_, releasePrimitive);
+    runtime::releaseUnseenEntries(videos_, releasePrimitive);
     runtime::releaseUnseenEntries(interactions_, noop);
     runtime::releaseUnseenEntries(dirtyKeys_, noop);
     runtime::releaseUnseenEntries(layouts_, noop);
@@ -799,6 +816,8 @@ inline runtime::PaintBoundsInstance Runtime::updateElementTree(
         updateText(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
     } else if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
         updateImage(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
+    } else if (element.kind == ElementKind::Video) {
+        updateVideo(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
     }
 
     const bool childAncestorFrameChanged = ancestorFrameChanged || frameTargetChanged;
@@ -1151,6 +1170,66 @@ inline void Runtime::updateImage(
         addDirtyUnion(beforeRect, afterRect);
     }
     animating_ = animating_ || isImageAnimating(instance);
+}
+
+inline void Runtime::updateVideo(
+    const Element& element,
+    float deltaSeconds,
+    float dpiScale,
+    const RenderTransform& inheritedTransform,
+    bool snapFrame) {
+    runtime::VideoInstance& instance = videoInstance(element.id);
+    const Rect beforeRect = applyRenderTransformToLogicalRect(
+        imageVisualRect(instance.frame.value(), instance.transform.value()),
+        dpiScale,
+        inheritedTransform);
+
+    bool changed = false;
+    changed = instance.frame.setTarget(element.frame, element.transition, !snapFrame && shouldAnimateFrame(element)) || changed;
+    changed = instance.tint.setTarget(element.color, element.transition, shouldAnimate(element, AnimProperty::Color)) || changed;
+    changed = instance.radius.setTarget(element.radius, element.transition, shouldAnimate(element, AnimProperty::Radius)) || changed;
+    changed = instance.opacity.setTarget(element.opacity, element.transition, shouldAnimate(element, AnimProperty::Opacity)) || changed;
+    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, scrollStates_, sliderStates_, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
+
+    changed = instance.frame.tick(deltaSeconds) || changed;
+    changed = instance.tint.tick(deltaSeconds) || changed;
+    changed = instance.radius.tick(deltaSeconds) || changed;
+    changed = instance.opacity.tick(deltaSeconds) || changed;
+    changed = instance.transform.tick(deltaSeconds) || changed;
+
+    if (instance.hasCoverViewport != element.imageHasCoverViewport ||
+        !closeEnough(instance.coverViewportSize, element.imageCoverViewportSize) ||
+        !closeEnough(instance.coverViewportOffset, element.imageCoverViewportOffset)) {
+        instance.hasCoverViewport = element.imageHasCoverViewport;
+        instance.coverViewportSize = element.imageCoverViewportSize;
+        instance.coverViewportOffset = element.imageCoverViewportOffset;
+        changed = true;
+    }
+
+    const bool sourceChanged = instance.source != element.videoSource ||
+                               instance.fit != element.imageFit;
+    if (sourceChanged) {
+        instance.source = element.videoSource;
+        instance.fit = element.imageFit;
+        instance.primitive->setSource(instance.source);
+        instance.primitive->setFit(instance.fit);
+        changed = true;
+    }
+
+    const LayoutRect frame = instance.frame.value();
+    instance.primitive->setBounds(frame.x, frame.y, frame.width, frame.height);
+    if (instance.primitive->updateFrame()) {
+        changed = true;
+    }
+
+    if (changed) {
+        const Rect afterRect = applyRenderTransformToLogicalRect(
+            imageVisualRect(instance.frame.value(), instance.transform.value()),
+            dpiScale,
+            inheritedTransform);
+        addDirtyUnion(beforeRect, afterRect);
+    }
+    animating_ = animating_ || isVideoAnimating(instance);
 }
 
 } // namespace core::dsl

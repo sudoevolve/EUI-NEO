@@ -156,6 +156,8 @@ set(CORE_SOURCES
     core/render/render_backend.cpp
     core/render/stb_image_impl.cpp
     core/render/text.cpp
+    core/render/video.cpp
+    core/render/video_source.cpp
     core/platform/tray_bridge.c
     core/window/window_backend.cpp
 )

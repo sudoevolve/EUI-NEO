@@ -169,6 +169,15 @@ inline void Runtime::renderElement(
             applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
             renderImage(element, windowWidth, windowHeight, dpiScale, renderTransform);
         }
+    } else if (element.kind == ElementKind::Video) {
+        Rect visual = toPixelRect(imageVisualRect(videoInstance(element.id).frame.value(),
+                                                 videoInstance(element.id).transform.value()), dpiScale);
+        visual = applyRenderTransform(visual, renderTransform);
+        if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
+            (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
+            applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
+            renderVideo(element, windowWidth, windowHeight, dpiScale, renderTransform);
+        }
     }
 
     renderElementChildren(renderBackend,
@@ -369,6 +378,7 @@ inline std::uint64_t Runtime::retainedElementPaintSignature(const Element& eleme
     mixString(element.fontFamily);
     mixString(element.imageSource);
     mixString(element.svgSource);
+    mixString(element.videoSource);
     mixString(element.dirtyKey);
     return seed;
 }
@@ -653,6 +663,38 @@ inline void Runtime::renderImage(
     float dpiScale,
     const RenderTransform& renderTransform) {
     runtime::ImageInstance& instance = imageInstance(element.id);
+    if (!instance.initialized) {
+        instance.initialized = instance.primitive->initialize();
+        if (!instance.initialized) {
+            return;
+        }
+    }
+
+    const Rect frame = toPixelRect(instance.frame.value(), dpiScale);
+    Transform transform = scaleTransform(instance.transform.value(), dpiScale);
+
+    instance.primitive->setBounds(frame.x, frame.y, frame.width, frame.height);
+    instance.primitive->setTint(instance.tint.value());
+    instance.primitive->setCornerRadius(toPixels(instance.radius.value(), dpiScale));
+    instance.primitive->setOpacity(instance.opacity.value() * renderTransform.opacity);
+    instance.primitive->setTransformMatrix(combinedPrimitiveMatrix(renderTransform, frame, transform));
+    instance.primitive->setFit(instance.fit);
+    instance.primitive->setCoverViewport(instance.hasCoverViewport,
+                                         {toPixels(instance.coverViewportSize.x, dpiScale),
+                                          toPixels(instance.coverViewportSize.y, dpiScale)},
+                                         {toPixels(instance.coverViewportOffset.x, dpiScale),
+                                          toPixels(instance.coverViewportOffset.y, dpiScale)});
+    ++core::render::currentRenderFrameStats().imageDraws;
+    instance.primitive->render(windowWidth, windowHeight);
+}
+
+inline void Runtime::renderVideo(
+    const Element& element,
+    int windowWidth,
+    int windowHeight,
+    float dpiScale,
+    const RenderTransform& renderTransform) {
+    runtime::VideoInstance& instance = videoInstance(element.id);
     if (!instance.initialized) {
         instance.initialized = instance.primitive->initialize();
         if (!instance.initialized) {

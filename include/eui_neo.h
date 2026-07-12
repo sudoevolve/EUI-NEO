@@ -17,6 +17,7 @@
 #include "eui/platform.h"
 #include "eui/signal.h"
 #include "eui/types.h"
+#include "eui/video.h"
 
 #include "components/components.h"
 

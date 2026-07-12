@@ -53,6 +53,14 @@ inline bool isImageAnimating(const runtime::ImageInstance& instance) {
            instance.primitive->hasPendingLoad();
 }
 
+inline bool isVideoAnimating(const runtime::VideoInstance& instance) {
+    return instance.frame.isActive() ||
+           instance.tint.isActive() ||
+           instance.radius.isActive() ||
+           instance.opacity.isActive() ||
+           instance.transform.isActive();
+}
+
 inline bool isLayoutAnimating(const runtime::LayoutInstance& instance) {
     return instance.transform.isActive() ||
            instance.opacity.isActive();

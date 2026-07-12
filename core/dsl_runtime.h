@@ -163,6 +163,8 @@ private:
 
     runtime::ImageInstance& imageInstance(const std::string& id);
 
+    runtime::VideoInstance& videoInstance(const std::string& id);
+
     runtime::InteractionInstance& interactionInstance(const std::string& id);
 
     runtime::DirtyKeyInstance& dirtyKeyInstance(const std::string& id);
@@ -284,6 +286,12 @@ private:
                      const RenderTransform& inheritedTransform,
                      bool snapFrame);
 
+    void updateVideo(const Element& element,
+                     float deltaSeconds,
+                     float dpiScale,
+                     const RenderTransform& inheritedTransform,
+                     bool snapFrame);
+
     runtime::DependentVisualState dependentVisualStateForElement(const Element& element,
                                                         float dpiScale,
                                                         const RenderTransform& inheritedTransform) const;
@@ -377,11 +385,18 @@ private:
                      float dpiScale,
                      const RenderTransform& renderTransform);
 
+    void renderVideo(const Element& element,
+                     int windowWidth,
+                     int windowHeight,
+                     float dpiScale,
+                     const RenderTransform& renderTransform);
+
     Ui ui_;
     std::unordered_map<std::string, runtime::RectInstance> rects_;
     std::unordered_map<std::string, runtime::PolygonInstance> polygons_;
     std::unordered_map<std::string, runtime::TextInstance> texts_;
     std::unordered_map<std::string, runtime::ImageInstance> images_;
+    std::unordered_map<std::string, runtime::VideoInstance> videos_;
     std::unordered_map<std::string, runtime::InteractionInstance> interactions_;
     std::unordered_map<std::string, runtime::DirtyKeyInstance> dirtyKeys_;
     std::unordered_map<std::string, runtime::LayoutInstance> layouts_;

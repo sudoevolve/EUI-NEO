@@ -4,6 +4,7 @@
 #include "core/render/image.h"
 #include "core/render/primitive.h"
 #include "core/render/text.h"
+#include "core/render/video.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -99,6 +100,22 @@ struct ImageInstance {
     std::string source;
     std::string svgSource;
     bool flipVertically = false;
+    ImageFit fit = ImageFit::Cover;
+    bool hasCoverViewport = false;
+    Vec2 coverViewportSize;
+    Vec2 coverViewportOffset;
+};
+
+struct VideoInstance {
+    std::unique_ptr<VideoPrimitive> primitive = std::make_unique<VideoPrimitive>();
+    bool initialized = false;
+    bool seen = false;
+    AnimatedValue<LayoutRect> frame;
+    AnimatedValue<Color> tint;
+    AnimatedValue<float> radius;
+    AnimatedValue<float> opacity;
+    AnimatedValue<Transform> transform;
+    std::string source;
     ImageFit fit = ImageFit::Cover;
     bool hasCoverViewport = false;
     Vec2 coverViewportSize;

@@ -54,7 +54,8 @@ enum class ElementKind {
     Polygon,
     Text,
     Image,
-    Svg
+    Svg,
+    Video
 };
 
 enum class HitTestMode {
@@ -132,6 +133,7 @@ struct Element {
 
     std::string imageSource;
     std::string svgSource;
+    std::string videoSource;
     bool imageFlipVertically = false;
     ImageFit imageFit = ImageFit::Cover;
     bool imageHasCoverViewport = false;
@@ -1247,6 +1249,55 @@ public:
 
 };
 
+class VideoBuilder : public BuilderBase<VideoBuilder> {
+public:
+    VideoBuilder(Ui& ui, Element* element) : BuilderBase<VideoBuilder>(ui, element) {}
+
+    VideoBuilder& source(const std::string& value) {
+        element_->videoSource = value;
+        return *this;
+    }
+
+    VideoBuilder& tint(const Color& value) {
+        element_->color = value;
+        return *this;
+    }
+
+    VideoBuilder& radius(float value) {
+        element_->radius = std::max(0.0f, value);
+        return *this;
+    }
+
+    VideoBuilder& opacity(float value) {
+        element_->opacity = std::clamp(value, 0.0f, 1.0f);
+        return *this;
+    }
+
+    VideoBuilder& fit(ImageFit value) {
+        element_->imageFit = value;
+        return *this;
+    }
+
+    VideoBuilder& cover() {
+        return fit(ImageFit::Cover);
+    }
+
+    VideoBuilder& contain() {
+        return fit(ImageFit::Contain);
+    }
+
+    VideoBuilder& stretch() {
+        return fit(ImageFit::Stretch);
+    }
+
+    VideoBuilder& coverViewport(float canvasWidth, float canvasHeight, float offsetX = 0.0f, float offsetY = 0.0f) {
+        element_->imageHasCoverViewport = true;
+        element_->imageCoverViewportSize = {std::max(0.0f, canvasWidth), std::max(0.0f, canvasHeight)};
+        element_->imageCoverViewportOffset = {std::max(0.0f, offsetX), std::max(0.0f, offsetY)};
+        return *this;
+    }
+};
+
 class Ui {
 public:
     void begin(const std::string& pageId = "") {
@@ -1303,6 +1354,10 @@ public:
 
     SvgBuilder svg(const std::string& id) {
         return SvgBuilder(*this, addElement(ElementKind::Svg, id));
+    }
+
+    VideoBuilder video(const std::string& id) {
+        return VideoBuilder(*this, addElement(ElementKind::Video, id));
     }
 
     void layout(float width, float height) {
@@ -1483,6 +1538,8 @@ private:
             prefix = "__image";
         } else if (kind == ElementKind::Svg) {
             prefix = "__svg";
+        } else if (kind == ElementKind::Video) {
+            prefix = "__video";
         }
         return resolveId(std::string(prefix) + "." + std::to_string(generatedId_++));
     }
@@ -1583,7 +1640,8 @@ private:
                !element.sliderKnobSourceId.empty() ||
                !element.dirtyKey.empty() ||
                (element.kind == ElementKind::Image && !element.imageSource.empty()) ||
-               element.kind == ElementKind::Svg;
+               element.kind == ElementKind::Svg ||
+               element.kind == ElementKind::Video;
     }
 
     static bool elementHasDependentVisuals(const Element& element) {
@@ -1627,7 +1685,8 @@ private:
                !element.sliderKnobSourceId.empty() ||
                !element.dirtyKey.empty() ||
                (element.kind == ElementKind::Image && !element.imageSource.empty()) ||
-               element.kind == ElementKind::Svg;
+               element.kind == ElementKind::Svg ||
+               element.kind == ElementKind::Video;
     }
 
     std::string pageId_;
