@@ -39,6 +39,10 @@ namespace {
 struct WindowState : app::AppRunner {
     bool running = true;
     core::render::RenderBackend* renderBackend = nullptr;
+#if defined(EUI_RENDER_BACKEND_OPENGL) && (defined(_WIN32) || defined(__APPLE__))
+    // SDL2 can expose the OpenGL window before the drawable/backbuffer settles.
+    int startupFullPaintFrames = 4;
+#endif
 };
 
 struct ManagedWindow {
@@ -550,6 +554,13 @@ int main() {
         }
         const float dpi = dpiScale(window);
         const float pointer = pointerScale(window);
+#if defined(EUI_RENDER_BACKEND_OPENGL) && (defined(_WIN32) || defined(__APPLE__))
+        if (state.startupFullPaintFrames > 0) {
+            state.paintRequested = true;
+            app::detail::requestFullPaint();
+            --state.startupFullPaintFrames;
+        }
+#endif
         mainWindowRuntime.runFrame(
             window,
             *renderBackend,

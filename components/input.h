@@ -43,6 +43,9 @@ public:
     InputBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
 
+    InputBuilder& x(float value) { x_ = value; hasX_ = true; return *this; }
+    InputBuilder& y(float value) { y_ = value; hasY_ = true; return *this; }
+    InputBuilder& position(float xValue, float yValue) { return x(xValue).y(yValue); }
     InputBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     InputBuilder& value(std::string value) { text_ = std::move(value); return *this; }
     InputBuilder& bind(eui::Signal<std::string>& signal) {
@@ -92,15 +95,18 @@ public:
         const std::string fontFamily = fontFamily_;
         InputState& state = ui_.state<InputState>(id_);
         if (state.text != text_) {
+            const bool wasFocused = focused;
             state.text = text_;
             ++state.textRevision;
             state.cursor = InputModel::clampUtf8Boundary(state.text, static_cast<int>(state.text.size()));
             state.selectionStart = state.cursor;
             state.selectionEnd = state.cursor;
-            state.horizontalScroll = 0.0f;
-            state.verticalScroll = 0.0f;
-            state.undoStack.clear();
-            state.redoStack.clear();
+            if (!wasFocused) {
+                state.horizontalScroll = 0.0f;
+                state.verticalScroll = 0.0f;
+                state.undoStack.clear();
+                state.redoStack.clear();
+            }
         }
         state.cursor = InputModel::clampUtf8Boundary(state.text, state.cursor);
         state.selectionStart = InputModel::clampUtf8Boundary(state.text, state.selectionStart);
@@ -109,7 +115,10 @@ public:
         const bool empty = state.text.empty();
         const bool hasComposition = focused && !state.compositionText.empty();
         const bool hasSelection = !layout.selectionRects.empty();
-        const std::string textDirtyKey = id_ + ".text|" + std::to_string(state.textRevision) + (empty ? "|p" : "|v");
+        const std::string textDirtyKey = id_ + ".text|" + std::to_string(state.textRevision) +
+            "|" + std::to_string(static_cast<int>(std::lround(state.horizontalScroll * 64.0f))) +
+            "|" + std::to_string(static_cast<int>(std::lround(state.verticalScroll * 64.0f))) +
+            (empty ? "|p" : "|v");
         const std::string compositionDirtyKey = id_ + ".composition|" + std::to_string(state.compositionRevision);
         const float renderedTextHeight = multiline_ ? layout.contentHeight : textHeight;
         const float compositionPadding = 1.0f;
@@ -129,11 +138,17 @@ public:
             ? std::clamp(compositionX + compositionWidth, inset_, std::max(inset_, width_ - inset_))
             : layout.clampedCursorX();
 
-        ui_.stack(id_)
+        auto root = ui_.stack(id_)
             .size(width_, height_)
             .clip()
-            .dirtyKey(InputModel::makeDirtyKey(state, focused, layout))
-            .content([&] {
+            .dirtyKey(InputModel::makeDirtyKey(state, focused, layout));
+        if (hasX_) {
+            root.x(x_);
+        }
+        if (hasY_) {
+            root.y(y_);
+        }
+        root.content([&] {
                 auto hit = ui_.rect(hitId)
                     .size(width_, height_)
                     .color(style_.background)
@@ -330,18 +345,42 @@ public:
                     }
                 }
 
-                ui_.text(id_ + ".text")
-                    .position(inset_ - state.horizontalScroll, textY - state.verticalScroll)
-                    .size(layout.visibleTextWidth, renderedTextHeight)
-                    .dirtyKey(textDirtyKey)
-                    .text(empty ? placeholder_ : state.text)
-                    .fontSize(fontSize_)
-                    .fontFamily(fontFamily_)
-                    .lineHeight(textLineHeight)
-                    .color(empty ? style_.placeholder : style_.text)
-                    .wrap(multiline_)
-                    .verticalAlign(core::VerticalAlign::Top)
-                    .build();
+                if (multiline_ && !empty) {
+                    const auto& lines = layout.lineList();
+                    for (std::size_t index = 0; index < lines.size(); ++index) {
+                        const auto& line = lines[index];
+                        const float y = textY + static_cast<float>(index) * textLineHeight - state.verticalScroll;
+                        if (y + textLineHeight < textY || y > textY + textHeight) {
+                            continue;
+                        }
+                        ui_.text(id_ + ".text." + std::to_string(index))
+                            .position(inset_, y)
+                            .size(layout.visibleTextWidth, textLineHeight)
+                            .dirtyKey(textDirtyKey + "|" + std::to_string(index))
+                            .text(state.text.substr(static_cast<std::size_t>(line.start),
+                                                    static_cast<std::size_t>(std::max(0, line.end - line.start))))
+                            .fontSize(fontSize_)
+                            .fontFamily(fontFamily_)
+                            .lineHeight(textLineHeight)
+                            .color(style_.text)
+                            .wrap(false)
+                            .verticalAlign(core::VerticalAlign::Top)
+                            .build();
+                    }
+                } else {
+                    ui_.text(id_ + ".text")
+                        .position(inset_ - state.horizontalScroll, textY - state.verticalScroll)
+                        .size(layout.visibleTextWidth, renderedTextHeight)
+                        .dirtyKey(textDirtyKey)
+                        .text(empty ? placeholder_ : state.text)
+                        .fontSize(fontSize_)
+                        .fontFamily(fontFamily_)
+                        .lineHeight(textLineHeight)
+                        .color(empty ? style_.placeholder : style_.text)
+                        .wrap(false)
+                        .verticalAlign(core::VerticalAlign::Top)
+                        .build();
+                }
 
                 if (hasComposition) {
                     ui_.rect(id_ + ".composition.bg")
@@ -394,9 +433,13 @@ private:
     bool multiline_ = false;
     float width_ = 260.0f;
     float height_ = 40.0f;
+    float x_ = 0.0f;
+    float y_ = 0.0f;
     float inset_ = 12.0f;
     float fontSize_ = 17.0f;
     std::string fontFamily_ = "monospace";
+    bool hasX_ = false;
+    bool hasY_ = false;
 };
 
 inline InputBuilder input(core::dsl::Ui& ui, const std::string& id) {

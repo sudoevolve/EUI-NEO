@@ -733,7 +733,7 @@ struct GalleryControlsPage {
                 .title("LineChart")
                 .values({0.22f, 0.30f, 0.20f, 0.55f, 0.42f, 0.86f})
                 .labels({"Jan", "Feb", "Mar", "Apr", "May", "Jun"})
-                .style(components::LineStyle::Curve)
+                .style(components::LineStyle::Linear)
                 .transition(pageTransition())
                 .build();
 
@@ -812,17 +812,26 @@ struct GalleryControlsPage {
         .theme(themeColors())
         .screen(screen.width, screen.height)
         .position(contextMenuX, contextMenuY)
-        .items({"Inspect", "Duplicate", "Copy Token", "Dismiss"})
+        .items(std::vector<components::ContextMenuItem>{
+            {"Inspect"},
+            {"Duplicate"},
+            {"Copy", {{"Token"}, {"Style", {{"CSS"}, {"JSON"}}}}},
+            {"Dismiss"}
+        })
         .open(contextMenuOpen)
-        .onSelect([this](int index) {
+        .onSelectPath([this](const std::vector<int>& path) {
             contextMenuOpen = false;
             toastVisible = true;
-            if (index == 0) {
+            if (path == std::vector<int>{0}) {
                 feedback = "Inspect selected";
-            } else if (index == 1) {
+            } else if (path == std::vector<int>{1}) {
                 feedback = "Duplicate selected";
-            } else if (index == 2) {
+            } else if (path == std::vector<int>{2, 0}) {
                 feedback = "Copy Token selected";
+            } else if (path == std::vector<int>{2, 1, 0}) {
+                feedback = "Copy CSS selected";
+            } else if (path == std::vector<int>{2, 1, 1}) {
+                feedback = "Copy JSON selected";
             } else {
                 feedback = "Context menu dismissed";
                 toastVisible = false;

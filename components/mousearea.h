@@ -52,6 +52,7 @@ public:
     MouseAreaBuilder& color(const core::Color& value) { color_ = value; return *this; }
     MouseAreaBuilder& cursor(core::CursorShape value) { cursor_ = value; return *this; }
     MouseAreaBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
+    MouseAreaBuilder& preserveFocusOnPress(bool value = true) { preserveFocusOnPress_ = value; return *this; }
     MouseAreaBuilder& scrollStep(float value) { scrollStep_ = std::max(0.0f, value); return *this; }
     MouseAreaBuilder& maxScrollStep(float value) { maxScrollStep_ = std::max(0.0f, value); return *this; }
     MouseAreaBuilder& dragThreshold(float value) { dragThreshold_ = std::max(0.0f, value); return *this; }
@@ -117,6 +118,7 @@ public:
             .color(color_)
             .radius(radius_)
             .disabled(disabled_)
+            .preserveFocusOnPress(preserveFocusOnPress_)
             .interactive()
             .cursor(cursor_);
 
@@ -337,6 +339,7 @@ private:
     bool hasY_ = false;
     bool hasZIndex_ = false;
     bool disabled_ = false;
+    bool preserveFocusOnPress_ = false;
     bool suppressClickAfterDrag_ = true;
 };
 

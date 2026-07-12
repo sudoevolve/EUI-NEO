@@ -42,4 +42,5 @@
 
 #include "components/workshop/heart_switch.h"
 #include "components/workshop/neumorphic_button.h"
+#include "components/workshop/card_slider.h"
 #include "components/workshop/tilt_card.h"
