@@ -43,9 +43,9 @@ bool loadOpenGLFunctions() {
 #endif
 
 bool platformRequiresConservativeBackbufferSync() {
-#if defined(__linux__)
-    // Linux OpenGL drivers/window systems may not preserve post-swap backbuffer contents.
-    // Use full cache blits there instead of assuming previous backbuffer pixels are valid.
+#if defined(__linux__) || defined(_WIN32)
+    // The backbuffer contents and swap order are not guaranteed after presenting.
+    // Use full cache blits instead of assuming a preserved two-buffer swap chain.
     return true;
 #else
     return false;

@@ -565,9 +565,9 @@ std::string imageFileVersionSuffix(const std::string& resolvedPath) {
         return {};
     }
 
-    const long long modifiedCount = static_cast<long long>(modified.time_since_epoch().count());
+    const auto modifiedTicks = static_cast<long long>(modified.time_since_epoch().count());
     return "#size=" + std::to_string(size) +
-           "#mtime=" + std::to_string(modifiedCount);
+           "#mtime=" + std::to_string(modifiedTicks);
 }
 } // namespace
 

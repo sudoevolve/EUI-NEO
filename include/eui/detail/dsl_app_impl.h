@@ -262,6 +262,9 @@ bool update(core::window::Handle window, float deltaSeconds, int windowWidth, in
 
     changed = detail::dslRuntime().update(window, deltaSeconds, pointerScale, dpiScale, inputEnabled) || changed;
     if (detail::dslRuntime().composeRequested()) {
+        // A compose can change retained content without changing the element structure.
+        // Rebuild the complete cache so state and release visuals update in this frame.
+        detail::dslRuntime().requestFullPaint();
         composeFrame();
         changed = detail::dslRuntime().update(window, 0.0f, pointerScale, dpiScale, inputEnabled) || changed;
         changed = true;
