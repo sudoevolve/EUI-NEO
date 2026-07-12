@@ -75,6 +75,9 @@ public:
         }
 
         if (runtime_.composeRequested()) {
+            // A compose can change retained content without changing the element structure.
+            // Rebuild the complete cache so state-driven text is visible immediately.
+            runtime_.requestFullPaint();
             composeFrame();
             if (runtime_.update(window, 0.0f, pointerScale, dpiScale, inputEnabled)) {
                 changed = true;

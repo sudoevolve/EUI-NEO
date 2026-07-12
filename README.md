@@ -87,9 +87,13 @@ sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev lib
 sudo apt-get install -y libsdl2-dev
 ```
 
-Top-level builds create one executable for each `examples/*.cpp` page source, such as `gallery`, `chat`, and `eui_demo`. After build, `assets/` is copied next to the executable automatically.
+Top-level builds create one executable for each `examples/*.cpp` page source, such as `gallery`, `card_slider`, and `eui_demo`. After build, `assets/` is copied next to the executable automatically.
 
 User apps can live under `apps/` and are built the same way by default in a top-level checkout. Use either a flat `apps/my_app.cpp` file or a directory app such as `apps/my_app/app.cpp`. Directory apps may include their own `apps/my_app/assets/`; those files are copied into the executable `assets/` directory after the framework assets. Disable this scan with `-DEUI_BUILD_USER_APPS=OFF`.
+
+## Optional Modules
+
+Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/modules.md).
 
 Tagged releases (`v*`) build Windows, Linux, and macOS packages through GitHub Actions and upload runtime and SDK packages as release assets. Runtime packages automatically collect every executable generated from `examples/*.cpp`.
 
@@ -164,6 +168,7 @@ components/   Reusable UI components built on top of the DSL
 core/         DSL, Runtime, primitives, text, image, network, and platform code
 docs/         Implementation notes and API documentation
 examples/     Standalone gallery and example application sources
+modules/      Optional feature modules such as keyboard, media, and serial
 apps/         User application sources; flat .cpp files or app folders
 include/      Public include path: eui_neo.h and eui/* facade headers
 tests/        Probe sources, fixture apps, and local benchmark notes
@@ -174,6 +179,7 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 
 - [DSL Design And Current Implementation](docs/DSL.md)
 - [Components](docs/组件.md)
+- [Modules](docs/modules.md)
 - [State Model](docs/状态.md)
 - [Layout](docs/布局.md)
 - [Events](docs/事件.md)

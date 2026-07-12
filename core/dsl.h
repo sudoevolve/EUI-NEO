@@ -140,6 +140,7 @@ struct Element {
 
     bool interactive = false;
     bool focusable = false;
+    bool preserveFocusOnPress = false;
     bool disabled = false;
     HitTestMode hitTestMode = HitTestMode::Layout;
     bool hasImeRect = false;
@@ -498,6 +499,11 @@ public:
     Derived& focusable(bool value = true) {
         element_->focusable = value;
         element_->interactive = value || element_->interactive;
+        return self();
+    }
+
+    Derived& preserveFocusOnPress(bool value = true) {
+        element_->preserveFocusOnPress = value;
         return self();
     }
 

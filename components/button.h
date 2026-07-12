@@ -41,6 +41,9 @@ public:
     ButtonBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
 
+    ButtonBuilder& x(float value) { x_ = value; hasX_ = true; return *this; }
+    ButtonBuilder& y(float value) { y_ = value; hasY_ = true; return *this; }
+    ButtonBuilder& position(float xValue, float yValue) { return x(xValue).y(yValue); }
     ButtonBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     ButtonBuilder& scale(float value) { scale_ = value; return *this; }
     ButtonBuilder& text(const std::string& value) { text_ = value; return *this; }
@@ -58,6 +61,7 @@ public:
     ButtonBuilder& radius(float value) { style_.radius = value; return *this; }
     ButtonBuilder& opacity(float value) { style_.opacity = std::clamp(value, 0.0f, 1.0f); return *this; }
     ButtonBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
+    ButtonBuilder& preserveFocusOnPress(bool value = true) { preserveFocusOnPress_ = value; return *this; }
     ButtonBuilder& translate(float x, float y) { translateX_ = x; translateY_ = y; return *this; }
     ButtonBuilder& translateX(float value) { translateX_ = value; return *this; }
     ButtonBuilder& translateY(float value) { translateY_ = value; return *this; }
@@ -79,6 +83,9 @@ public:
         return *this;
     }
     ButtonBuilder& onClick(std::function<void()> callback) { onClick_ = std::move(callback); return *this; }
+    ButtonBuilder& onPress(std::function<void()> callback) { onPress_ = std::move(callback); return *this; }
+    ButtonBuilder& onRelease(std::function<void()> callback) { onRelease_ = std::move(callback); return *this; }
+    ButtonBuilder& onFrame(std::function<void(float)> callback) { onFrame_ = std::move(callback); return *this; }
     ButtonBuilder& onContextMenu(std::function<void(const core::PointerEvent&, const core::Rect&)> callback) {
         onContextMenu_ = std::move(callback);
         return *this;
@@ -106,12 +113,20 @@ public:
         core::Color iconColor = style_.icon;
         textColor.a *= style_.opacity;
         iconColor.a *= style_.opacity;
+        const std::function<void()> onPress = onPress_;
+        const std::function<void()> onRelease = onRelease_;
 
-        ui_.stack(id_)
+        auto root = ui_.stack(id_)
             .size(w, h)
-            .visualStateFrom(id_ + ".bg", style_.pressScale)
-            .content([&] {
-                ui_.rect(id_ + ".bg")
+            .visualStateFrom(id_ + ".bg", style_.pressScale);
+        if (hasX_) {
+            root.x(x_);
+        }
+        if (hasY_) {
+            root.y(y_);
+        }
+        root.content([&] {
+                auto bg = ui_.rect(id_ + ".bg")
                     .size(w, h)
                     .states(style_.normal, style_.hover, style_.pressed)
                     .radius(style_.radius * scale_)
@@ -121,9 +136,19 @@ public:
                     .translate(translateX_, translateY_)
                     .transition(transition_)
                     .disabled(disabled_)
+                    .preserveFocusOnPress(preserveFocusOnPress_)
                     .onClick(onClick_)
-                    .onContextMenu(onContextMenu_)
-                    .build();
+                    .onContextMenu(onContextMenu_);
+                if (onPress) {
+                    bg.onPress([onPress](const core::PointerEvent&, const core::Rect&) { onPress(); });
+                }
+                if (onRelease) {
+                    bg.onRelease([onRelease](const core::PointerEvent&, const core::Rect&) { onRelease(); });
+                }
+                if (onFrame_) {
+                    bg.onFrame(onFrame_);
+                }
+                bg.build();
 
                 ui_.row(id_ + ".content")
                     .size(w, h)
@@ -170,6 +195,9 @@ private:
     ButtonStyle style_;
     core::Transition transition_;
     std::function<void()> onClick_;
+    std::function<void()> onPress_;
+    std::function<void()> onRelease_;
+    std::function<void(float)> onFrame_;
     std::function<void(const core::PointerEvent&, const core::Rect&)> onContextMenu_;
     float width_ = 240.0f;
     float height_ = 70.0f;
@@ -178,7 +206,12 @@ private:
     float iconSize_ = 0.0f;
     float translateX_ = 0.0f;
     float translateY_ = 0.0f;
+    float x_ = 0.0f;
+    float y_ = 0.0f;
     bool disabled_ = false;
+    bool preserveFocusOnPress_ = false;
+    bool hasX_ = false;
+    bool hasY_ = false;
 };
 
 inline ButtonBuilder button(core::dsl::Ui& ui, const std::string& id) {

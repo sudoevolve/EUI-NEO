@@ -213,6 +213,10 @@ inline bool Runtime::hitTestFocusableElement(
     if (!hitContains(element, event, dpiScale, bounds, renderTransform)) {
         return false;
     }
+    if (element.preserveFocusOnPress) {
+        targetId = focusedId_;
+        return true;
+    }
     if (element.focusable && !element.disabled) {
         targetId = element.id;
         return true;

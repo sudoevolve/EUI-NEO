@@ -18,6 +18,7 @@ option(EUI_BUILD_USER_APPS "Build user applications from apps/." ${EUI_NEO_TOP_L
 option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
+option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ON)
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 
 set(EUI_DEFAULT_WINDOW_BACKEND "glfw")
@@ -259,6 +260,10 @@ if(TARGET md4c::md4c)
     target_compile_definitions(eui_neo PUBLIC EUI_HAS_MD4C=1)
 endif()
 
+if(EUI_ENABLE_MODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/CMakeLists.txt")
+    add_subdirectory(modules)
+endif()
+
 # -----------------------------------------------------------------------------
 # App target helpers
 # -----------------------------------------------------------------------------
@@ -311,11 +316,13 @@ if(EUI_BUILD_APPS)
     file(GLOB APP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
     foreach(app_source ${APP_SOURCES})
         get_filename_component(app_name "${app_source}" NAME_WE)
+        if(app_name STREQUAL "keyboard" AND
+           (NOT EUI_ENABLE_MODULES OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules/keyboard/keyboard.h"))
+            message(STATUS "Skipping keyboard example because the keyboard module is not available.")
+            continue()
+        endif()
         add_executable(${app_name} ${EUI_APP_MAIN_SOURCE} "${app_source}" ${APP_ICON_RESOURCE})
         eui_neo_configure_app(${app_name})
-        if(app_name STREQUAL "chat" AND WIN32)
-            target_link_libraries(${app_name} PRIVATE ws2_32)
-        endif()
     endforeach()
 endif()
 
@@ -419,7 +426,11 @@ if(EUI_ENABLE_INSTALL)
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
         FILES_MATCHING PATTERN "*.h"
     )
-    install(DIRECTORY components core
+    set(EUI_NEO_INSTALL_HEADER_DIRS components core)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules")
+        list(APPEND EUI_NEO_INSTALL_HEADER_DIRS modules)
+    endif()
+    install(DIRECTORY ${EUI_NEO_INSTALL_HEADER_DIRS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo
         FILES_MATCHING PATTERN "*.h"
     )

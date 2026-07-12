@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/render/render_types.h"
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +33,11 @@ std::shared_ptr<const StaticImageData> loadStaticImage(const std::string& source
                                                        bool* pending);
 std::shared_ptr<const StaticImageData> loadStaticImageFromPath(const std::string& resolvedPath,
                                                                bool flipVertically);
+core::Color sampleThemeColor(const StaticImageData& image, core::Color fallback);
+core::Color sampleThemeColor(const std::string& source,
+                             core::Color fallback,
+                             bool flipVertically = false,
+                             bool* pending = nullptr);
 std::shared_ptr<const StaticImageData> loadStaticSvg(const std::string& cacheKey,
                                                      const std::string& svg,
                                                      bool flipVertically);

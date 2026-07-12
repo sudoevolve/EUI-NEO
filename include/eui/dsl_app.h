@@ -9,8 +9,8 @@
 namespace app {
 
 struct DslAppConfig {
-    const char* titleValue = "App";
-    const char* pageIdValue = "app";
+    std::string titleValue = "App";
+    std::string pageIdValue = "app";
     eui::Color clearColorValue = {0.16f, 0.18f, 0.20f, 1.0f};
     int windowWidthValue = 800;
     int windowHeightValue = 600;
@@ -20,15 +20,15 @@ struct DslAppConfig {
     bool showDebugStatsInTitleValue = false;
 #endif
     double fpsValue = 90.0;
-    const char* iconPathValue = "assets/icon.png";
-    const char* textFontFileValue = "";
-    const char* iconFontFileValue = "";
+    std::string iconPathValue = "assets/icon.png";
+    std::string textFontFileValue;
+    std::string iconFontFileValue;
     bool trayEnabledValue = false;
-    const char* trayTitleValue = "";
-    const char* trayIconPathValue = "";
+    std::string trayTitleValue;
+    std::string trayIconPathValue;
 
-    DslAppConfig& title(const char* value) { titleValue = value; return *this; }
-    DslAppConfig& pageId(const char* value) { pageIdValue = value; return *this; }
+    DslAppConfig& title(std::string value) { titleValue = std::move(value); return *this; }
+    DslAppConfig& pageId(std::string value) { pageIdValue = std::move(value); return *this; }
     DslAppConfig& clearColor(const eui::Color& value) { clearColorValue = value; return *this; }
     DslAppConfig& background(const eui::Color& value) { return clearColor(value); }
     DslAppConfig& windowSize(int width, int height) {
@@ -43,24 +43,24 @@ struct DslAppConfig {
         return *this;
     }
     DslAppConfig& fps(double value) { fpsValue = value; return *this; }
-    DslAppConfig& iconPath(const char* value) { iconPathValue = value; return *this; }
-    DslAppConfig& textFont(const char* value) { textFontFileValue = value; return *this; }
-    DslAppConfig& iconFont(const char* value) { iconFontFileValue = value; return *this; }
-    DslAppConfig& fonts(const char* textFont, const char* iconFont = "") {
-        textFontFileValue = textFont;
-        iconFontFileValue = iconFont;
+    DslAppConfig& iconPath(std::string value) { iconPathValue = std::move(value); return *this; }
+    DslAppConfig& textFont(std::string value) { textFontFileValue = std::move(value); return *this; }
+    DslAppConfig& iconFont(std::string value) { iconFontFileValue = std::move(value); return *this; }
+    DslAppConfig& fonts(std::string textFont, std::string iconFont = {}) {
+        textFontFileValue = std::move(textFont);
+        iconFontFileValue = std::move(iconFont);
         return *this;
     }
     DslAppConfig& tray(bool value = true) {
         trayEnabledValue = value;
         return *this;
     }
-    DslAppConfig& trayTitle(const char* value) {
-        trayTitleValue = value;
+    DslAppConfig& trayTitle(std::string value) {
+        trayTitleValue = std::move(value);
         return *this;
     }
-    DslAppConfig& trayIcon(const char* value) {
-        trayIconPathValue = value;
+    DslAppConfig& trayIcon(std::string value) {
+        trayIconPathValue = std::move(value);
         return *this;
     }
 };
