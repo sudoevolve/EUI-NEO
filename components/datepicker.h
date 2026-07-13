@@ -268,8 +268,8 @@ private:
         const float bottomPad = metrics_.spacing.panel;
         const float rowHeight = metrics_.control.segmented + metrics_.spacing.micro;
         const float columnY = titleHeight + metrics_.spacing.compact;
-        const float columnHeight = std::max(metrics_.control.navigation * 3.0f,
-                                            height - titleHeight - bottomPad - metrics_.spacing.compact);
+        const float columnHeight = std::max(
+            0.0f, height - titleHeight - bottomPad - metrics_.spacing.compact);
         const float gap = metrics_.spacing.content;
         const float pad = metrics_.spacing.panel;
         const float monthWidth = std::max(118.0f, (width - pad * 2.0f - gap * 2.0f) * 0.44f);

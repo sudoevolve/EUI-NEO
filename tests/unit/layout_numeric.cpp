@@ -1,5 +1,9 @@
+#include "components/button.h"
+#include "components/colorpicker.h"
+#include "components/datepicker.h"
 #include "components/markdown.h"
 #include "components/theme.h"
+#include "components/timepicker.h"
 #include "core/layout.h"
 
 #include <cmath>
@@ -105,6 +109,88 @@ bool themeMetricsDriveComponentVisuals() {
            expectClose("markdown radius", markdown.radius, 7.0f);
 }
 
+bool themeMetricsScaleUniformly() {
+    const components::theme::ThemeMetricTokens metrics =
+        components::theme::scaledMetrics(components::theme::dark().metrics, 1.6f);
+
+    return expectClose("scaled micro text", metrics.typography.micro, 17.6f) &&
+           expectClose("scaled section spacing", metrics.spacing.section, 25.6f) &&
+           expectClose("scaled card radius", metrics.radius.card, 19.2f) &&
+           expectClose("scaled control size", metrics.control.control, 67.2f);
+}
+
+bool buttonUsesThemeTypography() {
+    core::dsl::Ui ui;
+    components::theme::ThemeColorTokens tokens = components::theme::dark();
+    tokens.metrics = components::theme::scaledMetrics(tokens.metrics, 1.6f);
+
+    ui.begin("button.metrics");
+    components::button(ui, "button")
+        .theme(tokens)
+        .size(200.0f, 88.0f)
+        .text("Token text")
+        .build();
+    ui.end();
+    ui.layout(200.0f, 88.0f);
+
+    const core::dsl::Element* label = ui.find("button.text");
+    return label != nullptr &&
+           expectClose("button theme font", label->fontSize, tokens.metrics.typography.control);
+}
+
+bool pickerMetricsPreserveBottomSpacing() {
+    core::dsl::Ui ui;
+    components::theme::ThemeColorTokens tokens = components::theme::dark();
+    tokens.metrics = components::theme::scaledMetrics(tokens.metrics, 1.6f);
+
+    ui.begin("picker.metrics");
+    components::datePicker(ui, "date")
+        .theme(tokens)
+        .screen(540.0f, 960.0f)
+        .size(520.0f, 360.0f)
+        .open()
+        .build();
+    components::timePicker(ui, "time")
+        .theme(tokens)
+        .screen(540.0f, 960.0f)
+        .size(480.0f, 340.0f)
+        .open()
+        .build();
+    components::colorPicker(ui, "color")
+        .theme(tokens)
+        .screen(540.0f, 960.0f)
+        .size(520.0f, 420.0f)
+        .open()
+        .build();
+    ui.end();
+    ui.layout(540.0f, 960.0f);
+
+    const core::dsl::Element* datePanel = ui.find("date.panel");
+    const core::dsl::Element* dateColumn = ui.find("date.column.0.bg");
+    const core::dsl::Element* timePanel = ui.find("time.panel");
+    const core::dsl::Element* timeColumn = ui.find("time.column.0.bg");
+    const core::dsl::Element* colorPanel = ui.find("color.panel");
+    const core::dsl::Element* blueSlider = ui.find("color.slider.wrap.2");
+    const core::dsl::Element* firstSwatch = ui.find("color.swatch.0");
+    if (datePanel == nullptr || dateColumn == nullptr ||
+        timePanel == nullptr || timeColumn == nullptr ||
+        colorPanel == nullptr || blueSlider == nullptr || firstSwatch == nullptr) {
+        std::cerr << "picker metric layout elements were not composed\n";
+        return false;
+    }
+
+    const auto bottomGap = [](const core::dsl::Element& panel, const core::dsl::Element& child) {
+        return panel.frame.y + panel.frame.height - child.frame.y - child.frame.height;
+    };
+    const float expectedBottomGap = tokens.metrics.spacing.panel;
+    const float sliderGap = firstSwatch->frame.y -
+        (blueSlider->frame.y + blueSlider->frame.height);
+    return expectClose("date picker bottom gap", bottomGap(*datePanel, *dateColumn), expectedBottomGap) &&
+           expectClose("time picker bottom gap", bottomGap(*timePanel, *timeColumn), expectedBottomGap) &&
+           expectClose("color picker bottom gap", bottomGap(*colorPanel, *firstSwatch), expectedBottomGap) &&
+           sliderGap >= tokens.metrics.spacing.compact - 0.01f;
+}
+
 } // namespace
 
 int main() {
@@ -112,5 +198,8 @@ int main() {
     ok = flexStaysInsideFixedRow() && ok;
     ok = overlayDoesNotAffectColumnHeight() && ok;
     ok = themeMetricsDriveComponentVisuals() && ok;
+    ok = themeMetricsScaleUniformly() && ok;
+    ok = buttonUsesThemeTypography() && ok;
+    ok = pickerMetricsPreserveBottomSpacing() && ok;
     return ok ? 0 : 1;
 }

@@ -225,8 +225,11 @@ private:
         const float previewY = titleHeight;
         const float previewHeight = metrics_.control.compact * 2.0f + metrics_.spacing.micro;
         const float slidersY = previewY + previewHeight + metrics_.typography.control;
-        const float sliderRowHeight = metrics_.control.menuItem;
         const float swatchesY = height - metrics_.spacing.overlay;
+        const float sliderAreaHeight = std::max(
+            0.0f, swatchesY - slidersY - metrics_.spacing.compact);
+        const float sliderRowHeight = std::min(
+            metrics_.control.menuItem, sliderAreaHeight / 3.0f);
         const float sliderReservedWidth = metrics_.spacing.header * 3.0f;
         const float sliderWidth = std::max(sliderReservedWidth, width - pad * 2.0f - sliderReservedWidth);
         const std::function<void(bool)> onOpenChange = onOpenChange_;
@@ -368,6 +371,9 @@ private:
                        float rowHeight,
                        core::Color current,
                        ColorDraft* draft) {
+        const float sliderHeight = std::min(
+            metrics_.control.indicator, std::max(0.0f, rowHeight));
+        const float sliderOffsetY = std::max(0.0f, (rowHeight - sliderHeight) * 0.5f);
         ui_.text(id_ + ".slider.label." + std::to_string(channel))
             .x(x)
             .y(y)
@@ -381,8 +387,8 @@ private:
 
         ui_.stack(id_ + ".slider.wrap." + std::to_string(channel))
             .x(x + metrics_.spacing.header + metrics_.spacing.micro)
-            .y(y + metrics_.typography.lineGapRelaxed)
-            .size(sliderWidth, metrics_.control.indicator)
+            .y(y + sliderOffsetY)
+            .size(sliderWidth, sliderHeight)
             .content([&] {
                 SliderStyle sliderStyle;
                 sliderStyle.track = style_.track;
@@ -390,7 +396,7 @@ private:
                 sliderStyle.knob = style_.knob;
                 components::slider(ui_, id_ + ".slider." + std::to_string(channel))
                     .theme(tokens_)
-                    .size(sliderWidth, metrics_.control.indicator)
+                    .size(sliderWidth, sliderHeight)
                     .value(channelValue(current, channel))
                     .style(sliderStyle)
                     .transition(transition_)

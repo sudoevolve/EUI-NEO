@@ -96,7 +96,9 @@ public:
     void build() {
         const float w = width_ * scale_;
         const float h = height_ * scale_;
-        const float font = fontSize_ > 0.0f ? fontSize_ * scale_ : h * 0.46f;
+        const float font = fontSize_ > 0.0f
+            ? fontSize_ * scale_
+            : std::min(metrics_.typography.control * scale_, h * 0.64f);
         const float iconFont = iconSize_ > 0.0f ? iconSize_ * scale_ : font * 0.92f;
         const bool hasIcon = !icon_.empty();
         const bool hasText = !text_.empty();

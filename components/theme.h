@@ -85,6 +85,75 @@ struct ThemeMetricTokens {
     ControlSizeTokens control;
 };
 
+inline ThemeMetricTokens scaledMetrics(ThemeMetricTokens tokens, float factor) {
+    const float scale = std::max(0.0f, factor);
+
+    tokens.typography.micro *= scale;
+    tokens.typography.caption *= scale;
+    tokens.typography.hint *= scale;
+    tokens.typography.label *= scale;
+    tokens.typography.option *= scale;
+    tokens.typography.body *= scale;
+    tokens.typography.input *= scale;
+    tokens.typography.control *= scale;
+    tokens.typography.cardTitle *= scale;
+    tokens.typography.subtitle *= scale;
+    tokens.typography.title *= scale;
+    tokens.typography.heading *= scale;
+    tokens.typography.headline *= scale;
+    tokens.typography.displayCompact *= scale;
+    tokens.typography.display *= scale;
+    tokens.typography.hero *= scale;
+    tokens.typography.lineGapTight *= scale;
+    tokens.typography.lineGap *= scale;
+    tokens.typography.lineGapRelaxed *= scale;
+    tokens.typography.lineGapLoose *= scale;
+    tokens.typography.lineGapComfortable *= scale;
+    tokens.typography.lineGapWide *= scale;
+
+    tokens.spacing.hairline *= scale;
+    tokens.spacing.micro *= scale;
+    tokens.spacing.tiny *= scale;
+    tokens.spacing.small *= scale;
+    tokens.spacing.compact *= scale;
+    tokens.spacing.control *= scale;
+    tokens.spacing.content *= scale;
+    tokens.spacing.section *= scale;
+    tokens.spacing.large *= scale;
+    tokens.spacing.panel *= scale;
+    tokens.spacing.header *= scale;
+    tokens.spacing.page *= scale;
+    tokens.spacing.overlay *= scale;
+
+    tokens.radius.micro *= scale;
+    tokens.radius.tiny *= scale;
+    tokens.radius.small *= scale;
+    tokens.radius.control *= scale;
+    tokens.radius.tooltip *= scale;
+    tokens.radius.popup *= scale;
+    tokens.radius.card *= scale;
+    tokens.radius.elevated *= scale;
+    tokens.radius.overlay *= scale;
+    tokens.radius.section *= scale;
+    tokens.radius.feature *= scale;
+    tokens.radius.full *= scale;
+
+    tokens.control.progress *= scale;
+    tokens.control.indicator *= scale;
+    tokens.control.switchHeight *= scale;
+    tokens.control.compact *= scale;
+    tokens.control.menuItem *= scale;
+    tokens.control.field *= scale;
+    tokens.control.segmented *= scale;
+    tokens.control.input *= scale;
+    tokens.control.control *= scale;
+    tokens.control.large *= scale;
+    tokens.control.switchWidth *= scale;
+    tokens.control.navigation *= scale;
+    tokens.control.scrollbar *= scale;
+    return tokens;
+}
+
 struct ThemeColorTokens {
     core::Color background;
     core::Color primary;
