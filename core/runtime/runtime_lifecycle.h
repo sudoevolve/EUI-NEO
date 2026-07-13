@@ -85,6 +85,7 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
         updateScroll(scrollEvent, hitTestScrollable(event, dpiScale));
         hoverTargetCacheValid_ = false;
     }
+    updateScrollMotion(deltaSeconds);
 
     if (event.pressedThisFrame) {
         setFocusedId(hitTestFocusable(event, dpiScale));

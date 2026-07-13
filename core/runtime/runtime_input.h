@@ -253,11 +253,17 @@ inline void Runtime::setFocusedId(const std::string& id) {
 }
 
 inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& targetId) {
-    if (targetId.empty()) {
-        return;
+    const Element* element = targetId.empty() ? nullptr : ui_.find(targetId);
+    const std::string activeScrollStateId = element != nullptr && !element->disabled
+        ? element->scrollStateId
+        : std::string{};
+    for (auto& entry : scrollStates_) {
+        if (entry.first != activeScrollStateId) {
+            entry.second.velocity = 0.0f;
+        }
     }
 
-    if (const Element* element = ui_.find(targetId)) {
+    if (element != nullptr) {
         if (!element->scrollStateId.empty() && !element->disabled) {
             applyRuntimeScroll(*element, -static_cast<float>(event.y) * scrollStepFor(*element));
             return;
