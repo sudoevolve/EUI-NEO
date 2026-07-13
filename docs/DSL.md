@@ -542,7 +542,7 @@ components::button(ui, "save")
 - 每帧回收已经不在 DSL 树里的 primitive、交互状态和 dirty key 实例。
 - 统一处理 pointer event、hit-test、press capture、click。
 - disabled 父节点会禁用整棵子树的交互、焦点、文本输入和 IME 光标状态。
-- 维护 scroll state；滚轮输入在 Runtime 内累加速度并按时间衰减，滚动条拖动则直接更新 offset。两种路径都只更新滚动 transform 和 dirty rect，不触发整页 compose。少数需要滚动时重组可见内容的组件可以显式使用 `.composeOnScrollOffsetChange()`，例如 `components::virtualList`。
+- 维护 scroll state；滚轮输入在 Runtime 内累加速度并按时间衰减，滚动条拖动则直接更新 offset。两种路径都只更新滚动 transform 和 dirty rect，不触发整页 compose。需要按固定区间刷新内容时可用 `.composeOnScrollOffsetChangeInterval(interval)`；`components::virtualList` 用它在跨过行边界时更换可见 slot，其余像素位移仍由 Runtime transform 直接更新。
 - interactive blocker 会阻断下层 hover / click / focus；弹层、侧边栏、遮罩和面板背景应声明透明或实体 hit rect 来吃掉事件。
 - 维护 hover / press 动画状态。
 - 推进 transition 动画。
