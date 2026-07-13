@@ -311,13 +311,18 @@ inline void Runtime::updateImeCursorRect(core::window::Handle window, float dpiS
         return;
     }
 
-    const Rect logicalRect{
-        element->frame.x + element->imeRect.x,
-        element->frame.y + element->imeRect.y,
-        element->imeRect.width,
-        element->imeRect.height
-    };
-    const Rect pixelRect = toPixelRect(logicalRect, dpiScale);
+    if (!focusedElementRenderTransformValid_) {
+        imeCursorRectValid_ = false;
+        return;
+    }
+
+    const Rect elementBounds = toPixelRect(element->frame, dpiScale);
+    const TransformMatrix transform = hitMatrixForElement(
+        *element,
+        dpiScale,
+        elementBounds,
+        focusedElementRenderTransform_);
+    const Rect pixelRect = imeCursorPixelRect(*element, dpiScale, transform);
     if (imeCursorRectValid_ &&
         imeCursorWindow_ == window &&
         closeEnough(imeCursorRect_, pixelRect)) {
