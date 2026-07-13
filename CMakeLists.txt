@@ -463,7 +463,7 @@ if(EUI_ENABLE_INSTALL)
     install(FILES
         "${EUI_ZLIB_DIR}/zconf.h"
         "${EUI_ZLIB_DIR}/zlib.h"
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo/3rd/zlib-1.3.1
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo/3rd/zlib
     )
     if(TARGET eui_md4c)
         install(FILES "${EUI_MD4C_DIR}/src/md4c.h"

@@ -41,7 +41,7 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 - Vulkan SDK 可选。只有需要 Vulkan 渲染器时才使用 `build-vk` 构建目录。
 - 平台 OpenGL/windowing 开发文件。Linux 构建还需要 X11 和 libcurl 开发包。
 
-GLFW、glad、tray、FreeType、libpng、zlib 等构建期第三方源码已内置在 `3rd/` 下。默认依赖模式是 `auto`：先复用父项目已有的 `glfw` / `glad` target，再尝试包管理器 target，最后才使用本地 `3rd/` 源码或固定上游兜底拉取。需要严格离线构建时，可配置 `-DEUI_DEPS_MODE=bundled`；需要强制联网拉取时，可配置 `-DEUI_DEPS_MODE=fetch`。
+GLFW、glad、tray、FreeType、libpng、zlib 等构建期第三方源码已内置在 `3rd/` 下。受支持的源码库按标志文件自动识别，不依赖目录名或版本号，直接把上游源码文件夹放进 `3rd/` 即可。默认依赖模式是 `auto`：先复用父项目已有的 `glfw` / `glad` target，再尝试包管理器 target，最后才使用本地 `3rd/` 源码或固定上游兜底拉取。需要严格离线构建时，可配置 `-DEUI_DEPS_MODE=bundled`；需要强制联网拉取时，可配置 `-DEUI_DEPS_MODE=fetch`。
 
 内置和 fetch 下载的依赖默认按静态链接构建，包括 GLFW。Release 包因此不需要额外携带 GLFW DLL / dylib / so。只有选择系统 SDL2 包时，SDL2 仍可能是动态库。
 
