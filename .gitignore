@@ -10,3 +10,9 @@
 /temp/
 /.github/skills/
 /.idea/
+/Android/.deps/
+/Android/.gradle/
+/Android/app/.cxx/
+/Android/app/build/
+/Android/build/
+/Android/local.properties
