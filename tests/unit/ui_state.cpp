@@ -1,3 +1,4 @@
+#include "components/virtuallist.h"
 #include "core/dsl_runtime.h"
 
 #include <cmath>
@@ -68,6 +69,66 @@ bool scrollMotionCapsLongFrameDelta() {
     return true;
 }
 
+bool virtualListScrollRecomposesOnlyAtRowBoundary() {
+    core::dsl::Ui ui;
+    eui::Signal<float> offset{16.0f};
+    ui.begin("virtual.list.test");
+    components::virtualList(ui, "list")
+        .size(320.0f, 180.0f)
+        .itemCount(100)
+        .rowHeight(32.0f)
+        .bind(offset)
+        .row([](core::dsl::Ui& rowUi,
+                const std::string& rowId,
+                std::int64_t,
+                float rowWidth,
+                float rowHeight) {
+            rowUi.rect(rowId + ".bg").size(rowWidth, rowHeight).build();
+        })
+        .build();
+    ui.stack("all.offsets")
+        .composeOnScrollOffsetChangeInterval(32.0f)
+        .composeOnScrollOffsetChange()
+        .build();
+    ui.end();
+    ui.layout(320.0f, 180.0f);
+
+    const core::dsl::Element* root = ui.find("list");
+    const core::dsl::Element* window = ui.find("list.window");
+    const core::dsl::Element* allOffsets = ui.find("all.offsets");
+    if (root == nullptr || window == nullptr || allOffsets == nullptr || !root->onScrollOffsetChanged) {
+        std::cerr << "virtual list runtime scroll bindings were not composed\n";
+        return false;
+    }
+    if (!root->composeOnScrollOffsetChange ||
+        !closeEnough(root->scrollComposeInterval, 32.0f, 0.01f) ||
+        window->scrollContentSourceId != root->scrollStateId ||
+        !closeEnough(window->transform.translate.y, 16.0f, 0.01f)) {
+        std::cerr << "virtual list did not bind its window to the runtime scroll transform\n";
+        return false;
+    }
+    if (!allOffsets->composeOnScrollOffsetChange || allOffsets->scrollComposeInterval != 0.0f) {
+        std::cerr << "unthrottled scroll compose retained a stale interval\n";
+        return false;
+    }
+
+    root->onScrollOffsetChanged(24.0f);
+    if (!closeEnough(offset.get(), 24.0f, 0.01f)) {
+        std::cerr << "virtual list did not publish its runtime offset\n";
+        return false;
+    }
+    if (core::dsl::scrollComposeBoundaryCrossed(16.0f, 24.0f, root->scrollComposeInterval)) {
+        std::cerr << "virtual list compose interval changed within one row\n";
+        return false;
+    }
+    if (!core::dsl::scrollComposeBoundaryCrossed(24.0f, 40.0f, root->scrollComposeInterval) ||
+        !core::dsl::scrollComposeBoundaryCrossed(80.0f, 31.0f, root->scrollComposeInterval)) {
+        std::cerr << "virtual list compose interval missed a row boundary\n";
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int main() {
@@ -96,5 +157,6 @@ int main() {
     ok = scrollMotionClampsAtBoundary() && ok;
     ok = repeatedScrollImpulsesAccumulate() && ok;
     ok = scrollMotionCapsLongFrameDelta() && ok;
+    ok = virtualListScrollRecomposesOnlyAtRowBoundary() && ok;
     return ok ? 0 : 1;
 }

@@ -172,6 +172,7 @@ struct Element {
     std::string scrollDragSourceId;
     std::string scrollThumbSourceId;
     bool composeOnScrollOffsetChange = false;
+    float scrollComposeInterval = 0.0f;
     std::string sliderStateId;
     std::string sliderInputSourceId;
     std::string sliderFillSourceId;
@@ -700,6 +701,13 @@ public:
 
     Derived& composeOnScrollOffsetChange(bool value = true) {
         element_->composeOnScrollOffsetChange = value;
+        element_->scrollComposeInterval = 0.0f;
+        return self();
+    }
+
+    Derived& composeOnScrollOffsetChangeInterval(float interval) {
+        element_->composeOnScrollOffsetChange = true;
+        element_->scrollComposeInterval = std::max(0.0f, interval);
         return self();
     }
 

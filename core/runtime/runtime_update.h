@@ -653,13 +653,16 @@ inline void Runtime::setScrollOffset(const std::string& stateId, float offset) {
         return;
     }
 
+    const float previous = instance.offset;
     instance.offset = next;
     addScrollDirtyRect(instance);
     if (const Element* owner = ui_.find(stateId)) {
         if (owner->onScrollOffsetChanged && !owner->disabled) {
             owner->onScrollOffsetChanged(instance.offset);
         }
-        if (owner->composeOnScrollOffsetChange && !owner->disabled) {
+        if (owner->composeOnScrollOffsetChange &&
+            !owner->disabled &&
+            scrollComposeBoundaryCrossed(previous, next, owner->scrollComposeInterval)) {
             composeRequested_ = true;
         }
     }

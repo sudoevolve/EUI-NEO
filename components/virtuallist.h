@@ -2,7 +2,6 @@
 
 #include "components/scroll.h"
 #include "core/dsl.h"
-#include "core/platform/platform.h"
 #include "eui/signal.h"
 
 #include <algorithm>
@@ -105,12 +104,11 @@ public:
             .zIndex(zIndex_)
             .clip()
             .scrollState(id_, currentOffset, maxOffset, scrollStep)
-            .composeOnScrollOffsetChange()
+            .composeOnScrollOffsetChangeInterval(rowHeight)
             .onScrollOffsetChanged([onChange](float value) {
                 if (onChange) {
                     onChange(value);
                 }
-                core::platform::requestUiUpdate();
             });
         if (hasX_) {
             root.x(x_);
@@ -121,6 +119,8 @@ public:
         root.content([&] {
                 ui_.stack(id_ + ".window")
                     .size(contentWidth, viewportHeight)
+                    .translateY(currentOffset)
+                    .scrollContentFrom(id_)
                     .dirtyKey(id_ + ".virtual")
                     .content([&] {
                         if (!row_) {

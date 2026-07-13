@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 
@@ -20,6 +21,18 @@ inline bool ownsSliderState(const Element& element) {
 
 inline constexpr float scrollTransformMinActiveOffset() {
     return 0.01f;
+}
+
+inline bool scrollComposeBoundaryCrossed(float previousOffset, float nextOffset, float interval) {
+    if (interval <= 0.0f) {
+        return true;
+    }
+    const double safeInterval = static_cast<double>(interval);
+    const auto bucket = [safeInterval](float offset) {
+        return static_cast<std::int64_t>(std::floor(
+            static_cast<double>(std::max(0.0f, offset)) / safeInterval));
+    };
+    return bucket(previousOffset) != bucket(nextOffset);
 }
 
 inline constexpr float scrollInertiaFriction() {
