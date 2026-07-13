@@ -22,6 +22,68 @@ inline constexpr float scrollTransformMinActiveOffset() {
     return 0.01f;
 }
 
+inline constexpr float scrollInertiaFriction() {
+    return 12.0f;
+}
+
+inline constexpr float scrollInertiaStopVelocity() {
+    return 2.0f;
+}
+
+inline constexpr float scrollInertiaMaxVelocity() {
+    return 7200.0f;
+}
+
+inline constexpr float scrollInertiaMaxDeltaSeconds() {
+    return 1.0f / 30.0f;
+}
+
+inline bool scrollMotionActive(float velocity) {
+    return std::fabs(velocity) > scrollInertiaStopVelocity();
+}
+
+inline float addScrollImpulse(float velocity, float distance) {
+    if (velocity * distance < 0.0f) {
+        velocity = 0.0f;
+    }
+    const float impulse = distance * scrollInertiaFriction();
+    return std::clamp(velocity + impulse, -scrollInertiaMaxVelocity(), scrollInertiaMaxVelocity());
+}
+
+struct ScrollMotionStep {
+    float offset = 0.0f;
+    float velocity = 0.0f;
+    bool active = false;
+};
+
+inline ScrollMotionStep advanceScrollMotion(float offset,
+                                            float maxOffset,
+                                            float velocity,
+                                            float deltaSeconds) {
+    maxOffset = std::max(0.0f, maxOffset);
+    offset = std::clamp(offset, 0.0f, maxOffset);
+    if (maxOffset <= 0.0f || !scrollMotionActive(velocity)) {
+        return {offset, 0.0f, false};
+    }
+
+    const float dt = std::clamp(deltaSeconds, 0.0f, scrollInertiaMaxDeltaSeconds());
+    if (dt <= 0.0f) {
+        return {offset, velocity, true};
+    }
+
+    const float friction = scrollInertiaFriction();
+    const float decay = std::exp(-friction * dt);
+    const float distance = velocity * (1.0f - decay) / friction;
+    const float unclampedOffset = offset + distance;
+    const float nextOffset = std::clamp(unclampedOffset, 0.0f, maxOffset);
+    const bool hitBoundary = unclampedOffset < 0.0f || unclampedOffset > maxOffset;
+    float nextVelocity = hitBoundary ? 0.0f : velocity * decay;
+    if (!scrollMotionActive(nextVelocity)) {
+        nextVelocity = 0.0f;
+    }
+    return {nextOffset, nextVelocity, scrollMotionActive(nextVelocity)};
+}
+
 inline void syncOwnedScrollState(const Element& element, runtime::ScrollStateInstance& instance) {
     instance.maxOffset = std::max(0.0f, element.scrollMaxOffset);
     instance.step = std::max(1.0f, element.scrollStep);
@@ -32,6 +94,11 @@ inline void syncOwnedScrollState(const Element& element, runtime::ScrollStateIns
         instance.initialized = true;
     } else {
         instance.offset = std::clamp(instance.offset, 0.0f, instance.maxOffset);
+    }
+    if (instance.maxOffset <= 0.0f ||
+        (instance.offset <= 0.0f && instance.velocity < 0.0f) ||
+        (instance.offset >= instance.maxOffset && instance.velocity > 0.0f)) {
+        instance.velocity = 0.0f;
     }
 }
 

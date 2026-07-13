@@ -316,6 +316,8 @@ private:
 
     void applyRuntimeScroll(const Element& element, float delta);
 
+    void updateScrollMotion(float deltaSeconds);
+
     void beginRuntimeScrollDrag(const Element& element);
 
     void updateRuntimeScrollDrag(const Element& element, double dragDeltaY, float dpiScale);
