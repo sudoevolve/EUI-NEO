@@ -27,6 +27,7 @@ struct StepperStyle {
         mutedText = theme::withOpacity(tokens.text, 0.42f);
         accent = tokens.primary;
         shadow = theme::buttonShadow(tokens);
+        radius = tokens.metrics.radius.card;
     }
 
     core::Color button;
@@ -64,9 +65,12 @@ public:
     StepperBuilder& prefix(std::string value) { prefix_ = std::move(value); return *this; }
     StepperBuilder& uppercase(bool value = true) { uppercase_ = value; return *this; }
     StepperBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
-    StepperBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
     StepperBuilder& style(const StepperStyle& value) { style_ = value; return *this; }
-    StepperBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = StepperStyle(tokens); return *this; }
+    StepperBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = StepperStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     StepperBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     StepperBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -85,12 +89,13 @@ public:
         const long long nextValue = incrementValue(currentValue, stepValue, maxValue);
         const bool canDecrease = previousValue != currentValue;
         const bool canIncrease = nextValue != currentValue;
-        const float buttonWidth = std::max(28.0f, height_);
-        const float gap = 8.0f;
+        const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.body;
+        const float buttonWidth = std::max(metrics_.control.compact, height_);
+        const float gap = metrics_.spacing.compact;
         const float displayWidth = std::max(36.0f, width_ - buttonWidth * 2.0f - gap * 2.0f);
         const float displayX = buttonWidth + gap;
-        const float valueFontSize = std::min(fontSize_, height_ * 0.48f);
-        const float controlFontSize = std::max(13.0f, height_ * 0.42f);
+        const float valueFontSize = std::min(fontSize, height_ * 0.48f);
+        const float controlFontSize = std::max(metrics_.typography.hint, height_ * 0.42f);
         const std::string valueText = formatValue(currentValue, base, effectiveDigits(base, bitWidth));
         const std::function<void(long long)> onChange = onChange_;
 
@@ -138,8 +143,8 @@ public:
                     .build();
 
                 ui_.text(id_ + ".value.text")
-                    .x(displayX + 10.0f)
-                    .size(std::max(0.0f, displayWidth - 20.0f), height_)
+                    .x(displayX + metrics_.spacing.control)
+                    .size(std::max(0.0f, displayWidth - metrics_.spacing.large), height_)
                     .text(valueText)
                     .fontSize(valueFontSize)
                     .lineHeight(valueFontSize)
@@ -315,6 +320,7 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     StepperStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(long long)> onChange_;
     std::string prefix_;
@@ -324,7 +330,7 @@ private:
     long long max_ = 0;
     float width_ = 180.0f;
     float height_ = 38.0f;
-    float fontSize_ = 16.0f;
+    float fontSize_ = 0.0f;
     int base_ = 10;
     int digits_ = 0;
     int bitWidth_ = 0;

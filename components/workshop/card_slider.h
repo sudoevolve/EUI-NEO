@@ -35,7 +35,8 @@ struct CardSliderStyle {
         button = ButtonStyle(tokens, false);
         button.text = tokens.text;
         button.icon = tokens.text;
-        button.radius = 12.0f;
+        button.radius = tokens.metrics.radius.card;
+        radius = tokens.metrics.radius.control;
     }
 
     core::Color background;
@@ -64,7 +65,11 @@ public:
     CardSliderBuilder& background(bool value = true) { backgroundEnabled_ = value; return *this; }
     CardSliderBuilder& tilt(bool value = true) { tiltEnabled_ = value; return *this; }
     CardSliderBuilder& style(const CardSliderStyle& value) { style_ = value; return *this; }
-    CardSliderBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = CardSliderStyle(tokens); return *this; }
+    CardSliderBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = CardSliderStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     CardSliderBuilder& onChange(std::function<void(int)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
@@ -539,8 +544,8 @@ private:
                 ui_.text(rootId + ".title")
                     .size(infoW, 46.0f * ratio)
                     .text(upperAscii(item.title))
-                    .fontSize(std::max(18.0f, rect.width * 0.18f))
-                    .lineHeight(std::max(22.0f, rect.width * 0.20f))
+                    .fontSize(std::max(metrics_.typography.control, rect.width * 0.18f))
+                    .lineHeight(std::max(metrics_.typography.title, rect.width * 0.20f))
                     .fontWeight(860)
                     .color(style_.title)
                     .build();
@@ -562,8 +567,8 @@ private:
                     .position(40.0f * ratio, 38.0f * ratio)
                     .size(std::max(0.0f, infoW - 40.0f * ratio), 34.0f * ratio)
                     .text(upperAscii(item.subtitle))
-                    .fontSize(std::max(13.0f, rect.width * 0.12f))
-                    .lineHeight(std::max(17.0f, rect.width * 0.14f))
+                    .fontSize(std::max(metrics_.typography.hint, rect.width * 0.12f))
+                    .lineHeight(std::max(metrics_.typography.input, rect.width * 0.14f))
                     .fontWeight(760)
                     .color(style_.subtitle)
                     .build();
@@ -572,8 +577,8 @@ private:
                     .position(0.0f, 88.0f * ratio)
                     .size(infoW, 42.0f * ratio)
                     .text(item.description)
-                    .fontSize(std::max(11.0f, rect.width * 0.062f))
-                    .lineHeight(std::max(15.0f, rect.width * 0.082f))
+                    .fontSize(std::max(metrics_.typography.micro, rect.width * 0.062f))
+                    .lineHeight(std::max(metrics_.typography.option, rect.width * 0.082f))
                     .fontWeight(540)
                     .wrap(true)
                     .color(style_.description)
@@ -586,8 +591,8 @@ private:
         ui_.text(id_ + ".empty")
             .size(width, height)
             .text("No cards")
-            .fontSize(18.0f)
-            .lineHeight(24.0f)
+            .fontSize(metrics_.typography.control)
+            .lineHeight(metrics_.typography.control + metrics_.typography.lineGapLoose)
             .color(style_.description)
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -607,6 +612,7 @@ private:
     std::string id_;
     std::vector<CardSliderItem> items_;
     CardSliderStyle style_;
+    theme::ThemeMetricTokens metrics_;
     std::function<void(int)> onChange_;
     float width_ = 900.0f;
     float height_ = 560.0f;

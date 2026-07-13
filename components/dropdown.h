@@ -30,6 +30,7 @@ struct DropdownStyle {
         accent = tokens.primary;
         border = theme::withOpacity(tokens.border, 0.78f);
         shadow = theme::popupShadow(tokens);
+        radius = tokens.metrics.radius.card;
     }
 
     core::Color field;
@@ -67,13 +68,13 @@ public:
         onOpenChange([&signal](bool value) { signal.set(value); });
         return *this;
     }
-    DropdownBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
-    DropdownBuilder& itemFontSize(float value) { itemFontSize_ = std::max(1.0f, value); return *this; }
-    DropdownBuilder& chevronSize(float value) { chevronSize_ = std::max(1.0f, value); return *this; }
-    DropdownBuilder& itemHeight(float value) { itemHeight_ = std::max(24.0f, value); return *this; }
-    DropdownBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
+    DropdownBuilder& itemHeight(float value) { itemHeight_ = std::max(1.0f, value); return *this; }
     DropdownBuilder& style(const DropdownStyle& value) { style_ = value; return *this; }
-    DropdownBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DropdownStyle(tokens); return *this; }
+    DropdownBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = DropdownStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     DropdownBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DropdownBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     DropdownBuilder& onChange(std::function<void(int)> callback) { onChange_ = std::move(callback); return *this; }
@@ -83,10 +84,14 @@ public:
         const int count = static_cast<int>(items_.size());
         const int selected = count > 0 ? std::clamp(selected_, 0, count - 1) : -1;
         const std::string label = selected >= 0 ? items_[selected] : placeholder_;
-        const float popupGap = 8.0f;
-        const float popupPadding = 6.0f;
-        const float popupHeight = itemHeight_ * static_cast<float>(std::max(1, count)) + popupPadding * 2.0f;
-        const float rootHeight = height_ + popupGap + popupHeight;
+        const float height = height_ >= 0.0f ? height_ : metrics_.control.control;
+        const float itemHeight = itemHeight_ > 0.0f
+            ? std::max(metrics_.control.switchHeight, itemHeight_)
+            : metrics_.control.menuItem;
+        const float popupGap = metrics_.spacing.compact;
+        const float popupPadding = metrics_.spacing.small;
+        const float popupHeight = itemHeight * static_cast<float>(std::max(1, count)) + popupPadding * 2.0f;
+        const float rootHeight = height + popupGap + popupHeight;
         const float visible = open_ ? 1.0f : 0.0f;
         const float popupOffsetY = open_ ? 0.0f : -6.0f;
         const float popupScale = open_ ? 1.0f : 0.96f;
@@ -98,10 +103,10 @@ public:
             .zIndex(zIndex_)
             .content([&] {
                 ui_.rect(id_ + ".field")
-                    .size(width_, height_)
+                    .size(width_, height)
                     .states(style_.field, style_.fieldHover, style_.fieldPressed)
                     .radius(style_.radius)
-                    .border(1.0f, style_.border)
+                    .border(metrics_.spacing.hairline, style_.border)
                     .transition(transition_)
                     .onClick([onOpenChange, open = open_] {
                         if (onOpenChange) {
@@ -111,21 +116,21 @@ public:
                     .build();
 
                 ui_.text(id_ + ".label")
-                    .x(14.0f)
-                    .size(std::max(0.0f, width_ - 48.0f), height_)
+                    .x(metrics_.spacing.content + metrics_.spacing.micro)
+                    .size(std::max(0.0f, width_ - metrics_.spacing.overlay), height)
                     .text(label)
-                    .fontSize(fontSize_)
-                    .lineHeight(fontSize_ + 4.0f)
+                    .fontSize(metrics_.typography.body)
+                    .lineHeight(metrics_.typography.body + metrics_.typography.lineGap)
                     .color(selected >= 0 ? style_.text : style_.mutedText)
                     .verticalAlign(core::VerticalAlign::Center)
                     .build();
 
                 ui_.text(id_ + ".chevron")
-                    .x(std::max(0.0f, width_ - 34.0f))
-                    .size(20.0f, height_)
+                    .x(std::max(0.0f, width_ - metrics_.control.menuItem))
+                    .size(metrics_.spacing.large, height)
                     .icon(open_ ? 0xF077 : 0xF078)
-                    .fontSize(chevronSize_)
-                    .lineHeight(chevronSize_ + 5.0f)
+                    .fontSize(metrics_.typography.hint)
+                    .lineHeight(metrics_.typography.hint + metrics_.typography.lineGapRelaxed)
                     .color(style_.accent)
                     .horizontalAlign(core::HorizontalAlign::Center)
                     .verticalAlign(core::VerticalAlign::Center)
@@ -134,7 +139,7 @@ public:
                     .build();
 
                 ui_.stack(id_ + ".popup")
-                    .y(height_ + popupGap)
+                    .y(height + popupGap)
                     .size(width_, popupHeight)
                     .opacity(visible)
                     .translateY(popupOffsetY)
@@ -147,7 +152,7 @@ public:
                             .size(width_, popupHeight)
                             .color(style_.popup)
                             .radius(style_.radius)
-                            .border(1.0f, style_.border)
+                            .border(metrics_.spacing.hairline, style_.border)
                             .shadow(style_.shadow)
                             .build();
 
@@ -162,13 +167,13 @@ public:
 
                         for (int index = 0; index < count; ++index) {
                             const bool active = index == selected;
-                            const float itemY = popupPadding + static_cast<float>(index) * itemHeight_;
+                            const float itemY = popupPadding + static_cast<float>(index) * itemHeight;
                             ui_.rect(id_ + ".item." + std::to_string(index))
                                 .x(popupPadding)
                                 .y(itemY)
-                                .size(std::max(0.0f, width_ - popupPadding * 2.0f), itemHeight_)
+                                .size(std::max(0.0f, width_ - popupPadding * 2.0f), itemHeight)
                                 .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f), style_.optionHover, style_.optionPressed)
-                                .radius(std::max(4.0f, style_.radius - 4.0f))
+                                .radius(std::max(metrics_.radius.tiny, style_.radius - metrics_.radius.tiny))
                                 .instantStates()
                                 .disabled(!open_)
                                 .onClick([onChange, onOpenChange, index] {
@@ -182,12 +187,14 @@ public:
                                 .build();
 
                             ui_.text(id_ + ".item.label." + std::to_string(index))
-                                .x(popupPadding + 12.0f)
-                                .y(itemY + std::max(0.0f, (itemHeight_ - (itemFontSize_ + 4.0f)) * 0.5f))
-                                .size(std::max(0.0f, width_ - popupPadding * 2.0f - 24.0f), itemFontSize_ + 6.0f)
+                                .x(popupPadding + metrics_.spacing.content)
+                                .y(itemY + std::max(0.0f, (itemHeight - metrics_.typography.option -
+                                                           metrics_.typography.lineGapTight) * 0.5f))
+                                .size(std::max(0.0f, width_ - popupPadding * 2.0f - metrics_.spacing.panel),
+                                      metrics_.spacing.large)
                                 .text(items_[index])
-                                .fontSize(itemFontSize_)
-                                .lineHeight(itemFontSize_ + 4.0f)
+                                .fontSize(metrics_.typography.option)
+                                .lineHeight(metrics_.typography.option + metrics_.typography.lineGapTight)
                                 .color(active ? style_.accent : style_.text)
                                 .transition(transition_)
                                 .animate(core::AnimProperty::TextColor)
@@ -204,6 +211,7 @@ private:
     std::string id_;
     std::vector<std::string> items_;
     DropdownStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(int)> onChange_;
     std::function<void(bool)> onOpenChange_;
@@ -211,11 +219,8 @@ private:
     int selected_ = -1;
     bool open_ = false;
     float width_ = 260.0f;
-    float height_ = 42.0f;
-    float itemHeight_ = 34.0f;
-    float fontSize_ = 16.0f;
-    float itemFontSize_ = 15.0f;
-    float chevronSize_ = 13.0f;
+    float height_ = -1.0f;
+    float itemHeight_ = 0.0f;
     int zIndex_ = 20;
 };
 

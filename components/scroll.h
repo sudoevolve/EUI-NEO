@@ -17,6 +17,7 @@ struct ScrollStyle {
         thumb = theme::withOpacity(tokens.text, tokens.dark ? 0.34f : 0.28f);
         thumbHover = theme::withOpacity(tokens.text, tokens.dark ? 0.46f : 0.38f);
         thumbPressed = theme::withOpacity(tokens.primary, 0.76f);
+        radius = tokens.metrics.radius.full;
     }
 
     core::Color track;
@@ -48,7 +49,11 @@ public:
     ScrollBuilder& step(float value) { step_ = std::max(1.0f, value); return *this; }
     ScrollBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     ScrollBuilder& style(const ScrollStyle& value) { style_ = value; return *this; }
-    ScrollBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ScrollStyle(tokens); return *this; }
+    ScrollBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = ScrollStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     ScrollBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ScrollBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -56,18 +61,19 @@ public:
     }
 
     void build() {
+        const float width = width_ >= 0.0f ? width_ : metrics_.control.scrollbar;
         const float maxOffset = std::max(0.0f, content_ - viewport_);
         const bool scrollable = maxOffset > 0.0f && viewport_ > 0.0f && content_ > 0.0f;
         const float thumbHeight = scrollable
-            ? std::clamp(height_ * (viewport_ / content_), std::min(height_, 24.0f), height_)
+            ? std::clamp(height_ * (viewport_ / content_), std::min(height_, metrics_.control.switchHeight), height_)
             : height_;
         const float travel = std::max(0.0f, height_ - thumbHeight);
         const float currentOffset = std::clamp(offset_, 0.0f, maxOffset);
-        const float scrollStep = step_;
+        const float scrollStep = step_ > 0.0f ? step_ : metrics_.control.control;
         const std::string runtimeStateId = stateId_.empty() ? id_ : stateId_;
 
         auto root = ui_.stack(id_)
-            .size(width_, height_)
+            .size(width, height_)
             .zIndex(zIndex_)
             .scrollState(runtimeStateId, currentOffset, maxOffset, scrollStep);
         if (hasX_) {
@@ -78,14 +84,14 @@ public:
         }
         root.content([&] {
                 ui_.rect(id_ + ".track")
-                    .size(width_, height_)
+                    .size(width, height_)
                     .color(style_.track)
                     .radius(style_.radius)
                     .scrollState(runtimeStateId, currentOffset, maxOffset, scrollStep)
                     .build();
 
                 ui_.rect(id_ + ".thumb")
-                    .size(width_, thumbHeight)
+                    .size(width, thumbHeight)
                     .states(style_.thumb, style_.thumbHover, style_.thumbPressed)
                     .radius(style_.radius)
                     .cursor(core::CursorShape::Hand)
@@ -104,13 +110,14 @@ private:
     std::string id_;
     std::string stateId_;
     ScrollStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.12f, core::Ease::OutCubic);
-    float width_ = 8.0f;
+    float width_ = -1.0f;
     float height_ = 180.0f;
     float viewport_ = 180.0f;
     float content_ = 180.0f;
     float offset_ = 0.0f;
-    float step_ = 42.0f;
+    float step_ = 0.0f;
     float x_ = 0.0f;
     float y_ = 0.0f;
     bool hasX_ = false;

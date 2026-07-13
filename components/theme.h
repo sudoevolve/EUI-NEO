@@ -6,6 +6,85 @@
 
 namespace components::theme {
 
+struct TypographyTokens {
+    float micro = 11.0f;
+    float caption = 12.0f;
+    float hint = 13.0f;
+    float label = 14.0f;
+    float option = 15.0f;
+    float body = 16.0f;
+    float input = 17.0f;
+    float control = 18.0f;
+    float cardTitle = 19.0f;
+    float subtitle = 20.0f;
+    float title = 22.0f;
+    float heading = 24.0f;
+    float headline = 27.0f;
+    float displayCompact = 30.0f;
+    float display = 31.0f;
+    float hero = 42.0f;
+    float lineGapTight = 3.0f;
+    float lineGap = 4.0f;
+    float lineGapRelaxed = 5.0f;
+    float lineGapLoose = 6.0f;
+    float lineGapComfortable = 7.0f;
+    float lineGapWide = 8.0f;
+};
+
+struct SpacingTokens {
+    float hairline = 1.0f;
+    float micro = 2.0f;
+    float tiny = 4.0f;
+    float small = 6.0f;
+    float compact = 8.0f;
+    float control = 10.0f;
+    float content = 12.0f;
+    float section = 16.0f;
+    float large = 20.0f;
+    float panel = 24.0f;
+    float header = 30.0f;
+    float page = 40.0f;
+    float overlay = 48.0f;
+};
+
+struct RadiusTokens {
+    float micro = 2.0f;
+    float tiny = 4.0f;
+    float small = 6.0f;
+    float control = 8.0f;
+    float tooltip = 9.0f;
+    float popup = 10.0f;
+    float card = 12.0f;
+    float elevated = 14.0f;
+    float overlay = 16.0f;
+    float section = 18.0f;
+    float feature = 22.0f;
+    float full = 999.0f;
+};
+
+struct ControlSizeTokens {
+    float progress = 15.0f;
+    float indicator = 22.0f;
+    float switchHeight = 24.0f;
+    float compact = 28.0f;
+    float menuItem = 34.0f;
+    float field = 35.0f;
+    float segmented = 36.0f;
+    float input = 40.0f;
+    float control = 42.0f;
+    float large = 44.0f;
+    float switchWidth = 46.0f;
+    float navigation = 50.0f;
+    float scrollbar = 8.0f;
+};
+
+struct ThemeMetricTokens {
+    TypographyTokens typography;
+    SpacingTokens spacing;
+    RadiusTokens radius;
+    ControlSizeTokens control;
+};
+
 struct ThemeColorTokens {
     core::Color background;
     core::Color primary;
@@ -15,6 +94,7 @@ struct ThemeColorTokens {
     core::Color text;
     core::Color border;
     bool dark = false;
+    ThemeMetricTokens metrics;
 };
 
 struct PageVisualTokens {
@@ -99,6 +179,7 @@ inline ThemeColorTokens dark() {
 }
 
 inline PageVisualTokens pageVisuals(const ThemeColorTokens& tokens) {
+    const ThemeMetricTokens& metrics = tokens.metrics;
     return {
         withAlpha(tokens.text, 0.98f),
         withAlpha(tokens.text, 0.72f),
@@ -106,21 +187,27 @@ inline PageVisualTokens pageVisuals(const ThemeColorTokens& tokens) {
         tokens.surface,
         tokens.surfaceHover,
         withAlpha(tokens.primary, 0.16f),
-        24.0f,
-        30.0f,
-        40.0f,
-        31.0f,
-        20.0f,
-        16.0f,
-        20.0f,
-        18.0f,
-        17.0f,
-        35.0f
+        metrics.spacing.panel,
+        metrics.spacing.header,
+        metrics.spacing.page,
+        metrics.typography.display,
+        metrics.typography.subtitle,
+        metrics.spacing.section,
+        metrics.spacing.large,
+        metrics.radius.section,
+        metrics.typography.input,
+        metrics.control.field
     };
 }
 
 inline FieldVisualTokens fieldVisuals(const ThemeColorTokens& tokens) {
     FieldVisualTokens result;
+    result.rounding = tokens.metrics.radius.small;
+    result.horizontalInset = tokens.metrics.spacing.control;
+    result.focusLineHeight = tokens.metrics.spacing.micro;
+    result.borderLineHeight = tokens.metrics.spacing.hairline;
+    result.popupRounding = tokens.metrics.radius.popup;
+    result.popupOverlap = tokens.metrics.spacing.hairline;
     result.popupShadowColor = tokens.dark
         ? color(0.0f, 0.0f, 0.0f, 0.28f)
         : color(0.10f, 0.14f, 0.22f, 0.14f);

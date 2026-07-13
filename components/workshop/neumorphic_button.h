@@ -27,6 +27,7 @@ struct NeumorphicButtonStyle {
 
 inline NeumorphicButtonStyle neumorphicButtonStyle(const theme::ThemeColorTokens& tokens) {
     NeumorphicButtonStyle style;
+    style.radius = tokens.metrics.radius.elevated;
     const core::Color sidebarSurface = tokens.dark
         ? core::mixColor(tokens.surface, {0.0f, 0.0f, 0.0f, 1.0f}, 0.14f)
         : tokens.surface;
@@ -84,6 +85,7 @@ public:
 
     NeumorphicButtonBuilder& theme(const theme::ThemeColorTokens& tokens) {
         style_ = neumorphicButtonStyle(tokens);
+        metrics_ = tokens.metrics;
         return *this;
     }
 
@@ -125,7 +127,7 @@ public:
         const float buttonW = std::max(1.0f, w - padX * 2.0f);
         const float buttonH = std::max(1.0f, h - padY * 2.0f);
         const float radius = std::min(style_.radius, buttonH * 0.5f);
-        const float font = fontSize_ > 0.0f ? fontSize_ : std::max(12.0f, buttonH * 0.38f);
+        const float font = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.control;
         bool* pressedState = &ui_.state<bool>(id_ + ".pressed");
         const bool pressed = *pressedState;
         const core::Color surface = pressed ? style_.pressed : style_.surface;
@@ -234,11 +236,12 @@ private:
     std::string id_;
     std::string text_ = "Click me";
     NeumorphicButtonStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_;
     std::function<void()> onClick_;
     float width_ = 190.0f;
     float height_ = 54.0f;
-    float fontSize_ = 18.0f;
+    float fontSize_ = 0.0f;
     bool disabled_ = false;
 };
 

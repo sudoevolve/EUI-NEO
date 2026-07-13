@@ -28,6 +28,7 @@ struct DialogStyle {
         secondaryHover = theme::buttonHover(tokens, secondary);
         secondaryPressed = theme::buttonPressed(tokens, secondary);
         shadow = theme::panelShadow(tokens);
+        radius = tokens.metrics.radius.section;
     }
 
     core::Color backdrop;
@@ -63,7 +64,12 @@ public:
     DialogBuilder& primaryText(const std::string& value) { primaryText_ = value; return *this; }
     DialogBuilder& secondaryText(const std::string& value) { secondaryText_ = value; return *this; }
     DialogBuilder& style(const DialogStyle& value) { style_ = value; return *this; }
-    DialogBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DialogStyle(tokens); return *this; }
+    DialogBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = DialogStyle(tokens);
+        metrics_ = tokens.metrics;
+        tokens_ = tokens;
+        return *this;
+    }
     DialogBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DialogBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     DialogBuilder& content(std::function<void()> callback) { content_ = std::move(callback); return *this; }
@@ -72,13 +78,14 @@ public:
     DialogBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
     void build() {
-        const float width = std::min(width_, std::max(0.0f, screenWidth_ - 48.0f));
-        const float height = std::min(height_, std::max(0.0f, screenHeight_ - 48.0f));
-        const float x = std::max(24.0f, (screenWidth_ - width) * 0.5f);
-        const float y = std::max(24.0f, (screenHeight_ - height) * 0.5f);
-        const float contentWidth = std::max(0.0f, width - 48.0f);
-        const float buttonWidth = std::max(96.0f, std::min(150.0f, (contentWidth - 12.0f) * 0.5f));
-        const float buttonRowWidth = buttonWidth * 2.0f + 12.0f;
+        const float width = std::min(width_, std::max(0.0f, screenWidth_ - metrics_.spacing.overlay));
+        const float height = std::min(height_, std::max(0.0f, screenHeight_ - metrics_.spacing.overlay));
+        const float x = std::max(metrics_.spacing.panel, (screenWidth_ - width) * 0.5f);
+        const float y = std::max(metrics_.spacing.panel, (screenHeight_ - height) * 0.5f);
+        const float contentWidth = std::max(0.0f, width - metrics_.spacing.overlay);
+        const float buttonGap = metrics_.spacing.content;
+        const float buttonWidth = std::max(96.0f, std::min(150.0f, (contentWidth - buttonGap) * 0.5f));
+        const float buttonRowWidth = buttonWidth * 2.0f + buttonGap;
         const float visible = open_ ? 1.0f : 0.0f;
         const float panelScale = open_ ? 1.0f : 0.965f;
         const float panelOffsetY = open_ ? 0.0f : 14.0f;
@@ -117,7 +124,7 @@ public:
                             .size(width, height)
                             .color(style_.surface)
                             .radius(style_.radius)
-                            .border(1.0f, style_.border)
+                            .border(metrics_.spacing.hairline, style_.border)
                             .shadow(style_.shadow)
                             .build();
 
@@ -133,57 +140,59 @@ public:
                             content_();
                         } else {
                             ui_.text(id_ + ".title")
-                                .x(24.0f)
-                                .y(22.0f)
-                                .size(contentWidth, 32.0f)
+                                .x(metrics_.spacing.panel)
+                                .y(metrics_.control.indicator)
+                                .size(contentWidth, metrics_.spacing.header + metrics_.spacing.micro)
                                 .text(title_)
-                                .fontSize(24.0f)
-                                .lineHeight(30.0f)
+                                .fontSize(metrics_.typography.heading)
+                                .lineHeight(metrics_.typography.heading + metrics_.typography.lineGapLoose)
                                 .color(style_.title)
                                 .build();
 
                             ui_.text(id_ + ".message")
-                                .x(24.0f)
+                                .x(metrics_.spacing.panel)
                                 .y(64.0f)
                                 .size(contentWidth, std::max(0.0f, height - 138.0f))
                                 .text(message_)
-                                .fontSize(17.0f)
-                                .lineHeight(24.0f)
+                                .fontSize(metrics_.typography.input)
+                                .lineHeight(metrics_.typography.input + metrics_.typography.lineGapComfortable)
                                 .maxWidth(contentWidth)
                                 .wrap(true)
                                 .color(style_.message)
                                 .build();
 
                             ui_.row(id_ + ".actions")
-                                .x(std::max(24.0f, width - buttonRowWidth - 24.0f))
+                                .x(std::max(metrics_.spacing.panel, width - buttonRowWidth - metrics_.spacing.panel))
                                 .y(std::max(88.0f, height - 58.0f))
-                                .size(buttonRowWidth, 42.0f)
-                                .gap(12.0f)
+                                .size(buttonRowWidth, metrics_.control.control)
+                                .gap(buttonGap)
                                 .content([&] {
                                     components::button(ui_, id_ + ".secondary")
-                                        .size(buttonWidth, 42.0f)
+                                        .theme(tokens_, false)
+                                        .size(buttonWidth, metrics_.control.control)
                                         .text(secondaryText_)
-                                        .fontSize(16.0f)
+                                        .fontSize(metrics_.typography.body)
                                         .colors(style_.secondary,
                                                 style_.secondaryHover,
                                                 style_.secondaryPressed)
                                         .textColor(style_.title)
                                         .iconColor(style_.title)
-                                        .radius(10.0f)
-                                        .border(1.0f, style_.border)
+                                        .radius(metrics_.radius.popup)
+                                        .border(metrics_.spacing.hairline, style_.border)
                                         .shadow(0.0f, 0.0f, 0.0f, theme::color(0.0f, 0.0f, 0.0f, 0.0f))
                                         .disabled(!open_)
                                         .onClick(onSecondary)
                                         .build();
 
                                     components::button(ui_, id_ + ".primary")
-                                        .size(buttonWidth, 42.0f)
+                                        .theme(tokens_, true)
+                                        .size(buttonWidth, metrics_.control.control)
                                         .text(primaryText_)
-                                        .fontSize(16.0f)
+                                        .fontSize(metrics_.typography.body)
                                         .colors(style_.primary,
                                                 style_.primaryHover,
                                                 style_.primaryPressed)
-                                        .radius(10.0f)
+                                        .radius(metrics_.radius.popup)
                                         .border(1.0f, theme::withAlpha(style_.primary, 0.64f))
                                         .shadow(10.0f, 0.0f, 3.0f, theme::withAlpha(style_.primary, 0.18f))
                                         .disabled(!open_)
@@ -211,6 +220,8 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     DialogStyle style_;
+    theme::ThemeMetricTokens metrics_;
+    theme::ThemeColorTokens tokens_ = theme::dark();
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void()> onPrimary_;
     std::function<void()> onSecondary_;

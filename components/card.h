@@ -18,6 +18,7 @@ struct CardStyle {
         border = theme::border(tokens, 1.0f, 0.72f);
         shadow = theme::panelShadow(tokens);
         radius = theme::pageVisuals(tokens).sectionRounding;
+        inset = tokens.metrics.spacing.large;
     }
 
     core::Color color;

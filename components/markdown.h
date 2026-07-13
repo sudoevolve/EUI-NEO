@@ -28,7 +28,19 @@ struct MarkdownStyle {
           codeText(tokens.dark ? theme::color(0.88f, 0.94f, 1.0f) : theme::color(0.10f, 0.13f, 0.18f)),
           codeBackground(tokens.dark ? theme::color(0.08f, 0.09f, 0.11f, 1.0f) : theme::color(0.93f, 0.94f, 0.96f, 1.0f)),
           quoteBackground(theme::withOpacity(tokens.primary, tokens.dark ? 0.12f : 0.08f)),
-          divider(theme::withOpacity(tokens.border, 0.82f)) {}
+          divider(theme::withOpacity(tokens.border, 0.82f)),
+          bodySize(tokens.metrics.typography.body),
+          bodyLineHeight(tokens.metrics.typography.body + tokens.metrics.typography.lineGapWide),
+          h1Size(tokens.metrics.typography.displayCompact),
+          h2Size(tokens.metrics.typography.heading),
+          h3Size(tokens.metrics.typography.subtitle),
+          codeSize(tokens.metrics.typography.label),
+          blockGap(tokens.metrics.spacing.content),
+          listIndent(tokens.metrics.control.indicator),
+          codePadding(tokens.metrics.spacing.content),
+          quotePadding(tokens.metrics.spacing.content),
+          tableCellPadding(tokens.metrics.spacing.control),
+          radius(tokens.metrics.radius.small) {}
 
     core::Color text;
     core::Color heading;

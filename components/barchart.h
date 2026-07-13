@@ -25,6 +25,7 @@ struct BarChartStyle {
         tooltipText = tokens.text;
         border = theme::withOpacity(tokens.border, 0.76f);
         shadow = theme::shadow(tokens, 18.0f, 4.0f, 0.20f, 0.10f);
+        radius = tokens.metrics.radius.section;
         palette = {
             theme::color(0.22f, 0.50f, 0.88f),
             theme::color(0.20f, 0.76f, 0.58f),
@@ -62,10 +63,12 @@ public:
     BarChartBuilder& values(std::vector<float> value) { values_ = std::move(value); return *this; }
     BarChartBuilder& labels(std::vector<std::string> value) { labels_ = std::move(value); return *this; }
     BarChartBuilder& colors(std::vector<core::Color> value) { style_.palette = std::move(value); return *this; }
-    BarChartBuilder& titleFontSize(float value) { titleFontSize_ = std::max(1.0f, value); return *this; }
-    BarChartBuilder& labelFontSize(float value) { labelFontSize_ = std::max(1.0f, value); return *this; }
     BarChartBuilder& style(const BarChartStyle& value) { style_ = value; return *this; }
-    BarChartBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = BarChartStyle(tokens); return *this; }
+    BarChartBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = BarChartStyle(tokens);
+        tokens_ = tokens;
+        return *this;
+    }
     BarChartBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
 
     void build() {
@@ -76,7 +79,8 @@ public:
             labels_ = {"D1", "D2", "D3", "D4"};
         }
 
-        const float titleX = 20.0f;
+        const theme::ThemeMetricTokens& metrics = tokens_.metrics;
+        const float titleX = metrics.spacing.large;
         const float plotX = 32.0f;
         const float plotY = 70.0f;
         const float plotWidth = std::max(1.0f, width_ - 64.0f);
@@ -99,11 +103,11 @@ public:
 
                 ui_.text(id_ + ".title")
                     .x(titleX)
-                    .y(18.0f)
-                    .size(std::max(0.0f, width_ - titleX * 2.0f), 28.0f)
+                    .y(metrics.typography.control)
+                    .size(std::max(0.0f, width_ - titleX * 2.0f), metrics.control.compact)
                     .text(title_)
-                    .fontSize(titleFontSize_)
-                    .lineHeight(titleFontSize_ + 4.0f)
+                    .fontSize(metrics.typography.title)
+                    .lineHeight(metrics.typography.title + metrics.typography.lineGap)
                     .color(style_.title)
                     .build();
 
@@ -112,7 +116,7 @@ public:
                     ui_.rect(id_ + ".grid." + std::to_string(line))
                         .x(plotX)
                         .y(y)
-                        .size(plotWidth, 1.0f)
+                        .size(plotWidth, metrics.spacing.hairline)
                         .color(style_.grid)
                         .build();
                 }
@@ -136,7 +140,7 @@ public:
                         .states(color,
                                 core::mixColor(color, theme::color(1.0f, 1.0f, 1.0f), 0.18f),
                                 core::mixColor(color, theme::color(0.0f, 0.0f, 0.0f), 0.12f))
-                        .radius(std::min(10.0f, barWidth * 0.34f))
+                        .radius(std::min(metrics.radius.popup, barWidth * 0.34f))
                         .instantStates()
                         .transition(transition_)
                         .animate(core::AnimProperty::Frame | core::AnimProperty::Color)
@@ -146,12 +150,12 @@ public:
                     tooltips.push_back({barId, dataLabel(index) + "  " + percent(value), x + barWidth * 0.5f, y});
 
                     ui_.text(id_ + ".label." + std::to_string(index))
-                        .x(x - 8.0f)
-                        .y(height_ - 34.0f)
-                        .size(barWidth + 16.0f, labelFontSize_ + 8.0f)
+                        .x(x - metrics.spacing.compact)
+                        .y(height_ - metrics.control.menuItem)
+                        .size(barWidth + metrics.spacing.section, metrics.control.indicator)
                         .text(index < static_cast<int>(labels_.size()) ? labels_[index] : "")
-                        .fontSize(labelFontSize_)
-                        .lineHeight(labelFontSize_ + 4.0f)
+                        .fontSize(metrics.typography.label)
+                        .lineHeight(metrics.typography.label + metrics.typography.lineGap)
                         .color(style_.label)
                         .horizontalAlign(core::HorizontalAlign::Center)
                         .build();
@@ -159,6 +163,7 @@ public:
 
                 for (const TooltipItem& item : tooltips) {
                     components::tooltip(ui_, item.sourceId + ".tooltip")
+                        .theme(tokens_)
                         .source(item.sourceId)
                         .value(item.text)
                         .anchor(item.x, item.y)
@@ -196,11 +201,10 @@ private:
     std::vector<float> values_;
     std::vector<std::string> labels_;
     BarChartStyle style_;
+    theme::ThemeColorTokens tokens_ = theme::dark();
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     float width_ = 206.0f;
     float height_ = 236.0f;
-    float titleFontSize_ = 22.0f;
-    float labelFontSize_ = 14.0f;
 };
 
 inline BarChartBuilder barChart(core::dsl::Ui& ui, const std::string& id) {

@@ -45,7 +45,12 @@ public:
     VirtualListBuilder& scrollbarGap(float value) { scrollbarGap_ = std::max(0.0f, value); return *this; }
     VirtualListBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     VirtualListBuilder& style(const ScrollStyle& value) { scrollStyle_ = value; return *this; }
-    VirtualListBuilder& theme(const theme::ThemeColorTokens& tokens) { scrollStyle_ = ScrollStyle(tokens); return *this; }
+    VirtualListBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        scrollStyle_ = ScrollStyle(tokens);
+        metrics_ = tokens.metrics;
+        tokens_ = tokens;
+        return *this;
+    }
     VirtualListBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     VirtualListBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -69,11 +74,13 @@ public:
         const float maxOffset = std::max(0.0f, totalHeight - viewportHeight);
         const float currentOffset = std::clamp(offset_, 0.0f, maxOffset);
         const bool scrollable = maxOffset > 0.0f;
-        const float scrollWidth = scrollable ? scrollbarWidth_ : 0.0f;
-        const float scrollGap = scrollable ? scrollbarGap_ : 0.0f;
+        const float scrollbarWidth = scrollbarWidth_ >= 0.0f ? scrollbarWidth_ : metrics_.control.scrollbar;
+        const float scrollbarGap = scrollbarGap_ >= 0.0f ? scrollbarGap_ : metrics_.spacing.section;
+        const float scrollWidth = scrollable ? scrollbarWidth : 0.0f;
+        const float scrollGap = scrollable ? scrollbarGap : 0.0f;
         const float contentWidth = std::max(0.0f, viewportWidth - scrollWidth - scrollGap);
         const std::function<void(float)> onChange = onChange_;
-        const float scrollStep = step_;
+        const float scrollStep = step_ > 0.0f ? step_ : metrics_.spacing.overlay;
 
         const float overscanPixels = viewportHeight * overscanViewports_;
         const double firstPixel = std::max(0.0, static_cast<double>(currentOffset) - static_cast<double>(overscanPixels));
@@ -139,6 +146,7 @@ public:
 
                 if (scrollable) {
                     components::scroll(ui_, id_ + ".scroll")
+                        .theme(tokens_)
                         .style(scrollStyle_)
                         .scrollStateId(id_)
                         .x(std::max(0.0f, viewportWidth - scrollWidth))
@@ -159,6 +167,8 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     ScrollStyle scrollStyle_;
+    theme::ThemeMetricTokens metrics_;
+    theme::ThemeColorTokens tokens_ = theme::dark();
     core::Transition transition_ = core::Transition::make(0.12f, core::Ease::OutCubic);
     std::function<void(float)> onChange_;
     RowCompose row_;
@@ -167,10 +177,10 @@ private:
     float height_ = 220.0f;
     float rowHeight_ = 36.0f;
     float offset_ = 0.0f;
-    float step_ = 48.0f;
+    float step_ = 0.0f;
     float overscanViewports_ = 1.0f;
-    float scrollbarWidth_ = 8.0f;
-    float scrollbarGap_ = 16.0f;
+    float scrollbarWidth_ = -1.0f;
+    float scrollbarGap_ = -1.0f;
     float x_ = 0.0f;
     float y_ = 0.0f;
     bool hasX_ = false;

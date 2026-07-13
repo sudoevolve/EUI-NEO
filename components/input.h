@@ -25,6 +25,7 @@ struct InputStyle {
         placeholder = theme::withOpacity(tokens.text, 0.45f);
         cursor = tokens.primary;
         shadow = theme::popupShadow(tokens);
+        radius = tokens.metrics.radius.popup;
     }
 
     core::Color background;
@@ -58,9 +59,12 @@ public:
     InputBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     InputBuilder& fontFamily(std::string value) { fontFamily_ = std::move(value); return *this; }
     InputBuilder& inset(float value) { inset_ = std::max(0.0f, value); return *this; }
-    InputBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
     InputBuilder& style(const InputStyle& value) { style_ = value; return *this; }
-    InputBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = InputStyle(tokens); return *this; }
+    InputBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = InputStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     InputBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     InputBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -82,17 +86,17 @@ public:
     void build() {
         const std::string hitId = id_ + ".hit";
         const bool focused = ui_.isFocused(hitId);
-        const float textWidth = std::max(0.0f, width_ - inset_ * 2.0f);
+        const float inset = inset_ >= 0.0f ? inset_ : metrics_.spacing.content;
+        const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.input;
+        const float textWidth = std::max(0.0f, width_ - inset * 2.0f);
         const bool allowMultiline = multiline_;
         const std::function<void(const std::string&)> onChange = onChange_;
         const std::function<void()> onEnter = onEnter_;
         const std::function<void(bool)> onFocus = onFocus_;
-        const float textLineHeight = fontSize_;
-        const float textY = multiline_ ? inset_ : std::max(0.0f, (height_ - textLineHeight) * 0.5f);
-        const float textHeight = multiline_ ? std::max(0.0f, height_ - inset_ * 2.0f) : textLineHeight;
+        const float textLineHeight = fontSize;
+        const float textY = multiline_ ? inset : std::max(0.0f, (height_ - textLineHeight) * 0.5f);
+        const float textHeight = multiline_ ? std::max(0.0f, height_ - inset * 2.0f) : textLineHeight;
         const float width = width_;
-        const float inset = inset_;
-        const float fontSize = fontSize_;
         const std::string fontFamily = fontFamily_;
         InputState& state = ui_.state<InputState>(id_);
         if (state.text != text_) {
@@ -112,7 +116,7 @@ public:
         state.cursor = InputModel::clampUtf8Boundary(state.text, state.cursor);
         state.selectionStart = InputModel::clampUtf8Boundary(state.text, state.selectionStart);
         state.selectionEnd = InputModel::clampUtf8Boundary(state.text, state.selectionEnd);
-        const InputLayout layout = InputLayout::build(state, textWidth, textHeight, width_, inset_, textY, textLineHeight, fontFamily_, fontSize_, multiline_);
+        const InputLayout layout = InputLayout::build(state, textWidth, textHeight, width_, inset, textY, textLineHeight, fontFamily_, fontSize, multiline_);
         const bool empty = state.text.empty();
         const bool hasComposition = focused && !state.compositionText.empty();
         const bool hasSelection = !layout.selectionRects.empty();
@@ -122,12 +126,12 @@ public:
             (empty ? "|p" : "|v");
         const std::string compositionDirtyKey = id_ + ".composition|" + std::to_string(state.compositionRevision);
         const float renderedTextHeight = multiline_ ? layout.contentHeight : textHeight;
-        const float compositionPadding = 1.0f;
-        const float compositionTextLeft = inset_;
-        const float compositionTextRight = std::max(compositionTextLeft, width_ - inset_);
+        const float compositionPadding = metrics_.spacing.hairline;
+        const float compositionTextLeft = inset;
+        const float compositionTextRight = std::max(compositionTextLeft, width_ - inset);
         const float compositionAvailableWidth = std::max(4.0f, compositionTextRight - compositionTextLeft);
         const float compositionTextWidth = hasComposition
-            ? InputModel::measureMetrics(state.compositionText, fontFamily_, fontSize_).width
+            ? InputModel::measureMetrics(state.compositionText, fontFamily_, fontSize).width
             : 0.0f;
         const float compositionWidth = hasComposition
             ? std::clamp(std::ceil(compositionTextWidth) + compositionPadding * 2.0f, 2.0f, compositionAvailableWidth)
@@ -136,7 +140,7 @@ public:
             ? std::clamp(layout.clampedCursorX(), compositionTextLeft, std::max(compositionTextLeft, compositionTextRight - compositionWidth))
             : layout.clampedCursorX();
         const float caretX = hasComposition
-            ? std::clamp(compositionX + compositionWidth, inset_, std::max(inset_, width_ - inset_))
+            ? std::clamp(compositionX + compositionWidth, inset, std::max(inset, width_ - inset))
             : layout.clampedCursorX();
 
         auto root = ui_.stack(id_)
@@ -355,12 +359,12 @@ public:
                             continue;
                         }
                         ui_.text(id_ + ".text." + std::to_string(index))
-                            .position(inset_, y)
+                            .position(inset, y)
                             .size(layout.visibleTextWidth, textLineHeight)
                             .dirtyKey(textDirtyKey + "|" + std::to_string(index))
                             .text(state.text.substr(static_cast<std::size_t>(line.start),
                                                     static_cast<std::size_t>(std::max(0, line.end - line.start))))
-                            .fontSize(fontSize_)
+                            .fontSize(fontSize)
                             .fontFamily(fontFamily_)
                             .lineHeight(textLineHeight)
                             .color(style_.text)
@@ -370,11 +374,11 @@ public:
                     }
                 } else {
                     ui_.text(id_ + ".text")
-                        .position(inset_ - state.horizontalScroll, textY - state.verticalScroll)
+                        .position(inset - state.horizontalScroll, textY - state.verticalScroll)
                         .size(layout.visibleTextWidth, renderedTextHeight)
                         .dirtyKey(textDirtyKey)
                         .text(empty ? placeholder_ : state.text)
-                        .fontSize(fontSize_)
+                        .fontSize(fontSize)
                         .fontFamily(fontFamily_)
                         .lineHeight(textLineHeight)
                         .color(empty ? style_.placeholder : style_.text)
@@ -396,7 +400,7 @@ public:
                         .size(std::max(1.0f, compositionWidth - compositionPadding * 2.0f), textLineHeight)
                         .dirtyKey(compositionDirtyKey)
                         .text(state.compositionText)
-                        .fontSize(fontSize_)
+                        .fontSize(fontSize)
                         .fontFamily(fontFamily_)
                         .lineHeight(textLineHeight)
                         .color(style_.text)
@@ -408,7 +412,7 @@ public:
                 if (focused) {
                     ui_.rect(id_ + ".cursor")
                         .position(caretX, layout.cursorY)
-                        .size(1.5f, fontSize_ * 1.18f)
+                        .size(1.5f, fontSize * 1.18f)
                         .color(style_.cursor)
                         .radius(1.0f)
                         .build();
@@ -425,6 +429,7 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     InputStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(const std::string&)> onChange_;
     std::function<void()> onEnter_;
@@ -436,8 +441,8 @@ private:
     float height_ = 40.0f;
     float x_ = 0.0f;
     float y_ = 0.0f;
-    float inset_ = 12.0f;
-    float fontSize_ = 17.0f;
+    float inset_ = -1.0f;
+    float fontSize_ = 0.0f;
     std::string fontFamily_ = "monospace";
     bool hasX_ = false;
     bool hasY_ = false;

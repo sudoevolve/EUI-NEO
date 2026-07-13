@@ -9,11 +9,27 @@
 namespace components {
 
 struct LayoutDebugStyle {
+    LayoutDebugStyle() = default;
+
+    explicit LayoutDebugStyle(const theme::ThemeColorTokens& tokens) {
+        stroke = tokens.metrics.spacing.hairline;
+        labelFontSize = tokens.metrics.typography.caption;
+        labelLineHeight = tokens.metrics.typography.caption + tokens.metrics.typography.lineGap;
+        labelX = tokens.metrics.spacing.compact;
+        labelY = tokens.metrics.spacing.small;
+        labelHeight = tokens.metrics.typography.control;
+    }
+
     core::Color frame = theme::color(0.96f, 0.32f, 0.38f, 0.64f);
     core::Color padding = theme::color(0.95f, 0.70f, 0.20f, 0.34f);
     core::Color content = theme::color(0.28f, 0.58f, 0.98f, 0.56f);
     core::Color label = theme::color(0.92f, 0.95f, 1.0f, 0.88f);
     float stroke = 1.0f;
+    float labelFontSize = 12.0f;
+    float labelLineHeight = 16.0f;
+    float labelX = 8.0f;
+    float labelY = 6.0f;
+    float labelHeight = 18.0f;
 };
 
 inline void layoutDebugOverlay(core::dsl::Ui& ui,
@@ -52,11 +68,11 @@ inline void layoutDebugOverlay(core::dsl::Ui& ui,
 
             if (!label.empty()) {
                 ui.text(id + ".label")
-                    .position(8.0f, 6.0f)
-                    .size(std::max(0.0f, safeWidth - 16.0f), 18.0f)
+                    .position(style.labelX, style.labelY)
+                    .size(std::max(0.0f, safeWidth - style.labelX * 2.0f), style.labelHeight)
                     .text(label)
-                    .fontSize(12.0f)
-                    .lineHeight(16.0f)
+                    .fontSize(style.labelFontSize)
+                    .lineHeight(style.labelLineHeight)
                     .color(style.label)
                     .build();
             }

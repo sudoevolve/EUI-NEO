@@ -46,9 +46,12 @@ public:
         return *this;
     }
     SegmentedBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
-    SegmentedBuilder& radius(float value) { radius_ = std::max(0.0f, value); return *this; }
     SegmentedBuilder& style(const SegmentedStyle& value) { style_ = value; return *this; }
-    SegmentedBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = SegmentedStyle(tokens); return *this; }
+    SegmentedBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = SegmentedStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     SegmentedBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     SegmentedBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -57,11 +60,13 @@ public:
     SegmentedBuilder& onChange(std::function<void(int)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
+        const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.body;
+        const float radius = radius_ > 0.0f ? radius_ : metrics_.radius.control + metrics_.spacing.hairline;
         const int count = static_cast<int>(items_.size());
         const int selected = count > 0 ? std::clamp(selected_, 0, count - 1) : 0;
         const float segmentWidth = count > 0 ? width_ / static_cast<float>(count) : width_;
-        const float innerInset = 3.0f;
-        const float labelLineHeight = fontSize_;
+        const float innerInset = metrics_.spacing.tiny - metrics_.spacing.hairline;
+        const float labelLineHeight = fontSize;
         const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f);
         const std::function<void(int)> onChange = onChange_;
 
@@ -72,7 +77,7 @@ public:
                 ui_.rect(id_ + ".bg")
                     .size(width_, height_)
                     .color(style_.background)
-                    .radius(radius_)
+                    .radius(radius)
                     .border(1.0f, style_.border)
                     .build();
 
@@ -82,7 +87,7 @@ public:
                         .y(innerInset)
                         .size(std::max(0.0f, segmentWidth - innerInset * 2.0f), std::max(0.0f, height_ - innerInset * 2.0f))
                         .color(style_.selected)
-                        .radius(std::max(0.0f, radius_ - 2.0f))
+                        .radius(std::max(0.0f, radius - metrics_.spacing.micro))
                         .transition(transition_)
                         .animate(core::AnimProperty::Frame | core::AnimProperty::Color)
                         .build();
@@ -97,7 +102,7 @@ public:
                         .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f))
-                        .radius(radius_)
+                        .radius(radius)
                         .onClick([onChange, index] {
                             if (onChange) {
                                 onChange(index);
@@ -110,7 +115,7 @@ public:
                         .y(labelY)
                         .size(segmentWidth, labelLineHeight)
                         .text(items_[index])
-                        .fontSize(fontSize_)
+                        .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(active ? style_.selectedText : style_.text)
                         .horizontalAlign(core::HorizontalAlign::Center)
@@ -128,13 +133,14 @@ private:
     std::string id_;
     std::vector<std::string> items_;
     SegmentedStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.18f, core::Ease::OutCubic);
     std::function<void(int)> onChange_;
     int selected_ = 0;
     float width_ = 300.0f;
     float height_ = 36.0f;
-    float fontSize_ = 16.0f;
-    float radius_ = 9.0f;
+    float fontSize_ = 0.0f;
+    float radius_ = 0.0f;
 };
 
 inline SegmentedBuilder segmented(core::dsl::Ui& ui, const std::string& id) {

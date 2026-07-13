@@ -50,7 +50,11 @@ public:
     RadioBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     RadioBuilder& dotSize(float value) { dotSize_ = std::max(10.0f, value); return *this; }
     RadioBuilder& style(const RadioStyle& value) { style_ = value; return *this; }
-    RadioBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = RadioStyle(tokens); return *this; }
+    RadioBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = RadioStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     RadioBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     RadioBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -59,20 +63,23 @@ public:
     RadioBuilder& onChange(std::function<void(bool)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
-        const float outer = std::min(dotSize_, height_);
+        const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.control;
+        const float dotSize = dotSize_ > 0.0f ? dotSize_ : metrics_.control.indicator;
+        const float gap = gap_ > 0.0f ? gap_ : metrics_.spacing.control;
+        const float outer = std::min(dotSize, height_);
         const float inner = outer * 0.48f;
         const float visibleInner = selected_ ? inner : 0.0f;
         const float outerY = (height_ - outer) * 0.5f;
         const float innerOffset = (outer - visibleInner) * 0.5f;
-        const float labelX = outer + gap_;
-        const float horizontalInset = 10.0f;
+        const float labelX = outer + gap;
+        const float horizontalInset = metrics_.spacing.control;
         const float contentX = horizontalInset;
         const float labelWidth = std::max(0.0f, width_ - labelX - horizontalInset);
-        const float labelLineHeight = fontSize_;
+        const float labelLineHeight = fontSize;
         const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f);
         const float hitWidth = text_.empty()
             ? outer + horizontalInset * 2.0f
-            : std::min(width_, labelX + textWidth(text_, fontSize_) + horizontalInset * 2.0f);
+            : std::min(width_, labelX + textWidth(text_, fontSize) + horizontalInset * 2.0f);
         core::Transition dotTransition = transition_;
         dotTransition.durationSeconds = selected_ ? 0.16f : 0.10f;
         dotTransition.ease = core::Ease::OutCubic;
@@ -84,7 +91,7 @@ public:
                 ui_.rect(id_ + ".hit")
                     .size(hitWidth, height_)
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f), style_.rowHover, style_.rowPressed)
-                    .radius(std::max(6.0f, height_ * 0.20f))
+                    .radius(std::max(metrics_.radius.small, height_ * 0.20f))
                     .transition(transition_)
                     .onClick([onChange] {
                         if (onChange) {
@@ -121,7 +128,7 @@ public:
                         .y(labelY)
                         .size(labelWidth, labelLineHeight)
                         .text(text_)
-                        .fontSize(fontSize_)
+                        .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(style_.text)
                         .verticalAlign(core::VerticalAlign::Top)
@@ -139,15 +146,16 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     RadioStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(bool)> onChange_;
     std::string text_;
     bool selected_ = false;
     float width_ = 180.0f;
     float height_ = 28.0f;
-    float dotSize_ = 22.0f;
-    float gap_ = 10.0f;
-    float fontSize_ = 18.0f;
+    float dotSize_ = 0.0f;
+    float gap_ = 0.0f;
+    float fontSize_ = 0.0f;
 };
 
 inline RadioBuilder radio(core::dsl::Ui& ui, const std::string& id) {

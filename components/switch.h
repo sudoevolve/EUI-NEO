@@ -52,7 +52,11 @@ public:
         return *this;
     }
     SwitchBuilder& style(const SwitchStyle& value) { style_ = value; return *this; }
-    SwitchBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = SwitchStyle(tokens); return *this; }
+    SwitchBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = SwitchStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     SwitchBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     SwitchBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -61,20 +65,24 @@ public:
     SwitchBuilder& onChange(std::function<void(bool)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
-        const float trackY = (height_ - trackHeight_) * 0.5f;
-        const float margin = std::max(2.0f, trackHeight_ * 0.125f);
-        const float knobSize = std::max(0.0f, trackHeight_ - margin * 2.0f);
-        const float knobTravel = std::max(0.0f, trackWidth_ - margin * 2.0f - knobSize);
+        const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.control;
+        const float gap = gap_ > 0.0f ? gap_ : metrics_.spacing.control;
+        const float trackWidth = trackWidth_ > 0.0f ? trackWidth_ : metrics_.control.switchWidth;
+        const float trackHeight = trackHeight_ > 0.0f ? trackHeight_ : metrics_.control.switchHeight;
+        const float trackY = (height_ - trackHeight) * 0.5f;
+        const float margin = std::max(metrics_.spacing.micro, trackHeight * 0.125f);
+        const float knobSize = std::max(0.0f, trackHeight - margin * 2.0f);
+        const float knobTravel = std::max(0.0f, trackWidth - margin * 2.0f - knobSize);
         const float knobX = margin + (checked_ ? knobTravel : 0.0f);
-        const float labelX = trackWidth_ + gap_;
-        const float horizontalInset = 10.0f;
+        const float labelX = trackWidth + gap;
+        const float horizontalInset = metrics_.spacing.control;
         const float contentX = horizontalInset;
         const float labelWidth = std::max(0.0f, width_ - labelX - horizontalInset);
-        const float labelLineHeight = fontSize_;
+        const float labelLineHeight = fontSize;
         const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f);
         const float hitWidth = label_.empty()
-            ? trackWidth_ + horizontalInset * 2.0f
-            : std::min(width_, labelX + textWidth(label_, fontSize_) + horizontalInset * 2.0f);
+            ? trackWidth + horizontalInset * 2.0f
+            : std::min(width_, labelX + textWidth(label_, fontSize) + horizontalInset * 2.0f);
         const bool nextChecked = !checked_;
         const std::function<void(bool)> onChange = onChange_;
 
@@ -84,7 +92,7 @@ public:
                 ui_.rect(id_ + ".hit")
                     .size(hitWidth, height_)
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f), style_.rowHover, style_.rowPressed)
-                    .radius(std::max(6.0f, height_ * 0.20f))
+                    .radius(std::max(metrics_.radius.small, height_ * 0.20f))
                     .transition(transition_)
                     .onClick([onChange, nextChecked] {
                         if (onChange) {
@@ -96,9 +104,9 @@ public:
                 ui_.rect(id_ + ".track")
                     .x(contentX)
                     .y(trackY)
-                    .size(trackWidth_, trackHeight_)
+                    .size(trackWidth, trackHeight)
                     .color(checked_ ? style_.on : style_.off)
-                    .radius(trackHeight_ * 0.5f)
+                    .radius(trackHeight * 0.5f)
                     .transition(transition_)
                     .animate(core::AnimProperty::Color)
                     .build();
@@ -119,7 +127,7 @@ public:
                         .y(labelY)
                         .size(labelWidth, labelLineHeight)
                         .text(label_)
-                        .fontSize(fontSize_)
+                        .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(style_.text)
                         .verticalAlign(core::VerticalAlign::Top)
@@ -137,16 +145,17 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     SwitchStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.18f, core::Ease::OutCubic);
     std::function<void(bool)> onChange_;
     std::string label_;
     bool checked_ = false;
     float width_ = 180.0f;
     float height_ = 30.0f;
-    float trackWidth_ = 46.0f;
-    float trackHeight_ = 24.0f;
-    float gap_ = 10.0f;
-    float fontSize_ = 18.0f;
+    float trackWidth_ = 0.0f;
+    float trackHeight_ = 0.0f;
+    float gap_ = 0.0f;
+    float fontSize_ = 0.0f;
 };
 
 inline SwitchBuilder toggleSwitch(core::dsl::Ui& ui, const std::string& id) {

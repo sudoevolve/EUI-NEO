@@ -26,6 +26,7 @@ struct ContextMenuStyle {
         mutedText = theme::withOpacity(tokens.text, 0.54f);
         border = theme::withOpacity(tokens.border, 0.82f);
         shadow = theme::popupShadow(tokens);
+        radius = tokens.metrics.radius.card;
     }
 
     core::Color background;
@@ -96,9 +97,11 @@ public:
     }
     ContextMenuBuilder& items(std::vector<ContextMenuItem> value) { items_ = std::move(value); return *this; }
     ContextMenuBuilder& style(const ContextMenuStyle& value) { style_ = value; return *this; }
-    ContextMenuBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ContextMenuStyle(tokens); return *this; }
-    ContextMenuBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
-    ContextMenuBuilder& radius(float value) { style_.radius = std::max(0.0f, value); return *this; }
+    ContextMenuBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = ContextMenuStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     ContextMenuBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ContextMenuBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     ContextMenuBuilder& onSelect(std::function<void(int)> callback) { onSelect_ = std::move(callback); return *this; }
@@ -110,10 +113,12 @@ public:
             return;
         }
 
-        const float inset = 6.0f;
-        const float width = std::min(width_, std::max(0.0f, screenWidth_ - 16.0f));
-        const float height = context_menu_detail::menuHeight(items_.size(), itemHeight_, inset);
-        const float x = std::clamp(x_, 8.0f, std::max(8.0f, screenWidth_ - width - 8.0f));
+        const float inset = metrics_.spacing.small;
+        const float itemHeight = resolvedItemHeight();
+        const float width = std::min(width_, std::max(0.0f, screenWidth_ - metrics_.spacing.section));
+        const float xInset = metrics_.spacing.compact;
+        const float height = context_menu_detail::menuHeight(items_.size(), itemHeight, inset);
+        const float x = std::clamp(x_, xInset, std::max(xInset, screenWidth_ - width - xInset));
         const float y = context_menu_detail::clampMenuY(y_, height, screenHeight_);
         const std::function<void()> requestDismiss = dismissCallback();
         const std::function<void(int)> onSelect = onSelect_;
@@ -154,6 +159,10 @@ private:
         std::vector<int> renderedPath;
     };
 
+    float resolvedItemHeight() const {
+        return itemHeight_ > 0.0f ? itemHeight_ : metrics_.control.segmented;
+    }
+
     static int maximumDepth(const std::vector<ContextMenuItem>& items) {
         int depth = 1;
         for (const ContextMenuItem& item : items) {
@@ -173,6 +182,7 @@ private:
         float menuX = rootX;
         float menuY = rootY;
         const int depthCount = maximumDepth(items_);
+        const float itemHeight = resolvedItemHeight();
         int renderedLevels = 0;
 
         for (int depth = 0; depth < depthCount; ++depth) {
@@ -186,11 +196,11 @@ private:
                     break;
                 }
                 prefix.push_back(parentIndex);
-                const float desiredY = menuY + static_cast<float>(parentIndex) * itemHeight_;
+                const float desiredY = menuY + static_cast<float>(parentIndex) * itemHeight;
                 levelItems = &(*levelItems)[parentIndex].children;
-                menuX = context_menu_detail::childMenuX(menuX, width, width, screenWidth_, 4.0f);
+                menuX = context_menu_detail::childMenuX(menuX, width, width, screenWidth_, metrics_.spacing.tiny);
                 menuY = context_menu_detail::clampMenuY(
-                    desiredY, context_menu_detail::menuHeight(levelItems->size(), itemHeight_, inset), screenHeight_);
+                    desiredY, context_menu_detail::menuHeight(levelItems->size(), itemHeight, inset), screenHeight_);
             }
 
             const bool visible = open_ && (depth == 0 || depth <= static_cast<int>(cascade.openPath.size()));
@@ -210,7 +220,8 @@ private:
                      const std::function<void(const std::vector<int>&)>& onSelectPath,
                      const std::function<void()>& requestDismiss) {
         const std::string levelId = id_ + ".level." + std::to_string(depth);
-        const float height = context_menu_detail::menuHeight(levelItems.size(), itemHeight_, inset);
+        const float itemHeight = resolvedItemHeight();
+        const float height = context_menu_detail::menuHeight(levelItems.size(), itemHeight, inset);
         const float opacity = visible ? 1.0f : 0.0f;
         const float scale = visible ? 1.0f : 0.94f;
         const float offsetY = visible ? 0.0f : -4.0f;
@@ -225,20 +236,20 @@ private:
             .animate(core::AnimProperty::Opacity | core::AnimProperty::Transform)
             .content([&] {
                 ui_.rect(levelId + ".bg").size(width, height).color(style_.background)
-                    .radius(style_.radius).border(1.0f, style_.border).shadow(style_.shadow).build();
+                    .radius(style_.radius).border(metrics_.spacing.hairline, style_.border).shadow(style_.shadow).build();
                 ui_.rect(levelId + ".hit").size(width, height)
                     .states(theme::color(0, 0, 0, 0), theme::color(0, 0, 0, 0), theme::color(0, 0, 0, 0))
                     .disabled(!visible).onClick([] {}).build();
 
                 for (int index = 0; index < static_cast<int>(levelItems.size()); ++index) {
                     const ContextMenuItem& item = levelItems[index];
-                    const float itemY = inset + static_cast<float>(index) * itemHeight_;
+                    const float itemY = inset + static_cast<float>(index) * itemHeight;
                     std::vector<int> path = prefix;
                     path.push_back(index);
                     ui_.rect(levelId + ".item." + std::to_string(index))
-                        .x(inset).y(itemY).size(std::max(0.0f, width - inset * 2.0f), itemHeight_)
+                        .x(inset).y(itemY).size(std::max(0.0f, width - inset * 2.0f), itemHeight)
                         .states(theme::color(0, 0, 0, 0), style_.hover, style_.pressed)
-                        .radius(std::max(4.0f, style_.radius - 4.0f)).instantStates()
+                        .radius(std::max(metrics_.radius.tiny, style_.radius - metrics_.radius.tiny)).instantStates()
                         .disabled(!visible)
                         .onHover([cascadePtr = &cascade, path, hasChildren = item.hasChildren()](bool hovered) {
                             if (!hovered) return;
@@ -261,15 +272,24 @@ private:
                             requestDismiss();
                         }).build();
                     ui_.text(levelId + ".label." + std::to_string(index))
-                        .x(inset + 12.0f)
-                        .y(itemY + std::max(0.0f, (itemHeight_ - (fontSize_ + 4.0f)) * 0.5f))
-                        .size(std::max(0.0f, width - inset * 2.0f - (item.hasChildren() ? 42.0f : 24.0f)),
-                              fontSize_ + 6.0f)
-                        .text(item.text).fontSize(fontSize_).lineHeight(fontSize_ + 4.0f).color(style_.text).build();
+                        .x(inset + metrics_.spacing.content)
+                        .y(itemY + std::max(0.0f, (itemHeight - metrics_.typography.option -
+                                                   metrics_.typography.lineGapTight) * 0.5f))
+                        .size(std::max(0.0f, width - inset * 2.0f -
+                                      (item.hasChildren() ? metrics_.control.control : metrics_.spacing.panel)),
+                              metrics_.spacing.large)
+                        .text(item.text)
+                        .fontSize(metrics_.typography.option)
+                        .lineHeight(metrics_.typography.option + metrics_.typography.lineGapTight)
+                        .color(style_.text).build();
                     if (item.hasChildren()) {
                         ui_.text(levelId + ".arrow." + std::to_string(index))
-                            .x(width - inset - 26.0f).y(itemY).size(18.0f, itemHeight_)
-                            .icon(0xF054).fontSize(11.0f).lineHeight(14.0f).color(style_.mutedText)
+                            .x(width - inset - metrics_.control.compact + metrics_.spacing.micro)
+                            .y(itemY).size(metrics_.typography.control, itemHeight)
+                            .icon(0xF054)
+                            .fontSize(metrics_.typography.micro)
+                            .lineHeight(metrics_.typography.micro + metrics_.typography.lineGapTight)
+                            .color(style_.mutedText)
                             .horizontalAlign(core::HorizontalAlign::Center)
                             .verticalAlign(core::VerticalAlign::Center)
                             .build();
@@ -304,6 +324,7 @@ private:
     std::string id_;
     std::vector<ContextMenuItem> items_;
     ContextMenuStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.12f, core::Ease::OutCubic);
     std::function<void(int)> onSelect_;
     std::function<void(const std::vector<int>&)> onSelectPath_;
@@ -314,8 +335,7 @@ private:
     float x_ = 0.0f;
     float y_ = 0.0f;
     float width_ = 190.0f;
-    float itemHeight_ = 36.0f;
-    float fontSize_ = 15.0f;
+    float itemHeight_ = 0.0f;
     int zIndex_ = 1050;
 };
 

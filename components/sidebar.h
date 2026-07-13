@@ -42,12 +42,14 @@ public:
     }
 
     void build() {
-        const float panelWidth = std::min(drawerWidth_, std::max(280.0f, width_ - 24.0f));
+        const theme::ThemeMetricTokens& metrics = tokens_.metrics;
+        const float panelWidth = std::min(drawerWidth_, std::max(metrics.control.compact * 10.0f,
+                                                                 width_ - metrics.control.switchHeight));
         const float panelX = std::max(0.0f, width_ - panelWidth);
-        const float panelOffset = open_ ? 0.0f : panelWidth + 8.0f;
-        const float contentWidth = std::max(0.0f, panelWidth - 44.0f);
-        const float headerHeight = 104.0f;
-        const float bodyHeight = std::max(0.0f, height_ - headerHeight - 44.0f);
+        const float panelOffset = open_ ? 0.0f : panelWidth + metrics.spacing.compact;
+        const float contentWidth = std::max(0.0f, panelWidth - metrics.control.large);
+        const float headerHeight = metrics.spacing.overlay * 2.0f + metrics.spacing.compact;
+        const float bodyHeight = std::max(0.0f, height_ - headerHeight - metrics.control.large);
         const core::Transition motionTransition = resolveMotionTransition();
         const std::function<void()> requestClose = closeCallback();
 
@@ -83,8 +85,8 @@ public:
 
                         ui_.column(id_ + ".content")
                             .size(panelWidth, height_)
-                            .padding(22.0f, 22.0f)
-                            .gap(18.0f)
+                            .padding(metrics.control.indicator, metrics.control.indicator)
+                            .gap(metrics.typography.control)
                             .content([&] {
                                 composeHeader(contentWidth, headerHeight, requestClose);
 
@@ -166,26 +168,27 @@ private:
     }
 
     void composeHeader(float width, float height, const std::function<void()>& requestClose) {
-        const float closeSize = 38.0f;
+        const theme::ThemeMetricTokens& metrics = tokens_.metrics;
+        const float closeSize = metrics.control.segmented + metrics.spacing.micro;
         const float closeX = std::max(0.0f, width - closeSize);
         ui_.stack(id_ + ".header")
             .size(width, height)
             .content([&] {
                 ui_.text(id_ + ".eyebrow")
-                    .size(std::max(0.0f, width - closeSize - 12.0f), 22.0f)
+                    .size(std::max(0.0f, width - closeSize - metrics.spacing.content), metrics.control.indicator)
                     .text(eyebrow_)
-                    .fontSize(15.0f)
-                    .lineHeight(20.0f)
+                    .fontSize(metrics.typography.option)
+                    .lineHeight(metrics.typography.option + metrics.typography.lineGapRelaxed)
                     .fontWeight(800)
                     .color(withAlpha(tokens_.primary, 0.90f))
                     .build();
 
                 ui_.text(id_ + ".title")
-                    .y(42.0f)
-                    .size(width, 54.0f)
+                    .y(metrics.control.control)
+                    .size(width, metrics.control.control + metrics.spacing.content)
                     .text(title_)
-                    .fontSize(42.0f)
-                    .lineHeight(50.0f)
+                    .fontSize(metrics.typography.hero)
+                    .lineHeight(metrics.typography.hero + metrics.typography.lineGapWide)
                     .fontWeight(820)
                     .color(textColor())
                     .build();
@@ -197,7 +200,7 @@ private:
                         ui_.rect(id_ + ".close.hit")
                             .size(closeSize, closeSize)
                             .states({0.0f, 0.0f, 0.0f, 0.0f}, softSurfaceColor(), tokens_.surfaceActive)
-                            .radius(10.0f)
+                            .radius(metrics.radius.popup)
                             .disabled(!open_)
                             .transition(transition_)
                             .onClick(requestClose)
@@ -206,8 +209,8 @@ private:
                         ui_.text(id_ + ".close.icon")
                             .size(closeSize, closeSize)
                             .icon(0xF00D)
-                            .fontSize(24.0f)
-                            .lineHeight(28.0f)
+                            .fontSize(metrics.typography.heading)
+                            .lineHeight(metrics.typography.heading + metrics.typography.lineGap)
                             .color(textColor())
                             .horizontalAlign(core::HorizontalAlign::Center)
                             .verticalAlign(core::VerticalAlign::Center)
