@@ -30,6 +30,7 @@ struct LineChartStyle {
         tooltipText = tokens.text;
         border = theme::withOpacity(tokens.border, 0.76f);
         shadow = theme::shadow(tokens, 18.0f, 4.0f, 0.20f, 0.10f);
+        radius = tokens.metrics.radius.section;
     }
 
     core::Color background;
@@ -71,7 +72,11 @@ public:
     LineChartBuilder& labels(std::vector<std::string> value) { labels_ = std::move(value); return *this; }
     LineChartBuilder& style(const LineChartStyle& value) { style_ = value; return *this; }
     LineChartBuilder& style(LineStyle value) { lineStyle_ = value; return *this; }
-    LineChartBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = LineChartStyle(tokens); return *this; }
+    LineChartBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = LineChartStyle(tokens);
+        tokens_ = tokens;
+        return *this;
+    }
     LineChartBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
 
     void build() {
@@ -79,8 +84,9 @@ public:
             values_ = {0.22f, 0.30f, 0.20f, 0.55f, 0.42f, 0.86f};
         }
 
-        const float titleX = 20.0f;
-        const float titleY = 18.0f;
+        const theme::ThemeMetricTokens& metrics = tokens_.metrics;
+        const float titleX = metrics.spacing.large;
+        const float titleY = metrics.typography.control;
         const float plotX = 28.0f;
         const float plotY = 70.0f;
         const float plotWidth = std::max(1.0f, width_ - 56.0f);
@@ -113,10 +119,10 @@ public:
                 ui_.text(id_ + ".title")
                     .x(titleX)
                     .y(titleY)
-                    .size(std::max(0.0f, width_ - titleX * 2.0f), 28.0f)
+                    .size(std::max(0.0f, width_ - titleX * 2.0f), metrics.control.compact)
                     .text(title_)
-                    .fontSize(22.0f)
-                    .lineHeight(26.0f)
+                    .fontSize(metrics.typography.title)
+                    .lineHeight(metrics.typography.title + metrics.typography.lineGap)
                     .color(style_.title)
                     .build();
 
@@ -125,7 +131,7 @@ public:
                     ui_.rect(id_ + ".grid." + std::to_string(line))
                         .x(plotX)
                         .y(y)
-                        .size(plotWidth, 1.0f)
+                        .size(plotWidth, metrics.spacing.hairline)
                         .color(style_.grid)
                         .build();
                 }
@@ -200,6 +206,7 @@ public:
 
                 for (const TooltipItem& item : tooltips) {
                     components::tooltip(ui_, item.sourceId + ".tooltip")
+                        .theme(tokens_)
                         .source(item.sourceId)
                         .value(item.text)
                         .anchor(item.x, item.y)
@@ -376,10 +383,10 @@ private:
         ui_.text(id)
             .x(x)
             .y(y)
-            .size(width, 22.0f)
+            .size(width, tokens_.metrics.control.indicator)
             .text(value)
-            .fontSize(14.0f)
-            .lineHeight(18.0f)
+            .fontSize(tokens_.metrics.typography.label)
+            .lineHeight(tokens_.metrics.typography.label + tokens_.metrics.typography.lineGap)
             .color(style_.label)
             .horizontalAlign(core::HorizontalAlign::Center)
             .build();
@@ -410,6 +417,7 @@ private:
     std::vector<float> values_;
     std::vector<std::string> labels_ = {"Jan", "Feb", "Mar", "Apr", "May", "Jun"};
     LineChartStyle style_;
+    theme::ThemeColorTokens tokens_ = theme::dark();
     LineStyle lineStyle_ = LineStyle::Linear;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     float width_ = 206.0f;

@@ -38,7 +38,11 @@ public:
         return *this;
     }
     SliderBuilder& style(const SliderStyle& value) { style_ = value; return *this; }
-    SliderBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = SliderStyle(tokens); return *this; }
+    SliderBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = SliderStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     SliderBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     SliderBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -47,9 +51,10 @@ public:
     SliderBuilder& onChange(std::function<void(float)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
-        const float trackHeight = std::max(3.0f, height_ * 0.18f);
+        const float trackHeight = std::max(metrics_.spacing.tiny - metrics_.spacing.hairline,
+                                           height_ * 0.18f);
         const float trackY = (height_ - trackHeight) * 0.5f;
-        const float knobSize = std::max(14.0f, height_ * 0.72f);
+        const float knobSize = std::max(metrics_.typography.label, height_ * 0.72f);
         const std::function<void(float)> onChange = onChange_;
 
         ui_.stack(id_)
@@ -101,6 +106,7 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     SliderStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(float)> onChange_;
     float width_ = 300.0f;

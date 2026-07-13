@@ -30,6 +30,7 @@ struct DatePickerStyle {
         accent = tokens.primary;
         border = theme::withOpacity(tokens.border, 0.80f);
         shadow = theme::popupShadow(tokens);
+        radius = tokens.metrics.radius.overlay;
     }
 
     core::Color backdrop;
@@ -66,17 +67,21 @@ public:
         return *this;
     }
     DatePickerBuilder& style(const DatePickerStyle& value) { style_ = value; return *this; }
-    DatePickerBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = DatePickerStyle(tokens); return *this; }
+    DatePickerBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = DatePickerStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     DatePickerBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DatePickerBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     DatePickerBuilder& onChange(std::function<void(int, int, int)> callback) { onChange_ = std::move(callback); return *this; }
     DatePickerBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
     void build() {
-        const float panelWidth = std::min(width_, std::max(0.0f, screenWidth_ - 48.0f));
-        const float panelHeight = std::min(height_, std::max(0.0f, screenHeight_ - 48.0f));
-        const float panelX = std::max(24.0f, (screenWidth_ - panelWidth) * 0.5f);
-        const float panelY = std::max(24.0f, (screenHeight_ - panelHeight) * 0.5f);
+        const float panelWidth = std::min(width_, std::max(0.0f, screenWidth_ - metrics_.spacing.overlay));
+        const float panelHeight = std::min(height_, std::max(0.0f, screenHeight_ - metrics_.spacing.overlay));
+        const float panelX = std::max(metrics_.spacing.panel, (screenWidth_ - panelWidth) * 0.5f);
+        const float panelY = std::max(metrics_.spacing.panel, (screenHeight_ - panelHeight) * 0.5f);
         const float visible = open_ ? 1.0f : 0.0f;
         const float panelScale = open_ ? 1.0f : 0.965f;
         const float panelOffsetY = open_ ? 0.0f : 14.0f;
@@ -259,13 +264,14 @@ private:
     }
 
     void panel(float width, float height, DateDraft* draft) {
-        const float titleHeight = 58.0f;
-        const float bottomPad = 24.0f;
-        const float rowHeight = 38.0f;
-        const float columnY = titleHeight + 8.0f;
-        const float columnHeight = std::max(150.0f, height - titleHeight - bottomPad - 8.0f);
-        const float gap = 12.0f;
-        const float pad = 24.0f;
+        const float titleHeight = metrics_.control.compact * 2.0f + metrics_.spacing.micro;
+        const float bottomPad = metrics_.spacing.panel;
+        const float rowHeight = metrics_.control.segmented + metrics_.spacing.micro;
+        const float columnY = titleHeight + metrics_.spacing.compact;
+        const float columnHeight = std::max(metrics_.control.navigation * 3.0f,
+                                            height - titleHeight - bottomPad - metrics_.spacing.compact);
+        const float gap = metrics_.spacing.content;
+        const float pad = metrics_.spacing.panel;
         const float monthWidth = std::max(118.0f, (width - pad * 2.0f - gap * 2.0f) * 0.44f);
         const float dayWidth = std::max(68.0f, (width - pad * 2.0f - gap * 2.0f) * 0.22f);
         const float yearWidth = std::max(86.0f, width - pad * 2.0f - gap * 2.0f - monthWidth - dayWidth);
@@ -279,7 +285,7 @@ private:
             .size(width, height)
             .color(style_.surface)
             .radius(style_.radius)
-            .border(1.0f, style_.border)
+            .border(metrics_.spacing.hairline, style_.border)
             .shadow(style_.shadow)
             .build();
 
@@ -295,22 +301,23 @@ private:
 
         ui_.text(id_ + ".title")
             .x(24.0f)
-            .y(18.0f)
-            .size(std::max(0.0f, width - 124.0f), 30.0f)
+            .y(metrics_.typography.control)
+            .size(std::max(0.0f, width - metrics_.spacing.overlay * 2.0f - metrics_.control.compact),
+                  metrics_.spacing.header)
             .text("Date")
-            .fontSize(24.0f)
-            .lineHeight(29.0f)
+            .fontSize(metrics_.typography.heading)
+            .lineHeight(metrics_.typography.heading + metrics_.typography.lineGapRelaxed)
             .color(style_.text)
             .build();
 
         ui_.rect(id_ + ".done.bg")
-            .x(std::max(0.0f, width - 86.0f))
-            .y(18.0f)
-            .size(62.0f, 30.0f)
+            .x(std::max(0.0f, width - metrics_.spacing.overlay - metrics_.control.segmented))
+            .y(metrics_.typography.control)
+            .size(metrics_.spacing.overlay + metrics_.spacing.content, metrics_.spacing.header)
             .states(style_.accent,
                     core::mixColor(style_.accent, theme::color(1.0f, 1.0f, 1.0f), 0.12f),
                     core::mixColor(style_.accent, theme::color(0.0f, 0.0f, 0.0f), 0.14f))
-            .radius(15.0f)
+            .radius(metrics_.spacing.header * 0.5f)
             .disabled(!open_)
             .onClick([draft, committedYear, committedMonth, committedDay, onChange, onOpenChange] {
                 if (draft != nullptr && onChange &&
@@ -324,12 +331,12 @@ private:
             .build();
 
         ui_.text(id_ + ".done.text")
-            .x(std::max(0.0f, width - 86.0f))
-            .y(18.0f)
-            .size(62.0f, 30.0f)
+            .x(std::max(0.0f, width - metrics_.spacing.overlay - metrics_.control.segmented))
+            .y(metrics_.typography.control)
+            .size(metrics_.spacing.overlay + metrics_.spacing.content, metrics_.spacing.header)
             .text("Done")
-            .fontSize(15.0f)
-            .lineHeight(18.0f)
+            .fontSize(metrics_.typography.option)
+            .lineHeight(metrics_.typography.option + metrics_.typography.lineGapTight)
             .color(theme::color(1.0f, 1.0f, 1.0f))
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -359,9 +366,9 @@ private:
         ui_.rect(columnId + ".selected")
             .x(x + 7.0f)
             .y(y + height * 0.5f - rowHeight * 0.5f)
-            .size(std::max(0.0f, width - 14.0f), rowHeight)
+            .size(std::max(0.0f, width - metrics_.spacing.content - metrics_.spacing.micro), rowHeight)
             .color(style_.selected)
-            .radius(11.0f)
+            .radius(metrics_.radius.popup + metrics_.spacing.hairline)
             .build();
 
         ui_.rect(columnId + ".hit")
@@ -402,8 +409,10 @@ private:
                 .size(std::max(0.0f, width - 8.0f), rowHeight)
                 .zIndex(10 - distance)
                 .text(text)
-                .fontSize(active ? 22.0f : 15.0f)
-                .lineHeight(active ? 26.0f : 19.0f)
+                .fontSize(active ? metrics_.typography.title : metrics_.typography.option)
+                .lineHeight(active
+                    ? metrics_.typography.title + metrics_.typography.lineGap
+                    : metrics_.typography.option + metrics_.typography.lineGap)
                 .color(active ? style_.text : style_.mutedText)
                 .opacity(visual.opacity)
                 .translateY(visual.translateY)
@@ -420,6 +429,7 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     DatePickerStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(int, int, int)> onChange_;
     std::function<void(bool)> onOpenChange_;

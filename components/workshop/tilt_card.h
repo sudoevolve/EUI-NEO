@@ -23,6 +23,7 @@ struct TiltCardStyle {
 
 inline TiltCardStyle tiltCardStyle(const theme::ThemeColorTokens& tokens) {
     TiltCardStyle style;
+    style.radius = tokens.metrics.radius.feature;
     if (tokens.dark) {
         style.surface = core::mixColor(tokens.surface, {0.0f, 0.0f, 0.0f, 1.0f}, 0.10f);
         style.surfaceTop = core::mixColor(tokens.surfaceHover, {1.0f, 1.0f, 1.0f, 1.0f}, 0.04f);
@@ -69,6 +70,7 @@ public:
 
     TiltCardBuilder& theme(const theme::ThemeColorTokens& tokens) {
         style_ = tiltCardStyle(tokens);
+        metrics_ = tokens.metrics;
         return *this;
     }
 
@@ -123,44 +125,44 @@ public:
                             .build();
 
                         ui_.text(id_ + ".title")
-                            .x(22.0f)
-                            .y(24.0f)
-                            .size(std::max(1.0f, w - 44.0f), 34.0f)
+                            .x(metrics_.control.indicator)
+                            .y(metrics_.spacing.panel)
+                            .size(std::max(1.0f, w - metrics_.control.large), metrics_.control.menuItem)
                             .text(title_)
-                            .fontSize(24.0f)
-                            .lineHeight(28.0f)
+                            .fontSize(metrics_.typography.heading)
+                            .lineHeight(metrics_.typography.heading + metrics_.typography.lineGap)
                             .fontWeight(700)
                             .color(style_.text)
                             .build();
 
                         ui_.text(id_ + ".subtitle")
-                            .x(22.0f)
+                            .x(metrics_.control.indicator)
                             .y(60.0f)
-                            .size(std::max(1.0f, w - 44.0f), 46.0f)
+                            .size(std::max(1.0f, w - metrics_.control.large), metrics_.control.switchWidth)
                             .text(subtitle_)
-                            .fontSize(14.0f)
-                            .lineHeight(18.0f)
+                            .fontSize(metrics_.typography.label)
+                            .lineHeight(metrics_.typography.label + metrics_.typography.lineGap)
                             .wrap(true)
                             .color(style_.muted)
                             .build();
 
                         ui_.rect(id_ + ".chip")
-                            .x(22.0f)
+                            .x(metrics_.control.indicator)
                             .y(std::max(106.0f, h - 48.0f))
-                            .size(116.0f, 28.0f)
+                            .size(116.0f, metrics_.control.compact)
                             .color(theme::withAlpha(style_.accent, 0.18f))
-                            .radius(14.0f)
+                            .radius(metrics_.radius.elevated)
                             .border(1.0f, theme::withAlpha(style_.accent, 0.30f))
                             .disabled(true)
                             .build();
 
                         ui_.text(id_ + ".chip.text")
-                            .x(22.0f)
+                            .x(metrics_.control.indicator)
                             .y(std::max(106.0f, h - 48.0f))
-                            .size(116.0f, 28.0f)
+                            .size(116.0f, metrics_.control.compact)
                             .text("pointer tilt")
-                            .fontSize(12.0f)
-                            .lineHeight(14.0f)
+                            .fontSize(metrics_.typography.caption)
+                            .lineHeight(metrics_.typography.caption + metrics_.spacing.micro)
                             .fontWeight(600)
                             .color(theme::withAlpha(style_.text, 0.90f))
                             .horizontalAlign(core::HorizontalAlign::Center)
@@ -183,6 +185,7 @@ private:
     std::string title_ = "Tilt Card";
     std::string subtitle_ = "A workshop card that follows the pointer with perspective and soft light.";
     TiltCardStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.18f, core::Ease::OutCubic);
     float width_ = 300.0f;
     float height_ = 176.0f;

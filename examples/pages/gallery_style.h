@@ -1,4 +1,16 @@
 struct GalleryStylePage {
+    enum class MetricPreview {
+        Typography,
+        Spacing,
+        Radius,
+        Control
+    };
+
+    struct MetricEntry {
+        const char* name;
+        float value;
+    };
+
     const char* markdownSample() const {
         return R"(# Markdown card
 
@@ -102,6 +114,117 @@ components::markdown(ui, "style.markdown")
             .build();
     }
 
+    void metricToken(eui::Ui& ui,
+                     const std::string& id,
+                     const MetricEntry& entry,
+                     float width,
+                     MetricPreview preview) {
+        const components::theme::ThemeMetricTokens& metrics = themeColors().metrics;
+        const float cardHeight = 98.0f;
+        const float nameWidth = std::max(1.0f, width - metrics.spacing.section);
+        const float measuredNameWidth = core::TextPrimitive::measureTextWidth(
+            entry.name, {}, metrics.typography.hint, 400);
+        const float nameFontSize = measuredNameWidth > nameWidth
+            ? std::max(7.0f, metrics.typography.hint * nameWidth / measuredNameWidth)
+            : metrics.typography.hint;
+        ui.stack(id)
+            .size(width, cardHeight)
+            .content([&] {
+                ui.rect(id + ".bg")
+                    .size(width, cardHeight)
+                    .color(surface())
+                    .radius(metrics.radius.card)
+                    .border(metrics.spacing.hairline, borderColor(0.72f))
+                    .build();
+
+                if (preview == MetricPreview::Typography) {
+                    ui.text(id + ".preview.text")
+                        .position(metrics.spacing.content, metrics.spacing.tiny)
+                        .size(std::max(0.0f, width - metrics.spacing.panel), 48.0f)
+                        .text("Aa")
+                        .fontSize(entry.value)
+                        .lineHeight(entry.value + metrics.spacing.micro)
+                        .color(accent())
+                        .horizontalAlign(eui::HorizontalAlign::Center)
+                        .verticalAlign(eui::VerticalAlign::Center)
+                        .build();
+                } else if (preview == MetricPreview::Radius) {
+                    ui.rect(id + ".preview.radius")
+                        .position(std::max(0.0f, (width - 48.0f) * 0.5f), metrics.spacing.content)
+                        .size(48.0f, 30.0f)
+                        .color(withAlpha(accent(), 0.72f))
+                        .radius(entry.value)
+                        .build();
+                } else {
+                    const float previewWidth = std::min(std::max(metrics.spacing.hairline, entry.value),
+                                                        std::max(0.0f, width - metrics.spacing.panel));
+                    const float previewHeight = preview == MetricPreview::Control
+                        ? std::min(30.0f, std::max(metrics.spacing.tiny, entry.value))
+                        : metrics.spacing.small;
+                    ui.rect(id + ".preview.bar")
+                        .position(std::max(0.0f, (width - previewWidth) * 0.5f),
+                                  metrics.spacing.content + (30.0f - previewHeight) * 0.5f)
+                        .size(previewWidth, previewHeight)
+                        .color(accent())
+                        .radius(metrics.radius.full)
+                        .build();
+                }
+
+                ui.text(id + ".name")
+                    .position(metrics.spacing.compact, 56.0f)
+                    .size(nameWidth, metrics.spacing.large)
+                    .text(entry.name)
+                    .fontSize(nameFontSize)
+                    .lineHeight(nameFontSize + metrics.spacing.micro)
+                    .color(textPrimary())
+                    .horizontalAlign(eui::HorizontalAlign::Center)
+                    .build();
+
+                ui.text(id + ".value")
+                    .position(metrics.spacing.compact, 76.0f)
+                    .size(std::max(0.0f, width - metrics.spacing.section), metrics.typography.control)
+                    .text(std::to_string(static_cast<int>(std::round(entry.value))) + " px")
+                    .fontSize(metrics.typography.caption)
+                    .lineHeight(metrics.typography.caption + metrics.spacing.micro)
+                    .color(textMuted())
+                    .horizontalAlign(eui::HorizontalAlign::Center)
+                    .build();
+            })
+            .build();
+    }
+
+    void metricSection(eui::Ui& ui,
+                       const std::string& id,
+                       const std::string& title,
+                       const MetricEntry* entries,
+                       int count,
+                       float width,
+                       float rowWidth,
+                       float cardWidth,
+                       float gap,
+                       MetricPreview preview) {
+        const components::theme::ThemeMetricTokens& metrics = themeColors().metrics;
+        ui.text(id + ".title")
+            .size(width, metrics.spacing.header)
+            .text(title)
+            .fontSize(metrics.typography.heading)
+            .lineHeight(metrics.spacing.header)
+            .color(textPrimary())
+            .build();
+
+        ui.flow(id + ".tokens")
+            .width(rowWidth)
+            .height(eui::SizeValue::wrapContent())
+            .gap(gap)
+            .lineGap(gap)
+            .content([&] {
+                for (int index = 0; index < count; ++index) {
+                    metricToken(ui, id + ".token." + std::to_string(index), entries[index], cardWidth, preview);
+                }
+            })
+            .build();
+    }
+
     void markdownCard(eui::Ui& ui, float width) {
         const float cardWidth = std::max(280.0f, std::min(width, 820.0f));
         const float inset = 22.0f;
@@ -160,6 +283,100 @@ components::markdown(ui, "style.markdown")
         const float swatchRowWidth = swatchWidth * static_cast<float>(swatchColumns) + swatchGap * static_cast<float>(swatchColumns - 1);
         const components::theme::ThemeColorTokens tokens = themeColors();
         const components::theme::PageVisualTokens visuals = pageVisuals();
+        const components::theme::FieldVisualTokens fieldVisuals = components::theme::fieldVisuals(tokens);
+        const auto& metrics = tokens.metrics;
+        const MetricEntry typographyTokens[] = {
+            {"micro", metrics.typography.micro},
+            {"caption", metrics.typography.caption},
+            {"hint", metrics.typography.hint},
+            {"label", metrics.typography.label},
+            {"option", metrics.typography.option},
+            {"body", metrics.typography.body},
+            {"input", metrics.typography.input},
+            {"control", metrics.typography.control},
+            {"cardTitle", metrics.typography.cardTitle},
+            {"subtitle", metrics.typography.subtitle},
+            {"title", metrics.typography.title},
+            {"heading", metrics.typography.heading},
+            {"headline", metrics.typography.headline},
+            {"displayCompact", metrics.typography.displayCompact},
+            {"display", metrics.typography.display},
+            {"hero", metrics.typography.hero}
+        };
+        const MetricEntry lineGapTokens[] = {
+            {"lineGapTight", metrics.typography.lineGapTight},
+            {"lineGap", metrics.typography.lineGap},
+            {"lineGapRelaxed", metrics.typography.lineGapRelaxed},
+            {"lineGapLoose", metrics.typography.lineGapLoose},
+            {"lineGapComfortable", metrics.typography.lineGapComfortable},
+            {"lineGapWide", metrics.typography.lineGapWide}
+        };
+        const MetricEntry spacingTokens[] = {
+            {"hairline", metrics.spacing.hairline},
+            {"micro", metrics.spacing.micro},
+            {"tiny", metrics.spacing.tiny},
+            {"small", metrics.spacing.small},
+            {"compact", metrics.spacing.compact},
+            {"control", metrics.spacing.control},
+            {"content", metrics.spacing.content},
+            {"section", metrics.spacing.section},
+            {"large", metrics.spacing.large},
+            {"panel", metrics.spacing.panel},
+            {"header", metrics.spacing.header},
+            {"page", metrics.spacing.page},
+            {"overlay", metrics.spacing.overlay}
+        };
+        const MetricEntry radiusTokens[] = {
+            {"micro", metrics.radius.micro},
+            {"tiny", metrics.radius.tiny},
+            {"small", metrics.radius.small},
+            {"control", metrics.radius.control},
+            {"tooltip", metrics.radius.tooltip},
+            {"popup", metrics.radius.popup},
+            {"card", metrics.radius.card},
+            {"elevated", metrics.radius.elevated},
+            {"overlay", metrics.radius.overlay},
+            {"section", metrics.radius.section},
+            {"feature", metrics.radius.feature},
+            {"full", metrics.radius.full}
+        };
+        const MetricEntry controlTokens[] = {
+            {"progress", metrics.control.progress},
+            {"indicator", metrics.control.indicator},
+            {"switchHeight", metrics.control.switchHeight},
+            {"compact", metrics.control.compact},
+            {"menuItem", metrics.control.menuItem},
+            {"field", metrics.control.field},
+            {"segmented", metrics.control.segmented},
+            {"input", metrics.control.input},
+            {"control", metrics.control.control},
+            {"large", metrics.control.large},
+            {"switchWidth", metrics.control.switchWidth},
+            {"navigation", metrics.control.navigation},
+            {"scrollbar", metrics.control.scrollbar}
+        };
+        const MetricEntry pageVisualMetrics[] = {
+            {"headerTopInset", visuals.headerTopInset},
+            {"headerTitleGap", visuals.headerTitleGap},
+            {"headerContentGap", visuals.headerContentGap},
+            {"headerTitleSize", visuals.headerTitleSize},
+            {"headerSubtitleSize", visuals.headerSubtitleSize},
+            {"sectionGap", visuals.sectionGap},
+            {"sectionInset", visuals.sectionInset},
+            {"sectionRounding", visuals.sectionRounding},
+            {"labelSize", visuals.labelSize},
+            {"fieldHeight", visuals.fieldHeight}
+        };
+        const MetricEntry fieldVisualMetrics[] = {
+            {"rounding", fieldVisuals.rounding},
+            {"horizontalInset", fieldVisuals.horizontalInset},
+            {"focusLineHeight", fieldVisuals.focusLineHeight},
+            {"borderLineHeight", fieldVisuals.borderLineHeight},
+            {"popupRounding", fieldVisuals.popupRounding},
+            {"popupOverlap", fieldVisuals.popupOverlap},
+            {"popupShadowBlur", fieldVisuals.popupShadowBlur},
+            {"popupShadowOffsetY", fieldVisuals.popupShadowOffsetY}
+        };
 
         ui.column("text.samples")
             .width(width)
@@ -233,6 +450,22 @@ components::markdown(ui, "style.markdown")
                 themeSwatch(ui, "style.color.accent", "pickerAccent", accent(), swatchWidth);
             });
 
+        metricSection(ui, "style.metric.typography", "Typography Tokens",
+                      typographyTokens, static_cast<int>(sizeof(typographyTokens) / sizeof(typographyTokens[0])),
+                      width, swatchRowWidth, swatchWidth, swatchGap, MetricPreview::Typography);
+        metricSection(ui, "style.metric.lineGap", "Line Gap Tokens",
+                      lineGapTokens, static_cast<int>(sizeof(lineGapTokens) / sizeof(lineGapTokens[0])),
+                      width, swatchRowWidth, swatchWidth, swatchGap, MetricPreview::Spacing);
+        metricSection(ui, "style.metric.spacing", "Spacing Tokens",
+                      spacingTokens, static_cast<int>(sizeof(spacingTokens) / sizeof(spacingTokens[0])),
+                      width, swatchRowWidth, swatchWidth, swatchGap, MetricPreview::Spacing);
+        metricSection(ui, "style.metric.radius", "Radius Tokens",
+                      radiusTokens, static_cast<int>(sizeof(radiusTokens) / sizeof(radiusTokens[0])),
+                      width, swatchRowWidth, swatchWidth, swatchGap, MetricPreview::Radius);
+        metricSection(ui, "style.metric.control", "Control Size Tokens",
+                      controlTokens, static_cast<int>(sizeof(controlTokens) / sizeof(controlTokens[0])),
+                      width, swatchRowWidth, swatchWidth, swatchGap, MetricPreview::Control);
+
         ui.text("style.visual.title")
             .size(width, 30.0f)
             .text("Page Visual Colors")
@@ -250,8 +483,36 @@ components::markdown(ui, "style.markdown")
                 themeSwatch(ui, "style.color.title", "titleColor", visuals.titleColor, swatchWidth);
                 themeSwatch(ui, "style.color.subtitle", "subtitleColor", visuals.subtitleColor, swatchWidth);
                 themeSwatch(ui, "style.color.body", "bodyColor", visuals.bodyColor, swatchWidth);
+                themeSwatch(ui, "style.color.card", "cardColor", visuals.cardColor, swatchWidth);
+                themeSwatch(ui, "style.color.mutedCard", "mutedCardColor", visuals.mutedCardColor, swatchWidth);
                 themeSwatch(ui, "style.color.softAccent", "softAccent", visuals.softAccentColor, swatchWidth);
             });
+
+        metricSection(ui, "style.visual.metrics", "Page Visual Metrics",
+                      pageVisualMetrics, static_cast<int>(sizeof(pageVisualMetrics) / sizeof(pageVisualMetrics[0])),
+                      width, swatchRowWidth, swatchWidth, swatchGap, MetricPreview::Spacing);
+
+        ui.text("style.field.title")
+            .size(width, metrics.spacing.header)
+            .text("Field Visual Tokens")
+            .fontSize(metrics.typography.heading)
+            .lineHeight(metrics.spacing.header)
+            .color(textPrimary())
+            .build();
+
+        ui.flow("style.field.colors")
+            .width(swatchRowWidth)
+            .height(eui::SizeValue::wrapContent())
+            .gap(swatchGap)
+            .lineGap(swatchGap)
+            .content([&] {
+                themeSwatch(ui, "style.field.popupShadowColor", "popupShadowColor",
+                            fieldVisuals.popupShadowColor, swatchWidth);
+            });
+
+        metricSection(ui, "style.field.metrics", "Field Visual Metrics",
+                      fieldVisualMetrics, static_cast<int>(sizeof(fieldVisualMetrics) / sizeof(fieldVisualMetrics[0])),
+                      width, swatchRowWidth, swatchWidth, swatchGap, MetricPreview::Spacing);
 
         ui.text("style.markdown.title")
             .size(width, 30.0f)

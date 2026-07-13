@@ -46,7 +46,11 @@ public:
     }
     TabsBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     TabsBuilder& style(const TabsStyle& value) { style_ = value; return *this; }
-    TabsBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = TabsStyle(tokens); return *this; }
+    TabsBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = TabsStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     TabsBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     TabsBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -55,11 +59,12 @@ public:
     TabsBuilder& onChange(std::function<void(int)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
+        const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.input;
         const int count = static_cast<int>(items_.size());
         const int selected = count > 0 ? std::clamp(selected_, 0, count - 1) : 0;
         const float tabWidth = count > 0 ? width_ / static_cast<float>(count) : width_;
-        const float labelLineHeight = fontSize_;
-        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f) - 2.0f;
+        const float labelLineHeight = fontSize;
+        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f) - metrics_.spacing.micro;
         const std::function<void(int)> onChange = onChange_;
 
         ui_.stack(id_)
@@ -80,7 +85,7 @@ public:
                         .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f))
-                        .radius(8.0f)
+                        .radius(metrics_.radius.control)
                         .onClick([onChange, index] {
                             if (onChange) {
                                 onChange(index);
@@ -93,7 +98,7 @@ public:
                         .y(labelY)
                         .size(tabWidth, labelLineHeight)
                         .text(items_[index])
-                        .fontSize(fontSize_)
+                        .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(active ? style_.selectedText : style_.text)
                         .horizontalAlign(core::HorizontalAlign::Center)
@@ -105,11 +110,12 @@ public:
 
                 if (count > 0) {
                     ui_.rect(id_ + ".indicator")
-                        .x(tabWidth * static_cast<float>(selected) + 10.0f)
-                        .y(std::max(0.0f, height_ - 3.0f))
-                        .size(std::max(0.0f, tabWidth - 20.0f), 3.0f)
+                        .x(tabWidth * static_cast<float>(selected) + metrics_.spacing.control)
+                        .y(std::max(0.0f, height_ - (metrics_.spacing.tiny - metrics_.spacing.hairline)))
+                        .size(std::max(0.0f, tabWidth - metrics_.spacing.large),
+                              metrics_.spacing.tiny - metrics_.spacing.hairline)
                         .color(style_.indicator)
-                        .radius(1.5f)
+                        .radius((metrics_.spacing.tiny - metrics_.spacing.hairline) * 0.5f)
                         .transition(transition_)
                         .animate(core::AnimProperty::Frame | core::AnimProperty::Color)
                         .build();
@@ -123,12 +129,13 @@ private:
     std::string id_;
     std::vector<std::string> items_;
     TabsStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(int)> onChange_;
     int selected_ = 0;
     float width_ = 360.0f;
     float height_ = 42.0f;
-    float fontSize_ = 17.0f;
+    float fontSize_ = 0.0f;
 };
 
 inline TabsBuilder tabs(core::dsl::Ui& ui, const std::string& id) {

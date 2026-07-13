@@ -19,6 +19,7 @@ struct TooltipStyle {
             : theme::color(1.0f, 1.0f, 1.0f, 0.96f);
         text = tokens.text;
         border = theme::withOpacity(tokens.border, 0.76f);
+        radius = tokens.metrics.radius.tooltip;
     }
 
     core::Color background;
@@ -38,11 +39,15 @@ public:
     TooltipBuilder& anchor(float x, float y) { anchorX_ = x; anchorY_ = y; return *this; }
     TooltipBuilder& bounds(float width, float height) { boundsWidth_ = width; boundsHeight_ = height; return *this; }
     TooltipBuilder& style(const TooltipStyle& value) { style_ = value; return *this; }
-    TooltipBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = TooltipStyle(tokens); return *this; }
+    TooltipBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = TooltipStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     TooltipBuilder& zIndex(int value) { zIndex_ = value; return *this; }
 
     void build() {
-        const float tooltipWidth = std::min(maxWidth_, std::max(minWidth_, boundsWidth_ - 42.0f));
+        const float tooltipWidth = std::min(maxWidth_, std::max(minWidth_, boundsWidth_ - metrics_.control.control));
         const float stackHeight = panelHeight_ + pointerHeight_;
         const float leftLimit = margin_;
         const float rightLimit = std::max(margin_, boundsWidth_ - tooltipWidth - margin_);
@@ -55,8 +60,8 @@ public:
         const float pointerY = belowAnchor ? 0.0f : panelHeight_;
         const float pointerX = std::clamp(
             anchorX_ - tooltipX,
-            pointerHalfWidth_ + 5.0f,
-            tooltipWidth - pointerHalfWidth_ - 5.0f);
+            pointerHalfWidth_ + metrics_.typography.lineGapRelaxed,
+            tooltipWidth - pointerHalfWidth_ - metrics_.typography.lineGapRelaxed);
 
         ui_.stack(id_)
             .x(tooltipX)
@@ -90,7 +95,7 @@ public:
                     .size(tooltipWidth, panelHeight_)
                     .color(style_.background)
                     .radius(style_.radius)
-                    .border(1.0f, style_.border)
+                    .border(metrics_.spacing.hairline, style_.border)
                     .shadow(style_.shadow)
                     .build();
 
@@ -99,8 +104,8 @@ public:
                     .y(panelY)
                     .size(std::max(0.0f, tooltipWidth - textPaddingX_ * 2.0f), panelHeight_)
                     .text(text_)
-                    .fontSize(13.0f)
-                    .lineHeight(16.0f)
+                    .fontSize(metrics_.typography.hint)
+                    .lineHeight(metrics_.typography.hint + metrics_.typography.lineGapTight)
                     .color(style_.text)
                     .horizontalAlign(core::HorizontalAlign::Center)
                     .verticalAlign(core::VerticalAlign::Center)
@@ -115,6 +120,7 @@ private:
     std::string sourceId_;
     std::string text_;
     TooltipStyle style_;
+    theme::ThemeMetricTokens metrics_;
     float anchorX_ = 0.0f;
     float anchorY_ = 0.0f;
     float boundsWidth_ = 206.0f;

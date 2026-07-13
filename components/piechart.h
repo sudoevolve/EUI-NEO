@@ -25,6 +25,7 @@ struct PieChartStyle {
         tooltipText = tokens.text;
         border = theme::withOpacity(tokens.border, 0.76f);
         shadow = theme::shadow(tokens, 18.0f, 4.0f, 0.20f, 0.10f);
+        radius = tokens.metrics.radius.section;
         palette = {
             theme::color(0.22f, 0.50f, 0.88f),
             theme::color(0.20f, 0.76f, 0.58f),
@@ -61,11 +62,16 @@ public:
     PieChartBuilder& labels(std::vector<std::string> value) { labels_ = std::move(value); return *this; }
     PieChartBuilder& colors(std::vector<core::Color> value) { style_.palette = std::move(value); return *this; }
     PieChartBuilder& style(const PieChartStyle& value) { style_ = value; return *this; }
-    PieChartBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = PieChartStyle(tokens); return *this; }
+    PieChartBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = PieChartStyle(tokens);
+        tokens_ = tokens;
+        return *this;
+    }
     PieChartBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
 
     void build() {
-        const float titleX = 20.0f;
+        const theme::ThemeMetricTokens& metrics = tokens_.metrics;
+        const float titleX = metrics.spacing.large;
         const float pieSize = std::max(96.0f, std::min(width_ - 48.0f, height_ - 82.0f));
         const float pieX = (width_ - pieSize) * 0.5f;
         const float pieY = 70.0f;
@@ -94,11 +100,11 @@ public:
 
                 ui_.text(id_ + ".title")
                     .x(titleX)
-                    .y(18.0f)
-                    .size(std::max(0.0f, width_ - titleX * 2.0f), 28.0f)
+                    .y(metrics.typography.control)
+                    .size(std::max(0.0f, width_ - titleX * 2.0f), metrics.control.compact)
                     .text(title_)
-                    .fontSize(22.0f)
-                    .lineHeight(26.0f)
+                    .fontSize(metrics.typography.title)
+                    .lineHeight(metrics.typography.title + metrics.typography.lineGap)
                     .color(style_.title)
                     .build();
 
@@ -131,6 +137,7 @@ public:
 
                 for (const TooltipItem& item : tooltips) {
                     components::tooltip(ui_, item.sourceId + ".tooltip")
+                        .theme(tokens_)
                         .source(item.sourceId)
                         .value(item.text)
                         .anchor(item.x, item.y)
@@ -265,6 +272,7 @@ private:
     std::vector<float> values_;
     std::vector<std::string> labels_;
     PieChartStyle style_;
+    theme::ThemeColorTokens tokens_ = theme::dark();
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     float width_ = 206.0f;
     float height_ = 236.0f;

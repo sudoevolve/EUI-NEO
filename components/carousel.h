@@ -34,6 +34,7 @@ struct CarouselStyle {
         indicator = theme::withAlpha(tokens.text, 0.28f);
         activeIndicator = tokens.primary;
         shadow = theme::shadow(tokens, 26.0f, 10.0f, 0.28f, 0.14f);
+        radius = tokens.metrics.radius.feature;
     }
 
     core::Color background;
@@ -65,7 +66,11 @@ public:
     CarouselBuilder& overlap(float value) { overlap_ = std::clamp(value, 0.0f, 0.60f); return *this; }
     CarouselBuilder& parallax(float value) { parallax_ = std::max(0.0f, value); return *this; }
     CarouselBuilder& style(const CarouselStyle& value) { style_ = value; return *this; }
-    CarouselBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = CarouselStyle(tokens); return *this; }
+    CarouselBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = CarouselStyle(tokens);
+        metrics_ = tokens.metrics;
+        return *this;
+    }
     CarouselBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     CarouselBuilder& transition(float duration, core::Ease ease = core::Ease::OutCubic) {
         transition_ = core::Transition::make(duration, ease);
@@ -251,8 +256,8 @@ private:
         ui_.text(id_ + ".empty.text")
             .size(width, height)
             .text("No items")
-            .fontSize(18.0f)
-            .lineHeight(22.0f)
+            .fontSize(metrics_.typography.control)
+            .lineHeight(metrics_.typography.control + metrics_.typography.lineGap)
             .color(style_.mutedText)
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -288,7 +293,9 @@ private:
         const float x = centerX - visualWidth * 0.5f;
         const float y = baseY;
         const float imageViewportX = std::max(0.0f, (cardWidth - visualWidth) * 0.5f);
-        const float horizontalInset = std::clamp(visualWidth * 0.08f, 14.0f, 22.0f);
+        const float horizontalInset = std::clamp(visualWidth * 0.08f,
+                                                 metrics_.typography.label,
+                                                 metrics_.control.indicator);
         const int z = 100 - static_cast<int>(std::round(absDistance * 10.0f));
         const bool active = absDistance < 0.55f;
         const bool detailed = absDistance <= kDetailedDistance;
@@ -347,22 +354,24 @@ private:
                 if (detailed) {
                     ui_.text(cardId + ".title")
                         .x(horizontalInset)
-                        .y(std::max(0.0f, cardHeight - 64.0f))
-                        .size(std::max(0.0f, visualWidth - horizontalInset * 2.0f), 26.0f)
+                        .y(std::max(0.0f, cardHeight - metrics_.spacing.page - metrics_.spacing.panel))
+                        .size(std::max(0.0f, visualWidth - horizontalInset * 2.0f),
+                              metrics_.typography.title + metrics_.typography.lineGap)
                         .text(item.title)
-                        .fontSize(active ? 22.0f : 19.0f)
-                        .lineHeight(24.0f)
+                        .fontSize(active ? metrics_.typography.title : metrics_.typography.cardTitle)
+                        .lineHeight(metrics_.typography.heading)
                         .color(style_.text)
                         .build();
 
                     if (!item.subtitle.empty()) {
                         ui_.text(cardId + ".subtitle")
                             .x(horizontalInset)
-                            .y(std::max(0.0f, cardHeight - 35.0f))
-                            .size(std::max(0.0f, visualWidth - horizontalInset * 2.0f), 18.0f)
+                            .y(std::max(0.0f, cardHeight - metrics_.control.field))
+                            .size(std::max(0.0f, visualWidth - horizontalInset * 2.0f),
+                                  metrics_.typography.control)
                             .text(item.subtitle)
-                            .fontSize(14.0f)
-                            .lineHeight(18.0f)
+                            .fontSize(metrics_.typography.label)
+                            .lineHeight(metrics_.typography.label + metrics_.typography.lineGap)
                             .color(style_.mutedText)
                             .build();
                     }
@@ -395,6 +404,7 @@ private:
     std::string id_;
     std::vector<CarouselItem> items_;
     CarouselStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.24f, core::Ease::OutCubic);
     std::function<void(float)> onChange_;
     float width_ = 720.0f;

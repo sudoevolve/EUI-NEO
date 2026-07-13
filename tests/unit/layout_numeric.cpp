@@ -1,3 +1,5 @@
+#include "components/markdown.h"
+#include "components/theme.h"
 #include "core/layout.h"
 
 #include <cmath>
@@ -79,11 +81,36 @@ bool overlayDoesNotAffectColumnHeight() {
            expectClose("second content y", children[2]->frame().y, 48.0f);
 }
 
+bool themeMetricsDriveComponentVisuals() {
+    components::theme::ThemeColorTokens tokens = components::theme::dark();
+    tokens.metrics.typography.body = 19.0f;
+    tokens.metrics.typography.display = 35.0f;
+    tokens.metrics.spacing.control = 13.0f;
+    tokens.metrics.spacing.section = 21.0f;
+    tokens.metrics.radius.small = 7.0f;
+    tokens.metrics.radius.section = 23.0f;
+    tokens.metrics.control.field = 41.0f;
+
+    const components::theme::PageVisualTokens page = components::theme::pageVisuals(tokens);
+    const components::theme::FieldVisualTokens field = components::theme::fieldVisuals(tokens);
+    const components::MarkdownStyle markdown(tokens);
+
+    return expectClose("page title size", page.headerTitleSize, 35.0f) &&
+           expectClose("page section gap", page.sectionGap, 21.0f) &&
+           expectClose("page radius", page.sectionRounding, 23.0f) &&
+           expectClose("page field height", page.fieldHeight, 41.0f) &&
+           expectClose("field inset", field.horizontalInset, 13.0f) &&
+           expectClose("field radius", field.rounding, 7.0f) &&
+           expectClose("markdown body", markdown.bodySize, 19.0f) &&
+           expectClose("markdown radius", markdown.radius, 7.0f);
+}
+
 } // namespace
 
 int main() {
     bool ok = true;
     ok = flexStaysInsideFixedRow() && ok;
     ok = overlayDoesNotAffectColumnHeight() && ok;
+    ok = themeMetricsDriveComponentVisuals() && ok;
     return ok ? 0 : 1;
 }

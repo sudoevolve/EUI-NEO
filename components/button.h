@@ -22,6 +22,7 @@ struct ButtonStyle {
         icon = text;
         border = theme::buttonBorder(tokens, primary);
         shadow = theme::buttonShadow(tokens);
+        radius = tokens.metrics.radius.overlay;
     }
 
     core::Color normal;
@@ -56,6 +57,7 @@ public:
     ButtonBuilder& style(const ButtonStyle& value) { style_ = value; return *this; }
     ButtonBuilder& theme(const theme::ThemeColorTokens& tokens, bool primary = true) {
         style_ = ButtonStyle(tokens, primary);
+        metrics_ = tokens.metrics;
         return *this;
     }
     ButtonBuilder& radius(float value) { style_.radius = value; return *this; }
@@ -99,8 +101,10 @@ public:
         const bool hasIcon = !icon_.empty();
         const bool hasText = !text_.empty();
         const float iconWidth = hasIcon ? iconFont * 1.15f : 0.0f;
-        const float gap = hasIcon && hasText ? std::max(6.0f * scale_, h * 0.12f) : 0.0f;
-        const float labelWidth = hasIcon && hasText ? std::max(0.0f, w - iconWidth - gap - 32.0f * scale_) : w;
+        const float gap = hasIcon && hasText ? std::max(metrics_.spacing.small * scale_, h * 0.12f) : 0.0f;
+        const float labelWidth = hasIcon && hasText
+            ? std::max(0.0f, w - iconWidth - gap - metrics_.spacing.section * 2.0f * scale_)
+            : w;
         core::Border border = style_.border;
         border.width *= scale_;
 
@@ -193,6 +197,7 @@ private:
     std::string text_ = "Button";
     std::string icon_;
     ButtonStyle style_;
+    theme::ThemeMetricTokens metrics_;
     core::Transition transition_;
     std::function<void()> onClick_;
     std::function<void()> onPress_;

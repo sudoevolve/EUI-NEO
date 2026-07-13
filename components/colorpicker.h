@@ -31,6 +31,7 @@ struct ColorPickerStyle {
         border = theme::withOpacity(tokens.border, 0.80f);
         knob = tokens.dark ? theme::color(0.96f, 0.98f, 1.0f) : theme::color(1.0f, 1.0f, 1.0f);
         shadow = theme::popupShadow(tokens);
+        radius = tokens.metrics.radius.overlay;
     }
 
     core::Color backdrop;
@@ -68,17 +69,22 @@ public:
     }
     ColorPickerBuilder& colors(std::vector<core::Color> value) { colors_ = std::move(value); return *this; }
     ColorPickerBuilder& style(const ColorPickerStyle& value) { style_ = value; return *this; }
-    ColorPickerBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = ColorPickerStyle(tokens); return *this; }
+    ColorPickerBuilder& theme(const theme::ThemeColorTokens& tokens) {
+        style_ = ColorPickerStyle(tokens);
+        metrics_ = tokens.metrics;
+        tokens_ = tokens;
+        return *this;
+    }
     ColorPickerBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     ColorPickerBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     ColorPickerBuilder& onChange(std::function<void(core::Color)> callback) { onChange_ = std::move(callback); return *this; }
     ColorPickerBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
     void build() {
-        const float panelWidth = std::min(width_, std::max(0.0f, screenWidth_ - 48.0f));
-        const float panelHeight = std::min(height_, std::max(0.0f, screenHeight_ - 48.0f));
-        const float panelX = std::max(24.0f, (screenWidth_ - panelWidth) * 0.5f);
-        const float panelY = std::max(24.0f, (screenHeight_ - panelHeight) * 0.5f);
+        const float panelWidth = std::min(width_, std::max(0.0f, screenWidth_ - metrics_.spacing.overlay));
+        const float panelHeight = std::min(height_, std::max(0.0f, screenHeight_ - metrics_.spacing.overlay));
+        const float panelX = std::max(metrics_.spacing.panel, (screenWidth_ - panelWidth) * 0.5f);
+        const float panelY = std::max(metrics_.spacing.panel, (screenHeight_ - panelHeight) * 0.5f);
         const float visible = open_ ? 1.0f : 0.0f;
         const float panelScale = open_ ? 1.0f : 0.965f;
         const float panelOffsetY = open_ ? 0.0f : 14.0f;
@@ -214,14 +220,15 @@ private:
     }
 
     void panel(float width, float height, ColorDraft* draft) {
-        const float pad = 24.0f;
-        const float titleHeight = 60.0f;
+        const float pad = metrics_.spacing.panel;
+        const float titleHeight = metrics_.spacing.header * 2.0f;
         const float previewY = titleHeight;
-        const float previewHeight = 58.0f;
-        const float slidersY = previewY + previewHeight + 18.0f;
-        const float sliderRowHeight = 34.0f;
-        const float swatchesY = height - 48.0f;
-        const float sliderWidth = std::max(90.0f, width - pad * 2.0f - 90.0f);
+        const float previewHeight = metrics_.control.compact * 2.0f + metrics_.spacing.micro;
+        const float slidersY = previewY + previewHeight + metrics_.typography.control;
+        const float sliderRowHeight = metrics_.control.menuItem;
+        const float swatchesY = height - metrics_.spacing.overlay;
+        const float sliderReservedWidth = metrics_.spacing.header * 3.0f;
+        const float sliderWidth = std::max(sliderReservedWidth, width - pad * 2.0f - sliderReservedWidth);
         const std::function<void(bool)> onOpenChange = onOpenChange_;
         const std::function<void(core::Color)> onChange = onChange_;
         const core::Color committed = value_;
@@ -231,7 +238,7 @@ private:
             .size(width, height)
             .color(style_.surface)
             .radius(style_.radius)
-            .border(1.0f, style_.border)
+            .border(metrics_.spacing.hairline, style_.border)
             .shadow(style_.shadow)
             .build();
 
@@ -246,23 +253,24 @@ private:
             .build();
 
         ui_.text(id_ + ".title")
-            .x(24.0f)
-            .y(18.0f)
-            .size(std::max(0.0f, width - 124.0f), 30.0f)
+            .x(metrics_.spacing.panel)
+            .y(metrics_.typography.control)
+            .size(std::max(0.0f, width - metrics_.spacing.overlay * 2.0f - metrics_.control.compact),
+                  metrics_.spacing.header)
             .text("Color")
-            .fontSize(24.0f)
-            .lineHeight(29.0f)
+            .fontSize(metrics_.typography.heading)
+            .lineHeight(metrics_.typography.heading + metrics_.typography.lineGapRelaxed)
             .color(style_.text)
             .build();
 
         ui_.rect(id_ + ".done.bg")
-            .x(std::max(0.0f, width - 86.0f))
-            .y(18.0f)
-            .size(62.0f, 30.0f)
+            .x(std::max(0.0f, width - metrics_.spacing.overlay - metrics_.control.segmented))
+            .y(metrics_.typography.control)
+            .size(metrics_.spacing.overlay + metrics_.spacing.content, metrics_.spacing.header)
             .states(style_.accent,
                     core::mixColor(style_.accent, theme::color(1.0f, 1.0f, 1.0f), 0.12f),
                     core::mixColor(style_.accent, theme::color(0.0f, 0.0f, 0.0f), 0.14f))
-            .radius(15.0f)
+            .radius(metrics_.spacing.header * 0.5f)
             .disabled(!open_)
             .onClick([draft, committed, onChange, onOpenChange] {
                 if (draft != nullptr) {
@@ -275,12 +283,12 @@ private:
             .build();
 
         ui_.text(id_ + ".done.text")
-            .x(std::max(0.0f, width - 86.0f))
-            .y(18.0f)
-            .size(62.0f, 30.0f)
+            .x(std::max(0.0f, width - metrics_.spacing.overlay - metrics_.control.segmented))
+            .y(metrics_.typography.control)
+            .size(metrics_.spacing.overlay + metrics_.spacing.content, metrics_.spacing.header)
             .text("Done")
-            .fontSize(15.0f)
-            .lineHeight(18.0f)
+            .fontSize(metrics_.typography.option)
+            .lineHeight(metrics_.typography.option + metrics_.typography.lineGapTight)
             .color(theme::color(1.0f, 1.0f, 1.0f))
             .horizontalAlign(core::HorizontalAlign::Center)
             .verticalAlign(core::VerticalAlign::Center)
@@ -291,7 +299,7 @@ private:
             .y(previewY)
             .size(std::max(0.0f, width - pad * 2.0f), previewHeight)
             .color(current)
-            .radius(16.0f)
+            .radius(metrics_.radius.overlay)
             .shadow(18.0f, 0.0f, 6.0f, theme::withAlpha(current, 0.24f))
             .transition(transition_)
             .animate(core::AnimProperty::Color | core::AnimProperty::Shadow)
@@ -300,10 +308,10 @@ private:
         ui_.text(id_ + ".preview.hex")
             .x(pad)
             .y(previewY)
-            .size(std::max(0.0f, width - pad * 2.0f - 16.0f), previewHeight)
+            .size(std::max(0.0f, width - pad * 2.0f - metrics_.spacing.section), previewHeight)
             .text(formatHex(current))
-            .fontSize(17.0f)
-            .lineHeight(22.0f)
+            .fontSize(metrics_.typography.input)
+            .lineHeight(metrics_.typography.input + metrics_.typography.lineGapRelaxed)
             .color(theme::color(1.0f, 1.0f, 1.0f, 0.94f))
             .horizontalAlign(core::HorizontalAlign::Right)
             .verticalAlign(core::VerticalAlign::Center)
@@ -315,8 +323,8 @@ private:
             channelSlider(2, "B", theme::color(0.20f, 0.46f, 0.92f), pad, slidersY + sliderRowHeight * 2.0f, sliderWidth, sliderRowHeight, current, draft);
 
             const std::vector<core::Color> swatches = palette();
-            const float swatchSize = 24.0f;
-            const float swatchGap = 8.0f;
+            const float swatchSize = metrics_.control.switchHeight;
+            const float swatchGap = metrics_.spacing.compact;
             for (int index = 0; index < static_cast<int>(swatches.size()); ++index) {
                 const float swatchX = pad + static_cast<float>(index) * (swatchSize + swatchGap);
                 if (swatchX + swatchSize > width - pad) {
@@ -324,11 +332,11 @@ private:
                 }
                 const core::Color swatch = swatches[static_cast<std::size_t>(index)];
                 ui_.rect(id_ + ".swatch.border." + std::to_string(index))
-                    .x(swatchX - 3.0f)
-                    .y(swatchesY - 3.0f)
-                    .size(swatchSize + 6.0f, swatchSize + 6.0f)
+                    .x(swatchX - (metrics_.spacing.tiny - metrics_.spacing.hairline))
+                    .y(swatchesY - (metrics_.spacing.tiny - metrics_.spacing.hairline))
+                    .size(swatchSize + metrics_.spacing.small, swatchSize + metrics_.spacing.small)
                     .color(sameColor(swatch, current) ? style_.accent : theme::withAlpha(style_.text, 0.08f))
-                    .radius(10.0f)
+                    .radius(metrics_.radius.popup)
                     .transition(transition_)
                     .animate(core::AnimProperty::Color)
                     .build();
@@ -340,7 +348,7 @@ private:
                     .states(swatch,
                             core::mixColor(swatch, theme::color(1.0f, 1.0f, 1.0f), 0.16f),
                             core::mixColor(swatch, theme::color(0.0f, 0.0f, 0.0f), 0.14f))
-                    .radius(8.0f)
+                    .radius(metrics_.radius.control)
                     .onClick([draft, swatch] {
                         if (draft != nullptr) {
                             draft->value = clampColor(swatch);
@@ -363,25 +371,26 @@ private:
         ui_.text(id_ + ".slider.label." + std::to_string(channel))
             .x(x)
             .y(y)
-            .size(24.0f, rowHeight)
+            .size(metrics_.control.indicator + metrics_.spacing.micro, rowHeight)
             .text(label)
-            .fontSize(14.0f)
-            .lineHeight(18.0f)
+            .fontSize(metrics_.typography.label)
+            .lineHeight(metrics_.typography.label + metrics_.typography.lineGap)
             .color(style_.text)
             .verticalAlign(core::VerticalAlign::Center)
             .build();
 
         ui_.stack(id_ + ".slider.wrap." + std::to_string(channel))
-            .x(x + 32.0f)
-            .y(y + 5.0f)
-            .size(sliderWidth, 22.0f)
+            .x(x + metrics_.spacing.header + metrics_.spacing.micro)
+            .y(y + metrics_.typography.lineGapRelaxed)
+            .size(sliderWidth, metrics_.control.indicator)
             .content([&] {
                 SliderStyle sliderStyle;
                 sliderStyle.track = style_.track;
                 sliderStyle.fill = fill;
                 sliderStyle.knob = style_.knob;
                 components::slider(ui_, id_ + ".slider." + std::to_string(channel))
-                    .size(sliderWidth, 22.0f)
+                    .theme(tokens_)
+                    .size(sliderWidth, metrics_.control.indicator)
                     .value(channelValue(current, channel))
                     .style(sliderStyle)
                     .transition(transition_)
@@ -395,12 +404,12 @@ private:
             .build();
 
         ui_.text(id_ + ".slider.value." + std::to_string(channel))
-            .x(x + 42.0f + sliderWidth)
+            .x(x + metrics_.control.control + sliderWidth)
             .y(y)
-            .size(40.0f, rowHeight)
+            .size(metrics_.control.input, rowHeight)
             .text(std::to_string(channelToInt(channelValue(current, channel))))
-            .fontSize(12.0f)
-            .lineHeight(16.0f)
+            .fontSize(metrics_.typography.caption)
+            .lineHeight(metrics_.typography.caption + metrics_.typography.lineGap)
             .color(style_.mutedText)
             .verticalAlign(core::VerticalAlign::Center)
             .build();
@@ -409,6 +418,8 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     ColorPickerStyle style_;
+    theme::ThemeMetricTokens metrics_;
+    theme::ThemeColorTokens tokens_ = theme::dark();
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(core::Color)> onChange_;
     std::function<void(bool)> onOpenChange_;
