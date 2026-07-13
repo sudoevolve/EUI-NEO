@@ -3,7 +3,6 @@ set_property(CACHE EUI_DEPS_MODE PROPERTY STRINGS bundled auto fetch)
 if(NOT EUI_DEPS_MODE MATCHES "^(bundled|auto|fetch)$")
     message(FATAL_ERROR "EUI_DEPS_MODE must be one of: bundled, auto, fetch")
 endif()
-option(EUI_ENABLE_HARFBUZZ "Enable HarfBuzz shaping for complex text" ON)
 option(EUI_ENABLE_MARKDOWN "Enable MD4C Markdown parsing support" ON)
 
 set(EUI_THIRD_PARTY_DIR "${CMAKE_CURRENT_LIST_DIR}")
@@ -261,15 +260,6 @@ eui_use_bundled_dependency(
     "png.h"
 )
 
-if(EUI_ENABLE_HARFBUZZ)
-    eui_use_bundled_dependency(
-        EUI_USE_BUNDLED_HARFBUZZ
-        "HarfBuzz"
-        "${EUI_THIRD_PARTY_DIR}/harfbuzz"
-        "CMakeLists.txt"
-    )
-endif()
-
 if(EUI_ENABLE_MARKDOWN)
     eui_use_bundled_dependency(
         EUI_USE_BUNDLED_MD4C
@@ -392,41 +382,6 @@ if(NOT WIN32)
     find_package(CURL REQUIRED)
 else()
     find_package(CURL QUIET)
-endif()
-
-if(EUI_ENABLE_HARFBUZZ)
-    if(EUI_USE_BUNDLED_HARFBUZZ)
-        set(EUI_HARFBUZZ_DIR "${EUI_THIRD_PARTY_DIR}/harfbuzz")
-    else()
-        eui_fetch_dependency(
-            EUI_HARFBUZZ_DIR
-            eui_harfbuzz
-            "https://github.com/harfbuzz/harfbuzz/archive/refs/tags/8.5.0.zip"
-        )
-    endif()
-
-    eui_set_third_party_option(HB_HAVE_CAIRO OFF "Disable Cairo support in bundled HarfBuzz")
-    eui_set_third_party_option(HB_HAVE_GRAPHITE2 OFF "Disable Graphite2 support in bundled HarfBuzz")
-    eui_set_third_party_option(HB_HAVE_GLIB OFF "Disable GLib support in bundled HarfBuzz")
-    eui_set_third_party_option(HB_HAVE_GOBJECT OFF "Disable GObject support in bundled HarfBuzz")
-    eui_set_third_party_option(HB_HAVE_ICU OFF "Disable ICU support in bundled HarfBuzz")
-    eui_set_third_party_option(HB_HAVE_INTROSPECTION OFF "Disable introspection support in bundled HarfBuzz")
-    eui_set_third_party_option(HB_BUILD_UTILS OFF "Disable HarfBuzz utility tools")
-    eui_set_third_party_option(HB_BUILD_SUBSET OFF "Disable HarfBuzz subset library")
-    eui_begin_quiet_third_party_config()
-    add_subdirectory("${EUI_HARFBUZZ_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/_deps/harfbuzz-bundled-build" EXCLUDE_FROM_ALL)
-    eui_end_quiet_third_party_config()
-    if(TARGET harfbuzz AND NOT TARGET harfbuzz::harfbuzz)
-        add_library(harfbuzz::harfbuzz ALIAS harfbuzz)
-    endif()
-    if(TARGET harfbuzz)
-        eui_silence_third_party_warnings(harfbuzz)
-    endif()
-    if(MSVC AND TARGET harfbuzz)
-        target_compile_options(harfbuzz PRIVATE /utf-8)
-    endif()
-    set(CMAKE_CXX_STANDARD 17)
-    set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 endif()
 
 if(EUI_ENABLE_MARKDOWN)

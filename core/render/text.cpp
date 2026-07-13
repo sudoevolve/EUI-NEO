@@ -18,11 +18,6 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#if defined(EUI_HAS_HARFBUZZ)
-#include <hb.h>
-#include <hb-ft.h>
-#endif
-
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -110,20 +105,6 @@ struct SharedTextAtlas {
     AtlasPage gray;
     AtlasPage color;
     int references = 0;
-};
-
-struct CodepointInfo {
-    unsigned int codepoint = 0;
-    size_t byteOffset = 0;
-    size_t byteLength = 0;
-};
-
-struct TextRun {
-    size_t faceIndex = 0;
-    size_t sourceOffset = 0;
-    std::string text;
-    std::vector<CodepointInfo> codepoints;
-    bool rtl = false;
 };
 
 unsigned int readUtf8Codepoint(const std::string& text, size_t& index);
@@ -606,23 +587,6 @@ bool isCombiningMark(unsigned int codepoint) {
            (codepoint >= 0xFE20 && codepoint <= 0xFE2F);
 }
 
-bool isRtlCodepoint(unsigned int codepoint) {
-    return (codepoint >= 0x0590 && codepoint <= 0x08FF) ||
-           (codepoint >= 0xFB1D && codepoint <= 0xFDFF) ||
-           (codepoint >= 0xFE70 && codepoint <= 0xFEFF);
-}
-
-bool isVariationSelector(unsigned int codepoint) {
-    return (codepoint >= 0xFE00 && codepoint <= 0xFE0F) ||
-           (codepoint >= 0xE0100 && codepoint <= 0xE01EF);
-}
-
-bool isEmojiJoiner(unsigned int codepoint) {
-    return codepoint == 0x200D ||
-           codepoint == 0x20E3 ||
-           isVariationSelector(codepoint);
-}
-
 bool isEmojiCodepoint(unsigned int codepoint) {
     return (codepoint >= 0x1F000 && codepoint <= 0x1FAFF) ||
            (codepoint >= 0x2600 && codepoint <= 0x27BF);
@@ -636,22 +600,6 @@ bool nextCodepointIsEmojiPresentation(const std::string& text, size_t index) {
     const unsigned int next = readUtf8Codepoint(text, index);
     (void)saved;
     return next == 0xFE0F;
-}
-
-size_t utf8LengthFromFirstByte(unsigned char first) {
-    if (first < 0x80) {
-        return 1;
-    }
-    if ((first >> 5) == 0x6) {
-        return 2;
-    }
-    if ((first >> 4) == 0xE) {
-        return 3;
-    }
-    if ((first >> 3) == 0x1E) {
-        return 4;
-    }
-    return 1;
 }
 
 unsigned int readUtf8Codepoint(const std::string& text, size_t& index) {
@@ -758,38 +706,6 @@ size_t findEmojiFaceForCodepoint(FontInfoHolder& holder, unsigned int codepoint,
     return findFaceForCodepoint(holder, codepoint, fontSize);
 }
 
-unsigned int codepointForCluster(const TextRun& run, unsigned int cluster) {
-    if (run.codepoints.empty()) {
-        return 0;
-    }
-
-    const CodepointInfo* chosen = &run.codepoints.front();
-    for (const CodepointInfo& info : run.codepoints) {
-        if (info.byteOffset <= cluster) {
-            chosen = &info;
-        } else {
-            break;
-        }
-    }
-    return chosen->codepoint;
-}
-
-CodepointInfo codepointInfoForCluster(const TextRun& run, unsigned int cluster) {
-    if (run.codepoints.empty()) {
-        return {};
-    }
-
-    const CodepointInfo* chosen = &run.codepoints.front();
-    for (const CodepointInfo& info : run.codepoints) {
-        if (info.byteOffset <= cluster) {
-            chosen = &info;
-        } else {
-            break;
-        }
-    }
-    return *chosen;
-}
-
 float loadGlyphAdvance(const FontFace& face, unsigned int glyphIndex, unsigned int codepoint, float fontSize) {
     if (codepoint == '\t') {
         return fontSize * 4.0f;
@@ -801,6 +717,9 @@ float loadGlyphAdvance(const FontFace& face, unsigned int glyphIndex, unsigned i
         return fontSize * 0.5f;
     }
 
+    if (FT_IS_SCALABLE(face.face)) {
+        return static_cast<float>(face.face->glyph->linearHoriAdvance) / 65536.0f * face.glyphScale;
+    }
     return static_cast<float>(face.face->glyph->advance.x) / 64.0f * face.glyphScale;
 }
 
@@ -830,105 +749,10 @@ std::vector<TextPrimitive::ShapedGlyph> shapeWithFallback(FontInfoHolder& holder
     return shaped;
 }
 
-#if defined(EUI_HAS_HARFBUZZ)
-std::vector<TextPrimitive::ShapedGlyph> shapeWithHarfBuzz(FontInfoHolder& holder,
-                                                          const std::string& text,
-                                                          float fontSize) {
-    std::vector<TextRun> runs;
-    size_t index = 0;
-    size_t currentRun = static_cast<size_t>(-1);
-
-    while (index < text.size()) {
-        const size_t start = index;
-        const unsigned char first = static_cast<unsigned char>(text[start]);
-        const size_t byteLength = std::min(utf8LengthFromFirstByte(first), text.size() - start);
-        const unsigned int codepoint = readUtf8Codepoint(text, index);
-        const bool preferEmoji = isEmojiCodepoint(codepoint) || nextCodepointIsEmojiPresentation(text, index);
-        const size_t faceIndex = (isEmojiJoiner(codepoint) && currentRun != static_cast<size_t>(-1))
-            ? runs[currentRun].faceIndex
-            : (preferEmoji
-                ? findEmojiFaceForCodepoint(holder, codepoint, fontSize)
-                : findFaceForCodepoint(holder, codepoint, fontSize));
-        const bool rtl = isRtlCodepoint(codepoint);
-
-        if (currentRun == static_cast<size_t>(-1) || runs[currentRun].faceIndex != faceIndex) {
-            runs.push_back({faceIndex, start, {}, {}, false});
-            currentRun = runs.size() - 1;
-        }
-
-        TextRun& run = runs[currentRun];
-        run.rtl = run.rtl || rtl;
-        const size_t runOffset = run.text.size();
-        run.text.append(text.data() + start, byteLength);
-        run.codepoints.push_back({codepoint, runOffset, byteLength});
-    }
-
-    std::vector<TextPrimitive::ShapedGlyph> shaped;
-    for (const TextRun& run : runs) {
-        if (run.text.empty() || run.faceIndex >= holder.faces.size()) {
-            continue;
-        }
-
-        const FontFace& face = holder.faces[run.faceIndex];
-        hb_font_t* hbFont = hb_ft_font_create_referenced(face.face);
-        if (hbFont) {
-            hb_ft_font_set_load_flags(hbFont, kGlyphLoadFlags);
-        }
-        hb_buffer_t* buffer = hb_buffer_create();
-        if (!hbFont || !buffer) {
-            if (buffer) {
-                hb_buffer_destroy(buffer);
-            }
-            if (hbFont) {
-                hb_font_destroy(hbFont);
-            }
-            continue;
-        }
-
-        hb_buffer_add_utf8(buffer, run.text.c_str(), static_cast<int>(run.text.size()), 0, static_cast<int>(run.text.size()));
-        hb_buffer_set_cluster_level(buffer, HB_BUFFER_CLUSTER_LEVEL_MONOTONE_CHARACTERS);
-        hb_buffer_set_direction(buffer, run.rtl ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
-        hb_buffer_guess_segment_properties(buffer);
-        hb_shape(hbFont, buffer, nullptr, 0);
-
-        unsigned int glyphCount = 0;
-        hb_glyph_info_t* infos = hb_buffer_get_glyph_infos(buffer, &glyphCount);
-        hb_glyph_position_t* positions = hb_buffer_get_glyph_positions(buffer, &glyphCount);
-
-        for (unsigned int i = 0; i < glyphCount; ++i) {
-            const CodepointInfo clusterInfo = codepointInfoForCluster(run, infos[i].cluster);
-            const unsigned int codepoint = clusterInfo.codepoint;
-            const float glyphScale = face.glyphScale;
-            float advance = static_cast<float>(positions[i].x_advance) / 64.0f * glyphScale;
-            if (isCombiningMark(codepoint)) {
-                advance = 0.0f;
-            }
-
-            shaped.push_back({makeGlyphKey(run.faceIndex, infos[i].codepoint),
-                              codepoint,
-                              static_cast<int>(run.sourceOffset + clusterInfo.byteOffset),
-                              static_cast<int>(run.sourceOffset + clusterInfo.byteOffset + clusterInfo.byteLength),
-                              advance,
-                              static_cast<float>(positions[i].x_offset) / 64.0f * glyphScale,
-                              -static_cast<float>(positions[i].y_offset) / 64.0f * glyphScale});
-        }
-
-        hb_buffer_destroy(buffer);
-        hb_font_destroy(hbFont);
-    }
-
-    return shaped;
-}
-#endif
-
 std::vector<TextPrimitive::ShapedGlyph> shapeTextWithFontStack(FontInfoHolder& holder,
                                                                const std::string& text,
                                                                float fontSize) {
-#if defined(EUI_HAS_HARFBUZZ)
-    std::vector<TextPrimitive::ShapedGlyph> shaped = shapeWithHarfBuzz(holder, text, fontSize);
-#else
     std::vector<TextPrimitive::ShapedGlyph> shaped = shapeWithFallback(holder, text, fontSize);
-#endif
     for (TextPrimitive::ShapedGlyph& glyph : shaped) {
         int nextStart = static_cast<int>(text.size());
         for (const TextPrimitive::ShapedGlyph& candidate : shaped) {
