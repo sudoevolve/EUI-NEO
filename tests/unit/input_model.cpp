@@ -1,5 +1,7 @@
 #include "components/input_model.h"
 
+#include <array>
+#include <cmath>
 #include <iostream>
 #include <string>
 
@@ -49,6 +51,30 @@ int main() {
     if (secondLineCursor < 11) {
         std::cerr << "Second line click did not resolve to second line: " << secondLineCursor << "\n";
         return 1;
+    }
+
+    std::string longChineseText;
+    for (int index = 0; index < 40; ++index) {
+        longChineseText += "啊";
+    }
+    const auto logicalMetrics = Model::measureMetrics(longChineseText, "monospace", fontSize);
+    for (const float dpiScale : std::array{1.25f, 1.5f}) {
+        const auto pixelMetrics = Model::measureMetrics(longChineseText, "monospace", fontSize * dpiScale);
+        if (logicalMetrics.caretX.size() != pixelMetrics.caretX.size()) {
+            std::cerr << "DPI metrics produced different caret counts at scale " << dpiScale << "\n";
+            return 1;
+        }
+        float maximumCaretDrift = 0.0f;
+        for (std::size_t index = 0; index < logicalMetrics.caretX.size(); ++index) {
+            maximumCaretDrift = std::max(
+                maximumCaretDrift,
+                std::fabs(logicalMetrics.caretX[index] * dpiScale - pixelMetrics.caretX[index]));
+        }
+        if (maximumCaretDrift > 0.5f) {
+            std::cerr << "Long Chinese caret drifted by " << maximumCaretDrift
+                      << " pixels at DPI scale " << dpiScale << "\n";
+            return 1;
+        }
     }
 
     return 0;

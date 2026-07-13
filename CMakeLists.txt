@@ -221,16 +221,7 @@ else()
     set(EUI_APP_MAIN_SOURCE core/app/glfw_app_main.cpp)
 endif()
 
-if(TARGET harfbuzz::harfbuzz)
-    target_link_libraries(eui_neo PUBLIC harfbuzz::harfbuzz)
-    target_compile_definitions(eui_neo PUBLIC EUI_HAS_HARFBUZZ=1)
-elseif(TARGET PkgConfig::EUI_HARFBUZZ)
-    target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
-    target_link_libraries(eui_neo PUBLIC PkgConfig::EUI_HARFBUZZ)
-    target_compile_definitions(eui_neo PUBLIC EUI_HAS_HARFBUZZ=1)
-else()
-    target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
-endif()
+target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
 
 # -----------------------------------------------------------------------------
 # Platform capabilities
@@ -404,7 +395,7 @@ if(EUI_ENABLE_INSTALL)
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     )
-    set(EUI_NEO_INSTALL_DEP_TARGETS freetype png_static eui_zlib harfbuzz eui_md4c SDL2-static)
+    set(EUI_NEO_INSTALL_DEP_TARGETS freetype png_static eui_zlib eui_md4c SDL2-static)
     if(EUI_OWNS_GLAD_TARGET)
         list(APPEND EUI_NEO_INSTALL_DEP_TARGETS glad)
     endif()
@@ -454,12 +445,6 @@ if(EUI_ENABLE_INSTALL)
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libpng16
         )
     endif()
-    if(TARGET harfbuzz)
-        install(DIRECTORY "${EUI_HARFBUZZ_DIR}/src/"
-            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/harfbuzz
-            FILES_MATCHING PATTERN "*.h" PATTERN "*.hh"
-        )
-    endif()
     install(FILES
         3rd/stb_image.h
         3rd/nanosvg.h
@@ -501,7 +486,6 @@ set(EUI_NEO_WINDOW_BACKEND "@EUI_WINDOW_BACKEND@")
 set(EUI_NEO_RENDER_BACKEND "@EUI_RESOLVED_RENDER_BACKEND@")
 set(EUI_NEO_BUILD_SHARED @EUI_BUILD_SHARED@)
 set(EUI_NEO_DEPS_MODE "@EUI_DEPS_MODE@")
-set(EUI_NEO_ENABLE_HARFBUZZ @EUI_ENABLE_HARFBUZZ@)
 set(EUI_NEO_ENABLE_MARKDOWN @EUI_ENABLE_MARKDOWN@)
 
 find_dependency(Threads)

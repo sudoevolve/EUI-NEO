@@ -41,7 +41,7 @@ Requirements:
 - Vulkan SDK is optional. Use a `build-vk` directory only when you want the Vulkan renderer.
 - Platform OpenGL/windowing development files. Linux builds also need X11 and libcurl development packages.
 
-Build-time sources for GLFW, glad, tray, FreeType, HarfBuzz, libpng, and zlib are vendored under `3rd/`. The default dependency mode is `auto`: CMake uses existing parent targets for `glfw` / `glad` first, then package targets, then the local `3rd/` sources or pinned fetch fallback. Use `-DEUI_DEPS_MODE=bundled` for strict offline builds, or `-DEUI_DEPS_MODE=fetch` to force online dependency fetches. HarfBuzz shaping is enabled by default and can be disabled with `-DEUI_ENABLE_HARFBUZZ=OFF`.
+Build-time sources for GLFW, glad, tray, FreeType, libpng, and zlib are vendored under `3rd/`. The default dependency mode is `auto`: CMake uses existing parent targets for `glfw` / `glad` first, then package targets, then the local `3rd/` sources or pinned fetch fallback. Use `-DEUI_DEPS_MODE=bundled` for strict offline builds, or `-DEUI_DEPS_MODE=fetch` to force online dependency fetches.
 
 Bundled and fetched dependencies are built for static linking by default, including GLFW. Release packages therefore do not need to ship a GLFW DLL / dylib / so. SDL2 may still be dynamic when you choose a system SDL2 package. The `eui_neo` target itself is static by default; configure with `-DEUI_BUILD_SHARED=ON` when you want to build and install it as a shared library.
 
