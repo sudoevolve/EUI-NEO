@@ -283,6 +283,16 @@ function(eui_neo_copy_assets target_name)
     endif()
 endfunction()
 
+function(eui_neo_copy_runtime_dependencies target_name)
+    if(EUI_BUILD_SHARED AND EUI_WINDOW_BACKEND STREQUAL "glfw")
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:glfw>
+                $<TARGET_FILE_DIR:${target_name}>
+        )
+    endif()
+endfunction()
+
 function(eui_neo_copy_app_assets target_name asset_dir)
     if(EXISTS "${asset_dir}")
         add_custom_command(TARGET ${target_name} POST_BUILD
@@ -297,6 +307,7 @@ function(eui_neo_configure_app target_name)
     eui_apply_compile_options(${target_name})
     eui_apply_app_link_options(${target_name})
     eui_neo_copy_assets(${target_name})
+    eui_neo_copy_runtime_dependencies(${target_name})
 endfunction()
 
 # -----------------------------------------------------------------------------

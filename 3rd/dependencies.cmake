@@ -128,7 +128,11 @@ endmacro()
 
 macro(eui_begin_static_third_party_config)
     set(EUI_PREV_BUILD_SHARED_LIBS "${BUILD_SHARED_LIBS}")
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build bundled third-party libraries as static libraries" FORCE)
+    if(EUI_BUILD_SHARED)
+        set(BUILD_SHARED_LIBS ON CACHE BOOL "Build bundled third-party libraries as shared libraries" FORCE)
+    else()
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build bundled third-party libraries as static libraries" FORCE)
+    endif()
 endmacro()
 
 macro(eui_end_static_third_party_config)
@@ -250,6 +254,15 @@ if(EUI_WINDOW_BACKEND STREQUAL "glfw")
         message(FATAL_ERROR
             "EUI_WINDOW_BACKEND=glfw requires a CMake target named 'glfw'. "
             "Provide one before adding EUI-NEO, install glfw3, or allow EUI-NEO to use bundled/fetched GLFW."
+        )
+    endif()
+
+    get_target_property(EUI_GLFW_TARGET_TYPE glfw TYPE)
+    if(EUI_BUILD_SHARED AND EUI_GLFW_TARGET_TYPE STREQUAL "STATIC_LIBRARY")
+        message(FATAL_ERROR
+            "EUI_BUILD_SHARED requires a shared GLFW target. A static GLFW library would give "
+            "eui_neo and its applications separate GLFW global state. Provide shared GLFW, or "
+            "let EUI-NEO build its bundled/fetched GLFW dependency."
         )
     endif()
 endif()

@@ -272,40 +272,13 @@ std::unique_ptr<RenderBackend> createRenderBackend(core::window::Handle window, 
 core::window::RenderApi windowRenderApi();
 void initializeRenderBackendLoader();
 
-inline RenderBackend*& activeRenderBackendSlot() {
-    static thread_local RenderBackend* backend = nullptr;
-    return backend;
-}
-
-inline RenderBackend* activeRenderBackend() {
-    return activeRenderBackendSlot();
-}
-
-inline RenderFrameStats& currentRenderFrameStats() {
-    static thread_local RenderFrameStats stats;
-    return stats;
-}
-
-inline RenderFrameStats& lastRenderFrameStatsSlot() {
-    static thread_local RenderFrameStats stats;
-    return stats;
-}
-
-inline void beginRenderFrameStats(int framebufferWidth, int framebufferHeight) {
-    RenderFrameStats& stats = currentRenderFrameStats();
-    stats = {};
-    stats.rendered = true;
-    stats.framebufferWidth = framebufferWidth;
-    stats.framebufferHeight = framebufferHeight;
-}
-
-inline void publishRenderFrameStats() {
-    lastRenderFrameStatsSlot() = currentRenderFrameStats();
-}
-
-inline const RenderFrameStats& lastRenderFrameStats() {
-    return lastRenderFrameStatsSlot();
-}
+RenderBackend*& activeRenderBackendSlot();
+RenderBackend* activeRenderBackend();
+RenderFrameStats& currentRenderFrameStats();
+RenderFrameStats& lastRenderFrameStatsSlot();
+void beginRenderFrameStats(int framebufferWidth, int framebufferHeight);
+void publishRenderFrameStats();
+const RenderFrameStats& lastRenderFrameStats();
 
 class ScopedRenderBackend {
 public:
