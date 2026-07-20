@@ -22,6 +22,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <tlhelp32.h>
 #include <shellapi.h>
 #include <commdlg.h>
 #elif defined(__APPLE__)
@@ -294,13 +295,15 @@ std::wstring utf8ToWide(const std::string& value) {
         if (size <= 0) {
             return {};
         }
-        std::wstring result(static_cast<std::size_t>(size - 1), L'\0');
+        std::wstring result(static_cast<std::size_t>(size), L'\0');
         MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, result.data(), size);
+        result.resize(static_cast<std::size_t>(size - 1));
         return result;
     }
 
-    std::wstring result(static_cast<std::size_t>(size - 1), L'\0');
+    std::wstring result(static_cast<std::size_t>(size), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, result.data(), size);
+    result.resize(static_cast<std::size_t>(size - 1));
     return result;
 }
 
@@ -312,8 +315,9 @@ std::string wideToUtf8(const std::wstring& value) {
     if (size <= 0) {
         return {};
     }
-    std::string result(static_cast<std::size_t>(size - 1), '\0');
+    std::string result(static_cast<std::size_t>(size), '\0');
     WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size, nullptr, nullptr);
+    result.resize(static_cast<std::size_t>(size - 1));
     return result;
 }
 
@@ -619,6 +623,41 @@ bool launchDetached(const std::string& executable) {
 #else
     const std::string command = shellQuote(executable) + " >/dev/null 2>&1 &";
     return std::system(command.c_str()) == 0;
+#endif
+}
+
+bool terminateProcessesByExecutablePrefix(const std::string& prefix) {
+#if defined(_WIN32)
+    if (prefix.empty()) return false;
+    const std::wstring widePrefix = utf8ToWide(prefix);
+    if (widePrefix.empty()) return false;
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return false;
+
+    bool terminated = false;
+    PROCESSENTRY32W entry{};
+    entry.dwSize = sizeof(entry);
+    if (Process32FirstW(snapshot, &entry)) {
+        do {
+            const std::wstring executableName = entry.szExeFile;
+            if (executableName.size() < widePrefix.size() ||
+                _wcsnicmp(executableName.c_str(), widePrefix.c_str(), widePrefix.size()) != 0) {
+                continue;
+            }
+            HANDLE process = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, entry.th32ProcessID);
+            if (process == nullptr) continue;
+            if (TerminateProcess(process, 0)) {
+                WaitForSingleObject(process, 2000);
+                terminated = true;
+            }
+            CloseHandle(process);
+        } while (Process32NextW(snapshot, &entry));
+    }
+    CloseHandle(snapshot);
+    return terminated;
+#else
+    (void)prefix;
+    return false;
 #endif
 }
 

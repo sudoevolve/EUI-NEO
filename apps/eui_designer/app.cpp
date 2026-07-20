@@ -4,11 +4,13 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cerrno>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -440,11 +442,39 @@ bool hasFontSizeApi(NodeType type) {
            type == NodeType::NeumorphicButton;
 }
 
+bool hasRadiusApi(NodeType type) {
+    return type == NodeType::Rect || type == NodeType::Panel || type == NodeType::Card ||
+           type == NodeType::Button || type == NodeType::Image || type == NodeType::Svg ||
+           type == NodeType::NeumorphicButton || type == NodeType::MouseArea;
+}
+
+bool hasColorApi(NodeType type) {
+    return type != NodeType::Row && type != NodeType::Column && type != NodeType::Stack &&
+           type != NodeType::Scroll && type != NodeType::ScrollView &&
+           type != NodeType::Image && type != NodeType::Svg;
+}
+
 Node* findNode(int uid) {
     const auto found = std::find_if(state.nodes.begin(), state.nodes.end(), [uid](const Node& node) {
         return node.uid == uid;
     });
     return found == state.nodes.end() ? nullptr : &*found;
+}
+
+bool nodeIdInUse(const std::string& id, int exceptUid = -1) {
+    return !id.empty() && std::any_of(state.nodes.begin(), state.nodes.end(), [&](const Node& node) {
+        if (node.uid == exceptUid) return false;
+        return node.id == id || node.id.rfind(id + ".", 0) == 0 || id.rfind(node.id + ".", 0) == 0;
+    });
+}
+
+std::string uniqueNodeId(std::string base) {
+    if (base.empty()) base = "element";
+    if (!nodeIdInUse(base)) return base;
+    for (int suffix = 2;; ++suffix) {
+        const std::string candidate = base + "_" + std::to_string(suffix);
+        if (!nodeIdInUse(candidate)) return candidate;
+    }
 }
 
 eui::Vec2 absolutePosition(const Node& node) {
@@ -691,7 +721,7 @@ void duplicateSelected() {
         if (found == source.end()) return;
         Node copy = *found;
         copy.uid = state.nextUid++;
-        copy.id = found->id + "_copy";
+        copy.id = uniqueNodeId(found->id + "_copy");
         copy.parentUid = copiedParentUid;
         copy.locked = false;
         if (sourceUid == sourceRootUid) {
@@ -947,6 +977,10 @@ void buildAndRunPreview() {
             const fs::path sourceDir = previewRoot / "source";
             const fs::path buildDir = previewRoot / "build";
             const fs::path logPath = previewRoot / "build.log";
+            std::ostringstream targetName;
+            targetName << "eui_designer_preview_" << std::hex << std::hash<std::string>{}(pageCode) << "_"
+                       << std::chrono::steady_clock::now().time_since_epoch().count();
+            const std::string previewTarget = targetName.str();
             std::error_code error;
             fs::create_directories(sourceDir, error);
             if (error) return async::failure<PreviewBuildResult>("Could not create preview directory: " + error.message());
@@ -965,8 +999,8 @@ void buildAndRunPreview() {
                   << "set(EUI_BUILD_TEST_FIXTURES OFF CACHE BOOL \"\" FORCE)\n"
                   << "set(EUI_BUILD_SHARED OFF CACHE BOOL \"\" FORCE)\n"
                   << "add_subdirectory(\"" << root << "\" eui_neo)\n"
-                  << "add_executable(eui_designer_preview \"" << root << "/core/app/glfw_app_main.cpp\" generated_page.cpp)\n"
-                  << "eui_neo_configure_app(eui_designer_preview)\n";
+                  << "add_executable(" << previewTarget << " \"" << root << "/core/app/glfw_app_main.cpp\" generated_page.cpp)\n"
+                  << "eui_neo_configure_app(" << previewTarget << ")\n";
             cmake.close();
             if (!cmake) return async::failure<PreviewBuildResult>("Could not write preview CMakeLists.txt");
 
@@ -990,20 +1024,20 @@ void buildAndRunPreview() {
             if (!configured.succeeded()) return async::failure<PreviewBuildResult>(commandError("Configure", configured));
 
             const std::string build = quotedCommandPath(cmakeCommand) + " --build " + quotedCommandPath(buildDir) +
-                " --config Release --target eui_designer_preview --parallel 2 2>&1";
+                " --config Release --target " + previewTarget + " --parallel 2 2>&1";
             const core::platform::CommandResult built = core::platform::executeCommand(build);
             log << "\n$ " << build << "\n" << built.output << "\n";
             log.flush();
             if (!built.succeeded()) return async::failure<PreviewBuildResult>(commandError("Build", built));
 
+            std::string executableName = previewTarget;
 #if defined(_WIN32)
-            const char* executableName = "eui_designer_preview.exe";
-#else
-            const char* executableName = "eui_designer_preview";
+            executableName += ".exe";
 #endif
             fs::path executable = buildDir / "Release" / executableName;
             if (!fs::exists(executable)) executable = buildDir / executableName;
             if (!fs::exists(executable)) return async::failure<PreviewBuildResult>("Build succeeded but preview executable was not found");
+            core::platform::terminateProcessesByExecutablePrefix("eui_designer_preview");
             if (!core::platform::launchDetached(executable.string())) {
                 return async::failure<PreviewBuildResult>("Preview built but could not be launched");
             }
@@ -1144,36 +1178,61 @@ void composePalette(eui::Ui& ui, float height) {
     }).build();
 }
 
-void composeNodeVisual(eui::Ui& ui, Node& node, float scale) {
+void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false) {
     const std::string base = "design.node." + std::to_string(node.uid);
-    const eui::Vec2 absolute = absolutePosition(node);
-    const float x = absolute.x * scale;
-    const float y = absolute.y * scale;
+    const eui::Vec2 position = nested ? eui::Vec2{node.x, node.y} : absolutePosition(node);
+    const float x = position.x * scale;
+    const float y = position.y * scale;
     const float width = node.width * scale;
     const float height = node.height * scale;
     const bool selected = node.uid == state.selectedUid;
     const eui::Color color = node.color;
-    ui.stack(base).position(x, y).size(width, height).content([&] {
-        if (node.type == NodeType::ScrollView) {
+    auto host = ui.stack(base).size(width, height);
+    if (!nested || !node.participatesInLayout) host.position(x, y);
+    if (nested && !node.participatesInLayout) host.ignoreLayout();
+    host.content([&] {
+        const auto composeChildren = [&](eui::Ui& childUi) {
+            for (Node& child : state.nodes) {
+                if (child.parentUid == node.uid) composeNodeVisual(childUi, child, scale, true);
+            }
+        };
+        if (node.type == NodeType::Scroll || node.type == NodeType::ScrollView) {
             components::scrollView(ui, base + ".scrollView").size(width, height).theme(canvasTheme(node.color))
-                .gap(node.gap * scale).step(node.scrollStep * scale).scrollbarWidth(node.scrollbarWidth * scale)
-                .content([&](eui::Ui& contentUi, float contentWidth, float) {
-                    contentUi.stack(base + ".scrollView.content").size(contentWidth, height * 1.8f).content([&] {}).build();
+                .gap(0.0f).step(node.scrollStep * scale).scrollbarWidth(node.scrollbarWidth * scale)
+                .content([&](eui::Ui& contentUi, float contentWidth, float viewportHeight) {
+                    contentUi.column(base + ".scrollView.content").width(contentWidth).height(core::SizeValue::wrapContent())
+                        .minHeight(viewportHeight).padding(node.padding * scale).gap(node.gap * scale)
+                        .justifyContent(static_cast<core::Align>(node.mainAlign))
+                        .alignItems(static_cast<core::Align>(node.crossAlign))
+                        .content([&] { composeChildren(contentUi); }).build();
                 }).build();
         } else if (node.type == NodeType::VirtualList) {
             components::virtualList(ui, base + ".virtualList").size(width, height).theme(canvasTheme(node.color))
                 .itemCount(node.itemCount).rowHeight(node.rowHeight * scale).step(node.scrollStep * scale)
                 .scrollbarWidth(node.scrollbarWidth * scale)
                 .row([](eui::Ui& rowUi, const std::string& rowId, std::int64_t index, float rowWidth, float rowHeight) {
-                    rowUi.text(rowId + ".text").size(rowWidth, rowHeight).text("Virtual item " + std::to_string(index))
+                    rowUi.text(rowId + ".text").size(rowWidth, rowHeight).text("Item " + std::to_string(index))
                         .fontSize(13.0f).lineHeight(18.0f).color({0.10f, 0.12f, 0.16f, 1.0f}).verticalAlign(eui::VerticalAlign::Center).build();
                 }).build();
-        } else if (isLayout(node.type)) {
+        } else if (node.type == NodeType::Row || node.type == NodeType::Column || node.type == NodeType::Stack) {
             ui.rect(base + ".layout").size(width, height).color({color.r, color.g, color.b, 0.08f * node.opacity})
                 .radius(node.radius * scale).border(node.borderWidth * scale, {color.r, color.g, color.b, 0.52f}).build();
             ui.text(base + ".layout.label").position(10.0f * scale, 7.0f * scale).size(width - 20.0f * scale, 24.0f * scale)
                 .text(typeName(node.type)).fontSize(12.0f * scale).lineHeight(16.0f * scale).fontWeight(720)
                 .color({color.r, color.g, color.b, 0.90f}).build();
+            if (node.type == NodeType::Row) {
+                ui.row(base + ".layout.content").size(width, height).gap(node.gap * scale).padding(node.padding * scale)
+                    .justifyContent(static_cast<core::Align>(node.mainAlign)).alignItems(static_cast<core::Align>(node.crossAlign))
+                    .content([&] { composeChildren(ui); }).build();
+            } else if (node.type == NodeType::Column) {
+                ui.column(base + ".layout.content").size(width, height).gap(node.gap * scale).padding(node.padding * scale)
+                    .justifyContent(static_cast<core::Align>(node.mainAlign)).alignItems(static_cast<core::Align>(node.crossAlign))
+                    .content([&] { composeChildren(ui); }).build();
+            } else {
+                ui.stack(base + ".layout.content").size(width, height).gap(node.gap * scale).padding(node.padding * scale)
+                    .justifyContent(static_cast<core::Align>(node.mainAlign)).alignItems(static_cast<core::Align>(node.crossAlign))
+                    .content([&] { composeChildren(ui); }).build();
+            }
         } else if (node.type == NodeType::Rect || node.type == NodeType::Panel) {
             auto shape = ui.rect(base + ".panel").size(width, height).color(color)
                 .radius(node.radius * scale).border(node.borderWidth * scale, node.borderColor)
@@ -1194,14 +1253,16 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale) {
             if (node.shadowEnabled) {
                 card.shadow({true, {node.shadowOffsetX * scale, node.shadowOffsetY * scale},
                     node.shadowBlur * scale, 0.0f, node.shadowColor, false});
-            }
+            } else card.shadow({});
             card.content([&] {}).build();
         } else if (node.type == NodeType::Markdown) {
             components::markdown(ui, base + ".markdown").size(width, height).theme(canvasTheme(node.color))
                 .markdown(node.text).margin(node.margin * scale).build();
         } else if (node.type == NodeType::Text) {
             ui.text(base + ".text").size(width, height).text(node.text).fontSize(node.fontSize * scale)
-                .lineHeight(node.fontSize * 1.3f * scale).fontWeight(700).color(node.color)
+                .fontFamily(node.fontFamily).lineHeight(node.lineHeight * scale).fontWeight(node.fontWeight)
+                .wrap(node.wrapText).opacity(node.opacity).scale(node.scaleX, node.scaleY)
+                .rotate(node.rotation * 0.0174532925f).color(node.color)
                 .horizontalAlign(static_cast<eui::HorizontalAlign>(node.horizontalAlign))
                 .verticalAlign(static_cast<eui::VerticalAlign>(node.verticalAlign)).build();
         } else if (node.type == NodeType::Button) {
@@ -1214,7 +1275,7 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale) {
             if (node.shadowEnabled) {
                 button.shadow(node.shadowBlur * scale, node.shadowOffsetX * scale,
                     node.shadowOffsetY * scale, node.shadowColor);
-            }
+            } else button.shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f});
             button.build();
         } else if (node.type == NodeType::Input) {
             components::input(ui, base + ".input").size(width, height).value(node.valueText).placeholder(node.text)
@@ -1261,6 +1322,11 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale) {
         } else if (node.type == NodeType::PieChart) {
             components::pieChart(ui, base + ".pie").size(width, height).theme(canvasTheme(node.color))
                 .title(node.text).values(splitValues(node.valuesText)).labels(splitList(node.labelsText)).build();
+        } else if (node.type == NodeType::Navbar) {
+            components::navbar(ui, base + ".navbar").size(width, height).theme(canvasTheme(node.color))
+                .compact(node.compact).brand(node.text, 0xF5FD).subtitle(node.messageText)
+                .selected(node.selectedIndex).items(navbarItems(node))
+                .footer("Account", 0xF007, [] {}).onChange([](int) {}).build();
         } else if (node.type == NodeType::HeartSwitch) {
             components::workshop::heartSwitch(ui, base + ".heart").size(width, height)
                 .theme(canvasTheme(node.color)).checked(node.checked).disabled(node.disabled).build();
@@ -1285,9 +1351,13 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale) {
                 .color({node.color.r, node.color.g, node.color.b, 0.18f * node.opacity}).radius(node.radius * scale)
                 .disabled(node.disabled).scrollStep(node.scrollStep * scale).maxScrollStep(node.maxScrollStep * scale)
                 .dragThreshold(node.dragThreshold * scale).onTap([] {}).build();
+        } else if (node.type == NodeType::Tooltip) {
+            components::button(ui, base + ".tooltip.source").size(width, height)
+                .theme(canvasTheme(node.color), false).text("Hover for tooltip")
+                .onClick([uid = node.uid] { state.selectedUid = uid; }).build();
         } else if (node.type == NodeType::Image) {
             ui.image(base + ".image").size(width, height).source(node.text).radius(node.radius * scale)
-                .opacity(node.opacity).rotate(node.rotation * 0.0174532925f).build();
+                .opacity(node.opacity).scale(node.scaleX, node.scaleY).rotate(node.rotation * 0.0174532925f).build();
         } else if (node.type == NodeType::Polygon) {
             std::vector<eui::Vec2> points;
             const int sides = std::clamp(node.polygonSides, 3, 32);
@@ -1309,7 +1379,8 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale) {
             shape.build();
         } else if (node.type == NodeType::Svg) {
             ui.svg(base + ".svg").size(width, height).source(node.text)
-                .opacity(node.opacity).rotate(node.rotation * 0.0174532925f).build();
+                .radius(node.radius * scale).opacity(node.opacity).scale(node.scaleX, node.scaleY)
+                .rotate(node.rotation * 0.0174532925f).build();
         } else if (isOverlayPreview(node.type)) {
             components::button(ui, base + ".preview.trigger").size(width, height).text("Open " + std::string(typeName(node.type)))
                 .theme(canvasTheme(node.color)).onClick([uid = node.uid] { state.selectedUid = uid; state.previewOverlayUid = uid; }).build();
@@ -1327,7 +1398,8 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale) {
             ui.rect(base + ".handle").position(width - 5.0f, height - 5.0f).size(10.0f, 10.0f)
                 .color(kAccent).radius(2.0f).build();
         }
-        components::mouseArea(ui, base + ".drag").size(width, height).zIndex(50)
+        components::mouseArea(ui, base + ".drag").size(width, height)
+            .zIndex(node.type == NodeType::Tooltip ? -1 : isLayout(node.type) ? 40 : 50)
             .color({0.0f, 0.0f, 0.0f, 0.0f}).cursor(core::CursorShape::Hand)
             .onTap([uid = node.uid] {
                 state.selectedUid = uid;
@@ -1422,7 +1494,15 @@ void composeCanvas(eui::Ui& ui, float width, float height) {
         ui.stack("canvas.window").position(canvasX, canvasY).size(canvasWidth, canvasHeight).clip().content([&] {
             ui.rect("canvas.page").size(canvasWidth, canvasHeight).color(state.backgroundColor).build();
             for (Node& node : state.nodes) {
-                composeNodeVisual(ui, node, scale);
+                if (node.parentUid < 0 || findNode(node.parentUid) == nullptr) composeNodeVisual(ui, node, scale);
+            }
+            for (const Node& node : state.nodes) {
+                if (node.type != NodeType::Tooltip) continue;
+                const eui::Vec2 absolute = absolutePosition(node);
+                const std::string base = "design.node." + std::to_string(node.uid);
+                components::tooltip(ui, base + ".tooltip").source(base + ".tooltip.source")
+                    .value(node.text).anchor((absolute.x + node.width * 0.5f) * scale, absolute.y * scale)
+                    .bounds(canvasWidth, canvasHeight).theme(canvasTheme(node.color)).build();
             }
         }).build();
         components::mouseArea(ui, "canvas.resize").position(canvasX + canvasWidth - 10.0f, canvasY + canvasHeight - 10.0f)
@@ -1506,35 +1586,65 @@ void composeProperties(eui::Ui& ui, float height) {
             smallLabel(ui, "node.id.label", "Element ID", kPanelPadding, 104.0f, 150.0f);
             components::input(ui, "node.id.input").position(kPanelPadding, 126.0f).size(kRightWidth - kPanelPadding * 2.0f, 40.0f)
                 .theme(designerTheme()).value(node->id).onChange([uid = node->uid](const std::string& value) {
-                    if (Node* current = selectedNode(); current && current->uid == uid) current->id = value;
+                    if (Node* current = selectedNode(); current && current->uid == uid) {
+                        if (value.empty()) {
+                            state.status = "Element ID cannot be empty";
+                        } else if (nodeIdInUse(value, uid)) {
+                            state.status = "Element ID already exists: " + value;
+                        } else {
+                            current->id = value;
+                            state.status = "Element ID updated";
+                        }
+                    }
                 }).build();
             propertyNumber(ui, "node.x", "X", 190.0f, node->x, -1920.0f, 1920.0f,
-                [](float value) { if (Node* current = selectedNode()) current->x = value; });
+                [](float value) {
+                    if (Node* current = selectedNode()) {
+                        if (current->parentUid >= 0 && current->participatesInLayout) current->participatesInLayout = false;
+                        current->x = value;
+                        state.layoutDirty = true;
+                    }
+                });
             propertyNumber(ui, "node.y", "Y", 236.0f, node->y, -1200.0f, 1200.0f,
-                [](float value) { if (Node* current = selectedNode()) current->y = value; });
+                [](float value) {
+                    if (Node* current = selectedNode()) {
+                        if (current->parentUid >= 0 && current->participatesInLayout) current->participatesInLayout = false;
+                        current->y = value;
+                        state.layoutDirty = true;
+                    }
+                });
             propertyNumber(ui, "node.width", "Width", 282.0f, node->width, 1.0f, 1920.0f,
-                [](float value) { if (Node* current = selectedNode()) current->width = value; });
+                [](float value) { if (Node* current = selectedNode()) { current->width = value; state.layoutDirty = true; } });
             propertyNumber(ui, "node.height", "Height", 328.0f, node->height, 1.0f, 1200.0f,
-                [](float value) { if (Node* current = selectedNode()) current->height = value; });
-            propertyNumber(ui, "node.radius", "Radius", 374.0f, node->radius, 0.0f, 256.0f,
-                [](float value) { if (Node* current = selectedNode()) current->radius = value; });
-            sectionLabel(ui, "node.color.label", "COLOR", kPanelPadding, 418.0f, 120.0f);
-            ui.rect("node.color.current").position(kPanelPadding, 446.0f)
-                .size(kRightWidth - kPanelPadding * 2.0f, 40.0f).states(node->color, node->color, node->color)
-                .radius(7.0f).border(2.0f, kBorder).onClick([] { state.elementColorTarget = 0; state.elementPickerOpen = true; }).build();
+                [](float value) { if (Node* current = selectedNode()) { current->height = value; state.layoutDirty = true; } });
+            if (hasRadiusApi(node->type)) {
+                propertyNumber(ui, "node.radius", "Radius", 374.0f, node->radius, 0.0f, 256.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->radius = value; });
+            }
+            if (hasColorApi(node->type)) {
+                sectionLabel(ui, "node.color.label", "COLOR", kPanelPadding, 418.0f, 120.0f);
+                ui.rect("node.color.current").position(kPanelPadding, 446.0f)
+                    .size(kRightWidth - kPanelPadding * 2.0f, 40.0f).states(node->color, node->color, node->color)
+                    .radius(7.0f).border(2.0f, kBorder).onClick([] { state.elementColorTarget = 0; state.elementPickerOpen = true; }).build();
+            }
 
             sectionLabel(ui, "node.component.label", "COMPONENT PROPERTIES", kPanelPadding, 510.0f, 200.0f);
             float componentY = 542.0f;
+            if (node->parentUid >= 0) {
+                ui.stack("node.participates.wrap").position(kPanelPadding, componentY)
+                    .size(kRightWidth - kPanelPadding * 2.0f, 36.0f).content([&] {
+                        components::checkbox(ui, "node.participates").size(kRightWidth - kPanelPadding * 2.0f, 36.0f)
+                            .theme(designerTheme()).text("Participate in parent layout").checked(node->participatesInLayout)
+                            .onChange([](bool value) {
+                                if (Node* current = selectedNode()) {
+                                    current->participatesInLayout = value;
+                                    state.layoutDirty = true;
+                                }
+                            }).build();
+                    }).build();
+                componentY += 48.0f;
+            }
             if (isLayout(node->type)) {
-                if (node->parentUid >= 0) {
-                    ui.stack("node.participates.wrap").position(kPanelPadding, componentY)
-                        .size(kRightWidth - kPanelPadding * 2.0f, 36.0f).content([&] {
-                            components::checkbox(ui, "node.participates").size(kRightWidth - kPanelPadding * 2.0f, 36.0f)
-                                .theme(designerTheme()).text("Participate in parent layout").checked(node->participatesInLayout)
-                                .onChange([](bool value) { if (Node* current = selectedNode()) { current->participatesInLayout = value; state.layoutDirty = value; } }).build();
-                        }).build();
-                    componentY += 48.0f;
-                }
                 propertyNumber(ui, "node.gap", "Gap", componentY + 8.0f, node->gap, 0.0f, 512.0f,
                     [](float value) { if (Node* current = selectedNode()) { current->gap = value; state.layoutDirty = true; } });
                 propertyNumber(ui, "node.padding", "Padding", componentY + 56.0f, node->padding, 0.0f, 512.0f,
@@ -1830,21 +1940,23 @@ void composeProperties(eui::Ui& ui, float height) {
             }
             if (node->type == NodeType::Rect || node->type == NodeType::Panel || node->type == NodeType::Polygon ||
                 node->type == NodeType::Image || node->type == NodeType::Svg || node->type == NodeType::Button ||
-                node->type == NodeType::Card || node->type == NodeType::MouseArea) {
-                smallLabel(ui, "node.opacity.label", "Opacity", kPanelPadding, componentY + 8.0f, 72.0f);
-                ui.stack("node.opacity.wrap").position(92.0f, componentY).size(kRightWidth - 110.0f, 36.0f).content([&] {
-                    components::slider(ui, "node.opacity").size(kRightWidth - 110.0f, 36.0f).theme(designerTheme())
-                        .value(node->opacity).onChange([](float value) {
-                            if (Node* current = selectedNode()) current->opacity = value;
-                        }).build();
-                }).build();
+                node->type == NodeType::Card || node->type == NodeType::MouseArea || node->type == NodeType::Text) {
+                propertyNumber(ui, "node.opacity", "Opacity", componentY + 8.0f, node->opacity, 0.0f, 1.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->opacity = value; });
                 componentY += 48.0f;
             }
             if (node->type == NodeType::Rect || node->type == NodeType::Panel || node->type == NodeType::Polygon ||
-                node->type == NodeType::Image || node->type == NodeType::Svg) {
+                node->type == NodeType::Image || node->type == NodeType::Svg || node->type == NodeType::Text) {
                 propertyNumber(ui, "node.rotation", "Rotation", componentY + 8.0f, node->rotation, -3600.0f, 3600.0f,
                     [](float value) { if (Node* current = selectedNode()) current->rotation = value; });
                 componentY += 48.0f;
+            }
+            if (node->type == NodeType::Text || node->type == NodeType::Image || node->type == NodeType::Svg) {
+                propertyNumber(ui, "node.mediaScaleX", "Scale X", componentY + 8.0f, node->scaleX, 0.01f, 10.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->scaleX = value; });
+                propertyNumber(ui, "node.mediaScaleY", "Scale Y", componentY + 56.0f, node->scaleY, 0.01f, 10.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->scaleY = value; });
+                componentY += 96.0f;
             }
             if (hasTextApi(node->type)) {
                 smallLabel(ui, "node.text.label", node->type == NodeType::Image || node->type == NodeType::Svg ? "Source" : "Text",
@@ -1863,13 +1975,8 @@ void composeProperties(eui::Ui& ui, float height) {
                 componentY += 48.0f;
             }
             if (hasValueApi(node->type)) {
-                smallLabel(ui, "node.value.label", "Value", kPanelPadding, componentY + 8.0f, 72.0f);
-                ui.stack("node.value.wrap").position(92.0f, componentY).size(kRightWidth - 110.0f, 36.0f).content([&] {
-                    components::slider(ui, "node.value").size(kRightWidth - 110.0f, 36.0f)
-                        .theme(designerTheme()).value(node->value).onChange([](float value) {
-                            if (Node* current = selectedNode()) current->value = value;
-                        }).build();
-                }).build();
+                propertyNumber(ui, "node.value", "Value", componentY + 8.0f, node->value, 0.0f, 1.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->value = value; });
                 componentY += 48.0f;
             }
             if (hasCheckedApi(node->type)) {
@@ -1957,6 +2064,19 @@ void composeProperties(eui::Ui& ui, float height) {
                 componentY += 144.0f;
             }
             if (node->type == NodeType::Text) {
+                propertyTextInput(ui, "node.fontFamily", "Font family", componentY, node->fontFamily,
+                    [uid = node->uid](const std::string& value) {
+                        if (Node* current = selectedNode(); current && current->uid == uid) current->fontFamily = value;
+                    });
+                componentY += 76.0f;
+                propertyStepper(ui, "node.fontWeight", "Weight", componentY + 8.0f, node->fontWeight, 1, 1000,
+                    [](long long value) { if (Node* current = selectedNode()) current->fontWeight = static_cast<int>(value); });
+                propertyNumber(ui, "node.lineHeight", "Line height", componentY + 56.0f, node->lineHeight, 0.0f, 1024.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->lineHeight = value; });
+                componentY += 96.0f;
+                propertyToggle(ui, "node.wrapText", "Wrap text", componentY, node->wrapText,
+                    [](bool value) { if (Node* current = selectedNode()) current->wrapText = value; });
+                componentY += 44.0f;
                 smallLabel(ui, "node.align.h.label", "Horizontal", kPanelPadding, componentY + 8.0f, 80.0f);
                 ui.stack("node.align.h.wrap").position(92.0f, componentY).size(kRightWidth - 110.0f, 36.0f).content([&] {
                     components::segmented(ui, "node.align.h").size(kRightWidth - 110.0f, 36.0f)
@@ -2048,8 +2168,9 @@ void composeSelectedComponentPreview(eui::Ui& ui) {
         break;
     case NodeType::ColorPicker:
         components::colorPicker(ui, "preview.colorPicker").screen(state.screenWidth, state.screenHeight)
-            .size(340.0f, 500.0f).theme(theme).colors(colorPresets()).value(node->color).open(true)
-            .onChange([](eui::Color) {}).onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
+            .size(420.0f, 320.0f).theme(theme).colors(colorPresets()).value(node->color).open(true)
+            .onChange([uid = node->uid](eui::Color value) { if (Node* current = findNode(uid)) current->color = value; })
+            .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
         break;
     case NodeType::Dialog:
         components::dialog(ui, "preview.dialog").screen(state.screenWidth, state.screenHeight)
@@ -2069,15 +2190,10 @@ void composeSelectedComponentPreview(eui::Ui& ui) {
         break;
     case NodeType::ContextMenu:
         components::contextMenu(ui, "preview.contextMenu").screen(state.screenWidth, state.screenHeight)
-            .position(420.0f, 220.0f).size(260.0f, 42.0f).theme(theme)
+            .position(420.0f, 220.0f).size(node->width, node->height).theme(theme)
             .items(splitList(node->itemsText)).open(true)
             .onSelect([](int) { state.previewOverlayUid = -1; })
             .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
-        break;
-    case NodeType::Navbar:
-        components::navbar(ui, "preview.navbar").size(node->width, node->height).theme(theme).compact(node->compact).brand(node->text, 0xF5FD)
-            .subtitle(node->messageText).selected(node->selectedIndex).items(navbarItems(*node))
-            .footer("Account", 0xF007, [] {}).onChange([](int) {}).build();
         break;
     case NodeType::Sidebar:
         components::sidebar(ui, "preview.sidebar").size(state.screenWidth, state.screenHeight)
@@ -2087,17 +2203,6 @@ void composeSelectedComponentPreview(eui::Ui& ui) {
                 contentUi.text("preview.sidebar.body").size(contentWidth, contentHeight).text(message)
                     .fontSize(18.0f).color({0.08f, 0.10f, 0.14f, 1.0f}).build();
             }).build();
-        break;
-    case NodeType::Carousel:
-        components::carousel(ui, "preview.carousel").size(520.0f, 320.0f).theme(theme)
-            .items(carouselItems(*node)).index(static_cast<float>(node->selectedIndex))
-            .cardWidthRatio(node->cardWidthRatio).overlap(node->overlap).parallax(node->parallax).build();
-        break;
-    case NodeType::CardSlider:
-        components::workshop::cardSlider(ui, "preview.cardSlider").size(520.0f, 320.0f).theme(theme)
-            .items(cardSliderItems(*node)).currentIndex(node->selectedIndex).duration(node->duration).interval(node->interval)
-            .cardSpacing(node->cardSpacing).autoPlay(node->autoPlay).background(node->backgroundEnabled)
-            .tilt(node->tiltEnabled).build();
         break;
     default:
         break;

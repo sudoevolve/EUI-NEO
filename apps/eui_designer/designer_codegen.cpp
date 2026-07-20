@@ -172,6 +172,20 @@ const Node* findNode(const std::vector<Node>& nodes, int uid) {
     return found == nodes.end() ? nullptr : &*found;
 }
 
+eui::Vec2 absolutePosition(const std::vector<Node>& nodes, const Node& node) {
+    eui::Vec2 result{node.x, node.y};
+    int parentUid = node.parentUid;
+    int guard = 0;
+    while (parentUid >= 0 && guard++ < 32) {
+        const Node* parent = findNode(nodes, parentUid);
+        if (parent == nullptr) break;
+        result.x += parent->x;
+        result.y += parent->y;
+        parentUid = parent->parentUid;
+    }
+    return result;
+}
+
 bool isLayout(NodeType type) {
     return type == NodeType::Row || type == NodeType::Column || type == NodeType::Stack;
 }
@@ -223,6 +237,20 @@ const char* typeName(NodeType type) {
     }
 }
 
+bool isStatefulOverlay(NodeType type) {
+    return type == NodeType::DatePicker || type == NodeType::TimePicker || type == NodeType::ColorPicker ||
+           type == NodeType::Dialog || type == NodeType::Sidebar || type == NodeType::Toast ||
+           type == NodeType::ContextMenu;
+}
+
+bool isOverlay(NodeType type) {
+    return type == NodeType::Tooltip || isStatefulOverlay(type);
+}
+
+std::string overlayStateName(const Node& node) {
+    return "element_open_" + std::to_string(node.uid);
+}
+
 std::string nodePosition(const Node& node) {
     if (node.parentUid >= 0 && node.participatesInLayout) return {};
     return ".position(" + number(node.x) + ", " + number(node.y) + ")";
@@ -238,6 +266,17 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
     const std::string id = escape(node.id.empty() ? "element_" + std::to_string(node.uid) : node.id);
     const std::string pos = nodePosition(node);
     const std::string size = nodeSize(node);
+    const std::string nodeTheme = "componentTheme(" + color(node.color) + ")";
+
+    if (node.parentUid >= 0 && !node.participatesInLayout) {
+        code << pad << "ui.stack(\"" << id << ".absolute\").position(" << number(node.x) << ", " << number(node.y)
+             << ").size(" << number(node.width) << ", " << number(node.height) << ").ignoreLayout().content([&] {\n";
+        Node inner = node;
+        inner.participatesInLayout = true;
+        generateNode(code, nodes, inner, level + 1);
+        code << pad << "}).build();\n";
+        return;
+    }
 
     if (isLayout(node.type)) {
         code << pad << "ui." << layoutFactory(node.type) << "(\"" << id << "\")" << pos << size
@@ -255,13 +294,17 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
     if (node.type == NodeType::Text) {
         code << pad << "ui.text(\"" << id << "\")" << pos << size << "\n"
              << childPad << ".text(\"" << escape(node.text) << "\")\n"
-             << childPad << ".fontSize(" << number(node.fontSize) << ")\n"
+             << childPad << ".fontFamily(\"" << escape(node.fontFamily) << "\").fontSize(" << number(node.fontSize) << ")\n"
+             << childPad << ".fontWeight(" << node.fontWeight << ").lineHeight(" << number(node.lineHeight) << ")\n"
+             << childPad << ".wrap(" << (node.wrapText ? "true" : "false") << ").opacity(" << number(node.opacity) << ")\n"
+             << childPad << ".scale(" << number(node.scaleX) << ", " << number(node.scaleY) << ")\n"
+             << childPad << ".rotate(" << number(node.rotation * 0.0174532925f) << ")\n"
              << childPad << ".color({" << number(node.color.r) << ", " << number(node.color.g) << ", "
              << number(node.color.b) << ", " << number(node.color.a) << "})\n"
              << childPad << ".horizontalAlign(" << horizontalAlign(node.horizontalAlign) << ")\n"
              << childPad << ".verticalAlign(" << verticalAlign(node.verticalAlign) << ").build();\n";
     } else if (node.type == NodeType::Button) {
-        code << pad << "components::button(ui, \"" << id << "\")" << pos << size << ".theme(theme)\n"
+        code << pad << "components::button(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
              << childPad << ".text(\"" << escape(node.text) << "\").fontSize(" << number(node.fontSize) << ")\n"
              << childPad << ".iconSize(" << number(node.iconSize) << ").textColor(" << color(node.foregroundColor)
              << ").iconColor(" << color(node.foregroundColor) << ")\n";
@@ -272,10 +315,10 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
         if (node.shadowEnabled) {
             code << childPad << ".shadow(" << number(node.shadowBlur) << ", " << number(node.shadowOffsetX) << ", "
                  << number(node.shadowOffsetY) << ", " << color(node.shadowColor) << ")\n";
-        }
+        } else code << childPad << ".shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f})\n";
         code << childPad << ".build();\n";
     } else if (node.type == NodeType::Input) {
-        code << pad << "components::input(ui, \"" << id << "\")" << pos << size << ".theme(theme)\n"
+        code << pad << "components::input(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
              << childPad << ".value(\"" << escape(node.valueText) << "\").placeholder(\"" << escape(node.text)
              << "\").fontSize(" << number(node.fontSize)
              << ").inset(" << number(node.inset) << ").multiline(" << (node.multiline ? "true" : "false") << ").build();\n";
@@ -284,7 +327,7 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
         const char* stateMethod = node.type == NodeType::Radio ? "selected" : "checked";
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::" << factory << "(ui, \"" << id << "\")" << size
-             << ".theme(theme).text(\"" << escape(node.text) << "\")." << stateMethod << "("
+             << ".theme(" << nodeTheme << ").text(\"" << escape(node.text) << "\")." << stateMethod << "("
              << (node.checked ? "true" : "false") << ").fontSize(" << number(node.fontSize) << ")";
         if (node.type == NodeType::Checkbox) code << ".boxSize(" << number(node.controlSize) << ")";
         else if (node.type == NodeType::Radio) code << ".dotSize(" << number(node.controlSize) << ")";
@@ -294,12 +337,12 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
     } else if (node.type == NodeType::Slider || node.type == NodeType::Progress) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::" << (node.type == NodeType::Slider ? "slider" : "progress") << "(ui, \"" << id << "\")"
-             << size << ".theme(theme).value(" << number(node.value) << ").build();\n" << pad << "}).build();\n";
+             << size << ".theme(" << nodeTheme << ").value(" << number(node.value) << ").build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::Segmented || node.type == NodeType::Tabs || node.type == NodeType::Dropdown) {
         const char* factory = node.type == NodeType::Segmented ? "segmented" : node.type == NodeType::Tabs ? "tabs" : "dropdown";
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::" << factory << "(ui, \"" << id << "\")" << size
-             << ".theme(theme).items(" << stringList(node.itemsText) << ").selected(" << node.selectedIndex << ")";
+             << ".theme(" << nodeTheme << ").items(" << stringList(node.itemsText) << ").selected(" << node.selectedIndex << ")";
         if (node.type == NodeType::Segmented) code << ".fontSize(" << number(node.fontSize) << ")";
         if (node.type == NodeType::Tabs) code << ".fontSize(" << number(node.fontSize) << ")";
         if (node.type == NodeType::Dropdown) {
@@ -309,7 +352,7 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
     } else if (node.type == NodeType::Stepper) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::stepper(ui, \"" << id << "\")" << size
-             << ".theme(theme).value(" << node.selectedIndex << ").min(" << node.minimum << ").max("
+             << ".theme(" << nodeTheme << ").value(" << node.selectedIndex << ").min(" << node.minimum << ").max("
              << node.maximum << ").step(" << node.step << ").base(" << node.numberBase << ").digits(" << node.digits
              << ").bitWidth(" << node.bitWidth << ").showBasePrefix(" << (node.showBasePrefix ? "true" : "false")
              << ").prefix(\"" << escape(node.prefixText) << "\").uppercase(" << (node.uppercase ? "true" : "false")
@@ -318,7 +361,8 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
         code << pad << "ui." << (node.type == NodeType::Svg ? "svg" : "image") << "(\"" << id << "\")" << pos << size
              << ".source(\"" << escape(node.text) << "\")\n"
              << childPad << ".radius(" << number(node.radius) << ").opacity(" << number(node.opacity)
-             << ").rotate(" << number(node.rotation * 0.0174532925f) << ").build();\n";
+             << ").scale(" << number(node.scaleX) << ", " << number(node.scaleY) << ")"
+             << ".rotate(" << number(node.rotation * 0.0174532925f) << ").build();\n";
     } else if (node.type == NodeType::Rect || node.type == NodeType::Panel) {
         code << pad << "ui.rect(\"" << id << "\")" << pos << size << "\n";
         generateShapeStyle(code, node, childPad, true);
@@ -337,51 +381,58 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
         code << ".build();\n";
     } else if (node.type == NodeType::Card) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::card(ui, \"" << id << "\")" << size << ".theme(theme).radius("
+             << childPad << "components::card(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ").radius("
              << number(node.radius) << ").padding(" << number(node.padding) << ").color(" << color(node.color) << ")\n"
              << indentation(level + 2) << ".border(" << number(node.borderWidth) << ", " << color(node.borderColor)
              << ").opacity(" << number(node.opacity) << ")";
         if (node.shadowEnabled) {
             code << ".shadow({true, {" << number(node.shadowOffsetX) << ", " << number(node.shadowOffsetY) << "}, "
                  << number(node.shadowBlur) << ", 0.0f, " << color(node.shadowColor) << ", false})";
-        }
+        } else code << ".shadow({})";
         code << ".content([&] {}).build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::Scroll || node.type == NodeType::ScrollView) {
-        code << pad << "components::scrollView(ui, \"" << id << "\")" << pos << size << ".theme(theme)\n"
-             << childPad << ".gap(" << number(node.gap) << ").step(" << number(node.scrollStep)
+        code << pad << "components::scrollView(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
+             << childPad << ".gap(0.0f).step(" << number(node.scrollStep)
              << ").scrollbarWidth(" << number(node.scrollbarWidth) << ")\n"
-             << childPad << ".content([&](eui::Ui& ui, float, float) {\n";
+             << childPad << ".content([&](eui::Ui& ui, float contentWidth, float viewportHeight) {\n"
+             << indentation(level + 2) << "ui.column(\"" << id << ".content\").width(contentWidth).height(core::SizeValue::wrapContent())\n"
+             << indentation(level + 3) << ".minHeight(viewportHeight).padding(" << number(node.padding) << ").gap(" << number(node.gap) << ")\n"
+             << indentation(level + 3) << ".justifyContent(" << layoutAlign(node.mainAlign) << ")\n"
+             << indentation(level + 3) << ".alignItems(" << layoutAlign(node.crossAlign) << ")\n"
+             << indentation(level + 3) << ".content([&] {\n";
         for (const Node& child : nodes) {
-            if (child.parentUid == node.uid) generateNode(code, nodes, child, level + 2);
+            if (child.parentUid == node.uid) generateNode(code, nodes, child, level + 4);
         }
-        code << childPad << "}).build();\n";
+        code << indentation(level + 3) << "}).build();\n"
+             << childPad << "}).build();\n";
     } else if (node.type == NodeType::VirtualList) {
-        code << pad << "components::virtualList(ui, \"" << id << "\")" << pos << size << ".theme(theme)\n"
+        code << pad << "components::virtualList(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
              << childPad << ".itemCount(" << node.itemCount << ").rowHeight(" << number(node.rowHeight)
              << ").step(" << number(node.scrollStep) << ").scrollbarWidth(" << number(node.scrollbarWidth) << ")\n"
              << childPad << ".row([](eui::Ui& rowUi, const std::string& rowId, std::int64_t index, float width, float height) {\n"
              << indentation(level + 2) << "rowUi.text(rowId + \".text\").size(width, height).text(\"Item \" + std::to_string(index))\n"
-             << indentation(level + 3) << ".fontSize(13.0f).verticalAlign(eui::VerticalAlign::Center).build();\n"
+             << indentation(level + 3) << ".fontSize(13.0f).lineHeight(18.0f).color({0.1f, 0.12f, 0.16f, 1.0f})\n"
+             << indentation(level + 3) << ".verticalAlign(eui::VerticalAlign::Center).build();\n"
              << childPad << "}).build();\n";
     } else if (node.type == NodeType::Markdown) {
-        code << pad << "components::markdown(ui, \"" << id << "\")" << pos << size << ".theme(theme)\n"
+        code << pad << "components::markdown(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
              << childPad << ".markdown(\"" << escape(node.text) << "\").margin(" << number(node.margin) << ").build();\n";
     } else if (node.type == NodeType::DataTable) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::dataTable(ui, \"" << id << "\")" << size << ".theme(theme)\n"
+             << childPad << "components::dataTable(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
              << indentation(level + 2) << ".columns(" << stringList(node.labelsText) << ")\n"
              << indentation(level + 2) << ".rows(" << tableRows(node) << ").build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::LineChart || node.type == NodeType::BarChart || node.type == NodeType::PieChart) {
         const char* factory = node.type == NodeType::LineChart ? "lineChart" : node.type == NodeType::BarChart ? "barChart" : "pieChart";
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::" << factory << "(ui, \"" << id << "\")" << size << ".theme(theme)\n"
+             << childPad << "components::" << factory << "(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
              << indentation(level + 2) << ".title(\"" << escape(node.text) << "\").values(" << floatList(node.valuesText) << ")\n"
              << indentation(level + 2) << ".labels(" << stringList(node.labelsText) << ").build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::Carousel) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::carousel(ui, \"" << id << "\")" << size << ".theme(theme)\n"
+             << childPad << "components::carousel(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
              << indentation(level + 2) << ".items(" << carouselItems(node, false) << ")\n"
              << indentation(level + 2) << ".index(" << number(static_cast<float>(node.selectedIndex)) << ")"
              << ".cardWidthRatio(" << number(node.cardWidthRatio) << ").overlap(" << number(node.overlap)
@@ -389,7 +440,7 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
              << pad << "}).build();\n";
     } else if (node.type == NodeType::Navbar) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::navbar(ui, \"" << id << "\")" << size << ".theme(theme).compact("
+             << childPad << "components::navbar(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ").compact("
              << (node.compact ? "true" : "false") << ").brand(\"" << escape(node.text) << "\", 0xF5FD)\n"
              << indentation(level + 2) << ".subtitle(\"" << escape(node.messageText) << "\").selected(" << node.selectedIndex << ")\n"
              << indentation(level + 2) << ".items(" << navbarItems(node) << ")\n"
@@ -397,23 +448,23 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
     } else if (node.type == NodeType::HeartSwitch) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::workshop::heartSwitch(ui, \"" << id << "\")" << size
-             << ".theme(theme).checked(" << (node.checked ? "true" : "false") << ").disabled("
+             << ".theme(" << nodeTheme << ").checked(" << (node.checked ? "true" : "false") << ").disabled("
              << (node.disabled ? "true" : "false") << ").build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::NeumorphicButton) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::workshop::neumorphicButton(ui, \"" << id << "\")" << size
-             << ".theme(theme).text(\"" << escape(node.text) << "\").fontSize(" << number(node.fontSize)
+             << ".theme(" << nodeTheme << ").text(\"" << escape(node.text) << "\").fontSize(" << number(node.fontSize)
              << ").radius(" << number(node.radius) << ").pressScale(" << number(node.pressScale)
              << ").disabled(" << (node.disabled ? "true" : "false") << ").onClick([] {}).build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::TiltCard) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::workshop::tiltCard(ui, \"" << id << "\")" << size
-             << ".theme(theme).title(\"" << escape(node.text) << "\").subtitle(\"" << escape(node.messageText)
+             << ".theme(" << nodeTheme << ").title(\"" << escape(node.text) << "\").subtitle(\"" << escape(node.messageText)
              << "\").maxTilt(" << number(node.maxTilt) << ").build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::CardSlider) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::workshop::cardSlider(ui, \"" << id << "\")" << size << ".theme(theme)\n"
+             << childPad << "components::workshop::cardSlider(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
              << indentation(level + 2) << ".items(" << carouselItems(node, true) << ")\n"
              << indentation(level + 2) << ".currentIndex(" << node.selectedIndex << ").duration(" << number(node.duration)
              << ").interval(" << number(node.interval) << ").cardSpacing(" << number(node.cardSpacing) << ")\n"
@@ -430,53 +481,73 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
              << ").dragThreshold(" << number(node.dragThreshold) << ").onTap([] {}).build();\n";
     } else if (node.type == NodeType::Tooltip) {
         code << pad << "components::button(ui, \"" << id << ".source\")" << pos << size
-             << ".theme(theme, false).text(\"Hover for tooltip\").build();\n"
-             << pad << "components::tooltip(ui, \"" << id << "\").source(\"" << id << ".source\")\n"
-             << childPad << ".value(\"" << escape(node.text) << "\").bounds(screen.width, screen.height).theme(theme).build();\n";
-    } else if (node.type == NodeType::DatePicker || node.type == NodeType::TimePicker || node.type == NodeType::ColorPicker ||
-               node.type == NodeType::Dialog || node.type == NodeType::Sidebar || node.type == NodeType::Toast || node.type == NodeType::ContextMenu) {
-        const std::string stateName = "element_open_" + std::to_string(node.uid);
-        code << pad << "static eui::Signal<bool> " << stateName << "{false};\n"
-             << pad << "components::button(ui, \"" << id << ".trigger\")" << pos << size << ".theme(theme, false)\n"
+             << ".theme(" << nodeTheme << ", false).text(\"Hover for tooltip\").build();\n";
+    } else if (isStatefulOverlay(node.type)) {
+        const std::string stateName = overlayStateName(node);
+        code << pad << "components::button(ui, \"" << id << ".trigger\")" << pos << size << ".theme(" << nodeTheme << ", false)\n"
              << childPad << ".text(\"Open " << typeName(node.type) << "\").onClick([] { " << stateName << ".set(true); }).build();\n";
-        if (node.type == NodeType::DatePicker) {
-            code << pad << "components::datePicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 270.0f)\n"
-                 << childPad << ".theme(theme).date(" << node.year << ", " << node.month << ", " << node.day << ").bindOpen(" << stateName << ")\n"
-                 << childPad << ".onChange([](int, int, int) {}).build();\n";
-        } else if (node.type == NodeType::TimePicker) {
-            code << pad << "components::timePicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(330.0f, 264.0f)\n"
-                 << childPad << ".theme(theme).time(" << node.hour << ", " << node.minute << ").minuteStep(" << node.minuteStep << ").bindOpen(" << stateName << ")\n"
-                 << childPad << ".onChange([](int, int) {}).build();\n";
-        } else if (node.type == NodeType::ColorPicker) {
-            code << pad << "static eui::Color element_color_" << node.uid << "{" << number(node.color.r) << ", " << number(node.color.g)
-                 << ", " << number(node.color.b) << ", " << number(node.color.a) << "};\n"
-                 << pad << "components::colorPicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 320.0f)\n"
-                 << childPad << ".theme(theme).value(element_color_" << node.uid << ").bindOpen(" << stateName << ")\n"
-                 << childPad << ".onChange([](eui::Color value) { element_color_" << node.uid << " = value; }).build();\n";
-        } else if (node.type == NodeType::Dialog) {
-            code << pad << "components::dialog(ui, \"" << id << "\").screen(screen.width, screen.height).size(430.0f, 228.0f)\n"
-                 << childPad << ".theme(theme).title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText) << "\").bindOpen(" << stateName << ")\n"
-                 << childPad << ".primaryText(\"" << escape(node.primaryText) << "\").secondaryText(\""
-                 << escape(node.secondaryText) << "\").onPrimary([] { " << stateName << ".set(false); }).build();\n";
-        } else if (node.type == NodeType::Sidebar) {
-            code << pad << "components::sidebar(ui, \"" << id << "\").size(screen.width, screen.height).drawerWidth("
-                 << number(node.drawerWidth) << ").theme(theme).title(\""
-                 << escape(node.text) << "\").eyebrow(\"" << escape(node.eyebrowText) << "\").bindOpen(" << stateName << ")\n"
-                 << childPad << ".content([](eui::Ui& ui, float width, float height) { ui.text(\"" << id
-                 << ".body\").size(width, height).text(\"" << escape(node.messageText) << "\").build(); }).build();\n";
-        } else if (node.type == NodeType::Toast) {
-            code << pad << "components::toast(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 110.0f)\n"
-                 << childPad << ".theme(theme).title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText)
-                 << "\").duration(" << number(node.toastDuration) << ")";
-            if (node.icon != 0) code << ".icon(" << node.icon << ")";
-            code << ".bindVisible(" << stateName << ").build();\n";
-        } else {
-            code << pad << "components::contextMenu(ui, \"" << id << "\").screen(screen.width, screen.height).position("
-                 << number(node.x) << ", " << number(node.y + node.height) << ").theme(theme).items(" << stringList(node.itemsText) << ")\n"
-                 << childPad << ".bindOpen(" << stateName << ").onSelect([](int) {}).build();\n";
-        }
     } else {
         code << pad << "#error Unsupported EUI Designer node type\n";
+    }
+}
+
+void generateOverlay(std::ostringstream& code, const std::vector<Node>& nodes, const Node& node, int level) {
+    if (!isOverlay(node.type)) return;
+    const std::string pad = indentation(level);
+    const std::string childPad = indentation(level + 1);
+    const std::string id = escape(node.id.empty() ? "element_" + std::to_string(node.uid) : node.id);
+    const std::string nodeTheme = "componentTheme(" + color(node.color) + ")";
+    const eui::Vec2 absolute = absolutePosition(nodes, node);
+
+    if (node.type == NodeType::Tooltip) {
+        code << pad << "components::tooltip(ui, \"" << id << "\").source(\"" << id << ".source\")\n"
+             << childPad << ".value(\"" << escape(node.text) << "\").anchor("
+             << number(absolute.x + node.width * 0.5f) << ", " << number(absolute.y) << ")\n"
+             << childPad << ".bounds(screen.width, screen.height).theme(" << nodeTheme << ").build();\n";
+        return;
+    }
+
+    const std::string stateName = overlayStateName(node);
+    if (node.type == NodeType::DatePicker) {
+        code << pad << "components::datePicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 270.0f)\n"
+             << childPad << ".theme(" << nodeTheme << ").date(" << node.year << ", " << node.month << ", " << node.day << ").bindOpen(" << stateName << ")\n"
+             << childPad << ".onChange([](int, int, int) {}).build();\n";
+    } else if (node.type == NodeType::TimePicker) {
+        code << pad << "components::timePicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(330.0f, 264.0f)\n"
+             << childPad << ".theme(" << nodeTheme << ").time(" << node.hour << ", " << node.minute << ").minuteStep(" << node.minuteStep << ").bindOpen(" << stateName << ")\n"
+             << childPad << ".onChange([](int, int) {}).build();\n";
+    } else if (node.type == NodeType::ColorPicker) {
+        code << pad << "static eui::Color element_color_" << node.uid << "{" << number(node.color.r) << ", " << number(node.color.g)
+             << ", " << number(node.color.b) << ", " << number(node.color.a) << "};\n"
+             << pad << "components::colorPicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 320.0f)\n"
+             << childPad << ".theme(" << nodeTheme << ").colors(std::vector<eui::Color>{{0.0f, 0.0f, 0.0f, 1.0f}, "
+             << "{1.0f, 1.0f, 1.0f, 1.0f}, {0.16f, 0.48f, 0.94f, 1.0f}, {0.12f, 0.68f, 0.5f, 1.0f}, "
+             << "{0.95f, 0.65f, 0.12f, 1.0f}, {0.9f, 0.24f, 0.42f, 1.0f}, {0.63f, 0.34f, 0.92f, 1.0f}})\n"
+             << childPad << ".value(element_color_" << node.uid << ").bindOpen(" << stateName << ")\n"
+             << childPad << ".onChange([](eui::Color value) { element_color_" << node.uid << " = value; }).build();\n";
+    } else if (node.type == NodeType::Dialog) {
+        code << pad << "components::dialog(ui, \"" << id << "\").screen(screen.width, screen.height).size(430.0f, 228.0f)\n"
+             << childPad << ".theme(" << nodeTheme << ").title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText) << "\").bindOpen(" << stateName << ")\n"
+             << childPad << ".primaryText(\"" << escape(node.primaryText) << "\").secondaryText(\""
+             << escape(node.secondaryText) << "\").onPrimary([] { " << stateName << ".set(false); }).build();\n";
+    } else if (node.type == NodeType::Sidebar) {
+        code << pad << "components::sidebar(ui, \"" << id << "\").size(screen.width, screen.height).drawerWidth("
+             << number(node.drawerWidth) << ").theme(" << nodeTheme << ").title(\""
+             << escape(node.text) << "\").eyebrow(\"" << escape(node.eyebrowText) << "\").bindOpen(" << stateName << ")\n"
+             << childPad << ".content([](eui::Ui& ui, float width, float height) { ui.text(\"" << id
+             << ".body\").size(width, height).text(\"" << escape(node.messageText)
+             << "\").fontSize(18.0f).color({0.08f, 0.1f, 0.14f, 1.0f}).build(); }).build();\n";
+    } else if (node.type == NodeType::Toast) {
+        code << pad << "components::toast(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 110.0f)\n"
+             << childPad << ".theme(" << nodeTheme << ").title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText)
+             << "\").duration(" << number(node.toastDuration) << ")";
+        if (node.icon != 0) code << ".icon(" << node.icon << ")";
+        code << ".bindVisible(" << stateName << ").build();\n";
+    } else if (node.type == NodeType::ContextMenu) {
+        code << pad << "components::contextMenu(ui, \"" << id << "\").screen(screen.width, screen.height).position("
+             << number(absolute.x) << ", " << number(absolute.y + node.height) << ").size(" << number(node.width) << ", "
+             << number(node.height) << ").theme(" << nodeTheme << ").items(" << stringList(node.itemsText) << ")\n"
+             << childPad << ".bindOpen(" << stateName << ").onSelect([](int) {}).build();\n";
     }
 }
 
@@ -491,12 +562,24 @@ std::string generatedCode(const CodegenDocument& document) {
          << ");\n    return config;\n}\n\n"
          << "void compose(eui::Ui& ui, const eui::Screen& screen) {\n"
          << "    const auto theme = components::theme::light();\n"
-         << "    ui.rect(\"page.background\").size(screen.width, screen.height).color({"
+         << "    const auto componentTheme = [&](const eui::Color& primary) {\n"
+         << "        auto value = theme;\n"
+         << "        value.primary = primary;\n"
+         << "        return value;\n"
+         << "    };\n";
+    for (const Node& node : document.nodes) {
+        if (isStatefulOverlay(node.type)) {
+            code << "    static eui::Signal<bool> " << overlayStateName(node) << "{false};\n";
+        }
+    }
+    code << "    ui.rect(\"page.background\").size(screen.width, screen.height).color({"
          << number(document.background.r) << ", " << number(document.background.g) << ", "
          << number(document.background.b) << ", " << number(document.background.a) << "}).build();\n\n";
     for (const Node& node : document.nodes) {
         if (node.parentUid < 0 || !findNode(document.nodes, node.parentUid)) generateNode(code, document.nodes, node, 1);
     }
+    code << "\n";
+    for (const Node& node : document.nodes) generateOverlay(code, document.nodes, node, 1);
     code << "}\n\n} // namespace app\n";
     return code.str();
 }

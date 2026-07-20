@@ -285,6 +285,8 @@ Handle createWindow(const WindowCreateRequest& request) {
         shareContext = static_cast<GLFWwindow*>(request.parent);
     }
     glfwWindowHint(GLFW_RESIZABLE, request.resizable ? GLFW_TRUE : GLFW_FALSE);
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, request.highDpi ? GLFW_TRUE : GLFW_FALSE);
+    glfwWindowHint(GLFW_SCALE_FRAMEBUFFER, request.highDpi ? GLFW_TRUE : GLFW_FALSE);
 
     return glfwCreateWindow(
         request.width,

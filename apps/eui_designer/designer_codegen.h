@@ -29,6 +29,7 @@ struct Node {
     std::string valueText;
     std::string prefixText;
     std::string eyebrowText = "MENU";
+    std::string fontFamily;
     float x = 40.0f;
     float y = 40.0f;
     float width = 180.0f;
@@ -69,6 +70,7 @@ struct Node {
     float maxScrollStep = 120.0f;
     float margin = 0.0f;
     float toastDuration = 4.0f;
+    float lineHeight = 23.4f;
     eui::Color color{0.16f, 0.48f, 0.94f, 1.0f};
     eui::Color gradientColor{0.12f, 0.68f, 0.50f, 1.0f};
     eui::Color borderColor{0.12f, 0.14f, 0.18f, 0.55f};
@@ -91,6 +93,7 @@ struct Node {
     int numberBase = 10;
     int digits = 0;
     int bitWidth = 0;
+    int fontWeight = 700;
     unsigned int icon = 0;
     long long minimum = 0;
     long long maximum = 100;
@@ -110,6 +113,7 @@ struct Node {
     bool disabled = false;
     bool showBasePrefix = false;
     bool uppercase = false;
+    bool wrapText = false;
 };
 
 struct CodegenDocument {

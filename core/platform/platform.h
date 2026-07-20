@@ -48,6 +48,7 @@ bool repairCurrentWorkingDirectory();
 bool openUrl(const std::string& url);
 CommandResult executeCommand(const std::string& command);
 bool launchDetached(const std::string& executable);
+bool terminateProcessesByExecutablePrefix(const std::string& prefix);
 FileDialogResult openFileDialog(const FileDialogOptions& options = {});
 std::string chooseFile(const FileDialogOptions& options = {});
 std::vector<std::string> chooseFiles(const FileDialogOptions& options = {});
