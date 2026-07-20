@@ -36,8 +36,18 @@ struct FileDialogResult {
     }
 };
 
+struct CommandResult {
+    bool started = false;
+    int exitCode = -1;
+    std::string output;
+
+    bool succeeded() const { return started && exitCode == 0; }
+};
+
 bool repairCurrentWorkingDirectory();
 bool openUrl(const std::string& url);
+CommandResult executeCommand(const std::string& command);
+bool launchDetached(const std::string& executable);
 FileDialogResult openFileDialog(const FileDialogOptions& options = {});
 std::string chooseFile(const FileDialogOptions& options = {});
 std::vector<std::string> chooseFiles(const FileDialogOptions& options = {});

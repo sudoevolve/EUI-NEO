@@ -235,12 +235,6 @@ std::string trimTrailingWhitespace(std::string value) {
     return value;
 }
 
-struct CommandResult {
-    bool started = false;
-    int exitCode = -1;
-    std::string output;
-};
-
 int decodeProcessExitCode(int status) {
     if (status < 0) {
         return -1;
@@ -262,7 +256,10 @@ CommandResult runCommand(const std::string& command) {
     }
 
 #if defined(_WIN32)
-    FILE* pipe = _popen(command.c_str(), "r");
+    // cmd.exe strips the first pair of quotes when the executable path itself is quoted.
+    // Wrapping the complete command preserves paths such as C:\Program Files\... .
+    const std::string wrappedCommand = "\"" + command + "\"";
+    FILE* pipe = _popen(wrappedCommand.c_str(), "r");
 #else
     FILE* pipe = popen(command.c_str(), "r");
 #endif
@@ -603,6 +600,24 @@ bool openUrl(const std::string& url) {
     return std::system(command.c_str()) == 0;
 #else
     const std::string command = "xdg-open " + shellQuote(url) + " >/dev/null 2>&1 &";
+    return std::system(command.c_str()) == 0;
+#endif
+}
+
+CommandResult executeCommand(const std::string& command) {
+    return runCommand(command);
+}
+
+bool launchDetached(const std::string& executable) {
+    if (executable.empty()) return false;
+#if defined(_WIN32)
+    HINSTANCE result = ShellExecuteA(nullptr, "open", executable.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    return reinterpret_cast<std::intptr_t>(result) > 32;
+#elif defined(__APPLE__)
+    const std::string command = "open " + shellQuote(executable) + " >/dev/null 2>&1 &";
+    return std::system(command.c_str()) == 0;
+#else
+    const std::string command = shellQuote(executable) + " >/dev/null 2>&1 &";
     return std::system(command.c_str()) == 0;
 #endif
 }
