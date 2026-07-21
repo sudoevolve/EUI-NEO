@@ -46,6 +46,7 @@ struct DesignerState {
     bool backgroundPickerOpen = false;
     bool elementPickerOpen = false;
     int elementColorTarget = 0;
+    std::string elementStyleColorKey;
     int previewOverlayUid = -1;
     float screenWidth = 0.0f;
     float screenHeight = 0.0f;
@@ -104,6 +105,307 @@ components::theme::ThemeColorTokens canvasTheme(const eui::Color& accent) {
     auto tokens = components::theme::light();
     tokens.primary = accent;
     return tokens;
+}
+
+const eui::Color* findStyleColor(const Node& node, const std::string& name) {
+    const auto found = std::find_if(node.styleColors.begin(), node.styleColors.end(), [&](const auto& entry) {
+        return entry.name == name;
+    });
+    return found == node.styleColors.end() ? nullptr : &found->value;
+}
+
+eui::Color styleColor(const Node& node, const std::string& name, eui::Color fallback) {
+    if (const eui::Color* value = findStyleColor(node, name)) return *value;
+    return fallback;
+}
+
+float styleFloat(const Node& node, const std::string& name, float fallback) {
+    const auto found = std::find_if(node.styleFloats.begin(), node.styleFloats.end(), [&](const auto& entry) {
+        return entry.name == name;
+    });
+    return found == node.styleFloats.end() ? fallback : found->value;
+}
+
+std::string styleString(const Node& node, const std::string& name, const std::string& fallback) {
+    const auto found = std::find_if(node.styleStrings.begin(), node.styleStrings.end(), [&](const auto& entry) {
+        return entry.name == name;
+    });
+    return found == node.styleStrings.end() ? fallback : found->value;
+}
+
+void setStyleColor(Node& node, std::string name, eui::Color value) {
+    for (auto& entry : node.styleColors) {
+        if (entry.name == name) { entry.value = value; return; }
+    }
+    node.styleColors.push_back({std::move(name), value});
+}
+
+void setStyleFloat(Node& node, std::string name, float value) {
+    for (auto& entry : node.styleFloats) {
+        if (entry.name == name) { entry.value = value; return; }
+    }
+    node.styleFloats.push_back({std::move(name), value});
+}
+
+void setStyleString(Node& node, std::string name, std::string value) {
+    for (auto& entry : node.styleStrings) {
+        if (entry.name == name) { entry.value = std::move(value); return; }
+    }
+    node.styleStrings.push_back({std::move(name), std::move(value)});
+}
+
+template <typename Style>
+Style applyStyleColors(const Node& node, Style style,
+                       std::initializer_list<std::pair<const char*, eui::Color Style::*>> fields) {
+    for (const auto& [name, member] : fields) {
+        if (const eui::Color* value = findStyleColor(node, name)) style.*member = *value;
+    }
+    return style;
+}
+
+template <typename Style>
+Style applyStyleFloats(const Node& node, Style style,
+                       std::initializer_list<std::pair<const char*, float Style::*>> fields) {
+    for (const auto& [name, member] : fields) style.*member = styleFloat(node, name, style.*member);
+    return style;
+}
+
+template <typename Style>
+Style applyStyleStrings(const Node& node, Style style,
+                        std::initializer_list<std::pair<const char*, std::string Style::*>> fields) {
+    for (const auto& [name, member] : fields) style.*member = styleString(node, name, style.*member);
+    return style;
+}
+
+template <typename Style>
+Style applyStyleShadow(const Node& node, Style style, core::Shadow Style::* member) {
+    if (node.componentShadowOverride) {
+        style.*member = {node.shadowEnabled, {node.shadowOffsetX, node.shadowOffsetY},
+                         node.shadowBlur, node.shadowSpread, node.shadowColor, node.insetShadow};
+    }
+    return style;
+}
+
+struct StyleColorField { std::string key; std::string label; eui::Color value; };
+struct StyleFloatField { std::string key; std::string label; float value; };
+struct StyleStringField { std::string key; std::string label; std::string value; };
+struct ComponentStyleFields {
+    std::vector<StyleColorField> colors;
+    std::vector<StyleFloatField> floats;
+    std::vector<StyleStringField> strings;
+    bool hasShadow = false;
+};
+
+ComponentStyleFields componentStyleFields(const Node& node) {
+    ComponentStyleFields result;
+    const auto theme = canvasTheme(node.color);
+#define EUI_STYLE_COLOR(field, labelText) result.colors.push_back({#field, labelText, style.field})
+#define EUI_STYLE_FLOAT(keyText, field, labelText) result.floats.push_back({keyText, labelText, style.field})
+    switch (node.type) {
+    case NodeType::Button: {
+        components::ButtonStyle style(canvasTheme(node.color));
+        EUI_STYLE_COLOR(normal, "Normal"); EUI_STYLE_COLOR(hover, "Hover"); EUI_STYLE_COLOR(pressed, "Pressed");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(icon, "Icon"); break;
+    }
+    case NodeType::Scroll: case NodeType::ScrollView: case NodeType::VirtualList: {
+        components::ScrollStyle style(theme);
+        EUI_STYLE_COLOR(track, "Track"); EUI_STYLE_COLOR(thumb, "Thumb");
+        EUI_STYLE_COLOR(thumbHover, "Thumb hover"); EUI_STYLE_COLOR(thumbPressed, "Thumb pressed");
+        EUI_STYLE_FLOAT("scrollRadius", radius, "Thumb radius"); break;
+    }
+    case NodeType::Input: {
+        components::InputStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(focused, "Focused background");
+        EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_COLOR(focusBorder, "Focus border");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(placeholder, "Placeholder"); EUI_STYLE_COLOR(cursor, "Cursor");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::Checkbox: {
+        components::CheckboxStyle style(theme);
+        EUI_STYLE_COLOR(box, "Box"); EUI_STYLE_COLOR(boxHover, "Box hover"); EUI_STYLE_COLOR(boxPressed, "Box pressed");
+        EUI_STYLE_COLOR(checked, "Checked"); EUI_STYLE_COLOR(checkedHover, "Checked hover"); EUI_STYLE_COLOR(checkedPressed, "Checked pressed");
+        EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_COLOR(mark, "Mark"); EUI_STYLE_COLOR(text, "Text");
+        EUI_STYLE_COLOR(rowHover, "Row hover"); EUI_STYLE_COLOR(rowPressed, "Row pressed");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); break;
+    }
+    case NodeType::Radio: {
+        components::RadioStyle style(theme);
+        EUI_STYLE_COLOR(outer, "Outer"); EUI_STYLE_COLOR(outerHover, "Outer hover"); EUI_STYLE_COLOR(selected, "Selected");
+        EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(rowHover, "Row hover");
+        EUI_STYLE_COLOR(rowPressed, "Row pressed"); break;
+    }
+    case NodeType::Switch: {
+        components::SwitchStyle style(theme);
+        EUI_STYLE_COLOR(off, "Off"); EUI_STYLE_COLOR(on, "On"); EUI_STYLE_COLOR(knob, "Knob"); EUI_STYLE_COLOR(text, "Text");
+        EUI_STYLE_COLOR(rowHover, "Row hover"); EUI_STYLE_COLOR(rowPressed, "Row pressed"); break;
+    }
+    case NodeType::Slider: {
+        components::SliderStyle style(theme); EUI_STYLE_COLOR(track, "Track"); EUI_STYLE_COLOR(fill, "Fill"); EUI_STYLE_COLOR(knob, "Knob"); break;
+    }
+    case NodeType::Progress: {
+        components::ProgressStyle style(theme); EUI_STYLE_COLOR(track, "Track"); EUI_STYLE_COLOR(fill, "Fill"); break;
+    }
+    case NodeType::Segmented: {
+        components::SegmentedStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(hover, "Hover"); EUI_STYLE_COLOR(selected, "Selected");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(selectedText, "Selected text"); EUI_STYLE_COLOR(border, "Border"); break;
+    }
+    case NodeType::Stepper: {
+        components::StepperStyle style(theme);
+        EUI_STYLE_COLOR(button, "Button"); EUI_STYLE_COLOR(buttonHover, "Button hover"); EUI_STYLE_COLOR(buttonPressed, "Button pressed");
+        EUI_STYLE_COLOR(buttonDisabled, "Button disabled"); EUI_STYLE_COLOR(field, "Field"); EUI_STYLE_COLOR(fieldBorder, "Field border");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(mutedText, "Muted text"); EUI_STYLE_COLOR(accent, "Accent");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::Tabs: {
+        components::TabsStyle style(theme); EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(hover, "Hover");
+        EUI_STYLE_COLOR(selectedText, "Selected text"); EUI_STYLE_COLOR(indicator, "Indicator"); EUI_STYLE_COLOR(border, "Border"); break;
+    }
+    case NodeType::Dropdown: {
+        components::DropdownStyle style(theme);
+        EUI_STYLE_COLOR(field, "Field"); EUI_STYLE_COLOR(fieldHover, "Field hover"); EUI_STYLE_COLOR(fieldPressed, "Field pressed");
+        EUI_STYLE_COLOR(popup, "Popup"); EUI_STYLE_COLOR(optionHover, "Option hover"); EUI_STYLE_COLOR(optionPressed, "Option pressed");
+        EUI_STYLE_COLOR(selected, "Selected"); EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(mutedText, "Muted text");
+        EUI_STYLE_COLOR(accent, "Accent"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius");
+        result.hasShadow = true; break;
+    }
+    case NodeType::DataTable: {
+        components::DataTableStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(header, "Header"); EUI_STYLE_COLOR(row, "Row");
+        EUI_STYLE_COLOR(rowAlt, "Alternate row"); EUI_STYLE_COLOR(rowHover, "Row hover"); EUI_STYLE_COLOR(text, "Text");
+        EUI_STYLE_COLOR(mutedText, "Muted text"); EUI_STYLE_COLOR(accent, "Accent"); EUI_STYLE_COLOR(border, "Border");
+        EUI_STYLE_COLOR(divider, "Divider"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); break;
+    }
+    case NodeType::LineChart: {
+        components::LineChartStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(title, "Title"); EUI_STYLE_COLOR(label, "Label"); EUI_STYLE_COLOR(grid, "Grid");
+        EUI_STYLE_COLOR(line, "Line"); EUI_STYLE_COLOR(point, "Point"); EUI_STYLE_COLOR(pointHover, "Point hover");
+        EUI_STYLE_COLOR(pointPressed, "Point pressed"); EUI_STYLE_COLOR(tooltipBackground, "Tooltip background");
+        EUI_STYLE_COLOR(tooltipText, "Tooltip text"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius");
+        result.hasShadow = true; break;
+    }
+    case NodeType::BarChart: {
+        components::BarChartStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(title, "Title"); EUI_STYLE_COLOR(label, "Label"); EUI_STYLE_COLOR(grid, "Grid");
+        EUI_STYLE_COLOR(tooltipBackground, "Tooltip background"); EUI_STYLE_COLOR(tooltipText, "Tooltip text"); EUI_STYLE_COLOR(border, "Border");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::PieChart: {
+        components::PieChartStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(title, "Title"); EUI_STYLE_COLOR(tooltipBackground, "Tooltip background");
+        EUI_STYLE_COLOR(tooltipText, "Tooltip text"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius");
+        result.hasShadow = true; break;
+    }
+    case NodeType::Carousel: {
+        components::CarouselStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_COLOR(text, "Text");
+        EUI_STYLE_COLOR(mutedText, "Muted text"); EUI_STYLE_COLOR(overlayTop, "Overlay top"); EUI_STYLE_COLOR(overlayBottom, "Overlay bottom");
+        EUI_STYLE_COLOR(indicator, "Indicator"); EUI_STYLE_COLOR(activeIndicator, "Active indicator");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::Markdown: {
+        components::MarkdownStyle style(theme);
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(heading, "Heading"); EUI_STYLE_COLOR(muted, "Muted"); EUI_STYLE_COLOR(accent, "Accent");
+        EUI_STYLE_COLOR(codeText, "Code text"); EUI_STYLE_COLOR(codeBackground, "Code background");
+        EUI_STYLE_COLOR(quoteBackground, "Quote background"); EUI_STYLE_COLOR(divider, "Divider");
+        EUI_STYLE_FLOAT("bodySize", bodySize, "Body size"); EUI_STYLE_FLOAT("bodyLineHeight", bodyLineHeight, "Body line height");
+        EUI_STYLE_FLOAT("h1Size", h1Size, "H1 size"); EUI_STYLE_FLOAT("h2Size", h2Size, "H2 size"); EUI_STYLE_FLOAT("h3Size", h3Size, "H3 size");
+        EUI_STYLE_FLOAT("codeSize", codeSize, "Code size"); EUI_STYLE_FLOAT("blockGap", blockGap, "Block gap");
+        EUI_STYLE_FLOAT("listIndent", listIndent, "List indent"); EUI_STYLE_FLOAT("codePadding", codePadding, "Code padding");
+        EUI_STYLE_FLOAT("quotePadding", quotePadding, "Quote padding"); EUI_STYLE_FLOAT("tableCellPadding", tableCellPadding, "Cell padding");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius");
+        result.strings.push_back({"fontFamily", "Font family", style.fontFamily});
+        result.strings.push_back({"codeFontFamily", "Code font family", style.codeFontFamily}); break;
+    }
+    case NodeType::DatePicker: {
+        components::DatePickerStyle style(theme);
+        EUI_STYLE_COLOR(backdrop, "Backdrop"); EUI_STYLE_COLOR(surface, "Surface"); EUI_STYLE_COLOR(column, "Column");
+        EUI_STYLE_COLOR(selected, "Selected"); EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(mutedText, "Muted text");
+        EUI_STYLE_COLOR(accent, "Accent"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::TimePicker: {
+        components::TimePickerStyle style(theme);
+        EUI_STYLE_COLOR(backdrop, "Backdrop"); EUI_STYLE_COLOR(surface, "Surface"); EUI_STYLE_COLOR(column, "Column");
+        EUI_STYLE_COLOR(selected, "Selected"); EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(mutedText, "Muted text");
+        EUI_STYLE_COLOR(accent, "Accent"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::ColorPicker: {
+        components::ColorPickerStyle style(theme);
+        EUI_STYLE_COLOR(backdrop, "Backdrop"); EUI_STYLE_COLOR(surface, "Surface"); EUI_STYLE_COLOR(track, "Track");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(mutedText, "Muted text"); EUI_STYLE_COLOR(accent, "Accent");
+        EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_COLOR(knob, "Knob"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::Dialog: {
+        components::DialogStyle style(theme);
+        EUI_STYLE_COLOR(backdrop, "Backdrop"); EUI_STYLE_COLOR(surface, "Surface"); EUI_STYLE_COLOR(border, "Border");
+        EUI_STYLE_COLOR(title, "Title"); EUI_STYLE_COLOR(message, "Message"); EUI_STYLE_COLOR(primary, "Primary"); EUI_STYLE_COLOR(secondary, "Secondary");
+        EUI_STYLE_COLOR(primaryHover, "Primary hover"); EUI_STYLE_COLOR(primaryPressed, "Primary pressed");
+        EUI_STYLE_COLOR(secondaryHover, "Secondary hover"); EUI_STYLE_COLOR(secondaryPressed, "Secondary pressed");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::Toast: {
+        components::ToastStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_COLOR(text, "Text");
+        EUI_STYLE_COLOR(mutedText, "Muted text"); EUI_STYLE_COLOR(accent, "Accent"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::Tooltip: {
+        components::TooltipStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(border, "Border");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::ContextMenu: {
+        components::ContextMenuStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(hover, "Hover"); EUI_STYLE_COLOR(pressed, "Pressed");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(mutedText, "Muted text"); EUI_STYLE_COLOR(border, "Border");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); result.hasShadow = true; break;
+    }
+    case NodeType::Image: {
+        components::ImageStyle style(theme);
+        EUI_STYLE_COLOR(tint, "Tint"); break;
+    }
+    case NodeType::HeartSwitch: {
+        const auto style = components::workshop::heartSwitchStyle(theme);
+        EUI_STYLE_COLOR(heart, "Heart"); EUI_STYLE_COLOR(hover, "Hover"); EUI_STYLE_COLOR(pressed, "Pressed"); break;
+    }
+    case NodeType::NeumorphicButton: {
+        const auto style = components::workshop::neumorphicButtonStyle(theme);
+        EUI_STYLE_COLOR(surface, "Surface"); EUI_STYLE_COLOR(hover, "Hover"); EUI_STYLE_COLOR(pressed, "Pressed");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(pressedText, "Pressed text"); EUI_STYLE_COLOR(border, "Border");
+        EUI_STYLE_COLOR(darkShadow, "Dark shadow"); EUI_STYLE_COLOR(lightShadow, "Light shadow");
+        EUI_STYLE_COLOR(innerDark, "Inner dark"); EUI_STYLE_COLOR(innerLight, "Inner light"); break;
+    }
+    case NodeType::TiltCard: {
+        const auto style = components::workshop::tiltCardStyle(theme);
+        EUI_STYLE_COLOR(surface, "Surface"); EUI_STYLE_COLOR(surfaceTop, "Surface top"); EUI_STYLE_COLOR(accent, "Accent");
+        EUI_STYLE_COLOR(text, "Text"); EUI_STYLE_COLOR(muted, "Muted"); EUI_STYLE_COLOR(border, "Border"); EUI_STYLE_COLOR(shadow, "Shadow");
+        EUI_STYLE_FLOAT("styleRadius", radius, "Style radius"); break;
+    }
+    case NodeType::CardSlider: {
+        components::workshop::CardSliderStyle style(theme);
+        EUI_STYLE_COLOR(background, "Background"); EUI_STYLE_COLOR(overlay, "Overlay"); EUI_STYLE_COLOR(title, "Title");
+        EUI_STYLE_COLOR(subtitle, "Subtitle"); EUI_STYLE_COLOR(description, "Description"); EUI_STYLE_COLOR(accent, "Accent");
+        EUI_STYLE_COLOR(shadow, "Shadow"); EUI_STYLE_FLOAT("styleRadius", radius, "Style radius");
+        result.colors.push_back({"button.normal", "Action normal", style.button.normal});
+        result.colors.push_back({"button.hover", "Action hover", style.button.hover});
+        result.colors.push_back({"button.pressed", "Action pressed", style.button.pressed});
+        result.colors.push_back({"button.text", "Action text", style.button.text});
+        result.colors.push_back({"button.icon", "Action icon", style.button.icon});
+        result.colors.push_back({"button.border.color", "Action border", style.button.border.color});
+        result.floats.push_back({"button.border.width", "Action border width", style.button.border.width});
+        result.floats.push_back({"button.radius", "Action radius", style.button.radius});
+        result.floats.push_back({"button.opacity", "Action opacity", style.button.opacity});
+        result.floats.push_back({"button.pressScale", "Action press scale", style.button.pressScale});
+        result.hasShadow = true;
+        break;
+    }
+    default: break;
+    }
+#undef EUI_STYLE_FLOAT
+#undef EUI_STYLE_COLOR
+    for (auto& field : result.colors) if (const eui::Color* value = findStyleColor(node, field.key)) field.value = *value;
+    for (auto& field : result.floats) field.value = styleFloat(node, field.key, field.value);
+    for (auto& field : result.strings) field.value = styleString(node, field.key, field.value);
+    return result;
 }
 
 std::vector<eui::Color> colorPresets() {
@@ -208,7 +510,7 @@ std::vector<components::NavbarItem> navbarItems(const Node& node) {
     std::vector<components::NavbarItem> result;
     const std::vector<std::string> items = splitList(node.itemsText);
     for (std::size_t index = 0; index < items.size(); ++index) {
-        result.push_back({"item_" + std::to_string(index), items[index], 0xF111, static_cast<int>(index)});
+        result.push_back({"item_" + std::to_string(index), items[index], node.itemIcon, static_cast<int>(index)});
     }
     return result;
 }
@@ -373,10 +675,10 @@ void defaultSize(NodeType type, float& width, float& height) {
     case NodeType::TimePicker: width = 190.0f; height = 44.0f; break;
     case NodeType::ColorPicker: width = 190.0f; height = 44.0f; break;
     case NodeType::DataTable: width = 520.0f; height = 174.0f; break;
-    case NodeType::Dialog: width = 430.0f; height = 228.0f; break;
-    case NodeType::Sidebar: width = 300.0f; height = 620.0f; break;
+    case NodeType::Dialog:
+    case NodeType::Sidebar: width = 180.0f; height = 54.0f; break;
     case NodeType::Navbar: width = 300.0f; height = 620.0f; break;
-    case NodeType::Toast: width = 420.0f; height = 96.0f; break;
+    case NodeType::Toast: width = 180.0f; height = 54.0f; break;
     case NodeType::Tooltip: width = 180.0f; height = 40.0f; break;
     case NodeType::ContextMenu: width = 240.0f; height = 44.0f; break;
     case NodeType::Carousel:
@@ -659,6 +961,7 @@ void addNode(NodeType type) {
         node.labelsText = "Name, State";
         node.itemsText = "Alpha, Ready, Beta, Draft";
     }
+    if (type == NodeType::ColorPicker) node.palette = colorPresets();
     if (type == NodeType::Dialog) node.messageText = "Dialog content";
     else if (type == NodeType::Toast) node.messageText = "Toast message";
     else if (type == NodeType::Sidebar) node.messageText = "Sidebar content";
@@ -1178,6 +1481,8 @@ void composePalette(eui::Ui& ui, float height) {
     }).build();
 }
 
+void composeSelectedComponentPreview(eui::Ui& ui, float canvasWidth, float canvasHeight, float scale);
+
 void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false) {
     const std::string base = "design.node." + std::to_string(node.uid);
     const eui::Vec2 position = nested ? eui::Vec2{node.x, node.y} : absolutePosition(node);
@@ -1186,6 +1491,7 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
     const float width = node.width * scale;
     const float height = node.height * scale;
     const bool selected = node.uid == state.selectedUid;
+    const bool opensComponentPreview = isOverlayPreview(node.type) || node.type == NodeType::Dropdown;
     const eui::Color color = node.color;
     auto host = ui.stack(base).size(width, height);
     if (!nested || !node.participatesInLayout) host.position(x, y);
@@ -1197,8 +1503,13 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
             }
         };
         if (node.type == NodeType::Scroll || node.type == NodeType::ScrollView) {
+            auto scrollStyle = applyStyleFloats(node, applyStyleColors(node, components::ScrollStyle(canvasTheme(node.color)), {
+                {"track", &components::ScrollStyle::track}, {"thumb", &components::ScrollStyle::thumb},
+                {"thumbHover", &components::ScrollStyle::thumbHover}, {"thumbPressed", &components::ScrollStyle::thumbPressed}
+            }), {{"scrollRadius", &components::ScrollStyle::radius}});
             components::scrollView(ui, base + ".scrollView").size(width, height).theme(canvasTheme(node.color))
                 .gap(0.0f).step(node.scrollStep * scale).scrollbarWidth(node.scrollbarWidth * scale)
+                .scrollbarGap(node.scrollbarGap * scale).style(scrollStyle)
                 .content([&](eui::Ui& contentUi, float contentWidth, float viewportHeight) {
                     contentUi.column(base + ".scrollView.content").width(contentWidth).height(core::SizeValue::wrapContent())
                         .minHeight(viewportHeight).padding(node.padding * scale).gap(node.gap * scale)
@@ -1207,9 +1518,14 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
                         .content([&] { composeChildren(contentUi); }).build();
                 }).build();
         } else if (node.type == NodeType::VirtualList) {
+            auto scrollStyle = applyStyleFloats(node, applyStyleColors(node, components::ScrollStyle(canvasTheme(node.color)), {
+                {"track", &components::ScrollStyle::track}, {"thumb", &components::ScrollStyle::thumb},
+                {"thumbHover", &components::ScrollStyle::thumbHover}, {"thumbPressed", &components::ScrollStyle::thumbPressed}
+            }), {{"scrollRadius", &components::ScrollStyle::radius}});
             components::virtualList(ui, base + ".virtualList").size(width, height).theme(canvasTheme(node.color))
                 .itemCount(node.itemCount).rowHeight(node.rowHeight * scale).step(node.scrollStep * scale)
-                .scrollbarWidth(node.scrollbarWidth * scale)
+                .scrollbarWidth(node.scrollbarWidth * scale).scrollbarGap(node.scrollbarGap * scale)
+                .overscanViewports(node.overscanViewports).style(scrollStyle)
                 .row([](eui::Ui& rowUi, const std::string& rowId, std::int64_t index, float rowWidth, float rowHeight) {
                     rowUi.text(rowId + ".text").size(rowWidth, rowHeight).text("Item " + std::to_string(index))
                         .fontSize(13.0f).lineHeight(18.0f).color({0.10f, 0.12f, 0.16f, 1.0f}).verticalAlign(eui::VerticalAlign::Center).build();
@@ -1242,22 +1558,48 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
                 shape.gradient(color, node.gradientColor, node.gradientHorizontal ? core::GradientDirection::Horizontal : core::GradientDirection::Vertical);
             }
             if (node.shadowEnabled) {
-                if (node.insetShadow) shape.insetShadow(node.shadowBlur * scale, node.shadowOffsetX * scale, node.shadowOffsetY * scale, node.shadowColor);
-                else shape.shadow(node.shadowBlur * scale, node.shadowOffsetX * scale, node.shadowOffsetY * scale, node.shadowColor);
+                shape.shadow({true, {node.shadowOffsetX * scale, node.shadowOffsetY * scale}, node.shadowBlur * scale,
+                    node.shadowSpread * scale, node.shadowColor, node.insetShadow});
             }
             shape.build();
         } else if (node.type == NodeType::Card) {
-            auto card = components::card(ui, base + ".card").size(width, height).theme(canvasTheme(node.color))
-                .color(node.color).radius(node.radius * scale).padding(node.padding * scale)
+            components::CardStyle cardStyle(canvasTheme(node.color));
+            if (node.gradientEnabled) {
+                cardStyle.gradient = {true, node.color, node.gradientColor,
+                    node.gradientHorizontal ? core::GradientDirection::Horizontal : core::GradientDirection::Vertical};
+            }
+            auto card = components::card(ui, base + ".card").theme(canvasTheme(node.color))
+                .width(width).style(cardStyle).color(node.color).radius(node.radius * scale).padding(node.padding * scale)
                 .border(node.borderWidth * scale, node.borderColor).opacity(node.opacity);
+            if (node.wrapContentHeight) card.wrapContentHeight();
+            else card.height(height);
             if (node.shadowEnabled) {
                 card.shadow({true, {node.shadowOffsetX * scale, node.shadowOffsetY * scale},
-                    node.shadowBlur * scale, 0.0f, node.shadowColor, false});
+                    node.shadowBlur * scale, node.shadowSpread * scale, node.shadowColor, node.insetShadow});
             } else card.shadow({});
             card.content([&] {}).build();
         } else if (node.type == NodeType::Markdown) {
-            components::markdown(ui, base + ".markdown").size(width, height).theme(canvasTheme(node.color))
-                .markdown(node.text).margin(node.margin * scale).build();
+            auto markdownStyle = applyStyleStrings(node, applyStyleFloats(node, applyStyleColors(node,
+                components::MarkdownStyle(canvasTheme(node.color)), {
+                    {"text", &components::MarkdownStyle::text}, {"heading", &components::MarkdownStyle::heading},
+                    {"muted", &components::MarkdownStyle::muted}, {"accent", &components::MarkdownStyle::accent},
+                    {"codeText", &components::MarkdownStyle::codeText}, {"codeBackground", &components::MarkdownStyle::codeBackground},
+                    {"quoteBackground", &components::MarkdownStyle::quoteBackground}, {"divider", &components::MarkdownStyle::divider}
+                }), {
+                    {"bodySize", &components::MarkdownStyle::bodySize}, {"bodyLineHeight", &components::MarkdownStyle::bodyLineHeight},
+                    {"h1Size", &components::MarkdownStyle::h1Size}, {"h2Size", &components::MarkdownStyle::h2Size},
+                    {"h3Size", &components::MarkdownStyle::h3Size}, {"codeSize", &components::MarkdownStyle::codeSize},
+                    {"blockGap", &components::MarkdownStyle::blockGap}, {"listIndent", &components::MarkdownStyle::listIndent},
+                    {"codePadding", &components::MarkdownStyle::codePadding}, {"quotePadding", &components::MarkdownStyle::quotePadding},
+                    {"tableCellPadding", &components::MarkdownStyle::tableCellPadding}, {"styleRadius", &components::MarkdownStyle::radius}
+                }), {
+                    {"fontFamily", &components::MarkdownStyle::fontFamily}, {"codeFontFamily", &components::MarkdownStyle::codeFontFamily}
+                });
+            auto markdown = components::markdown(ui, base + ".markdown").width(width).theme(canvasTheme(node.color))
+                .markdown(node.text).margin(node.margin * scale).style(markdownStyle);
+            if (node.wrapContentHeight) markdown.wrapContentHeight();
+            else markdown.height(height);
+            markdown.build();
         } else if (node.type == NodeType::Text) {
             ui.text(base + ".text").size(width, height).text(node.text).fontSize(node.fontSize * scale)
                 .fontFamily(node.fontFamily).lineHeight(node.lineHeight * scale).fontWeight(node.fontWeight)
@@ -1266,97 +1608,261 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
                 .horizontalAlign(static_cast<eui::HorizontalAlign>(node.horizontalAlign))
                 .verticalAlign(static_cast<eui::VerticalAlign>(node.verticalAlign)).build();
         } else if (node.type == NodeType::Button) {
+            auto buttonVisualStyle = applyStyleColors(node, components::ButtonStyle(canvasTheme(node.color)), {
+                {"normal", &components::ButtonStyle::normal}, {"hover", &components::ButtonStyle::hover},
+                {"pressed", &components::ButtonStyle::pressed}, {"text", &components::ButtonStyle::text},
+                {"icon", &components::ButtonStyle::icon}
+            });
+            buttonVisualStyle.shadow = node.shadowEnabled
+                ? core::Shadow{true, {node.shadowOffsetX * scale, node.shadowOffsetY * scale}, node.shadowBlur * scale,
+                               node.shadowSpread * scale, node.shadowColor, node.insetShadow}
+                : core::Shadow{};
+            const eui::Color buttonTextColor = findStyleColor(node, "text") ? *findStyleColor(node, "text") : node.foregroundColor;
+            const eui::Color buttonIconColor = findStyleColor(node, "icon") ? *findStyleColor(node, "icon") : buttonTextColor;
             auto button = components::button(ui, base + ".button").size(width, height).text(node.text)
-                .theme(canvasTheme(node.color)).radius(node.radius * scale).fontSize(node.fontSize * scale)
-                .iconSize(node.iconSize * scale).textColor(node.foregroundColor).iconColor(node.foregroundColor)
-                .opacity(node.opacity).disabled(node.disabled).pressScale(node.pressScale)
+                .theme(canvasTheme(node.color)).style(buttonVisualStyle).radius(node.radius * scale).fontSize(node.fontSize * scale)
+                .iconSize(node.iconSize * scale).textColor(buttonTextColor).iconColor(buttonIconColor)
+                .opacity(node.opacity).disabled(node.disabled).preserveFocusOnPress(node.preserveFocusOnPress)
+                .pressScale(node.pressScale)
                 .border(node.borderWidth * scale, node.borderColor);
             if (node.icon != 0) button.icon(node.icon);
-            if (node.shadowEnabled) {
-                button.shadow(node.shadowBlur * scale, node.shadowOffsetX * scale,
-                    node.shadowOffsetY * scale, node.shadowColor);
-            } else button.shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f});
+            if (node.buttonStyle == 1) {
+                button.colors({node.color.r, node.color.g, node.color.b, 0.0f},
+                    {node.color.r, node.color.g, node.color.b, node.color.a * 0.10f},
+                    {node.color.r, node.color.g, node.color.b, node.color.a * 0.18f})
+                    .textColor(node.color).iconColor(node.color)
+                    .border(1.0f * scale, {node.color.r, node.color.g, node.color.b, node.color.a * 0.78f})
+                    .shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f});
+            } else if (node.buttonStyle == 2) {
+                button.colors({node.color.r, node.color.g, node.color.b, 0.0f},
+                    {node.color.r, node.color.g, node.color.b, node.color.a * 0.08f},
+                    {node.color.r, node.color.g, node.color.b, node.color.a * 0.14f})
+                    .textColor(node.color).iconColor(node.color)
+                    .border(0.0f, {0.0f, 0.0f, 0.0f, 0.0f})
+                    .shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f});
+            }
             button.build();
         } else if (node.type == NodeType::Input) {
+            auto inputStyle = applyStyleShadow(node, applyStyleFloats(node, applyStyleColors(node, components::InputStyle(canvasTheme(node.color)), {
+                {"background", &components::InputStyle::background}, {"focused", &components::InputStyle::focused},
+                {"border", &components::InputStyle::border}, {"focusBorder", &components::InputStyle::focusBorder},
+                {"text", &components::InputStyle::text}, {"placeholder", &components::InputStyle::placeholder},
+                {"cursor", &components::InputStyle::cursor}
+            }), {{"styleRadius", &components::InputStyle::radius}}), &components::InputStyle::shadow);
             components::input(ui, base + ".input").size(width, height).value(node.valueText).placeholder(node.text)
-                .theme(canvasTheme(node.color)).fontSize(node.fontSize * scale).inset(node.inset * scale)
-                .multiline(node.multiline).build();
+                .theme(canvasTheme(node.color)).fontFamily(node.fontFamily).fontSize(node.fontSize * scale).inset(node.inset * scale)
+                .multiline(node.multiline).style(inputStyle).build();
         } else if (node.type == NodeType::Checkbox) {
+            auto checkboxStyle = applyStyleFloats(node, applyStyleColors(node, components::CheckboxStyle(canvasTheme(node.color)), {
+                {"box", &components::CheckboxStyle::box}, {"boxHover", &components::CheckboxStyle::boxHover},
+                {"boxPressed", &components::CheckboxStyle::boxPressed}, {"checked", &components::CheckboxStyle::checked},
+                {"checkedHover", &components::CheckboxStyle::checkedHover}, {"checkedPressed", &components::CheckboxStyle::checkedPressed},
+                {"border", &components::CheckboxStyle::border}, {"mark", &components::CheckboxStyle::mark},
+                {"text", &components::CheckboxStyle::text}, {"rowHover", &components::CheckboxStyle::rowHover},
+                {"rowPressed", &components::CheckboxStyle::rowPressed}
+            }), {{"styleRadius", &components::CheckboxStyle::radius}});
             components::checkbox(ui, base + ".checkbox").size(width, height).text(node.text).checked(node.checked)
-                .theme(canvasTheme(node.color)).fontSize(node.fontSize * scale).boxSize(node.controlSize * scale).build();
+                .theme(canvasTheme(node.color)).fontSize(node.fontSize * scale).boxSize(node.controlSize * scale).style(checkboxStyle).build();
         } else if (node.type == NodeType::Radio) {
+            auto radioStyle = applyStyleColors(node, components::RadioStyle(canvasTheme(node.color)), {
+                {"outer", &components::RadioStyle::outer}, {"outerHover", &components::RadioStyle::outerHover},
+                {"selected", &components::RadioStyle::selected}, {"border", &components::RadioStyle::border},
+                {"text", &components::RadioStyle::text}, {"rowHover", &components::RadioStyle::rowHover},
+                {"rowPressed", &components::RadioStyle::rowPressed}
+            });
             components::radio(ui, base + ".radio").size(width, height).text(node.text).selected(node.checked)
-                .theme(canvasTheme(node.color)).fontSize(node.fontSize * scale).dotSize(node.controlSize * scale).build();
+                .theme(canvasTheme(node.color)).fontSize(node.fontSize * scale).dotSize(node.controlSize * scale).style(radioStyle).build();
         } else if (node.type == NodeType::Switch) {
+            auto switchStyle = applyStyleColors(node, components::SwitchStyle(canvasTheme(node.color)), {
+                {"off", &components::SwitchStyle::off}, {"on", &components::SwitchStyle::on},
+                {"knob", &components::SwitchStyle::knob}, {"text", &components::SwitchStyle::text},
+                {"rowHover", &components::SwitchStyle::rowHover}, {"rowPressed", &components::SwitchStyle::rowPressed}
+            });
             components::toggleSwitch(ui, base + ".switch").size(width, height).text(node.text).checked(node.checked)
                 .theme(canvasTheme(node.color)).fontSize(node.fontSize * scale)
-                .trackSize(node.trackWidth * scale, node.trackHeight * scale).build();
+                .trackSize(node.trackWidth * scale, node.trackHeight * scale).style(switchStyle).build();
         } else if (node.type == NodeType::Slider) {
-            components::slider(ui, base + ".slider").size(width, height).value(node.value).theme(canvasTheme(node.color)).build();
+            auto sliderStyle = applyStyleColors(node, components::SliderStyle(canvasTheme(node.color)), {
+                {"track", &components::SliderStyle::track}, {"fill", &components::SliderStyle::fill}, {"knob", &components::SliderStyle::knob}
+            });
+            components::slider(ui, base + ".slider").size(width, height).value(node.value).theme(canvasTheme(node.color)).style(sliderStyle).build();
         } else if (node.type == NodeType::Progress) {
-            components::progress(ui, base + ".progress").size(width, height).value(node.value).theme(canvasTheme(node.color)).build();
+            auto progressStyle = applyStyleColors(node, components::ProgressStyle(canvasTheme(node.color)), {
+                {"track", &components::ProgressStyle::track}, {"fill", &components::ProgressStyle::fill}
+            });
+            components::progress(ui, base + ".progress").size(width, height).value(node.value).theme(canvasTheme(node.color)).style(progressStyle).build();
         } else if (node.type == NodeType::Segmented) {
+            auto segmentedStyle = applyStyleColors(node, components::SegmentedStyle(canvasTheme(node.color)), {
+                {"background", &components::SegmentedStyle::background}, {"hover", &components::SegmentedStyle::hover},
+                {"selected", &components::SegmentedStyle::selected}, {"text", &components::SegmentedStyle::text},
+                {"selectedText", &components::SegmentedStyle::selectedText}, {"border", &components::SegmentedStyle::border}
+            });
             components::segmented(ui, base + ".segmented").size(width, height).theme(canvasTheme(node.color))
-                .items(splitList(node.itemsText)).selected(node.selectedIndex).fontSize(node.fontSize * scale).build();
+                .items(splitList(node.itemsText)).selected(node.selectedIndex).fontSize(node.fontSize * scale).style(segmentedStyle).build();
         } else if (node.type == NodeType::Stepper) {
+            auto stepperStyle = applyStyleShadow(node, applyStyleFloats(node, applyStyleColors(node, components::StepperStyle(canvasTheme(node.color)), {
+                {"button", &components::StepperStyle::button}, {"buttonHover", &components::StepperStyle::buttonHover},
+                {"buttonPressed", &components::StepperStyle::buttonPressed}, {"buttonDisabled", &components::StepperStyle::buttonDisabled},
+                {"field", &components::StepperStyle::field}, {"fieldBorder", &components::StepperStyle::fieldBorder},
+                {"text", &components::StepperStyle::text}, {"mutedText", &components::StepperStyle::mutedText}, {"accent", &components::StepperStyle::accent}
+            }), {{"styleRadius", &components::StepperStyle::radius}}), &components::StepperStyle::shadow);
             components::stepper(ui, base + ".stepper").size(width, height).theme(canvasTheme(node.color))
                 .value(node.selectedIndex).step(node.step).min(node.minimum).max(node.maximum).base(node.numberBase)
                 .digits(node.digits).bitWidth(node.bitWidth).showBasePrefix(node.showBasePrefix).prefix(node.prefixText)
-                .uppercase(node.uppercase).fontSize(node.fontSize * scale).build();
+                .uppercase(node.uppercase).fontSize(node.fontSize * scale).style(stepperStyle).build();
         } else if (node.type == NodeType::Tabs) {
+            auto tabsStyle = applyStyleColors(node, components::TabsStyle(canvasTheme(node.color)), {
+                {"text", &components::TabsStyle::text}, {"hover", &components::TabsStyle::hover},
+                {"selectedText", &components::TabsStyle::selectedText}, {"indicator", &components::TabsStyle::indicator},
+                {"border", &components::TabsStyle::border}
+            });
             components::tabs(ui, base + ".tabs").size(width, height).theme(canvasTheme(node.color))
-                .items(splitList(node.itemsText)).selected(node.selectedIndex).fontSize(node.fontSize * scale).build();
+                .items(splitList(node.itemsText)).selected(node.selectedIndex).fontSize(node.fontSize * scale).style(tabsStyle).build();
         } else if (node.type == NodeType::Dropdown) {
+            auto dropdownStyle = applyStyleShadow(node, applyStyleFloats(node, applyStyleColors(node, components::DropdownStyle(canvasTheme(node.color)), {
+                {"field", &components::DropdownStyle::field}, {"fieldHover", &components::DropdownStyle::fieldHover},
+                {"fieldPressed", &components::DropdownStyle::fieldPressed}, {"popup", &components::DropdownStyle::popup},
+                {"optionHover", &components::DropdownStyle::optionHover}, {"optionPressed", &components::DropdownStyle::optionPressed},
+                {"selected", &components::DropdownStyle::selected}, {"text", &components::DropdownStyle::text},
+                {"mutedText", &components::DropdownStyle::mutedText}, {"accent", &components::DropdownStyle::accent}, {"border", &components::DropdownStyle::border}
+            }), {{"styleRadius", &components::DropdownStyle::radius}}), &components::DropdownStyle::shadow);
+            const bool previewOpen = state.previewOverlayUid == node.uid;
             components::dropdown(ui, base + ".dropdown").size(width, height).theme(canvasTheme(node.color))
                 .items(splitList(node.itemsText)).selected(node.selectedIndex).placeholder(node.messageText)
-                .itemHeight(node.itemHeight * scale).build();
+                .itemHeight(node.itemHeight * scale).open(previewOpen).zIndex(previewOpen ? 300 : 0)
+                .style(dropdownStyle)
+                .onChange([uid = node.uid](int value) {
+                    if (Node* current = findNode(uid)) current->selectedIndex = value;
+                })
+                .onOpenChange([uid = node.uid](bool open) {
+                    if (!open && state.previewOverlayUid == uid) state.previewOverlayUid = -1;
+                }).build();
         } else if (node.type == NodeType::DataTable) {
+            auto tableStyle = applyStyleFloats(node, applyStyleColors(node, components::DataTableStyle(canvasTheme(node.color)), {
+                {"background", &components::DataTableStyle::background}, {"header", &components::DataTableStyle::header},
+                {"row", &components::DataTableStyle::row}, {"rowAlt", &components::DataTableStyle::rowAlt},
+                {"rowHover", &components::DataTableStyle::rowHover}, {"text", &components::DataTableStyle::text},
+                {"mutedText", &components::DataTableStyle::mutedText}, {"accent", &components::DataTableStyle::accent},
+                {"border", &components::DataTableStyle::border}, {"divider", &components::DataTableStyle::divider}
+            }), {{"styleRadius", &components::DataTableStyle::radius}});
             components::dataTable(ui, base + ".table").size(width, height).theme(canvasTheme(node.color))
-                .columns(splitList(node.labelsText)).rows(tableRows(node)).build();
+                .columns(splitList(node.labelsText)).rows(tableRows(node)).style(tableStyle).build();
         } else if (node.type == NodeType::LineChart) {
+            auto lineStyle = applyStyleShadow(node, applyStyleFloats(node, applyStyleColors(node, components::LineChartStyle(canvasTheme(node.color)), {
+                {"background", &components::LineChartStyle::background}, {"title", &components::LineChartStyle::title}, {"label", &components::LineChartStyle::label},
+                {"grid", &components::LineChartStyle::grid}, {"line", &components::LineChartStyle::line}, {"point", &components::LineChartStyle::point},
+                {"pointHover", &components::LineChartStyle::pointHover}, {"pointPressed", &components::LineChartStyle::pointPressed},
+                {"tooltipBackground", &components::LineChartStyle::tooltipBackground}, {"tooltipText", &components::LineChartStyle::tooltipText},
+                {"border", &components::LineChartStyle::border}
+            }), {{"styleRadius", &components::LineChartStyle::radius}}), &components::LineChartStyle::shadow);
             components::lineChart(ui, base + ".line").size(width, height).theme(canvasTheme(node.color))
-                .title(node.text).values(splitValues(node.valuesText)).labels(splitList(node.labelsText)).build();
+                .title(node.text).values(splitValues(node.valuesText)).labels(splitList(node.labelsText)).style(lineStyle).build();
         } else if (node.type == NodeType::BarChart) {
+            auto barStyle = applyStyleShadow(node, applyStyleFloats(node, applyStyleColors(node, components::BarChartStyle(canvasTheme(node.color)), {
+                {"background", &components::BarChartStyle::background}, {"title", &components::BarChartStyle::title},
+                {"label", &components::BarChartStyle::label}, {"grid", &components::BarChartStyle::grid},
+                {"tooltipBackground", &components::BarChartStyle::tooltipBackground}, {"tooltipText", &components::BarChartStyle::tooltipText},
+                {"border", &components::BarChartStyle::border}
+            }), {{"styleRadius", &components::BarChartStyle::radius}}), &components::BarChartStyle::shadow);
             components::barChart(ui, base + ".bar").size(width, height).theme(canvasTheme(node.color))
-                .title(node.text).values(splitValues(node.valuesText)).labels(splitList(node.labelsText)).build();
+                .title(node.text).values(splitValues(node.valuesText)).labels(splitList(node.labelsText))
+                .colors(node.palette).style(barStyle).build();
         } else if (node.type == NodeType::PieChart) {
+            auto pieStyle = applyStyleShadow(node, applyStyleFloats(node, applyStyleColors(node, components::PieChartStyle(canvasTheme(node.color)), {
+                {"background", &components::PieChartStyle::background}, {"title", &components::PieChartStyle::title},
+                {"tooltipBackground", &components::PieChartStyle::tooltipBackground}, {"tooltipText", &components::PieChartStyle::tooltipText},
+                {"border", &components::PieChartStyle::border}
+            }), {{"styleRadius", &components::PieChartStyle::radius}}), &components::PieChartStyle::shadow);
             components::pieChart(ui, base + ".pie").size(width, height).theme(canvasTheme(node.color))
-                .title(node.text).values(splitValues(node.valuesText)).labels(splitList(node.labelsText)).build();
+                .title(node.text).values(splitValues(node.valuesText)).labels(splitList(node.labelsText))
+                .colors(node.palette).style(pieStyle).build();
         } else if (node.type == NodeType::Navbar) {
             components::navbar(ui, base + ".navbar").size(width, height).theme(canvasTheme(node.color))
-                .compact(node.compact).brand(node.text, 0xF5FD).subtitle(node.messageText)
+                .compact(node.compact).brand(node.text, node.brandIcon).subtitle(node.messageText)
                 .selected(node.selectedIndex).items(navbarItems(node))
-                .footer("Account", 0xF007, [] {}).onChange([](int) {}).build();
+                .footer(node.footerText, node.footerIcon, [] {}).onChange([](int) {}).build();
         } else if (node.type == NodeType::HeartSwitch) {
+            auto heartStyle = applyStyleColors(node, components::workshop::heartSwitchStyle(canvasTheme(node.color)), {
+                {"heart", &components::workshop::HeartSwitchStyle::heart}, {"hover", &components::workshop::HeartSwitchStyle::hover},
+                {"pressed", &components::workshop::HeartSwitchStyle::pressed}
+            });
             components::workshop::heartSwitch(ui, base + ".heart").size(width, height)
-                .theme(canvasTheme(node.color)).checked(node.checked).disabled(node.disabled).build();
+                .theme(canvasTheme(node.color)).style(heartStyle).checked(node.checked).disabled(node.disabled).build();
         } else if (node.type == NodeType::NeumorphicButton) {
+            auto neoStyle = applyStyleColors(node,
+                components::workshop::neumorphicButtonStyle(canvasTheme(node.color)), {
+                    {"surface", &components::workshop::NeumorphicButtonStyle::surface}, {"hover", &components::workshop::NeumorphicButtonStyle::hover},
+                    {"pressed", &components::workshop::NeumorphicButtonStyle::pressed}, {"text", &components::workshop::NeumorphicButtonStyle::text},
+                    {"pressedText", &components::workshop::NeumorphicButtonStyle::pressedText}, {"border", &components::workshop::NeumorphicButtonStyle::border},
+                    {"darkShadow", &components::workshop::NeumorphicButtonStyle::darkShadow}, {"lightShadow", &components::workshop::NeumorphicButtonStyle::lightShadow},
+                    {"innerDark", &components::workshop::NeumorphicButtonStyle::innerDark}, {"innerLight", &components::workshop::NeumorphicButtonStyle::innerLight}
+                });
             components::workshop::neumorphicButton(ui, base + ".neo").size(width, height)
                 .theme(canvasTheme(node.color)).text(node.text).fontSize(node.fontSize * scale)
-                .radius(node.radius * scale).pressScale(node.pressScale).disabled(node.disabled).build();
+                .style(neoStyle).radius(node.radius * scale).pressScale(node.pressScale).disabled(node.disabled).build();
         } else if (node.type == NodeType::TiltCard) {
+            auto tiltStyle = applyStyleFloats(node, applyStyleColors(node,
+                components::workshop::tiltCardStyle(canvasTheme(node.color)), {
+                    {"surface", &components::workshop::TiltCardStyle::surface}, {"surfaceTop", &components::workshop::TiltCardStyle::surfaceTop},
+                    {"accent", &components::workshop::TiltCardStyle::accent}, {"text", &components::workshop::TiltCardStyle::text},
+                    {"muted", &components::workshop::TiltCardStyle::muted}, {"border", &components::workshop::TiltCardStyle::border},
+                    {"shadow", &components::workshop::TiltCardStyle::shadow}
+                }), {{"styleRadius", &components::workshop::TiltCardStyle::radius}});
             components::workshop::tiltCard(ui, base + ".tilt").size(width, height)
-                .theme(canvasTheme(node.color)).title(node.text).subtitle(node.messageText).maxTilt(node.maxTilt).build();
+                .theme(canvasTheme(node.color)).style(tiltStyle).title(node.text).subtitle(node.messageText).maxTilt(node.maxTilt).build();
         } else if (node.type == NodeType::Carousel) {
+            auto carouselStyle = applyStyleShadow(node, applyStyleFloats(node, applyStyleColors(node, components::CarouselStyle(canvasTheme(node.color)), {
+                {"background", &components::CarouselStyle::background}, {"border", &components::CarouselStyle::border},
+                {"text", &components::CarouselStyle::text}, {"mutedText", &components::CarouselStyle::mutedText},
+                {"overlayTop", &components::CarouselStyle::overlayTop}, {"overlayBottom", &components::CarouselStyle::overlayBottom},
+                {"indicator", &components::CarouselStyle::indicator}, {"activeIndicator", &components::CarouselStyle::activeIndicator}
+            }), {{"styleRadius", &components::CarouselStyle::radius}}), &components::CarouselStyle::shadow);
             components::carousel(ui, base + ".carousel").size(width, height).theme(canvasTheme(node.color))
                 .items(carouselItems(node)).index(static_cast<float>(node.selectedIndex))
-                .cardWidthRatio(node.cardWidthRatio).overlap(node.overlap).parallax(node.parallax).build();
+                .cardWidthRatio(node.cardWidthRatio).overlap(node.overlap).parallax(node.parallax).style(carouselStyle).build();
         } else if (node.type == NodeType::CardSlider) {
+            auto cardSliderStyle = applyStyleFloats(node, applyStyleColors(node,
+                components::workshop::CardSliderStyle(canvasTheme(node.color)), {
+                    {"background", &components::workshop::CardSliderStyle::background}, {"overlay", &components::workshop::CardSliderStyle::overlay},
+                    {"title", &components::workshop::CardSliderStyle::title}, {"subtitle", &components::workshop::CardSliderStyle::subtitle},
+                    {"description", &components::workshop::CardSliderStyle::description}, {"accent", &components::workshop::CardSliderStyle::accent},
+                    {"shadow", &components::workshop::CardSliderStyle::shadow}
+                }), {{"styleRadius", &components::workshop::CardSliderStyle::radius}});
+            cardSliderStyle.button.normal = styleColor(node, "button.normal", cardSliderStyle.button.normal);
+            cardSliderStyle.button.hover = styleColor(node, "button.hover", cardSliderStyle.button.hover);
+            cardSliderStyle.button.pressed = styleColor(node, "button.pressed", cardSliderStyle.button.pressed);
+            cardSliderStyle.button.text = styleColor(node, "button.text", cardSliderStyle.button.text);
+            cardSliderStyle.button.icon = styleColor(node, "button.icon", cardSliderStyle.button.icon);
+            cardSliderStyle.button.border.color = styleColor(node, "button.border.color", cardSliderStyle.button.border.color);
+            cardSliderStyle.button.border.width = styleFloat(node, "button.border.width", cardSliderStyle.button.border.width);
+            cardSliderStyle.button.radius = styleFloat(node, "button.radius", cardSliderStyle.button.radius);
+            cardSliderStyle.button.opacity = styleFloat(node, "button.opacity", cardSliderStyle.button.opacity);
+            cardSliderStyle.button.pressScale = styleFloat(node, "button.pressScale", cardSliderStyle.button.pressScale);
+            if (node.componentShadowOverride) {
+                cardSliderStyle.button.shadow = {node.shadowEnabled, {node.shadowOffsetX * scale, node.shadowOffsetY * scale},
+                    node.shadowBlur * scale, node.shadowSpread * scale, node.shadowColor, node.insetShadow};
+            }
             components::workshop::cardSlider(ui, base + ".cardSlider").size(width, height).theme(canvasTheme(node.color))
                 .items(cardSliderItems(node)).currentIndex(node.selectedIndex).duration(node.duration).interval(node.interval)
                 .cardSpacing(node.cardSpacing * scale).autoPlay(node.autoPlay).background(node.backgroundEnabled)
-                .tilt(node.tiltEnabled).build();
+                .tilt(node.tiltEnabled).style(cardSliderStyle).build();
         } else if (node.type == NodeType::MouseArea) {
             components::mouseArea(ui, base + ".mouseArea").size(width, height)
                 .color({node.color.r, node.color.g, node.color.b, 0.18f * node.opacity}).radius(node.radius * scale)
-                .disabled(node.disabled).scrollStep(node.scrollStep * scale).maxScrollStep(node.maxScrollStep * scale)
-                .dragThreshold(node.dragThreshold * scale).onTap([] {}).build();
+                .cursor(node.cursorShape == 0 ? core::CursorShape::Arrow : core::CursorShape::Hand)
+                .disabled(node.disabled).preserveFocusOnPress(node.preserveFocusOnPress)
+                .scrollStep(node.scrollStep * scale).maxScrollStep(node.maxScrollStep * scale)
+                .dragThreshold(node.dragThreshold * scale).suppressClickAfterDrag(node.suppressClickAfterDrag)
+                .onTap([] {}).build();
         } else if (node.type == NodeType::Tooltip) {
             components::button(ui, base + ".tooltip.source").size(width, height)
                 .theme(canvasTheme(node.color), false).text("Hover for tooltip")
                 .onClick([uid = node.uid] { state.selectedUid = uid; }).build();
         } else if (node.type == NodeType::Image) {
-            ui.image(base + ".image").size(width, height).source(node.text).radius(node.radius * scale)
+            auto imageStyle = applyStyleColors(node, components::ImageStyle(canvasTheme(node.color)), {
+                {"tint", &components::ImageStyle::tint}
+            });
+            components::image(ui, base + ".image", imageStyle).size(width, height).source(node.text).radius(node.radius * scale)
                 .opacity(node.opacity).scale(node.scaleX, node.scaleY).rotate(node.rotation * 0.0174532925f).build();
         } else if (node.type == NodeType::Polygon) {
             std::vector<eui::Vec2> points;
@@ -1373,8 +1879,8 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
                 shape.gradient(color, node.gradientColor, node.gradientHorizontal ? core::GradientDirection::Horizontal : core::GradientDirection::Vertical);
             }
             if (node.shadowEnabled) {
-                if (node.insetShadow) shape.insetShadow(node.shadowBlur * scale, node.shadowOffsetX * scale, node.shadowOffsetY * scale, node.shadowColor);
-                else shape.shadow(node.shadowBlur * scale, node.shadowOffsetX * scale, node.shadowOffsetY * scale, node.shadowColor);
+                shape.shadow({true, {node.shadowOffsetX * scale, node.shadowOffsetY * scale}, node.shadowBlur * scale,
+                    node.shadowSpread * scale, node.shadowColor, node.insetShadow});
             }
             shape.build();
         } else if (node.type == NodeType::Svg) {
@@ -1383,7 +1889,8 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
                 .rotate(node.rotation * 0.0174532925f).build();
         } else if (isOverlayPreview(node.type)) {
             components::button(ui, base + ".preview.trigger").size(width, height).text("Open " + std::string(typeName(node.type)))
-                .theme(canvasTheme(node.color)).onClick([uid = node.uid] { state.selectedUid = uid; state.previewOverlayUid = uid; }).build();
+                .fontSize(std::min(22.0f * scale, height * 0.46f)).theme(canvasTheme(node.color), false)
+                .onClick([uid = node.uid] { state.selectedUid = uid; state.previewOverlayUid = uid; }).build();
         } else {
             ui.rect(base + ".component.bg").size(width, height).color({0.93f, 0.95f, 0.98f, 1.0f})
                 .radius(node.radius * scale).border(1.0f, {0.74f, 0.78f, 0.84f, 1.0f}).build();
@@ -1399,10 +1906,11 @@ void composeNodeVisual(eui::Ui& ui, Node& node, float scale, bool nested = false
                 .color(kAccent).radius(2.0f).build();
         }
         components::mouseArea(ui, base + ".drag").size(width, height)
-            .zIndex(node.type == NodeType::Tooltip ? -1 : isLayout(node.type) ? 40 : 50)
-            .color({0.0f, 0.0f, 0.0f, 0.0f}).cursor(core::CursorShape::Hand)
-            .onTap([uid = node.uid] {
+            .zIndex(isLayout(node.type) ? 40 : 50)
+            .color({0.0f, 0.0f, 0.0f, 0.0f}).cursor(core::CursorShape::Hand).suppressClickAfterDrag(true)
+            .onTap([uid = node.uid, opensComponentPreview] {
                 state.selectedUid = uid;
+                if (opensComponentPreview) state.previewOverlayUid = uid;
             })
             .onContextMenu([uid = node.uid](const components::MouseEvent& event) {
                 state.selectedUid = uid;
@@ -1500,10 +2008,11 @@ void composeCanvas(eui::Ui& ui, float width, float height) {
                 if (node.type != NodeType::Tooltip) continue;
                 const eui::Vec2 absolute = absolutePosition(node);
                 const std::string base = "design.node." + std::to_string(node.uid);
-                components::tooltip(ui, base + ".tooltip").source(base + ".tooltip.source")
+                components::tooltip(ui, base + ".tooltip").source(base + ".drag")
                     .value(node.text).anchor((absolute.x + node.width * 0.5f) * scale, absolute.y * scale)
                     .bounds(canvasWidth, canvasHeight).theme(canvasTheme(node.color)).build();
             }
+            composeSelectedComponentPreview(ui, canvasWidth, canvasHeight, scale);
         }).build();
         components::mouseArea(ui, "canvas.resize").position(canvasX + canvasWidth - 10.0f, canvasY + canvasHeight - 10.0f)
             .size(20.0f, 20.0f).zIndex(100).color(kAccent).radius(4.0f).cursor(core::CursorShape::Hand)
@@ -1561,6 +2070,18 @@ void propertyColorSwatch(eui::Ui& ui, const std::string& id, const std::string& 
         .onClick([target] { state.elementColorTarget = target; state.elementPickerOpen = true; }).build();
 }
 
+void propertyStyleColorSwatch(eui::Ui& ui, const std::string& id, const std::string& label, float y,
+                              const eui::Color& color, std::string key) {
+    smallLabel(ui, id + ".label", label, kPanelPadding, y + 8.0f, 92.0f);
+    ui.rect(id + ".swatch").position(112.0f, y).size(kRightWidth - 130.0f, 36.0f)
+        .states(color, color, color).radius(7.0f).border(2.0f, kBorder)
+        .onClick([key = std::move(key)] {
+            state.elementColorTarget = 1000;
+            state.elementStyleColorKey = key;
+            state.elementPickerOpen = true;
+        }).build();
+}
+
 void composeProperties(eui::Ui& ui, float height) {
     ui.stack("properties").position(0.0f, kTopBarHeight).size(kRightWidth, height).content([&] {
         ui.rect("properties.bg").size(kRightWidth, height).color(kPanel).build();
@@ -1568,13 +2089,14 @@ void composeProperties(eui::Ui& ui, float height) {
         components::scrollView(ui, "properties.scroll").size(kRightWidth, height).bind(state.propertiesScroll)
             .theme(designerTheme()).step(46.0f).scrollbarWidth(7.0f).scrollbarGap(5.0f)
             .content([&](eui::Ui& contentUi, float contentWidth, float) {
-        contentUi.stack("properties.content").size(contentWidth, 2600.0f).content([&] {
+        contentUi.stack("properties.content").size(contentWidth, 10000.0f).content([&] {
         eui::Ui& ui = contentUi;
         ui.text("properties.title").position(kPanelPadding, 18.0f).size(250.0f, 30.0f)
             .text(selectedNode() ? "Element properties" : "No element selected").fontSize(20.0f).lineHeight(26.0f)
             .fontWeight(790).color(kText).build();
 
         Node* node = selectedNode();
+        float codeSectionY = 1540.0f;
         if (!node) {
             ui.text("properties.empty").position(kPanelPadding, 64.0f).size(kRightWidth - kPanelPadding * 2.0f, 72.0f)
                 .text("Select an item in the Elements panel or on the canvas. Page properties are available in the top bar.")
@@ -1672,7 +2194,10 @@ void composeProperties(eui::Ui& ui, float height) {
                 propertyNumber(ui, "node.scrollbarWidth", "Scrollbar", componentY + 56.0f,
                     node->scrollbarWidth, 0.0f, 64.0f,
                     [](float value) { if (Node* current = selectedNode()) current->scrollbarWidth = value; });
-                componentY += 104.0f;
+                propertyNumber(ui, "node.scrollbarGap", "Scrollbar gap", componentY + 104.0f,
+                    node->scrollbarGap, 0.0f, 64.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->scrollbarGap = value; });
+                componentY += 152.0f;
             }
             if (node->type == NodeType::VirtualList) {
                 propertyStepper(ui, "node.itemCount", "Items", componentY + 8.0f, node->itemCount, 0, 1000000,
@@ -1683,7 +2208,11 @@ void composeProperties(eui::Ui& ui, float height) {
                     [](float value) { if (Node* current = selectedNode()) current->scrollStep = value; });
                 propertyNumber(ui, "node.listScrollbar", "Scrollbar", componentY + 152.0f, node->scrollbarWidth, 0.0f, 64.0f,
                     [](float value) { if (Node* current = selectedNode()) current->scrollbarWidth = value; });
-                componentY += 200.0f;
+                propertyNumber(ui, "node.listScrollbarGap", "Scrollbar gap", componentY + 200.0f, node->scrollbarGap, 0.0f, 64.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->scrollbarGap = value; });
+                propertyNumber(ui, "node.listOverscan", "Overscan", componentY + 248.0f, node->overscanViewports, 0.0f, 16.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->overscanViewports = value; });
+                componentY += 296.0f;
             }
             if (node->type == NodeType::Segmented || node->type == NodeType::Tabs || node->type == NodeType::Dropdown ||
                 node->type == NodeType::ContextMenu || node->type == NodeType::Carousel || node->type == NodeType::CardSlider ||
@@ -1717,6 +2246,24 @@ void composeProperties(eui::Ui& ui, float height) {
                         if (Node* current = selectedNode(); current && current->uid == uid) current->valuesText = value;
                     });
                 componentY += 76.0f;
+                if (node->type == NodeType::BarChart || node->type == NodeType::PieChart) {
+                    const std::size_t paletteCount = 4;
+                    while (node->palette.size() < paletteCount) node->palette.push_back(kAccent);
+                    for (std::size_t index = 0; index < paletteCount; ++index) {
+                        propertyColorSwatch(ui, "node.chartPalette." + std::to_string(index),
+                            "Palette " + std::to_string(index + 1), componentY,
+                            node->palette[index], 100 + static_cast<int>(index));
+                        componentY += 48.0f;
+                    }
+                }
+            }
+            if (node->type == NodeType::ColorPicker) {
+                for (std::size_t index = 0; index < node->palette.size(); ++index) {
+                    propertyColorSwatch(ui, "node.colorPickerPalette." + std::to_string(index),
+                        "Palette " + std::to_string(index + 1), componentY,
+                        node->palette[index], 100 + static_cast<int>(index));
+                    componentY += 48.0f;
+                }
             }
             if (node->type == NodeType::Carousel) {
                 propertyNumber(ui, "node.cardWidthRatio", "Card ratio", componentY + 8.0f, node->cardWidthRatio, 0.32f, 1.0f,
@@ -1743,6 +2290,13 @@ void composeProperties(eui::Ui& ui, float height) {
                 componentY += 44.0f;
             }
             if (node->type == NodeType::Button) {
+                smallLabel(ui, "node.buttonStyle.label", "Style", kPanelPadding, componentY + 8.0f, 72.0f);
+                ui.stack("node.buttonStyle.wrap").position(92.0f, componentY).size(kRightWidth - 110.0f, 36.0f).content([&] {
+                    components::segmented(ui, "node.buttonStyle").size(kRightWidth - 110.0f, 36.0f).theme(designerTheme())
+                        .items({"Filled", "Outline", "Ghost"}).selected(node->buttonStyle)
+                        .onChange([](int value) { if (Node* current = selectedNode()) current->buttonStyle = value; }).build();
+                }).build();
+                componentY += 48.0f;
                 propertyStepper(ui, "node.buttonIcon", "Icon", componentY + 8.0f, node->icon, 0, 0x10FFFF,
                     [](long long value) { if (Node* current = selectedNode()) current->icon = static_cast<unsigned int>(value); });
                 propertyNumber(ui, "node.buttonIconSize", "Icon size", componentY + 56.0f, node->iconSize, 1.0f, 256.0f,
@@ -1753,6 +2307,10 @@ void composeProperties(eui::Ui& ui, float height) {
                 propertyNumber(ui, "node.pressScale", "Press scale", componentY + 8.0f, node->pressScale, 0.80f, 1.0f,
                     [](float value) { if (Node* current = selectedNode()) current->pressScale = value; });
                 componentY += 48.0f;
+                propertyToggle(ui, "node.buttonPreserveFocus", "Preserve focus on press", componentY,
+                    node->preserveFocusOnPress,
+                    [](bool value) { if (Node* current = selectedNode()) current->preserveFocusOnPress = value; });
+                componentY += 44.0f;
                 propertyNumber(ui, "node.buttonBorder", "Border", componentY + 8.0f, node->borderWidth, 0.0f, 64.0f,
                     [](float value) { if (Node* current = selectedNode()) current->borderWidth = value; });
                 componentY += 48.0f;
@@ -1772,6 +2330,20 @@ void composeProperties(eui::Ui& ui, float height) {
                         [](float value) { if (Node* current = selectedNode()) current->shadowOffsetY = value; });
                     componentY += 144.0f;
                 }
+                propertyToggle(ui, "node.cardGradient", "Gradient", componentY, node->gradientEnabled,
+                    [](bool value) { if (Node* current = selectedNode()) current->gradientEnabled = value; });
+                componentY += 44.0f;
+                if (node->gradientEnabled) {
+                    propertyColorSwatch(ui, "node.cardGradientColor", "Gradient end", componentY, node->gradientColor, 1);
+                    componentY += 48.0f;
+                    smallLabel(ui, "node.cardGradientDirection.label", "Direction", kPanelPadding, componentY + 8.0f, 72.0f);
+                    ui.stack("node.cardGradientDirection.wrap").position(92.0f, componentY).size(kRightWidth - 110.0f, 36.0f).content([&] {
+                        components::segmented(ui, "node.cardGradientDirection").size(kRightWidth - 110.0f, 36.0f).theme(designerTheme())
+                            .items({"Vertical", "Horizontal"}).selected(node->gradientHorizontal ? 1 : 0)
+                            .onChange([](int value) { if (Node* current = selectedNode()) current->gradientHorizontal = value == 1; }).build();
+                    }).build();
+                    componentY += 48.0f;
+                }
             }
             if (node->type == NodeType::Dialog || node->type == NodeType::Toast || node->type == NodeType::Sidebar ||
                 node->type == NodeType::Navbar || node->type == NodeType::TiltCard || node->type == NodeType::Dropdown) {
@@ -1783,7 +2355,30 @@ void composeProperties(eui::Ui& ui, float height) {
                     });
                 componentY += 76.0f;
             }
+            if (node->type == NodeType::Navbar) {
+                propertyStepper(ui, "node.navbarBrandIcon", "Brand icon", componentY + 8.0f,
+                    node->brandIcon, 0, 0x10FFFF,
+                    [](long long value) { if (Node* current = selectedNode()) current->brandIcon = static_cast<unsigned int>(value); });
+                propertyStepper(ui, "node.navbarItemIcon", "Item icon", componentY + 56.0f,
+                    node->itemIcon, 0, 0x10FFFF,
+                    [](long long value) { if (Node* current = selectedNode()) current->itemIcon = static_cast<unsigned int>(value); });
+                componentY += 96.0f;
+                propertyTextInput(ui, "node.navbarFooterText", "Footer", componentY, node->footerText,
+                    [uid = node->uid](const std::string& value) {
+                        if (Node* current = selectedNode(); current && current->uid == uid) current->footerText = value;
+                    });
+                componentY += 76.0f;
+                propertyStepper(ui, "node.navbarFooterIcon", "Footer icon", componentY + 8.0f,
+                    node->footerIcon, 0, 0x10FFFF,
+                    [](long long value) { if (Node* current = selectedNode()) current->footerIcon = static_cast<unsigned int>(value); });
+                componentY += 48.0f;
+            }
             if (node->type == NodeType::Input) {
+                propertyTextInput(ui, "node.inputFontFamily", "Font family", componentY, node->fontFamily,
+                    [uid = node->uid](const std::string& value) {
+                        if (Node* current = selectedNode(); current && current->uid == uid) current->fontFamily = value;
+                    });
+                componentY += 76.0f;
                 propertyTextInput(ui, "node.inputValue", "Value", componentY, node->valueText,
                     [uid = node->uid](const std::string& value) {
                         if (Node* current = selectedNode(); current && current->uid == uid) current->valueText = value;
@@ -1844,6 +2439,21 @@ void composeProperties(eui::Ui& ui, float height) {
                 componentY += 48.0f;
             }
             if (node->type == NodeType::MouseArea) {
+                smallLabel(ui, "node.mouseCursor.label", "Cursor", kPanelPadding, componentY + 8.0f, 72.0f);
+                ui.stack("node.mouseCursor.wrap").position(92.0f, componentY).size(kRightWidth - 110.0f, 36.0f).content([&] {
+                    components::segmented(ui, "node.mouseCursor").size(kRightWidth - 110.0f, 36.0f).theme(designerTheme())
+                        .items({"Arrow", "Hand"}).selected(node->cursorShape)
+                        .onChange([](int value) { if (Node* current = selectedNode()) current->cursorShape = value; }).build();
+                }).build();
+                componentY += 48.0f;
+                propertyToggle(ui, "node.mousePreserveFocus", "Preserve focus on press", componentY,
+                    node->preserveFocusOnPress,
+                    [](bool value) { if (Node* current = selectedNode()) current->preserveFocusOnPress = value; });
+                componentY += 44.0f;
+                propertyToggle(ui, "node.mouseSuppressClick", "Suppress click after drag", componentY,
+                    node->suppressClickAfterDrag,
+                    [](bool value) { if (Node* current = selectedNode()) current->suppressClickAfterDrag = value; });
+                componentY += 44.0f;
                 propertyNumber(ui, "node.mouseScrollStep", "Scroll step", componentY + 8.0f, node->scrollStep, 0.0f, 4096.0f,
                     [](float value) { if (Node* current = selectedNode()) current->scrollStep = value; });
                 propertyNumber(ui, "node.mouseMaxScroll", "Max scroll", componentY + 56.0f, node->maxScrollStep, 0.0f, 4096.0f,
@@ -1856,6 +2466,12 @@ void composeProperties(eui::Ui& ui, float height) {
                 propertyNumber(ui, "node.markdownMargin", "Margin", componentY + 8.0f, node->margin, 0.0f, 512.0f,
                     [](float value) { if (Node* current = selectedNode()) current->margin = value; });
                 componentY += 48.0f;
+            }
+            if (node->type == NodeType::Card || node->type == NodeType::Markdown) {
+                propertyToggle(ui, "node.wrapContentHeight", "Wrap content height", componentY,
+                    node->wrapContentHeight,
+                    [](bool value) { if (Node* current = selectedNode()) current->wrapContentHeight = value; });
+                componentY += 44.0f;
             }
             if (node->type == NodeType::Toast) {
                 propertyStepper(ui, "node.toastIcon", "Icon", componentY + 8.0f, node->icon, 0, 0x10FFFF,
@@ -1922,6 +2538,9 @@ void composeProperties(eui::Ui& ui, float height) {
                     [](bool value) { if (Node* current = selectedNode()) current->shadowEnabled = value; });
                 componentY += 44.0f;
                 if (node->shadowEnabled) {
+                    propertyToggle(ui, "node.cardInsetShadow", "Inset shadow", componentY, node->insetShadow,
+                        [](bool value) { if (Node* current = selectedNode()) current->insetShadow = value; });
+                    componentY += 44.0f;
                     propertyColorSwatch(ui, "node.cardShadowColor", "Shadow color", componentY, node->shadowColor, 3);
                     componentY += 48.0f;
                     propertyNumber(ui, "node.cardShadowBlur", "Shadow blur", componentY + 8.0f, node->shadowBlur, 0.0f, 256.0f,
@@ -2092,6 +2711,58 @@ void composeProperties(eui::Ui& ui, float height) {
                 }).build();
                 componentY += 48.0f;
             }
+            const ComponentStyleFields styleFields = componentStyleFields(*node);
+            if (!styleFields.colors.empty() || !styleFields.floats.empty() || !styleFields.strings.empty() || styleFields.hasShadow) {
+                sectionLabel(ui, "node.componentStyle.label", "COMPONENT STYLE", kPanelPadding, componentY + 4.0f, 180.0f);
+                componentY += 38.0f;
+                for (std::size_t index = 0; index < styleFields.colors.size(); ++index) {
+                    const auto& field = styleFields.colors[index];
+                    propertyStyleColorSwatch(ui, "node.styleColor." + std::to_string(index), field.label,
+                        componentY, field.value, field.key);
+                    componentY += 48.0f;
+                }
+                for (std::size_t index = 0; index < styleFields.floats.size(); ++index) {
+                    const auto& field = styleFields.floats[index];
+                    propertyNumber(ui, "node.styleFloat." + std::to_string(index), field.label, componentY + 8.0f,
+                        field.value, 0.0f, 4096.0f, [key = field.key](float value) {
+                            if (Node* current = selectedNode()) setStyleFloat(*current, key, value);
+                        });
+                    componentY += 48.0f;
+                }
+                for (std::size_t index = 0; index < styleFields.strings.size(); ++index) {
+                    const auto& field = styleFields.strings[index];
+                    propertyTextInput(ui, "node.styleString." + std::to_string(index), field.label, componentY,
+                        field.value, [key = field.key](const std::string& value) {
+                            if (Node* current = selectedNode()) setStyleString(*current, key, value);
+                        });
+                    componentY += 76.0f;
+                }
+                if (styleFields.hasShadow) {
+                    propertyToggle(ui, "node.styleShadowOverride", "Override component shadow", componentY,
+                        node->componentShadowOverride,
+                        [](bool value) { if (Node* current = selectedNode()) current->componentShadowOverride = value; });
+                    componentY += 44.0f;
+                    if (node->componentShadowOverride) {
+                        propertyToggle(ui, "node.styleShadowEnabled", "Shadow enabled", componentY, node->shadowEnabled,
+                            [](bool value) { if (Node* current = selectedNode()) current->shadowEnabled = value; });
+                        componentY += 44.0f;
+                        propertyColorSwatch(ui, "node.styleShadowColor", "Shadow color", componentY, node->shadowColor, 3);
+                        componentY += 48.0f;
+                        propertyNumber(ui, "node.styleShadowBlur", "Shadow blur", componentY + 8.0f, node->shadowBlur, 0.0f, 256.0f,
+                            [](float value) { if (Node* current = selectedNode()) current->shadowBlur = value; });
+                        propertyNumber(ui, "node.styleShadowX", "Shadow X", componentY + 56.0f, node->shadowOffsetX, -512.0f, 512.0f,
+                            [](float value) { if (Node* current = selectedNode()) current->shadowOffsetX = value; });
+                        propertyNumber(ui, "node.styleShadowY", "Shadow Y", componentY + 104.0f, node->shadowOffsetY, -512.0f, 512.0f,
+                            [](float value) { if (Node* current = selectedNode()) current->shadowOffsetY = value; });
+                        componentY += 144.0f;
+                    }
+                }
+            }
+            if (node->shadowEnabled || node->componentShadowOverride) {
+                propertyNumber(ui, "node.shadowSpread", "Shadow spread", componentY + 8.0f, node->shadowSpread, -512.0f, 512.0f,
+                    [](float value) { if (Node* current = selectedNode()) current->shadowSpread = value; });
+                componentY += 48.0f;
+            }
             const float actionsY = std::max(650.0f, componentY + 12.0f);
             if (node->parentUid >= 0) {
                 ui.text("node.parent").position(kPanelPadding, actionsY).size(kRightWidth - kPanelPadding * 2.0f, 24.0f)
@@ -2099,7 +2770,7 @@ void composeProperties(eui::Ui& ui, float height) {
                     .fontSize(12.0f).lineHeight(18.0f).color(kMuted).build();
             }
             float buttonY = actionsY + 32.0f;
-            if (isOverlayPreview(node->type)) {
+            if (isOverlayPreview(node->type) || node->type == NodeType::Dropdown || node->type == NodeType::Tooltip) {
                 components::button(ui, "node.preview").position(kPanelPadding, buttonY).size(kRightWidth - kPanelPadding * 2.0f, 40.0f)
                     .theme(designerTheme()).text("Open component preview").icon(0xF06E)
                     .onClick([uid = node->uid] { state.previewOverlayUid = uid; }).build();
@@ -2108,10 +2779,11 @@ void composeProperties(eui::Ui& ui, float height) {
             components::button(ui, "node.page").position(kPanelPadding, buttonY).size(kRightWidth - kPanelPadding * 2.0f, 38.0f)
                 .theme(designerTheme(), false).text("Deselect element").icon(0xF00D)
                 .onClick([] { state.selectedUid = -1; state.previewOverlayUid = -1; }).build();
+            codeSectionY = buttonY + 58.0f;
         }
 
-        sectionLabel(ui, "code.label", "CODE EXPORT", kPanelPadding, 1540.0f, 180.0f);
-        ui.text("code.note").position(kPanelPadding, 1568.0f).size(kRightWidth - kPanelPadding * 2.0f, 52.0f)
+        sectionLabel(ui, "code.label", "CODE EXPORT", kPanelPadding, codeSectionY, 180.0f);
+        ui.text("code.note").position(kPanelPadding, codeSectionY + 28.0f).size(kRightWidth - kPanelPadding * 2.0f, 52.0f)
             .text("Code is generated only when Copy or Export is pressed, keeping canvas drag updates responsive.")
             .fontSize(12.0f).lineHeight(18.0f).wrap(true).color(kMuted).build();
         }).build();
@@ -2128,7 +2800,19 @@ void composeColorPickers(eui::Ui& ui) {
 
     eui::Color elementColor = kAccent;
     if (const Node* node = selectedNode()) {
-        if (state.elementColorTarget == 1) elementColor = node->gradientColor;
+        if (state.elementColorTarget == 1000) {
+            if (const eui::Color* value = findStyleColor(*node, state.elementStyleColorKey)) elementColor = *value;
+            else {
+                const ComponentStyleFields fields = componentStyleFields(*node);
+                const auto found = std::find_if(fields.colors.begin(), fields.colors.end(), [&](const auto& field) {
+                    return field.key == state.elementStyleColorKey;
+                });
+                if (found != fields.colors.end()) elementColor = found->value;
+            }
+        } else if (state.elementColorTarget >= 100 &&
+            static_cast<std::size_t>(state.elementColorTarget - 100) < node->palette.size()) {
+            elementColor = node->palette[static_cast<std::size_t>(state.elementColorTarget - 100)];
+        } else if (state.elementColorTarget == 1) elementColor = node->gradientColor;
         else if (state.elementColorTarget == 2) elementColor = node->borderColor;
         else if (state.elementColorTarget == 3) elementColor = node->shadowColor;
         else if (state.elementColorTarget == 4) elementColor = node->foregroundColor;
@@ -2139,7 +2823,11 @@ void composeColorPickers(eui::Ui& ui) {
         .theme(designerTheme()).colors(colorPresets()).value(elementColor).open(state.elementPickerOpen && selectedNode() != nullptr)
         .onChange([](eui::Color color) {
             if (Node* node = selectedNode()) {
-                if (state.elementColorTarget == 1) node->gradientColor = color;
+                if (state.elementColorTarget == 1000) setStyleColor(*node, state.elementStyleColorKey, color);
+                else if (state.elementColorTarget >= 100 &&
+                    static_cast<std::size_t>(state.elementColorTarget - 100) < node->palette.size()) {
+                    node->palette[static_cast<std::size_t>(state.elementColorTarget - 100)] = color;
+                } else if (state.elementColorTarget == 1) node->gradientColor = color;
                 else if (state.elementColorTarget == 2) node->borderColor = color;
                 else if (state.elementColorTarget == 3) node->shadowColor = color;
                 else if (state.elementColorTarget == 4) node->foregroundColor = color;
@@ -2149,61 +2837,112 @@ void composeColorPickers(eui::Ui& ui) {
         .onOpenChange([](bool open) { state.elementPickerOpen = open; }).zIndex(510).build();
 }
 
-void composeSelectedComponentPreview(eui::Ui& ui) {
+void composeSelectedComponentPreview(eui::Ui& ui, float canvasWidth, float canvasHeight, float scale) {
     const Node* node = selectedNode();
     if (!node || node->uid != state.previewOverlayUid) return;
     const auto theme = canvasTheme(node->color);
+    const float overlayWidth = std::max(1.0f, canvasWidth);
+    const float overlayHeight = std::max(1.0f, canvasHeight);
     switch (node->type) {
-    case NodeType::DatePicker:
-        components::datePicker(ui, "preview.datePicker").screen(state.screenWidth, state.screenHeight)
-            .size(420.0f, 270.0f).theme(theme).date(node->year, node->month, node->day).open(true)
+    case NodeType::DatePicker: {
+        auto style = applyStyleShadow(*node, applyStyleFloats(*node, applyStyleColors(*node, components::DatePickerStyle(theme), {
+            {"backdrop", &components::DatePickerStyle::backdrop}, {"surface", &components::DatePickerStyle::surface},
+            {"column", &components::DatePickerStyle::column}, {"selected", &components::DatePickerStyle::selected},
+            {"text", &components::DatePickerStyle::text}, {"mutedText", &components::DatePickerStyle::mutedText},
+            {"accent", &components::DatePickerStyle::accent}, {"border", &components::DatePickerStyle::border}
+        }), {{"styleRadius", &components::DatePickerStyle::radius}}), &components::DatePickerStyle::shadow);
+        components::datePicker(ui, "preview.datePicker").screen(overlayWidth, overlayHeight)
+            .size(420.0f * scale, 270.0f * scale).theme(theme).style(style).date(node->year, node->month, node->day).open(true)
             .onChange([](int year, int month, int day) { if (Node* current = selectedNode()) { current->year = year; current->month = month; current->day = day; } })
             .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
-        break;
-    case NodeType::TimePicker:
-        components::timePicker(ui, "preview.timePicker").screen(state.screenWidth, state.screenHeight)
-            .size(330.0f, 264.0f).theme(theme).time(node->hour, node->minute).minuteStep(node->minuteStep).open(true)
+        break; }
+    case NodeType::TimePicker: {
+        auto style = applyStyleShadow(*node, applyStyleFloats(*node, applyStyleColors(*node, components::TimePickerStyle(theme), {
+            {"backdrop", &components::TimePickerStyle::backdrop}, {"surface", &components::TimePickerStyle::surface},
+            {"column", &components::TimePickerStyle::column}, {"selected", &components::TimePickerStyle::selected},
+            {"text", &components::TimePickerStyle::text}, {"mutedText", &components::TimePickerStyle::mutedText},
+            {"accent", &components::TimePickerStyle::accent}, {"border", &components::TimePickerStyle::border}
+        }), {{"styleRadius", &components::TimePickerStyle::radius}}), &components::TimePickerStyle::shadow);
+        components::timePicker(ui, "preview.timePicker").screen(overlayWidth, overlayHeight)
+            .size(330.0f * scale, 264.0f * scale).theme(theme).style(style).time(node->hour, node->minute).minuteStep(node->minuteStep).open(true)
             .onChange([](int hour, int minute) { if (Node* current = selectedNode()) { current->hour = hour; current->minute = minute; } })
             .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
-        break;
-    case NodeType::ColorPicker:
-        components::colorPicker(ui, "preview.colorPicker").screen(state.screenWidth, state.screenHeight)
-            .size(420.0f, 320.0f).theme(theme).colors(colorPresets()).value(node->color).open(true)
+        break; }
+    case NodeType::ColorPicker: {
+        auto style = applyStyleShadow(*node, applyStyleFloats(*node, applyStyleColors(*node, components::ColorPickerStyle(theme), {
+            {"backdrop", &components::ColorPickerStyle::backdrop}, {"surface", &components::ColorPickerStyle::surface},
+            {"track", &components::ColorPickerStyle::track}, {"text", &components::ColorPickerStyle::text},
+            {"mutedText", &components::ColorPickerStyle::mutedText}, {"accent", &components::ColorPickerStyle::accent},
+            {"border", &components::ColorPickerStyle::border}, {"knob", &components::ColorPickerStyle::knob}
+        }), {{"styleRadius", &components::ColorPickerStyle::radius}}), &components::ColorPickerStyle::shadow);
+        components::colorPicker(ui, "preview.colorPicker").screen(overlayWidth, overlayHeight)
+            .size(420.0f * scale, 320.0f * scale).theme(theme).style(style).colors(node->palette).value(node->color).open(true)
             .onChange([uid = node->uid](eui::Color value) { if (Node* current = findNode(uid)) current->color = value; })
             .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
-        break;
-    case NodeType::Dialog:
-        components::dialog(ui, "preview.dialog").screen(state.screenWidth, state.screenHeight)
-            .size(430.0f, 228.0f).theme(theme).title(node->text).message(node->messageText)
+        break; }
+    case NodeType::Dialog: {
+        auto style = applyStyleShadow(*node, applyStyleFloats(*node, applyStyleColors(*node, components::DialogStyle(theme), {
+            {"backdrop", &components::DialogStyle::backdrop}, {"surface", &components::DialogStyle::surface}, {"border", &components::DialogStyle::border},
+            {"title", &components::DialogStyle::title}, {"message", &components::DialogStyle::message}, {"primary", &components::DialogStyle::primary},
+            {"secondary", &components::DialogStyle::secondary}, {"primaryHover", &components::DialogStyle::primaryHover},
+            {"primaryPressed", &components::DialogStyle::primaryPressed}, {"secondaryHover", &components::DialogStyle::secondaryHover},
+            {"secondaryPressed", &components::DialogStyle::secondaryPressed}
+        }), {{"styleRadius", &components::DialogStyle::radius}}), &components::DialogStyle::shadow);
+        components::dialog(ui, "preview.dialog").screen(overlayWidth, overlayHeight)
+            .size(430.0f * scale, 228.0f * scale).theme(theme).style(style).title(node->text).message(node->messageText)
             .primaryText(node->primaryText).secondaryText(node->secondaryText).open(true)
             .onPrimary([] { state.previewOverlayUid = -1; }).onSecondary([] { state.previewOverlayUid = -1; })
             .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
-        break;
+        break; }
     case NodeType::Toast:
         {
-        auto toast = components::toast(ui, "preview.toast").screen(state.screenWidth, state.screenHeight)
-            .size(420.0f, 110.0f).theme(theme).title(node->text).message(node->messageText)
-            .duration(node->toastDuration).visible(true).onDismiss([] { state.previewOverlayUid = -1; });
+        auto style = applyStyleShadow(*node, applyStyleFloats(*node, applyStyleColors(*node, components::ToastStyle(theme), {
+            {"background", &components::ToastStyle::background}, {"border", &components::ToastStyle::border},
+            {"text", &components::ToastStyle::text}, {"mutedText", &components::ToastStyle::mutedText}, {"accent", &components::ToastStyle::accent}
+        }), {{"styleRadius", &components::ToastStyle::radius}}), &components::ToastStyle::shadow);
+        auto toast = components::toast(ui, "preview.toast").screen(overlayWidth, overlayHeight)
+            .size(420.0f * scale, 110.0f * scale).theme(theme).title(node->text).message(node->messageText)
+            .duration(node->toastDuration).visible(true).style(style).onDismiss([] { state.previewOverlayUid = -1; });
         if (node->icon != 0) toast.icon(node->icon);
         toast.build();
         }
         break;
     case NodeType::ContextMenu:
-        components::contextMenu(ui, "preview.contextMenu").screen(state.screenWidth, state.screenHeight)
-            .position(420.0f, 220.0f).size(node->width, node->height).theme(theme)
-            .items(splitList(node->itemsText)).open(true)
+        {
+        const eui::Vec2 absolute = absolutePosition(*node);
+        auto style = applyStyleShadow(*node, applyStyleFloats(*node, applyStyleColors(*node, components::ContextMenuStyle(theme), {
+            {"background", &components::ContextMenuStyle::background}, {"hover", &components::ContextMenuStyle::hover},
+            {"pressed", &components::ContextMenuStyle::pressed}, {"text", &components::ContextMenuStyle::text},
+            {"mutedText", &components::ContextMenuStyle::mutedText}, {"border", &components::ContextMenuStyle::border}
+        }), {{"styleRadius", &components::ContextMenuStyle::radius}}), &components::ContextMenuStyle::shadow);
+        components::contextMenu(ui, "preview.contextMenu").screen(overlayWidth, overlayHeight)
+            .position(absolute.x * scale, (absolute.y + node->height) * scale)
+            .size(node->width * scale, node->height * scale).theme(theme)
+            .items(splitList(node->itemsText)).style(style).open(true)
             .onSelect([](int) { state.previewOverlayUid = -1; })
             .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; }).build();
         break;
+        }
     case NodeType::Sidebar:
-        components::sidebar(ui, "preview.sidebar").size(state.screenWidth, state.screenHeight)
-            .drawerWidth(node->drawerWidth).theme(theme).title(node->text).eyebrow(node->eyebrowText).open(true)
+        components::sidebar(ui, "preview.sidebar").size(overlayWidth, overlayHeight)
+            .drawerWidth(node->drawerWidth * scale).theme(theme).title(node->text).eyebrow(node->eyebrowText).open(true)
             .onOpenChange([](bool open) { if (!open) state.previewOverlayUid = -1; })
             .content([message = node->messageText](eui::Ui& contentUi, float contentWidth, float contentHeight) {
                 contentUi.text("preview.sidebar.body").size(contentWidth, contentHeight).text(message)
                     .fontSize(18.0f).color({0.08f, 0.10f, 0.14f, 1.0f}).build();
             }).build();
         break;
+    case NodeType::Tooltip:
+        {
+        const eui::Vec2 absolute = absolutePosition(*node);
+        auto style = applyStyleShadow(*node, applyStyleFloats(*node, applyStyleColors(*node, components::TooltipStyle(theme), {
+            {"background", &components::TooltipStyle::background}, {"text", &components::TooltipStyle::text}, {"border", &components::TooltipStyle::border}
+        }), {{"styleRadius", &components::TooltipStyle::radius}}), &components::TooltipStyle::shadow);
+        components::tooltip(ui, "preview.tooltip")
+            .value(node->text).anchor((absolute.x + node->width * 0.5f) * scale, absolute.y * scale)
+            .bounds(overlayWidth, overlayHeight).theme(theme).style(style).zIndex(320).build();
+        break;
+        }
     default:
         break;
     }
@@ -2245,7 +2984,6 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
     composeTopBar(ui, screen.width);
     composePalette(ui, bodyHeight);
     composeCanvas(ui, centerWidth, bodyHeight);
-    composeSelectedComponentPreview(ui);
     ui.stack("properties.host").position(screen.width - kRightWidth, 0.0f).size(kRightWidth, screen.height)
         .content([&] { composeProperties(ui, bodyHeight); }).build();
     composeColorPickers(ui);

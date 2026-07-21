@@ -15,6 +15,21 @@ enum class NodeType {
     NeumorphicButton, CardSlider, TiltCard
 };
 
+struct StyleColorOverride {
+    std::string name;
+    eui::Color value;
+};
+
+struct StyleFloatOverride {
+    std::string name;
+    float value = 0.0f;
+};
+
+struct StyleStringOverride {
+    std::string name;
+    std::string value;
+};
+
 struct Node {
     int uid = 0;
     NodeType type = NodeType::Text;
@@ -29,6 +44,7 @@ struct Node {
     std::string valueText;
     std::string prefixText;
     std::string eyebrowText = "MENU";
+    std::string footerText = "Account";
     std::string fontFamily;
     float x = 40.0f;
     float y = 40.0f;
@@ -48,8 +64,11 @@ struct Node {
     float shadowBlur = 16.0f;
     float shadowOffsetX = 0.0f;
     float shadowOffsetY = 6.0f;
+    float shadowSpread = 0.0f;
     float scrollStep = 40.0f;
     float scrollbarWidth = 6.0f;
+    float scrollbarGap = 4.0f;
+    float overscanViewports = 0.5f;
     float rowHeight = 34.0f;
     float cardWidthRatio = 0.78f;
     float overlap = 0.20f;
@@ -76,6 +95,15 @@ struct Node {
     eui::Color borderColor{0.12f, 0.14f, 0.18f, 0.55f};
     eui::Color shadowColor{0.0f, 0.0f, 0.0f, 0.28f};
     eui::Color foregroundColor{0.06f, 0.075f, 0.10f, 1.0f};
+    std::vector<eui::Color> palette{
+        {0.22f, 0.50f, 0.88f, 1.0f},
+        {0.20f, 0.76f, 0.58f, 1.0f},
+        {0.98f, 0.62f, 0.15f, 1.0f},
+        {0.86f, 0.28f, 0.44f, 1.0f}
+    };
+    std::vector<StyleColorOverride> styleColors;
+    std::vector<StyleFloatOverride> styleFloats;
+    std::vector<StyleStringOverride> styleStrings;
     int parentUid = -1;
     int horizontalAlign = 1;
     int verticalAlign = 1;
@@ -94,7 +122,12 @@ struct Node {
     int digits = 0;
     int bitWidth = 0;
     int fontWeight = 700;
+    int buttonStyle = 0;
+    int cursorShape = 1;
     unsigned int icon = 0;
+    unsigned int brandIcon = 0xF5FD;
+    unsigned int itemIcon = 0xF111;
+    unsigned int footerIcon = 0xF007;
     long long minimum = 0;
     long long maximum = 100;
     long long step = 1;
@@ -111,6 +144,10 @@ struct Node {
     bool backgroundEnabled = true;
     bool tiltEnabled = true;
     bool disabled = false;
+    bool preserveFocusOnPress = false;
+    bool suppressClickAfterDrag = false;
+    bool wrapContentHeight = false;
+    bool componentShadowOverride = false;
     bool showBasePrefix = false;
     bool uppercase = false;
     bool wrapText = false;

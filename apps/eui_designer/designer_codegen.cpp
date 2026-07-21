@@ -47,6 +47,110 @@ std::string color(const eui::Color& value) {
            number(value.b) + ", " + number(value.a) + "}";
 }
 
+std::string colorList(const std::vector<eui::Color>& values) {
+    std::ostringstream output;
+    output << "std::vector<eui::Color>{";
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        if (index > 0) output << ", ";
+        output << color(values[index]);
+    }
+    output << "}";
+    return output.str();
+}
+
+eui::Color styleColor(const Node& node, const char* name, eui::Color fallback) {
+    const auto found = std::find_if(node.styleColors.begin(), node.styleColors.end(), [name](const auto& entry) {
+        return entry.name == name;
+    });
+    return found == node.styleColors.end() ? fallback : found->value;
+}
+
+std::string componentStyleCall(const Node& node, const char* styleType, bool supportsShadow = false) {
+    const bool hasShadow = supportsShadow && node.componentShadowOverride;
+    const bool hasButtonShadow = node.type == NodeType::Button;
+    const bool hasCardSliderButtonShadow = node.type == NodeType::CardSlider && node.componentShadowOverride;
+    if (node.styleColors.empty() && node.styleFloats.empty() && node.styleStrings.empty() && !hasShadow && !hasButtonShadow && !hasCardSliderButtonShadow) return {};
+    std::ostringstream output;
+    const std::string themeExpression = "componentTheme(" + color(node.color) + ")";
+    const bool styleFactory = std::string(styleType) == "components::workshop::HeartSwitchStyle" ||
+                              std::string(styleType) == "components::workshop::NeumorphicButtonStyle" ||
+                              std::string(styleType) == "components::workshop::TiltCardStyle";
+    const std::string initializer = !styleFactory ? std::string(styleType) + "(" + themeExpression + ")" :
+        std::string(styleType == std::string("components::workshop::HeartSwitchStyle") ? "components::workshop::heartSwitchStyle" :
+                    styleType == std::string("components::workshop::NeumorphicButtonStyle") ? "components::workshop::neumorphicButtonStyle" :
+                    "components::workshop::tiltCardStyle") + "(" + themeExpression + ")";
+    output << ".style([&] {\n        auto style = " << initializer << ";\n";
+    for (const auto& entry : node.styleColors) output << "        style." << entry.name << " = " << color(entry.value) << ";\n";
+    for (const auto& entry : node.styleFloats) {
+        const char* member = (entry.name == "styleRadius" || entry.name == "scrollRadius") ? "radius" : entry.name.c_str();
+        output << "        style." << member << " = " << number(entry.value) << ";\n";
+    }
+    for (const auto& entry : node.styleStrings) output << "        style." << entry.name << " = \"" << escape(entry.value) << "\";\n";
+    if (hasShadow || hasButtonShadow) {
+        output << "        style.shadow = {" << (node.shadowEnabled ? "true" : "false") << ", {"
+               << number(node.shadowOffsetX) << ", " << number(node.shadowOffsetY) << "}, "
+               << number(node.shadowBlur) << ", " << number(node.shadowSpread) << ", " << color(node.shadowColor) << ", "
+               << (node.insetShadow ? "true" : "false") << "};\n";
+    }
+    if (hasCardSliderButtonShadow) {
+        output << "        style.button.shadow = {" << (node.shadowEnabled ? "true" : "false") << ", {"
+               << number(node.shadowOffsetX) << ", " << number(node.shadowOffsetY) << "}, "
+               << number(node.shadowBlur) << ", " << number(node.shadowSpread) << ", " << color(node.shadowColor) << ", "
+               << (node.insetShadow ? "true" : "false") << "};\n";
+    }
+    output << "        return style;\n    }())";
+    return output.str();
+}
+
+const char* componentStyleType(NodeType type) {
+    switch (type) {
+    case NodeType::Button: return "components::ButtonStyle";
+    case NodeType::Scroll: case NodeType::ScrollView: case NodeType::VirtualList: return "components::ScrollStyle";
+    case NodeType::Input: return "components::InputStyle";
+    case NodeType::Checkbox: return "components::CheckboxStyle";
+    case NodeType::Radio: return "components::RadioStyle";
+    case NodeType::Switch: return "components::SwitchStyle";
+    case NodeType::Slider: return "components::SliderStyle";
+    case NodeType::Progress: return "components::ProgressStyle";
+    case NodeType::Segmented: return "components::SegmentedStyle";
+    case NodeType::Stepper: return "components::StepperStyle";
+    case NodeType::Tabs: return "components::TabsStyle";
+    case NodeType::Dropdown: return "components::DropdownStyle";
+    case NodeType::DataTable: return "components::DataTableStyle";
+    case NodeType::LineChart: return "components::LineChartStyle";
+    case NodeType::BarChart: return "components::BarChartStyle";
+    case NodeType::PieChart: return "components::PieChartStyle";
+    case NodeType::Carousel: return "components::CarouselStyle";
+    case NodeType::Markdown: return "components::MarkdownStyle";
+    case NodeType::DatePicker: return "components::DatePickerStyle";
+    case NodeType::TimePicker: return "components::TimePickerStyle";
+    case NodeType::ColorPicker: return "components::ColorPickerStyle";
+    case NodeType::Dialog: return "components::DialogStyle";
+    case NodeType::Toast: return "components::ToastStyle";
+    case NodeType::Tooltip: return "components::TooltipStyle";
+    case NodeType::ContextMenu: return "components::ContextMenuStyle";
+    case NodeType::Image: return "components::ImageStyle";
+    case NodeType::HeartSwitch: return "components::workshop::HeartSwitchStyle";
+    case NodeType::NeumorphicButton: return "components::workshop::NeumorphicButtonStyle";
+    case NodeType::TiltCard: return "components::workshop::TiltCardStyle";
+    case NodeType::CardSlider: return "components::workshop::CardSliderStyle";
+    default: return nullptr;
+    }
+}
+
+bool componentStyleSupportsShadow(NodeType type) {
+    return type == NodeType::Input || type == NodeType::Stepper || type == NodeType::Dropdown ||
+           type == NodeType::LineChart || type == NodeType::BarChart || type == NodeType::PieChart ||
+           type == NodeType::Carousel || type == NodeType::DatePicker || type == NodeType::TimePicker ||
+           type == NodeType::ColorPicker || type == NodeType::Dialog || type == NodeType::Toast ||
+           type == NodeType::Tooltip || type == NodeType::ContextMenu;
+}
+
+std::string componentStyleCall(const Node& node) {
+    const char* type = componentStyleType(node.type);
+    return type == nullptr ? std::string{} : componentStyleCall(node, type, componentStyleSupportsShadow(node.type));
+}
+
 void generateShapeStyle(std::ostringstream& code, const Node& node, const std::string& pad, bool radius) {
     code << pad << ".color(" << color(node.color) << ")\n";
     if (radius) code << pad << ".radius(" << number(node.radius) << ")\n";
@@ -57,9 +161,9 @@ void generateShapeStyle(std::ostringstream& code, const Node& node, const std::s
              << ")\n";
     }
     if (node.shadowEnabled) {
-        code << pad << (node.insetShadow ? ".insetShadow(" : ".shadow(")
-             << number(node.shadowBlur) << ", " << number(node.shadowOffsetX) << ", "
-             << number(node.shadowOffsetY) << ", " << color(node.shadowColor) << ")\n";
+        code << pad << ".shadow({true, {" << number(node.shadowOffsetX) << ", " << number(node.shadowOffsetY)
+             << "}, " << number(node.shadowBlur) << ", " << number(node.shadowSpread) << ", "
+             << color(node.shadowColor) << ", " << (node.insetShadow ? "true" : "false") << "})\n";
     }
     code << pad << ".blur(" << number(node.blur) << ")\n"
          << pad << ".opacity(" << number(node.opacity) << ")\n"
@@ -142,7 +246,8 @@ std::string navbarItems(const Node& node) {
     const std::vector<std::string> items = splitList(node.itemsText);
     for (std::size_t index = 0; index < items.size(); ++index) {
         if (index > 0) output << ", ";
-        output << "{\"item_" << index << "\", \"" << escape(items[index]) << "\", 0xF111, " << index << "}";
+        output << "{\"item_" << index << "\", \"" << escape(items[index]) << "\", "
+               << node.itemIcon << ", " << index << "}";
     }
     output << "}";
     return output.str();
@@ -304,24 +409,41 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
              << childPad << ".horizontalAlign(" << horizontalAlign(node.horizontalAlign) << ")\n"
              << childPad << ".verticalAlign(" << verticalAlign(node.verticalAlign) << ").build();\n";
     } else if (node.type == NodeType::Button) {
-        code << pad << "components::button(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
+        const eui::Color buttonText = styleColor(node, "text", node.foregroundColor);
+        const eui::Color buttonIcon = styleColor(node, "icon", buttonText);
+        code << pad << "components::button(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")"
+             << componentStyleCall(node) << "\n"
              << childPad << ".text(\"" << escape(node.text) << "\").fontSize(" << number(node.fontSize) << ")\n"
-             << childPad << ".iconSize(" << number(node.iconSize) << ").textColor(" << color(node.foregroundColor)
-             << ").iconColor(" << color(node.foregroundColor) << ")\n";
+             << childPad << ".iconSize(" << number(node.iconSize) << ").textColor(" << color(buttonText)
+             << ").iconColor(" << color(buttonIcon) << ")\n";
         if (node.icon != 0) code << childPad << ".icon(" << node.icon << ")\n";
         code << childPad << ".radius(" << number(node.radius) << ").opacity(" << number(node.opacity)
-             << ").disabled(" << (node.disabled ? "true" : "false") << ").pressScale(" << number(node.pressScale) << ")\n"
+             << ").disabled(" << (node.disabled ? "true" : "false")
+             << ").preserveFocusOnPress(" << (node.preserveFocusOnPress ? "true" : "false")
+             << ").pressScale(" << number(node.pressScale) << ")\n"
              << childPad << ".border(" << number(node.borderWidth) << ", " << color(node.borderColor) << ")\n";
-        if (node.shadowEnabled) {
-            code << childPad << ".shadow(" << number(node.shadowBlur) << ", " << number(node.shadowOffsetX) << ", "
-                 << number(node.shadowOffsetY) << ", " << color(node.shadowColor) << ")\n";
-        } else code << childPad << ".shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f})\n";
+        if (node.buttonStyle == 1) {
+            code << childPad << ".colors({" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b) << ", 0.0f}, "
+                 << "{" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b) << ", " << number(node.color.a * 0.10f) << "}, "
+                 << "{" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b) << ", " << number(node.color.a * 0.18f) << "})\n"
+                 << childPad << ".textColor(" << color(node.color) << ").iconColor(" << color(node.color) << ")\n"
+                 << childPad << ".border(1.0f, {" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b) << ", " << number(node.color.a * 0.78f) << "})\n"
+                 << childPad << ".shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f})\n";
+        } else if (node.buttonStyle == 2) {
+            code << childPad << ".colors({" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b) << ", 0.0f}, "
+                 << "{" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b) << ", " << number(node.color.a * 0.08f) << "}, "
+                 << "{" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b) << ", " << number(node.color.a * 0.14f) << "})\n"
+                 << childPad << ".textColor(" << color(node.color) << ").iconColor(" << color(node.color) << ")\n"
+                 << childPad << ".border(0.0f, {0.0f, 0.0f, 0.0f, 0.0f})\n"
+                 << childPad << ".shadow(0.0f, 0.0f, 0.0f, {0.0f, 0.0f, 0.0f, 0.0f})\n";
+        }
         code << childPad << ".build();\n";
     } else if (node.type == NodeType::Input) {
         code << pad << "components::input(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
              << childPad << ".value(\"" << escape(node.valueText) << "\").placeholder(\"" << escape(node.text)
-             << "\").fontSize(" << number(node.fontSize)
-             << ").inset(" << number(node.inset) << ").multiline(" << (node.multiline ? "true" : "false") << ").build();\n";
+             << "\").fontFamily(\"" << escape(node.fontFamily) << "\").fontSize(" << number(node.fontSize)
+             << ").inset(" << number(node.inset) << ").multiline(" << (node.multiline ? "true" : "false") << ")"
+             << componentStyleCall(node) << ".build();\n";
     } else if (node.type == NodeType::Checkbox || node.type == NodeType::Radio || node.type == NodeType::Switch) {
         const char* factory = node.type == NodeType::Checkbox ? "checkbox" : node.type == NodeType::Radio ? "radio" : "toggleSwitch";
         const char* stateMethod = node.type == NodeType::Radio ? "selected" : "checked";
@@ -332,23 +454,29 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
         if (node.type == NodeType::Checkbox) code << ".boxSize(" << number(node.controlSize) << ")";
         else if (node.type == NodeType::Radio) code << ".dotSize(" << number(node.controlSize) << ")";
         else code << ".trackSize(" << number(node.trackWidth) << ", " << number(node.trackHeight) << ")";
-        code << ".build();\n"
+        code << componentStyleCall(node) << ".build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::Slider || node.type == NodeType::Progress) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::" << (node.type == NodeType::Slider ? "slider" : "progress") << "(ui, \"" << id << "\")"
-             << size << ".theme(" << nodeTheme << ").value(" << number(node.value) << ").build();\n" << pad << "}).build();\n";
+             << size << ".theme(" << nodeTheme << ").value(" << number(node.value) << ")"
+             << componentStyleCall(node) << ".build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::Segmented || node.type == NodeType::Tabs || node.type == NodeType::Dropdown) {
         const char* factory = node.type == NodeType::Segmented ? "segmented" : node.type == NodeType::Tabs ? "tabs" : "dropdown";
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::" << factory << "(ui, \"" << id << "\")" << size
+             << childPad;
+        if (node.type == NodeType::Dropdown) {
+            code << "static eui::Signal<bool> element_dropdown_open_" << node.uid << "{false};\n" << childPad;
+        }
+        code << "components::" << factory << "(ui, \"" << id << "\")" << size
              << ".theme(" << nodeTheme << ").items(" << stringList(node.itemsText) << ").selected(" << node.selectedIndex << ")";
         if (node.type == NodeType::Segmented) code << ".fontSize(" << number(node.fontSize) << ")";
         if (node.type == NodeType::Tabs) code << ".fontSize(" << number(node.fontSize) << ")";
         if (node.type == NodeType::Dropdown) {
-            code << ".placeholder(\"" << escape(node.messageText) << "\").itemHeight(" << number(node.itemHeight) << ")";
+            code << ".placeholder(\"" << escape(node.messageText) << "\").itemHeight(" << number(node.itemHeight)
+                 << ").bindOpen(element_dropdown_open_" << node.uid << ").onChange([](int) {})";
         }
-        code << ".build();\n" << pad << "}).build();\n";
+        code << componentStyleCall(node) << ".build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::Stepper) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::stepper(ui, \"" << id << "\")" << size
@@ -356,13 +484,16 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
              << node.maximum << ").step(" << node.step << ").base(" << node.numberBase << ").digits(" << node.digits
              << ").bitWidth(" << node.bitWidth << ").showBasePrefix(" << (node.showBasePrefix ? "true" : "false")
              << ").prefix(\"" << escape(node.prefixText) << "\").uppercase(" << (node.uppercase ? "true" : "false")
-             << ").fontSize(" << number(node.fontSize) << ").build();\n" << pad << "}).build();\n";
+             << ").fontSize(" << number(node.fontSize) << ")" << componentStyleCall(node)
+             << ".build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::Image || node.type == NodeType::Svg) {
         code << pad << "ui." << (node.type == NodeType::Svg ? "svg" : "image") << "(\"" << id << "\")" << pos << size
              << ".source(\"" << escape(node.text) << "\")\n"
              << childPad << ".radius(" << number(node.radius) << ").opacity(" << number(node.opacity)
              << ").scale(" << number(node.scaleX) << ", " << number(node.scaleY) << ")"
-             << ".rotate(" << number(node.rotation * 0.0174532925f) << ").build();\n";
+             << ".rotate(" << number(node.rotation * 0.0174532925f) << ")";
+        if (node.type == NodeType::Image) code << ".tint(" << color(styleColor(node, "tint", {1.0f, 1.0f, 1.0f, 1.0f})) << ")";
+        code << ".build();\n";
     } else if (node.type == NodeType::Rect || node.type == NodeType::Panel) {
         code << pad << "ui.rect(\"" << id << "\")" << pos << size << "\n";
         generateShapeStyle(code, node, childPad, true);
@@ -381,20 +512,32 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
         code << ".build();\n";
     } else if (node.type == NodeType::Card) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::card(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ").radius("
+             << childPad << "components::card(ui, \"" << id << "\").width(" << number(node.width) << ")"
+             << (node.wrapContentHeight ? ".wrapContentHeight()" : ".height(" + number(node.height) + ")")
+             << ".theme(" << nodeTheme << ")";
+        if (node.gradientEnabled) {
+            code << ".style([&] {\n"
+                 << indentation(level + 3) << "auto style = components::CardStyle(" << nodeTheme << ");\n"
+                 << indentation(level + 3) << "style.gradient = {true, " << color(node.color) << ", " << color(node.gradientColor)
+                 << ", " << (node.gradientHorizontal ? "core::GradientDirection::Horizontal" : "core::GradientDirection::Vertical") << "};\n"
+                 << indentation(level + 3) << "return style;\n" << indentation(level + 2) << "}())";
+        }
+        code << ".radius("
              << number(node.radius) << ").padding(" << number(node.padding) << ").color(" << color(node.color) << ")\n"
              << indentation(level + 2) << ".border(" << number(node.borderWidth) << ", " << color(node.borderColor)
              << ").opacity(" << number(node.opacity) << ")";
         if (node.shadowEnabled) {
             code << ".shadow({true, {" << number(node.shadowOffsetX) << ", " << number(node.shadowOffsetY) << "}, "
-                 << number(node.shadowBlur) << ", 0.0f, " << color(node.shadowColor) << ", false})";
+                 << number(node.shadowBlur) << ", " << number(node.shadowSpread) << ", " << color(node.shadowColor) << ", "
+                 << (node.insetShadow ? "true" : "false") << "})";
         } else code << ".shadow({})";
         code << ".content([&] {}).build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::Scroll || node.type == NodeType::ScrollView) {
         code << pad << "components::scrollView(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
              << childPad << ".gap(0.0f).step(" << number(node.scrollStep)
-             << ").scrollbarWidth(" << number(node.scrollbarWidth) << ")\n"
+             << ").scrollbarWidth(" << number(node.scrollbarWidth) << ").scrollbarGap(" << number(node.scrollbarGap) << ")"
+             << componentStyleCall(node) << "\n"
              << childPad << ".content([&](eui::Ui& ui, float contentWidth, float viewportHeight) {\n"
              << indentation(level + 2) << "ui.column(\"" << id << ".content\").width(contentWidth).height(core::SizeValue::wrapContent())\n"
              << indentation(level + 3) << ".minHeight(viewportHeight).padding(" << number(node.padding) << ").gap(" << number(node.gap) << ")\n"
@@ -409,62 +552,74 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
     } else if (node.type == NodeType::VirtualList) {
         code << pad << "components::virtualList(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
              << childPad << ".itemCount(" << node.itemCount << ").rowHeight(" << number(node.rowHeight)
-             << ").step(" << number(node.scrollStep) << ").scrollbarWidth(" << number(node.scrollbarWidth) << ")\n"
+             << ").step(" << number(node.scrollStep) << ").scrollbarWidth(" << number(node.scrollbarWidth)
+             << ").scrollbarGap(" << number(node.scrollbarGap) << ").overscanViewports(" << number(node.overscanViewports) << ")"
+             << componentStyleCall(node) << "\n"
              << childPad << ".row([](eui::Ui& rowUi, const std::string& rowId, std::int64_t index, float width, float height) {\n"
              << indentation(level + 2) << "rowUi.text(rowId + \".text\").size(width, height).text(\"Item \" + std::to_string(index))\n"
              << indentation(level + 3) << ".fontSize(13.0f).lineHeight(18.0f).color({0.1f, 0.12f, 0.16f, 1.0f})\n"
              << indentation(level + 3) << ".verticalAlign(eui::VerticalAlign::Center).build();\n"
              << childPad << "}).build();\n";
     } else if (node.type == NodeType::Markdown) {
-        code << pad << "components::markdown(ui, \"" << id << "\")" << pos << size << ".theme(" << nodeTheme << ")\n"
-             << childPad << ".markdown(\"" << escape(node.text) << "\").margin(" << number(node.margin) << ").build();\n";
+        code << pad << "components::markdown(ui, \"" << id << "\")" << pos << ".width(" << number(node.width) << ")"
+             << (node.wrapContentHeight ? ".wrapContentHeight()" : ".height(" + number(node.height) + ")")
+             << ".theme(" << nodeTheme << ")\n"
+             << childPad << ".markdown(\"" << escape(node.text) << "\").margin(" << number(node.margin) << ")"
+             << componentStyleCall(node) << ".build();\n";
     } else if (node.type == NodeType::DataTable) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::dataTable(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
              << indentation(level + 2) << ".columns(" << stringList(node.labelsText) << ")\n"
-             << indentation(level + 2) << ".rows(" << tableRows(node) << ").build();\n"
+             << indentation(level + 2) << ".rows(" << tableRows(node) << ")" << componentStyleCall(node) << ".build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::LineChart || node.type == NodeType::BarChart || node.type == NodeType::PieChart) {
         const char* factory = node.type == NodeType::LineChart ? "lineChart" : node.type == NodeType::BarChart ? "barChart" : "pieChart";
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::" << factory << "(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
              << indentation(level + 2) << ".title(\"" << escape(node.text) << "\").values(" << floatList(node.valuesText) << ")\n"
-             << indentation(level + 2) << ".labels(" << stringList(node.labelsText) << ").build();\n" << pad << "}).build();\n";
+             << indentation(level + 2) << ".labels(" << stringList(node.labelsText) << ")";
+        if (node.type == NodeType::BarChart || node.type == NodeType::PieChart) {
+            code << ".colors(" << colorList(node.palette) << ")";
+        }
+        code << componentStyleCall(node) << ".build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::Carousel) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::carousel(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
              << indentation(level + 2) << ".items(" << carouselItems(node, false) << ")\n"
              << indentation(level + 2) << ".index(" << number(static_cast<float>(node.selectedIndex)) << ")"
              << ".cardWidthRatio(" << number(node.cardWidthRatio) << ").overlap(" << number(node.overlap)
-             << ").parallax(" << number(node.parallax) << ").onChange([](float) {}).build();\n"
+             << ").parallax(" << number(node.parallax) << ")" << componentStyleCall(node)
+             << ".onChange([](float) {}).build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::Navbar) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::navbar(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ").compact("
-             << (node.compact ? "true" : "false") << ").brand(\"" << escape(node.text) << "\", 0xF5FD)\n"
+             << (node.compact ? "true" : "false") << ").brand(\"" << escape(node.text) << "\", " << node.brandIcon << ")\n"
              << indentation(level + 2) << ".subtitle(\"" << escape(node.messageText) << "\").selected(" << node.selectedIndex << ")\n"
              << indentation(level + 2) << ".items(" << navbarItems(node) << ")\n"
-             << indentation(level + 2) << ".footer(\"Account\", 0xF007, [] {}).onChange([](int) {}).build();\n" << pad << "}).build();\n";
+             << indentation(level + 2) << ".footer(\"" << escape(node.footerText) << "\", " << node.footerIcon
+             << ", [] {}).onChange([](int) {}).build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::HeartSwitch) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::workshop::heartSwitch(ui, \"" << id << "\")" << size
-             << ".theme(" << nodeTheme << ").checked(" << (node.checked ? "true" : "false") << ").disabled("
+             << ".theme(" << nodeTheme << ")" << componentStyleCall(node) << ".checked(" << (node.checked ? "true" : "false") << ").disabled("
              << (node.disabled ? "true" : "false") << ").build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::NeumorphicButton) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::workshop::neumorphicButton(ui, \"" << id << "\")" << size
-             << ".theme(" << nodeTheme << ").text(\"" << escape(node.text) << "\").fontSize(" << number(node.fontSize)
+             << ".theme(" << nodeTheme << ")" << componentStyleCall(node) << ".text(\"" << escape(node.text) << "\").fontSize(" << number(node.fontSize)
              << ").radius(" << number(node.radius) << ").pressScale(" << number(node.pressScale)
              << ").disabled(" << (node.disabled ? "true" : "false") << ").onClick([] {}).build();\n" << pad << "}).build();\n";
     } else if (node.type == NodeType::TiltCard) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
              << childPad << "components::workshop::tiltCard(ui, \"" << id << "\")" << size
-             << ".theme(" << nodeTheme << ").title(\"" << escape(node.text) << "\").subtitle(\"" << escape(node.messageText)
+             << ".theme(" << nodeTheme << ")" << componentStyleCall(node) << ".title(\"" << escape(node.text) << "\").subtitle(\"" << escape(node.messageText)
              << "\").maxTilt(" << number(node.maxTilt) << ").build();\n"
              << pad << "}).build();\n";
     } else if (node.type == NodeType::CardSlider) {
         code << pad << "ui.stack(\"" << id << ".host\")" << pos << size << ".content([&] {\n"
-             << childPad << "components::workshop::cardSlider(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")\n"
+             << childPad << "components::workshop::cardSlider(ui, \"" << id << "\")" << size << ".theme(" << nodeTheme << ")"
+             << componentStyleCall(node) << "\n"
              << indentation(level + 2) << ".items(" << carouselItems(node, true) << ")\n"
              << indentation(level + 2) << ".currentIndex(" << node.selectedIndex << ").duration(" << number(node.duration)
              << ").interval(" << number(node.interval) << ").cardSpacing(" << number(node.cardSpacing) << ")\n"
@@ -476,9 +631,13 @@ void generateNode(std::ostringstream& code, const std::vector<Node>& nodes, cons
         code << pad << "components::mouseArea(ui, \"" << id << "\")" << pos << size
              << ".color({" << number(node.color.r) << ", " << number(node.color.g) << ", " << number(node.color.b)
              << ", " << number(node.color.a * node.opacity * 0.18f) << "}).radius(" << number(node.radius)
-             << ").cursor(core::CursorShape::Hand).disabled(" << (node.disabled ? "true" : "false")
+             << ").cursor(" << (node.cursorShape == 0 ? "core::CursorShape::Arrow" : "core::CursorShape::Hand")
+             << ").disabled(" << (node.disabled ? "true" : "false")
+             << ").preserveFocusOnPress(" << (node.preserveFocusOnPress ? "true" : "false")
              << ").scrollStep(" << number(node.scrollStep) << ").maxScrollStep(" << number(node.maxScrollStep)
-             << ").dragThreshold(" << number(node.dragThreshold) << ").onTap([] {}).build();\n";
+             << ").dragThreshold(" << number(node.dragThreshold)
+             << ").suppressClickAfterDrag(" << (node.suppressClickAfterDrag ? "true" : "false")
+             << ").onTap([] {}).build();\n";
     } else if (node.type == NodeType::Tooltip) {
         code << pad << "components::button(ui, \"" << id << ".source\")" << pos << size
              << ".theme(" << nodeTheme << ", false).text(\"Hover for tooltip\").build();\n";
@@ -503,31 +662,34 @@ void generateOverlay(std::ostringstream& code, const std::vector<Node>& nodes, c
         code << pad << "components::tooltip(ui, \"" << id << "\").source(\"" << id << ".source\")\n"
              << childPad << ".value(\"" << escape(node.text) << "\").anchor("
              << number(absolute.x + node.width * 0.5f) << ", " << number(absolute.y) << ")\n"
-             << childPad << ".bounds(screen.width, screen.height).theme(" << nodeTheme << ").build();\n";
+             << childPad << ".bounds(screen.width, screen.height).theme(" << nodeTheme << ")"
+             << componentStyleCall(node) << ".build();\n";
         return;
     }
 
     const std::string stateName = overlayStateName(node);
     if (node.type == NodeType::DatePicker) {
         code << pad << "components::datePicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 270.0f)\n"
-             << childPad << ".theme(" << nodeTheme << ").date(" << node.year << ", " << node.month << ", " << node.day << ").bindOpen(" << stateName << ")\n"
+             << childPad << ".theme(" << nodeTheme << ")" << componentStyleCall(node)
+             << ".date(" << node.year << ", " << node.month << ", " << node.day << ").bindOpen(" << stateName << ")\n"
              << childPad << ".onChange([](int, int, int) {}).build();\n";
     } else if (node.type == NodeType::TimePicker) {
         code << pad << "components::timePicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(330.0f, 264.0f)\n"
-             << childPad << ".theme(" << nodeTheme << ").time(" << node.hour << ", " << node.minute << ").minuteStep(" << node.minuteStep << ").bindOpen(" << stateName << ")\n"
+             << childPad << ".theme(" << nodeTheme << ")" << componentStyleCall(node)
+             << ".time(" << node.hour << ", " << node.minute << ").minuteStep(" << node.minuteStep << ").bindOpen(" << stateName << ")\n"
              << childPad << ".onChange([](int, int) {}).build();\n";
     } else if (node.type == NodeType::ColorPicker) {
         code << pad << "static eui::Color element_color_" << node.uid << "{" << number(node.color.r) << ", " << number(node.color.g)
              << ", " << number(node.color.b) << ", " << number(node.color.a) << "};\n"
              << pad << "components::colorPicker(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 320.0f)\n"
-             << childPad << ".theme(" << nodeTheme << ").colors(std::vector<eui::Color>{{0.0f, 0.0f, 0.0f, 1.0f}, "
-             << "{1.0f, 1.0f, 1.0f, 1.0f}, {0.16f, 0.48f, 0.94f, 1.0f}, {0.12f, 0.68f, 0.5f, 1.0f}, "
-             << "{0.95f, 0.65f, 0.12f, 1.0f}, {0.9f, 0.24f, 0.42f, 1.0f}, {0.63f, 0.34f, 0.92f, 1.0f}})\n"
+             << childPad << ".theme(" << nodeTheme << ")" << componentStyleCall(node)
+             << ".colors(" << colorList(node.palette) << ")\n"
              << childPad << ".value(element_color_" << node.uid << ").bindOpen(" << stateName << ")\n"
              << childPad << ".onChange([](eui::Color value) { element_color_" << node.uid << " = value; }).build();\n";
     } else if (node.type == NodeType::Dialog) {
         code << pad << "components::dialog(ui, \"" << id << "\").screen(screen.width, screen.height).size(430.0f, 228.0f)\n"
-             << childPad << ".theme(" << nodeTheme << ").title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText) << "\").bindOpen(" << stateName << ")\n"
+             << childPad << ".theme(" << nodeTheme << ")" << componentStyleCall(node)
+             << ".title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText) << "\").bindOpen(" << stateName << ")\n"
              << childPad << ".primaryText(\"" << escape(node.primaryText) << "\").secondaryText(\""
              << escape(node.secondaryText) << "\").onPrimary([] { " << stateName << ".set(false); }).build();\n";
     } else if (node.type == NodeType::Sidebar) {
@@ -539,14 +701,16 @@ void generateOverlay(std::ostringstream& code, const std::vector<Node>& nodes, c
              << "\").fontSize(18.0f).color({0.08f, 0.1f, 0.14f, 1.0f}).build(); }).build();\n";
     } else if (node.type == NodeType::Toast) {
         code << pad << "components::toast(ui, \"" << id << "\").screen(screen.width, screen.height).size(420.0f, 110.0f)\n"
-             << childPad << ".theme(" << nodeTheme << ").title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText)
+             << childPad << ".theme(" << nodeTheme << ")" << componentStyleCall(node)
+             << ".title(\"" << escape(node.text) << "\").message(\"" << escape(node.messageText)
              << "\").duration(" << number(node.toastDuration) << ")";
         if (node.icon != 0) code << ".icon(" << node.icon << ")";
         code << ".bindVisible(" << stateName << ").build();\n";
     } else if (node.type == NodeType::ContextMenu) {
         code << pad << "components::contextMenu(ui, \"" << id << "\").screen(screen.width, screen.height).position("
              << number(absolute.x) << ", " << number(absolute.y + node.height) << ").size(" << number(node.width) << ", "
-             << number(node.height) << ").theme(" << nodeTheme << ").items(" << stringList(node.itemsText) << ")\n"
+             << number(node.height) << ").theme(" << nodeTheme << ")" << componentStyleCall(node)
+             << ".items(" << stringList(node.itemsText) << ")\n"
              << childPad << ".bindOpen(" << stateName << ").onSelect([](int) {}).build();\n";
     }
 }
