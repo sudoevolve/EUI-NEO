@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(EUI-NEO VERSION 0.5.1)
+project(EUI-NEO VERSION 0.5.3)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -146,6 +146,7 @@ find_package(Python3 COMPONENTS Interpreter QUIET)
 
 set(CORE_SOURCES
     core/platform/async.cpp
+    core/platform/json.cpp
     core/platform/network.cpp
     core/platform/native_bridge.c
     core/platform/performance_stats.cpp
@@ -194,9 +195,27 @@ target_include_directories(eui_neo
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/eui-neo>
 )
+target_include_directories(eui_neo PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rd/yyjson-0.12.0/src")
 target_link_libraries(eui_neo PUBLIC Threads::Threads)
 target_compile_features(eui_neo PUBLIC cxx_std_17)
+target_compile_definitions(eui_neo PRIVATE YYJSON_DISABLE_WRITER=1)
 eui_apply_compile_options(eui_neo)
+
+set(EUI_YYJSON_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/3rd/yyjson-0.12.0/src/yyjson.c")
+if(EUI_BUILD_SHARED)
+    add_library(eui_yyjson STATIC "${EUI_YYJSON_SOURCE}")
+    target_include_directories(eui_yyjson PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rd/yyjson-0.12.0/src")
+    target_compile_definitions(eui_yyjson PRIVATE YYJSON_DISABLE_WRITER=1)
+    set_target_properties(eui_yyjson PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        C_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
+    )
+    eui_silence_third_party_warnings(eui_yyjson)
+    target_link_libraries(eui_neo PRIVATE eui_yyjson)
+else()
+    target_sources(eui_neo PRIVATE "${EUI_YYJSON_SOURCE}")
+endif()
 
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
     target_compile_definitions(eui_neo PUBLIC EUI_RENDER_BACKEND_OPENGL=1)
@@ -283,6 +302,16 @@ function(eui_neo_copy_assets target_name)
     endif()
 endfunction()
 
+function(eui_neo_copy_runtime_dependencies target_name)
+    if(EUI_BUILD_SHARED AND EUI_WINDOW_BACKEND STREQUAL "glfw")
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:glfw>
+                $<TARGET_FILE_DIR:${target_name}>
+        )
+    endif()
+endfunction()
+
 function(eui_neo_copy_app_assets target_name asset_dir)
     if(EXISTS "${asset_dir}")
         add_custom_command(TARGET ${target_name} POST_BUILD
@@ -297,6 +326,7 @@ function(eui_neo_configure_app target_name)
     eui_apply_compile_options(${target_name})
     eui_apply_app_link_options(${target_name})
     eui_neo_copy_assets(${target_name})
+    eui_neo_copy_runtime_dependencies(${target_name})
 endfunction()
 
 # -----------------------------------------------------------------------------

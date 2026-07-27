@@ -49,54 +49,6 @@ std::string sessionId() {
     return value;
 }
 
-std::string jsonStringValue(const std::string& json, const std::string& key) {
-    const std::string token = "\"" + key + "\"";
-    const std::size_t begin = json.find(token);
-    if (begin == std::string::npos) {
-        return {};
-    }
-
-    std::size_t valueBegin = begin + token.size();
-    while (valueBegin < json.size() &&
-           (json[valueBegin] == ' ' || json[valueBegin] == '\t' ||
-            json[valueBegin] == '\r' || json[valueBegin] == '\n')) {
-        ++valueBegin;
-    }
-    if (valueBegin >= json.size() || json[valueBegin] != ':') {
-        return {};
-    }
-    ++valueBegin;
-    while (valueBegin < json.size() &&
-           (json[valueBegin] == ' ' || json[valueBegin] == '\t' ||
-            json[valueBegin] == '\r' || json[valueBegin] == '\n')) {
-        ++valueBegin;
-    }
-    if (valueBegin >= json.size() || json[valueBegin] != '"') {
-        return {};
-    }
-    ++valueBegin;
-
-    std::string value;
-    bool escaping = false;
-    for (std::size_t i = valueBegin; i < json.size(); ++i) {
-        const char ch = json[i];
-        if (escaping) {
-            value.push_back(ch == '/' ? '/' : ch);
-            escaping = false;
-            continue;
-        }
-        if (ch == '\\') {
-            escaping = true;
-            continue;
-        }
-        if (ch == '"') {
-            break;
-        }
-        value.push_back(ch);
-    }
-    return value;
-}
-
 PoemText poemText(int generation, int index) {
     const std::string poemKey = "card.slider.poem." +
                                  std::to_string(generation) +
@@ -114,10 +66,15 @@ PoemText poemText(int generation, int index) {
         return {};
     }
 
+    eui::json::Document document;
+    if (!document.parse(result.body)) {
+        return {};
+    }
+
     PoemText poem;
-    const std::string title = jsonStringValue(result.body, "origin");
-    const std::string author = jsonStringValue(result.body, "author");
-    const std::string content = jsonStringValue(result.body, "content");
+    const std::string title = document.stringAt("/origin");
+    const std::string author = document.stringAt("/author");
+    const std::string content = document.stringAt("/content");
     if (!title.empty()) {
         poem.title = title;
     }

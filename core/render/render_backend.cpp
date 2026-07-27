@@ -15,6 +15,46 @@
 
 namespace core::render {
 
+namespace {
+
+thread_local RenderBackend* activeRenderBackendValue = nullptr;
+thread_local RenderFrameStats currentRenderFrameStatsValue;
+thread_local RenderFrameStats lastRenderFrameStatsValue;
+
+} // namespace
+
+RenderBackend*& activeRenderBackendSlot() {
+    return activeRenderBackendValue;
+}
+
+RenderBackend* activeRenderBackend() {
+    return activeRenderBackendSlot();
+}
+
+RenderFrameStats& currentRenderFrameStats() {
+    return currentRenderFrameStatsValue;
+}
+
+RenderFrameStats& lastRenderFrameStatsSlot() {
+    return lastRenderFrameStatsValue;
+}
+
+void beginRenderFrameStats(int framebufferWidth, int framebufferHeight) {
+    RenderFrameStats& stats = currentRenderFrameStats();
+    stats = {};
+    stats.rendered = true;
+    stats.framebufferWidth = framebufferWidth;
+    stats.framebufferHeight = framebufferHeight;
+}
+
+void publishRenderFrameStats() {
+    lastRenderFrameStatsSlot() = currentRenderFrameStats();
+}
+
+const RenderFrameStats& lastRenderFrameStats() {
+    return lastRenderFrameStatsSlot();
+}
+
 void initializeRenderBackendLoader() {
 #if defined(EUI_RENDER_BACKEND_VULKAN) && !defined(EUI_WINDOW_BACKEND_SDL2)
     glfwInitVulkanLoader(vkGetInstanceProcAddr);

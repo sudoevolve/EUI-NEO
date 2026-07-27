@@ -2,6 +2,7 @@
 
 #include "core/platform/async.h"
 #include "core/platform/network.h"
+#include "eui/json.h"
 
 #include "3rd/stb_image.h"
 
@@ -212,35 +213,15 @@ std::string buildBingDailyApiUrl(const std::string& uri) {
     return "https://www.bing.com/HPImageArchive.aspx?format=js&n=1&idx=" + idx + "&mkt=" + mkt;
 }
 
-std::string jsonUnescapeSimple(const std::string& value) {
-    std::string out;
-    out.reserve(value.size());
-    for (std::size_t i = 0; i < value.size(); ++i) {
-        if (value[i] == '\\' && i + 1 < value.size()) {
-            const char next = value[i + 1];
-            if (next == '/' || next == '\\' || next == '"') {
-                out.push_back(next);
-                ++i;
-                continue;
-            }
-        }
-        out.push_back(value[i]);
-    }
-    return out;
-}
-
 std::string extractBingImageUrlFromJson(const std::string& payload) {
-    const std::string token = "\"url\":\"";
-    const std::size_t begin = payload.find(token);
-    if (begin == std::string::npos) {
+    eui::json::Document document;
+    if (!document.parse(payload)) {
         return {};
     }
-    const std::size_t urlBegin = begin + token.size();
-    const std::size_t end = payload.find('"', urlBegin);
-    if (end == std::string::npos || end <= urlBegin) {
+    std::string imageUrl = document.stringAt("/images/0/url");
+    if (imageUrl.empty()) {
         return {};
     }
-    std::string imageUrl = jsonUnescapeSimple(payload.substr(urlBegin, end - urlBegin));
     if (!network::isHttpUrl(imageUrl)) {
         imageUrl = "https://www.bing.com" + imageUrl;
     }

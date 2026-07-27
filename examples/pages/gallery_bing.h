@@ -1,34 +1,6 @@
 struct GalleryBingPage {
     float carouselPosition = 0.0f;
 
-    std::string jsonStringValue(const std::string& json, const std::string& key) {
-        const std::string token = "\"" + key + "\":\"";
-        const size_t begin = json.find(token);
-        if (begin == std::string::npos) {
-            return {};
-        }
-        const size_t valueBegin = begin + token.size();
-        std::string value;
-        bool escaping = false;
-        for (size_t i = valueBegin; i < json.size(); ++i) {
-            const char ch = json[i];
-            if (escaping) {
-                value.push_back(ch == '/' ? '/' : ch);
-                escaping = false;
-                continue;
-            }
-            if (ch == '\\') {
-                escaping = true;
-                continue;
-            }
-            if (ch == '"') {
-                break;
-            }
-            value.push_back(ch);
-        }
-        return value;
-    }
-
     std::string bingApiText() {
         const std::string key = "gallery.bing.text";
         eui::network::requestText(key, "https://www.bing.com/HPImageArchive.aspx?format=js&n=1&idx=0&mkt=zh-CN");
@@ -39,7 +11,10 @@ struct GalleryBingPage {
         if (!result.ok) {
             return "Network text request failed.";
         }
-        const std::string copyright = jsonStringValue(result.body, "copyright");
+        eui::json::Document document;
+        const std::string copyright = document.parse(result.body)
+            ? document.stringAt("/images/0/copyright")
+            : std::string{};
         return copyright.empty() ? "Bing API returned text data." : copyright;
     }
 

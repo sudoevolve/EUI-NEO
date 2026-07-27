@@ -22,5 +22,10 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
 
 int main() {
     eui::Color color{1.0f, 0.0f, 0.0f, 1.0f};
-    return color.r > 0.5f ? 0 : 1;
+    eui::json::Document document;
+    std::string value;
+    const bool jsonOk = document.parse(R"({"value":"installed"})") &&
+                        document.root().get("value").string(value) &&
+                        value == "installed";
+    return color.r > 0.5f && jsonOk ? 0 : 1;
 }

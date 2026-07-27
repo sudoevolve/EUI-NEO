@@ -410,6 +410,8 @@ private:
     float hoverTargetCacheDpiScale_ = 0.0f;
     std::string hoverTargetCacheId_;
     std::string focusedId_;
+    RenderTransform focusedElementRenderTransform_;
+    bool focusedElementRenderTransformValid_ = false;
     float logicalWidth_ = 0.0f;
     float logicalHeight_ = 0.0f;
     core::window::CursorHandle arrowCursor_ = nullptr;

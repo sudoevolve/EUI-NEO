@@ -788,6 +788,7 @@ inline void Runtime::updateElementTree(
     float dpiScale,
     const std::string& hoverTargetId) {
     runtime::markEntriesUnseen(paintBounds_);
+    focusedElementRenderTransformValid_ = false;
     const RenderTransform identity;
     const std::vector<const Element*>& roots = orderedElements(ui_);
     for (const Element* root : roots) {
@@ -839,6 +840,10 @@ inline runtime::PaintBoundsInstance Runtime::updateElementTree(
 
     const bool childAncestorFrameChanged = ancestorFrameChanged || frameTargetChanged;
     const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    if (element.id == focusedId_) {
+        focusedElementRenderTransform_ = renderTransform;
+        focusedElementRenderTransformValid_ = true;
+    }
     runtime::PaintBoundsInstance bounds;
     bounds.seen = true;
     bounds.subtreeAnimating = elementHasActiveAnimation(element);

@@ -333,6 +333,16 @@ inline Rect applyRenderTransformToLogicalRect(const Rect& rect, float dpiScale, 
     return toLogicalRect(applyRenderTransform(toPixelRect(rect, dpiScale), transform), dpiScale);
 }
 
+inline Rect imeCursorPixelRect(const Element& element, float dpiScale, const TransformMatrix& transform) {
+    const Rect logicalRect{
+        element.frame.x + element.imeRect.x,
+        element.frame.y + element.imeRect.y,
+        element.imeRect.width,
+        element.imeRect.height
+    };
+    return applyTransformMatrix(toPixelRect(logicalRect, dpiScale), transform);
+}
+
 inline Border scaleBorder(Border border, float dpiScale) {
     border.width = toPixels(border.width, dpiScale);
     return border;
