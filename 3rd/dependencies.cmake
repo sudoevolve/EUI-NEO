@@ -521,9 +521,9 @@ if(MSVC AND TARGET freetype)
     target_compile_options(freetype PRIVATE /utf-8)
 endif()
 
-if(NOT WIN32)
+if(NOT WIN32 AND NOT ANDROID)
     find_package(CURL REQUIRED)
-else()
+elseif(NOT ANDROID)
     find_package(CURL QUIET)
 endif()
 

@@ -138,6 +138,10 @@ android {
         }
     }
 
+    androidResources {
+        noCompress += ["gif", "ico", "otf", "png", "svg", "ttf"]
+    }
+
     externalNativeBuild {
         cmake {
             path file("../cmake/CMakeLists.txt")
