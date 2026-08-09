@@ -121,7 +121,13 @@ float dpiScale(SDL_Window* window) {
         }
     }
 #endif
-    return pointerScale(window);
+    const float drawableRatio = pointerScale(window);
+    if (drawableRatio > 1.0f) {
+        return drawableRatio;
+    }
+    // On Linux the drawable-to-window ratio does not reflect desktop scaling,
+    // so fall back to the display DPI reported by SDL.
+    return core::window::displayScaleEstimate(SDL_GetWindowDisplayIndex(window));
 }
 
 void attachNativeChildWindow(SDL_Window* parentWindow, SDL_Window* childWindow) {

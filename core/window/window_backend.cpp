@@ -2,6 +2,7 @@
 #include "core/platform/native_bridge.h"
 
 #include <algorithm>
+#include <cmath>
 
 #if defined(EUI_WINDOW_BACKEND_SDL2)
 
@@ -201,14 +202,43 @@ void uninstallSdlImeFilter(SDL_Window* window) {
 
 } // namespace
 
+float displayScaleEstimate(int displayIndex) {
+#if defined(_WIN32) || defined(__APPLE__)
+    (void)displayIndex;
+    return 1.0f;
+#else
+    if (displayIndex < 0) {
+        displayIndex = 0;
+    }
+    float diagonalDpi = 0.0f;
+    if (SDL_GetDisplayDPI(displayIndex, &diagonalDpi, nullptr, nullptr) != 0 ||
+        diagonalDpi < 120.0f) {
+        return 1.0f;
+    }
+    return std::round((diagonalDpi / 96.0f) * 4.0f) / 4.0f;
+#endif
+}
+
 Handle createWindow(const WindowCreateRequest& request) {
     if (request.renderApi == RenderApi::OpenGL) {
         configureOpenGLWindowAttributes();
     }
 
     Uint32 flags = 0;
+    int width = request.width;
+    int height = request.height;
     if (request.highDpi) {
         flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#if !defined(_WIN32) && !defined(__APPLE__)
+        // On Linux the SDL drawable size never reflects desktop scaling, so
+        // the drawable-to-window ratio stays 1.0 and the UI would render at a
+        // physically smaller size than on other backends. Enlarge the window
+        // by the desktop scale so its buffer covers the same physical area;
+        // dpiScale() derives the matching scale from the display DPI.
+        const float displayScale = displayScaleEstimate(0);
+        width = static_cast<int>(std::lround(width * displayScale));
+        height = static_cast<int>(std::lround(height * displayScale));
+#endif
     }
     if (request.resizable) {
         flags |= SDL_WINDOW_RESIZABLE;
@@ -219,8 +249,8 @@ Handle createWindow(const WindowCreateRequest& request) {
         request.title != nullptr ? request.title : "",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        request.width,
-        request.height,
+        width,
+        height,
         flags);
 #if defined(_WIN32)
     installSdlImeFilter(window);

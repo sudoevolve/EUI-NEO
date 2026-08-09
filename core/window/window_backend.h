@@ -10,6 +10,12 @@ Handle createWindow(const WindowCreateRequest& request);
 void destroyWindow(Handle window);
 NativeWindowInfo nativeWindowInfo(Handle window);
 
+// SDL2 only: estimates the desktop scaling factor for a display via
+// SDL_GetDisplayDPI, quantized to 0.25 steps. Returns 1.0f when the scale
+// cannot be determined or is below 1.25x, and on platforms where SDL already
+// reports high-density drawable sizes (Windows, macOS).
+float displayScaleEstimate(int displayIndex);
+
 ContextKey currentContextKey();
 double timeSeconds();
 void postEmptyEvent();
