@@ -345,7 +345,12 @@ bool retainedLayerBlocker(core::window::Handle window) {
         runtime.render(160, 120, 1.0f, {});
         runtime.shutdown(false);
     }
-    return staticBackend.layersCreated == 1 && dynamicBackend.layersCreated == 0;
+    // Static tree: the container is cached as a single retained layer, and
+    // the stable sibling run inside it must not be cached again in a second
+    // layer. Dynamic tree: the container is blocked by the shadertoy, but the
+    // run of static sibling rects is still cached as one layer so the
+    // shadertoy's repaints do not redraw them.
+    return staticBackend.layersCreated == 1 && dynamicBackend.layersCreated == 1;
 }
 
 } // namespace

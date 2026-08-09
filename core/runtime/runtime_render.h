@@ -389,11 +389,37 @@ inline void RuntimeRenderer::renderElementChildren(
         }
     };
 
+    // When this element is itself eligible for a retained layer, caching a
+    // stable sibling run inside it would duplicate the same content into a
+    // second offscreen layer during warmup. Skip run detection in that case;
+    // runs are only useful for subtrees that cannot be cached as a unit.
+    bool parentUsesRetainedLayer = false;
+    if (!element.subtreeBlocksRetainedLayer &&
+        !element.subtreeHasDependentVisuals &&
+        !element.subtreeHasBackdropBlur &&
+        !retainedLayerRenderDisabled_ &&
+        !renderTransform.active &&
+        closeEnough(renderTransform.opacity, 1.0f)) {
+        const auto parentBounds = instances_.paintBounds.find(element.id);
+        if (parentBounds != instances_.paintBounds.end()) {
+            const Rect subtreePixels = toPixelRect(parentBounds->second.subtree, dpiScale);
+            parentUsesRetainedLayer =
+                isRetainedLayerCandidate(element,
+                                         parentBounds->second,
+                                         subtreePixels,
+                                         dirtyRect,
+                                         hasScissor,
+                                         scissorRect);
+        }
+    }
+
     std::size_t index = 0;
     while (index < children.size()) {
         std::size_t runEnd = index;
-        while (runEnd < children.size() && isRetainedSiblingCandidate(*children[runEnd])) {
-            ++runEnd;
+        if (!parentUsesRetainedLayer) {
+            while (runEnd < children.size() && isRetainedSiblingCandidate(*children[runEnd])) {
+                ++runEnd;
+            }
         }
 
         if (runEnd - index >= 2) {
