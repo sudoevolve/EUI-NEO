@@ -13,6 +13,11 @@ set_version("0.5.6")
 set_xmakever("2.9.0")
 set_languages("c99", "cxx17")
 
+-- xmake 3.x runs target/rule callbacks in isolated scopes where project
+-- globals are nil, so shared helpers live in this module and are reached via
+-- import() inside callbacks. See xmake/eui_helpers.lua.
+add_moduledirs("xmake")
+
 option("window_backend")
     set_default("glfw")
     set_values("glfw", "sdl2")
@@ -64,35 +69,13 @@ option("vulkan_low_latency")
 option_end()
 
 function eui_apply_compile_options(target)
-    if target:is_plat("windows") and not target:is_plat("mingw") then
-        target:add("cxflags", "/utf-8")
-        if not is_mode("debug") then
-            target:add("cxflags", "/O1", "/GS-", "/sdl-", "/wd4819")
-        end
-    elseif not is_mode("debug") then
-        target:add("cxxflags", "-Os", "-fno-exceptions", "-fno-rtti")
-    end
+    import("eui_helpers").apply_compile_options(target)
 end
 
 function eui_apply_app_link_options(target)
-    if target:is_plat("mingw") then
-        target:add("ldflags", "-mwindows", {force = true})
-        if not is_mode("debug") then
-            target:add("ldflags", "-Wl,--gc-sections", "-s")
-        end
-    elseif target:is_plat("windows") then
-        target:add("ldflags", "/SUBSYSTEM:WINDOWS", "/ENTRY:mainCRTStartup", {force = true})
-        if not is_mode("debug") then
-            target:add("ldflags", "/OPT:REF", "/OPT:ICF", "/INCREMENTAL:NO", {force = true})
-        end
-    elseif target:is_plat("macosx") then
-        if not is_mode("debug") then
-            target:add("ldflags", "-Wl,-dead_strip")
-        end
-    elseif not is_mode("debug") then
-        target:add("ldflags", "-Wl,--gc-sections", "-s")
-    end
+    import("eui_helpers").apply_app_link_options(target)
 end
+
 -- =============================================================================
 -- Resolve backends
 -- =============================================================================
@@ -388,68 +371,10 @@ rule("eui.app")
         target:add("deps", "eui_app", "eui_runtime_assets")
     end)
     on_config(function(target)
-        eui_apply_compile_options(target)
-        eui_apply_app_link_options(target)
+        import("eui_helpers").apply_compile_options(target)
+        import("eui_helpers").apply_app_link_options(target)
     end)
 rule_end()
-
-function eui_compile_shadertoy(target, source, output)
-    local wrapper = target:dep("eui_shadertoy_wrap")
-    assert(wrapper, "missing eui_shadertoy_wrap dependency")
-
-    import("lib.detect.find_tool")
-    local search_paths = {}
-    local vulkan_sdk = os.getenv("VULKAN_SDK")
-    if vulkan_sdk then
-        table.insert(search_paths, path.join(vulkan_sdk, "Bin"))
-        table.insert(search_paths, path.join(vulkan_sdk, "bin"))
-    end
-    local validator = find_tool("glslangValidator", {paths = search_paths})
-    assert(validator, "Vulkan SDK glslangValidator is required to generate Shadertoy SPIR-V")
-
-    local source_path = path.absolute(source, os.projectdir())
-    local output_path = path.absolute(output, target:targetdir())
-    local wrapped_path = path.join(target:autogendir(), "shadertoy", path.filename(output) .. ".wrapped.frag")
-    os.mkdir(path.directory(output_path))
-    os.mkdir(path.directory(wrapped_path))
-    os.vrunv(wrapper:targetfile(), {"--input", source_path, "--output", wrapped_path})
-    os.vrunv(validator.program, {"-V", "-S", "frag", wrapped_path, "-o", output_path})
-end
-
-function eui_compile_shadertoy_config(target, config, asset_root, output_root)
-    local wrapper = target:dep("eui_shadertoy_wrap")
-    assert(wrapper, "missing eui_shadertoy_wrap dependency")
-
-    import("lib.detect.find_tool")
-    local python = find_tool("python3") or find_tool("python")
-    assert(python, "Python 3 is required to generate Shadertoy SPIR-V from a config")
-    local validator = find_tool("glslangValidator", {paths = (function()
-        local paths = {}
-        local vulkan_sdk = os.getenv("VULKAN_SDK")
-        if vulkan_sdk then
-            table.insert(paths, path.join(vulkan_sdk, "Bin"))
-            table.insert(paths, path.join(vulkan_sdk, "bin"))
-        end
-        return paths
-    end)()})
-    assert(validator, "Vulkan SDK glslangValidator is required to generate Shadertoy SPIR-V")
-
-    local config_path = path.absolute(config, os.projectdir())
-    local asset_root_path = path.absolute(asset_root, os.projectdir())
-    local output_root_path = path.absolute(output_root, target:targetdir())
-    local stamp = path.join(target:autogendir(), "shadertoy",
-        path.basename(path.directory(config)) .. ".config.stamp")
-    os.mkdir(path.directory(stamp))
-    os.vrunv(python.program, {
-        path.join(os.projectdir(), "scripts", "generate_shadertoy_spirv.py"),
-        "--config", config_path,
-        "--asset-root", asset_root_path,
-        "--output-root", output_root_path,
-        "--wrapper", wrapper:targetfile(),
-        "--validator", validator.program,
-        "--stamp", stamp
-    })
-end
 
 -- =============================================================================
 -- Bundled example applications (examples/*.cpp)
@@ -481,12 +406,13 @@ if build_apps then
                 if render_backend == "vulkan" then
                     add_deps("eui_shadertoy_wrap")
                     after_build(function(target)
-                        eui_compile_shadertoy(target,
+                        local helpers = import("eui_helpers")
+                        helpers.compile_shadertoy(target,
                             "assets/shaders/shadertoy/demo.frag",
                             "assets/shaders/shadertoy/demo.frag.spv")
                         for _, config in ipairs(os.files(
                             "assets/shaders/shadertoy/*/config.json")) do
-                            eui_compile_shadertoy_config(target,
+                            helpers.compile_shadertoy_config(target,
                                 config,
                                 "assets/shaders/shadertoy",
                                 "assets/shaders/shadertoy")
@@ -503,7 +429,7 @@ if build_apps then
                 if render_backend == "vulkan" then
                     add_deps("eui_shadertoy_wrap")
                     after_build(function(target)
-                        eui_compile_shadertoy(target,
+                        import("eui_helpers").compile_shadertoy(target,
                             "assets/shaders/shadertoy/demo.frag",
                             "assets/shaders/shadertoy/gallery_demo.frag.spv")
                     end)
