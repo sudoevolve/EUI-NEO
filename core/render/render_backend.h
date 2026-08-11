@@ -1,5 +1,7 @@
 #pragma once
 
+#include <core/render/shadertoy.h>
+
 #include "core/render/primitive_geometry.h"
 #include "core/render/render_surface.h"
 #include "core/window/window_types.h"
@@ -68,6 +70,7 @@ struct RenderFrameStats {
     int textPrepares = 0;
     int textDraws = 0;
     int imageDraws = 0;
+    int shadertoyDraws = 0;
     int retainedLayerHits = 0;
     int retainedLayerMisses = 0;
     int retainedLayerDraws = 0;
@@ -168,6 +171,7 @@ class RenderBackend {
 public:
     using TextureHandle = void*;
     using LayerHandle = void*;
+    using ShaderToyHandle = void*;
 
     virtual ~RenderBackend() = default;
 
@@ -213,6 +217,45 @@ public:
         (void)layer;
         return nullptr;
     }
+    virtual ShaderToyHandle createShaderToy(const ShaderToyGraph& graph, ShaderToyError* error) {
+        (void)graph;
+        if (error != nullptr) {
+            error->code = ShaderToyErrorCode::Unsupported;
+        }
+        return nullptr;
+    }
+    virtual TextureHandle renderShaderToy(ShaderToyHandle handle,
+                                          const ShaderToyGraph& graph,
+                                          int width,
+                                          int height,
+                                          const ShaderToyFrameData& frame,
+                                          bool paused,
+                                          bool reset,
+                                          ShaderToyError* error) {
+        (void)handle;
+        (void)graph;
+        (void)width;
+        (void)height;
+        (void)frame;
+        (void)paused;
+        (void)reset;
+        if (error != nullptr) {
+            error->code = ShaderToyErrorCode::Unsupported;
+        }
+        return nullptr;
+    }
+    virtual void destroyShaderToy(ShaderToyHandle handle) { (void)handle; }
+    virtual bool readShaderToyPixel(ShaderToyHandle handle, float* rgba) {
+        (void)handle;
+        (void)rgba;
+        return false;
+    }
+    virtual bool readShaderToyPixels(ShaderToyHandle handle,
+                                     float* rgba,
+                                     std::size_t floatCount) {
+        if (floatCount < 4) return false;
+        return readShaderToyPixel(handle, rgba);
+    }
     virtual void clear(const core::Color& color) = 0;
     virtual void setScissor(bool enabled, const core::Rect& rect, int framebufferHeight) = 0;
     virtual void prepareBackdropBlur(const core::Rect& bounds, float blur, int windowWidth, int windowHeight) = 0;
@@ -241,6 +284,7 @@ public:
                              const core::Color& tint,
                              const core::Rect& rect,
                              float radius,
+                             float blur,
                              int windowWidth,
                              int windowHeight) {
         (void)handle;
@@ -249,6 +293,7 @@ public:
         (void)tint;
         (void)rect;
         (void)radius;
+        (void)blur;
         (void)windowWidth;
         (void)windowHeight;
     }
@@ -263,6 +308,7 @@ public:
                     vertexFloatCount,
                     {1.0f, 1.0f, 1.0f, 1.0f},
                     rect,
+                    0.0f,
                     0.0f,
                     windowWidth,
                     windowHeight);

@@ -6,7 +6,7 @@ const copy = {
     "nav.start": "开始",
     "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2",
     "hero.title": "EUI-NEO",
-    "hero.lede": "一个面向高性能桌面工具、仪表盘和组件系统的轻量级 UI 框架。",
+    "hero.lede": "一个基于 C++17、支持 GLFW/SDL2 和 OpenGL/Vulkan 的跨平台高性能轻量级 UI 框架。",
     "hero.docs": "查阅文档",
     "hero.github": "GitHub",
     "hero.qq": "加入 QQ 群",
@@ -17,7 +17,7 @@ const copy = {
     "why.eyebrow": "Why EUI-NEO",
     "why.title": "为 C++ 应用保留速度、控制力和现代 UI 体验。",
     "why.performance.title": "按需渲染",
-    "why.performance.text": "静止时等待事件，有动画才推进帧；脏区、framebuffer cache 和 retained layer cache 减少重复绘制。",
+    "why.performance.text": "静止时等待事件，有动画才推进帧；脏区、framebuffer cache 和保留层缓存减少重复绘制。",
     "why.backends.title": "后端可选",
     "why.backends.text": "GLFW / SDL2 窗口后端，OpenGL / Vulkan 渲染后端，同一套 DSL 输出。",
     "why.cpp.title": "C++ 直写",
@@ -34,21 +34,24 @@ const copy = {
     "reader.error": "文档读取失败，请检查本地服务或路径。",
     "rendering.eyebrow": "Rendering Core",
     "rendering.title": "统一 Runtime，双渲染后端",
-    "rendering.lede": "窗口、输入、Runtime 和 GPU 后端各守边界；dirty rect、render cache 和 retained layer cache 已覆盖 OpenGL / Vulkan。",
+    "rendering.lede": "窗口、输入、Runtime 和 GPU 后端各守边界；dirty rect、render cache 和保留层缓存已覆盖 OpenGL / Vulkan。",
     "flow.compose.title": "Compose",
     "flow.compose.text": "C++ DSL 构建 UI 树，Runtime 负责布局、状态同步和交互派发。",
     "flow.dirty.title": "Dirty Rect",
     "flow.dirty.text": "按 id 缓存图元和子树能力，变化时合并保守脏区，blur 等依赖内容会升级 full paint。",
     "flow.backend.title": "Backend",
-    "flow.backend.text": "OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture、render cache、retained layer 和 frame lifecycle。",
+    "flow.backend.text": "OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture、render cache、保留层和 frame lifecycle。",
     "components.eyebrow": "Component Layer",
     "components.title": "为工具型界面准备的组件层",
     "components.lede": "按钮、输入、弹层、选择器、图表、Markdown 和数据表都只组合 DSL 树，不穿透后端 primitive。",
     "start.eyebrow": "Quick Start",
     "start.title": "把 EUI-NEO 接入你的 CMake 项目",
-    "start.cmake": "CMake 引入",
-    "start.app": "实现入口",
+    "start.lede": "只需一个应用源文件；框架负责入口、链接选项和运行资源。",
+    "start.cmake": "配置目标",
+    "start.app": "实现应用",
     "start.build": "构建运行",
+    "start.readme": "Quick Start",
+    "start.guide": "安装与进阶接入",
     "filter.all": "全部"
   },
   en: {
@@ -58,7 +61,7 @@ const copy = {
     "nav.start": "Start",
     "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2",
     "hero.title": "EUI-NEO",
-    "hero.lede": "A lightweight UI framework for high-performance desktop tools, dashboards, and component systems.",
+    "hero.lede": "A cross-platform, high-performance, low-overhead C++17 UI framework with GLFW/SDL2 window backends and OpenGL/Vulkan render backends.",
     "hero.docs": "Browse Docs",
     "hero.github": "GitHub",
     "hero.qq": "Join QQ Group",
@@ -98,9 +101,12 @@ const copy = {
     "components.lede": "Buttons, inputs, popups, pickers, charts, Markdown, and data tables compose DSL trees without touching backend primitives.",
     "start.eyebrow": "Quick Start",
     "start.title": "Add EUI-NEO to your CMake project",
-    "start.cmake": "Add CMake",
+    "start.lede": "One application source file; the framework supplies the entry point, link settings, and runtime assets.",
+    "start.cmake": "Configure target",
     "start.app": "Implement app",
     "start.build": "Build and run",
+    "start.readme": "Quick Start",
+    "start.guide": "Install and integrate",
     "filter.all": "All"
   }
 };
@@ -182,14 +188,27 @@ const docs = [
     category: "rendering",
     href: "../docs/retained_layer_cache.md",
     zh: {
-      title: "Retained Layer Cache",
-      desc: "稳定静态子树的离屏 layer 缓存，OpenGL / Vulkan 后端资源和限制。"
+      title: "保留层缓存",
+      desc: "稳定静态子树和相邻绘制段的离屏图层缓存，以及 OpenGL / Vulkan 后端资源和限制。"
     },
     en: {
       title: "Retained Layer Cache",
       desc: "Offscreen layer caching for stable static subtrees, with OpenGL / Vulkan backend resources and limits."
     },
     tags: "retained layer cache static subtree opengl vulkan framebuffer texture"
+  },
+  {
+    category: "rendering",
+    href: "../docs/Shadertoy.md",
+    zh: {
+      title: "Shadertoy 底层图元",
+      desc: "Pass graph、通道、uniform、预设以及 OpenGL / Vulkan 双后端契约。"
+    },
+    en: {
+      title: "Shadertoy Primitive",
+      desc: "Pass graphs, channels, uniforms, presets, and the shared OpenGL / Vulkan contract."
+    },
+    tags: "shadertoy shader graph pass channel uniform opengl vulkan"
   },
   {
     category: "platform",
@@ -261,13 +280,13 @@ const docs = [
     href: "../docs/集成指南.md",
     zh: {
       title: "集成指南",
-      desc: "公共 facade、静态库、FetchContent 和嵌入式主循环。"
+      desc: "Quick Start、安装 SDK、FetchContent 和自定义主循环。"
     },
     en: {
       title: "Integration Guide",
-      desc: "Public facade, static library, FetchContent, and embedded loops."
+      desc: "Quick Start, SDK installation, FetchContent, and custom loops."
     },
-    tags: "integration cmake fetchcontent app"
+    tags: "integration cmake sdk install find_package fetchcontent app"
   },
   {
     category: "workflow",
@@ -358,6 +377,7 @@ const readerTitle = document.querySelector("#readerTitle");
 const readerCategory = document.querySelector("#readerCategory");
 const readerBody = document.querySelector("#readerBody");
 const themeButton = document.querySelector("#themeButton");
+const quickStartLink = document.querySelector("#quickStartLink");
 const progressBar = document.querySelector("#progressBar");
 const stageSections = Array.from(document.querySelectorAll("main > section"));
 let tickingScroll = false;
@@ -468,10 +488,25 @@ async function openReader(doc) {
       throw new Error(`HTTP ${response.status}`);
     }
     const markdown = await response.text();
-    readerBody.innerHTML = renderMarkdown(markdown);
+    const content = doc.section
+      ? extractMarkdownSection(markdown, doc.section)
+      : markdown;
+    readerBody.innerHTML = renderMarkdown(content, doc.href);
   } catch (error) {
     readerBody.innerHTML = `<p>${escapeHtml(t("reader.error"))}</p>`;
   }
+}
+
+function extractMarkdownSection(markdown, heading) {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (start < 0) {
+    return markdown;
+  }
+  const end = lines.findIndex((line, index) =>
+    index > start && /^##\s+/.test(line)
+  );
+  return lines.slice(start, end < 0 ? undefined : end).join("\n");
 }
 
 function closeReader() {
@@ -480,7 +515,7 @@ function closeReader() {
   document.body.classList.remove("reader-open");
 }
 
-function renderMarkdown(markdown) {
+function renderMarkdown(markdown, sourceHref) {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   let html = "";
   let inCode = false;
@@ -528,7 +563,7 @@ function renderMarkdown(markdown) {
       closeList();
       const headers = splitMarkdownTableRow(line);
       html += "<div class=\"table-scroll\"><table><thead><tr>";
-      html += headers.map((cell) => `<th>${inlineMarkdown(cell)}</th>`).join("");
+      html += headers.map((cell) => `<th>${inlineMarkdown(cell, sourceHref)}</th>`).join("");
       html += "</tr></thead><tbody>";
       inTable = true;
       index += 1;
@@ -537,7 +572,7 @@ function renderMarkdown(markdown) {
     if (inTable && isMarkdownTableRow(line)) {
       const cells = splitMarkdownTableRow(line);
       html += "<tr>";
-      html += cells.map((cell) => `<td>${inlineMarkdown(cell)}</td>`).join("");
+      html += cells.map((cell) => `<td>${inlineMarkdown(cell, sourceHref)}</td>`).join("");
       html += "</tr>";
       continue;
     }
@@ -546,7 +581,7 @@ function renderMarkdown(markdown) {
     if (heading) {
       closeList();
       const level = heading[1].length;
-      html += `<h${level}>${inlineMarkdown(heading[2])}</h${level}>`;
+      html += `<h${level}>${inlineMarkdown(heading[2], sourceHref)}</h${level}>`;
       continue;
     }
     const bullet = line.match(/^\s*[-*]\s+(.+)$/);
@@ -555,11 +590,11 @@ function renderMarkdown(markdown) {
         html += "<ul>";
         listOpen = true;
       }
-      html += `<li>${inlineMarkdown(bullet[1])}</li>`;
+      html += `<li>${inlineMarkdown(bullet[1], sourceHref)}</li>`;
       continue;
     }
     closeList();
-    html += `<p>${inlineMarkdown(line)}</p>`;
+    html += `<p>${inlineMarkdown(line, sourceHref)}</p>`;
   }
   closeList();
   closeTable();
@@ -586,11 +621,27 @@ function splitMarkdownTableRow(line) {
   return trimmed.split("|").map((cell) => cell.trim());
 }
 
-function inlineMarkdown(value) {
+function inlineMarkdown(value, sourceHref) {
   return escapeHtml(value)
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, href) =>
+      `<a href="${escapeHtml(resolveMarkdownHref(href, sourceHref))}">${label}</a>`);
+}
+
+function resolveMarkdownHref(href, sourceHref) {
+  try {
+    const sourceUrl = new URL(sourceHref, window.location.href);
+    return new URL(href, sourceUrl).href;
+  } catch (error) {
+    return href;
+  }
+}
+
+function findDocumentByHref(href) {
+  const targetUrl = new URL(href, window.location.href);
+  return docs.find((doc) =>
+    new URL(doc.href, window.location.href).href === targetUrl.href);
 }
 
 function categoryLabel(value) {
@@ -628,8 +679,48 @@ themeButton.addEventListener("click", () => {
   setTheme(currentTheme === "dark" ? "light" : "dark");
 });
 
+if (quickStartLink) {
+  quickStartLink.addEventListener("click", (event) => {
+    event.preventDefault();
+    const isChinese = currentLang === "zh";
+    openReader({
+      category: "workflow",
+      href: isChinese ? "../README.zh-CN.md" : "../README.md",
+      section: isChinese ? "快速开始" : "Quick Start",
+      zh: { title: "Quick Start" },
+      en: { title: "Quick Start" }
+    });
+  });
+}
+
+document.querySelectorAll(".start-links a").forEach((link) => {
+  if (link === quickStartLink) {
+    return;
+  }
+  link.addEventListener("click", (event) => {
+    const doc = findDocumentByHref(link.href);
+    if (!doc) {
+      return;
+    }
+    event.preventDefault();
+    openReader(doc);
+  });
+});
+
 document.querySelectorAll("[data-close-reader]").forEach((node) => {
   node.addEventListener("click", closeReader);
+});
+
+readerBody.addEventListener("click", (event) => {
+  const link = event.target.closest("a");
+  if (!link) {
+    return;
+  }
+  const doc = findDocumentByHref(link.href);
+  if (doc) {
+    event.preventDefault();
+    openReader(doc);
+  }
 });
 
 window.addEventListener("keydown", (event) => {
@@ -740,7 +831,7 @@ document.querySelectorAll("main > section").forEach((node, index) => {
 document.querySelectorAll(".flow-item").forEach((node, index) => {
   observeReveal(node, "flow", index);
 });
-document.querySelectorAll(".code-step").forEach((node, index) => {
+document.querySelectorAll(".start-step").forEach((node, index) => {
   observeReveal(node, "code", index);
 });
 

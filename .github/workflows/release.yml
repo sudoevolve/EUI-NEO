@@ -46,20 +46,23 @@ jobs:
       - name: configure windows
         if: matrix.platform == 'windows'
         shell: pwsh
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DEUI_BUILD_TEST_FIXTURES=ON
 
       - name: configure linux
         if: matrix.platform == 'linux'
         shell: bash
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DGLFW_BUILD_WAYLAND=OFF -DGLFW_BUILD_X11=ON -DEUI_BUILD_TEST_FIXTURES=ON
 
       - name: configure macos
         if: matrix.platform == 'macos'
         shell: bash
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DEUI_BUILD_TEST_FIXTURES=ON
 
       - name: build
         run: cmake --build build --config Release --parallel
+
+      - name: test unit suite
+        run: ctest --test-dir build -C Release -L unit --output-on-failure
 
       - name: install sdk
         shell: bash

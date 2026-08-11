@@ -160,6 +160,7 @@ public:
                     .clip()
                     .content([&] {
                         ui_.polygon(id_ + ".mark.short")
+                            .size(box, box)
                             .points(markShortPoints)
                             .color(style_.mark)
                             .opacity(checked_ ? 1.0f : 0.0f)
@@ -168,6 +169,7 @@ public:
                             .build();
 
                         ui_.polygon(id_ + ".mark.long")
+                            .size(box, box)
                             .points(markLongPoints)
                             .color(style_.mark)
                             .opacity(checked_ ? 1.0f : 0.0f)
@@ -207,7 +209,7 @@ private:
     std::string text_;
     bool checked_ = false;
     float width_ = 180.0f;
-    float height_ = 28.0f;
+    float height_ = 30.0f;
     float boxSize_ = 0.0f;
     float gap_ = 0.0f;
     float fontSize_ = 0.0f;

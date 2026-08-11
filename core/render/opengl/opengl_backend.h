@@ -55,6 +55,7 @@ public:
                      const core::Color& tint,
                      const core::Rect& rect,
                      float radius,
+                     float blur,
                      int windowWidth,
                      int windowHeight) override;
     void drawLayerTexture(TextureHandle handle,
@@ -63,8 +64,24 @@ public:
                           const core::Rect& rect,
                           int windowWidth,
                           int windowHeight) override;
+    ShaderToyHandle createShaderToy(const ShaderToyGraph& graph, ShaderToyError* error) override;
+    TextureHandle renderShaderToy(ShaderToyHandle handle,
+                                  const ShaderToyGraph& graph,
+                                  int width,
+                                  int height,
+                                  const ShaderToyFrameData& frame,
+                                  bool paused,
+                                  bool reset,
+                                  ShaderToyError* error) override;
+    void destroyShaderToy(ShaderToyHandle handle) override;
+    bool readShaderToyPixel(ShaderToyHandle handle, float* rgba) override;
+    bool readShaderToyPixels(ShaderToyHandle handle,
+                             float* rgba,
+                             std::size_t floatCount) override;
 
 private:
+    void flushRoundedRectBatch();
+    void releaseShaderToys();
     void releasePrimitiveResources();
     void releasePolygonResources();
     void releaseTextResources();
@@ -111,6 +128,10 @@ private:
     std::uint64_t renderCacheGeneration_ = 0;
     std::vector<std::uint64_t> backbufferCacheGenerations_{0, 0};
     std::vector<RenderCacheHistoryEntry> renderCacheHistory_;
+    std::vector<ShaderToyHandle> shaderToys_;
+    std::vector<float> roundedRectBatchVertices_;
+    int roundedRectBatchWindowWidth_ = 0;
+    int roundedRectBatchWindowHeight_ = 0;
     std::size_t currentBackbuffer_ = 0;
     unsigned int imageVao_ = 0;
     unsigned int imageVbo_ = 0;
@@ -120,7 +141,16 @@ private:
     int imageTintLocation_ = -1;
     int imageRectLocation_ = -1;
     int imageRadiusLocation_ = -1;
-    bool stateCacheValid_ = false;
+    int imageBlurLocation_ = -1;
+    bool programStateValid_ = false;
+    bool vaoStateValid_ = false;
+    bool arrayBufferStateValid_ = false;
+    bool textureUnitStateValid_ = false;
+    bool texture2DStateValid_[8] = {};
+    bool blendEnabledStateValid_ = false;
+    bool blendFunctionStateValid_ = false;
+    bool scissorEnabledStateValid_ = false;
+    bool scissorRectStateValid_ = false;
     bool blendEnabled_ = false;
     bool alphaBlendSet_ = false;
     bool scissorEnabledState_ = false;

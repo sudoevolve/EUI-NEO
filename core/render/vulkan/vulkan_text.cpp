@@ -25,6 +25,7 @@ void VulkanRenderBackend::drawText(const TextDrawCommand& command, int windowWid
         return;
     }
 
+    flushRoundedRectBatch();
     if (!ensureTextPipeline()) {
         return;
     }

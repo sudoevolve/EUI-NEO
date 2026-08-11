@@ -166,6 +166,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                         .theme(tokens)
                         .size(viewportWidth, viewportHeight)
                         .offset(viewer.scrollOffset)
+                        .contentKey("markdown.viewer")
                         .gap(0.0f)
                         .step(56.0f)
                         .scrollbarWidth(8.0f)

@@ -209,6 +209,7 @@ bool restart(std::string key, WorkFn work, ThenFn then) {
 Status status(const std::string& key);
 bool running(const std::string& key);
 bool cancel(const std::string& key);
+bool forget(const std::string& key);
 bool dispatchReady();
 void shutdown();
 

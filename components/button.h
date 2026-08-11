@@ -206,8 +206,8 @@ private:
     std::function<void()> onRelease_;
     std::function<void(float)> onFrame_;
     std::function<void(const core::PointerEvent&, const core::Rect&)> onContextMenu_;
-    float width_ = 240.0f;
-    float height_ = 70.0f;
+    float width_ = 200.0f;
+    float height_ = 54.0f;
     float scale_ = 1.0f;
     float fontSize_ = 0.0f;
     float iconSize_ = 0.0f;

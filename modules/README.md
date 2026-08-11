@@ -11,8 +11,7 @@ direct backend dependencies.
 Module boundaries:
 
 - `keyboard/`: on-screen keyboard surface and input binding API.
-- `media/`: reserved boundary for media playback and capture-facing UI/runtime adapters.
-- `serial/`: reserved boundary for serial device discovery, connection, and terminal-oriented UI.
+- `serial/`: cross-platform serial discovery, connection, and I/O.
 
 CMake behavior:
 
@@ -21,3 +20,5 @@ CMake behavior:
 - Missing module directories are skipped without an error.
 - Present modules may start as header-only `INTERFACE` targets and grow into
   compiled targets later.
+- Installed modules keep the same `eui::module_*` target names as source-tree
+  builds.

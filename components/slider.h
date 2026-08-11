@@ -110,7 +110,7 @@ private:
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(float)> onChange_;
     float width_ = 300.0f;
-    float height_ = 28.0f;
+    float height_ = 32.0f;
     float value_ = 0.0f;
 };
 

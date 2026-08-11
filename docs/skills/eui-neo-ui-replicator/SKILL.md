@@ -22,7 +22,7 @@ Before writing code, inspect these local sources when available:
 - `components/components.h` for the exported component list.
 - `components/workshop/SKILL.md` when porting an effect-heavy or CSS-like custom component.
 
-Create runnable user apps under `apps/`, not under `examples/`, unless the user explicitly asks to modify the built-in gallery or examples. Prefer a directory app such as `apps/my_app/app.cpp` when the UI may grow or needs assets; use `apps/my_app/assets/` for app-local media. A single-file `apps/my_app.cpp` is fine only for very small experiments.
+Create runnable user apps under `apps/`, not under `examples/`, unless the user explicitly asks to modify the built-in gallery or examples. Prefer a directory app such as `apps/my_app/app.cpp` when the UI may grow, has multiple pages, uses app-specific custom components, or needs assets. Put distinct pages in `apps/my_app/pages/`, app-specific custom or primitive-built components in `apps/my_app/components/`, and app-local media in `apps/my_app/assets/`. A single-file `apps/my_app.cpp` is fine only for a very small single-view experiment with no app-specific component modules.
 Before creating code, choose and state the app target name. The target name comes from the flat file stem (`apps/my_app.cpp` -> `my_app`) or directory name (`apps/my_app/app.cpp` -> `my_app`). Build that exact target for verification.
 
 Create a short implementation inventory:
@@ -220,14 +220,22 @@ Keep text boxes large enough for the intended strings. Set `fontSize`, `lineHeig
 
 ## App File Placement
 
-For user-facing generated apps, create or update one of these shapes:
+For user-facing generated apps, use a directory whenever the app has multiple pages, app-specific custom components, or assets:
 
 ```text
 apps/
   my_app/
     app.cpp
+    pages/         # required when the app has distinct pages or routed views
+    components/    # required for app-specific custom or primitive-built components
     assets/        # optional app-local assets
 ```
+
+For a multi-page app, keep `app.cpp` limited to application configuration, the persistent shell, navigation, global overlays, and page dispatch. Put each distinct page in its own header under `pages/`; a small `pages/page_context.h` may own shared page state, models, theme tokens, and navigation actions, but must not become a container for rendered components.
+
+Put every reusable app-specific custom component, including repeated primitive-built controls, cards, headers, media treatments, and interaction surfaces, under the app's `components/` directory. One-off visual details may remain next to their owning page, but creating any custom component module requires the app-local `components/` directory. Promote a component to the repository-level `components/` or `components/workshop/` only when it is genuinely reusable by multiple apps and has no dependency on app state, page models, or brand-specific styling.
+
+Use header-based `pages/` and app-local `components/` modules so the existing `apps/*/app.cpp` discovery rule remains unchanged. Keep dependency direction explicit: `app.cpp -> pages -> app components -> page_context/framework`; app-local components must not include page implementation headers.
 
 or, only for tiny throwaway experiments:
 

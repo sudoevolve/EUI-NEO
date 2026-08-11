@@ -182,6 +182,11 @@ int initialWindowHeight() {
     return dslAppConfig().windowHeightValue;
 }
 
+float uiScale() {
+    const float configuredScale = dslAppConfig().uiScaleValue;
+    return configuredScale > 0.0f ? configuredScale : 1.0f;
+}
+
 bool trayEnabled() {
     return dslAppConfig().trayEnabledValue;
 }
@@ -237,8 +242,9 @@ bool update(core::window::Handle window, float deltaSeconds, int windowWidth, in
     }
 
     const DslAppConfig& config = dslAppConfig();
-    const float logicalWidth = static_cast<float>(windowWidth) / dpiScale;
-    const float logicalHeight = static_cast<float>(windowHeight) / dpiScale;
+    const float effectiveScale = dpiScale * uiScale();
+    const float logicalWidth = static_cast<float>(windowWidth) / effectiveScale;
+    const float logicalHeight = static_cast<float>(windowHeight) / effectiveScale;
     detail::DslAppState& state = detail::dslAppState();
 
     const auto composeFrame = [&] {
@@ -260,13 +266,13 @@ bool update(core::window::Handle window, float deltaSeconds, int windowWidth, in
         changed = true;
     }
 
-    changed = detail::dslRuntime().update(window, deltaSeconds, pointerScale, dpiScale, inputEnabled) || changed;
+    changed = detail::dslRuntime().update(window, deltaSeconds, pointerScale, effectiveScale, inputEnabled) || changed;
     if (detail::dslRuntime().composeRequested()) {
         // A compose can change retained content without changing the element structure.
         // Rebuild the complete cache so state and release visuals update in this frame.
         detail::dslRuntime().requestFullPaint();
         composeFrame();
-        changed = detail::dslRuntime().update(window, 0.0f, pointerScale, dpiScale, inputEnabled) || changed;
+        changed = detail::dslRuntime().update(window, 0.0f, pointerScale, effectiveScale, inputEnabled) || changed;
         changed = true;
     }
 
@@ -282,8 +288,9 @@ void render(int windowWidth, int windowHeight, float dpiScale) {
         return;
     }
 
-    const core::Color clearColor = dslAppConfig().clearColorValue;
-    detail::dslRuntime().render(windowWidth, windowHeight, dpiScale, clearColor);
+    const DslAppConfig& config = dslAppConfig();
+    const float effectiveScale = dpiScale * uiScale();
+    detail::dslRuntime().render(windowWidth, windowHeight, effectiveScale, config.clearColorValue);
 }
 
 void releaseGraphicsResources() {

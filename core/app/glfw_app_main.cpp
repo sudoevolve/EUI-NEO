@@ -16,6 +16,7 @@
 #endif
 
 #include "eui/app.h"
+#include "eui/detail/dsl_app_impl.h"
 #include "core/app/app_runner.h"
 #include "core/app/dsl_window_manager.h"
 #include "core/app/dsl_window_runtime.h"

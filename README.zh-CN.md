@@ -36,72 +36,10 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 环境要求：
 
 - CMake 3.14+
-- 支持 C++17 的编译器
-- 默认渲染器需要 OpenGL 开发文件。
-- Vulkan SDK 可选。只有需要 Vulkan 渲染器时才使用 `build-vk` 构建目录。
-- 平台 OpenGL/windowing 开发文件。Linux 构建还需要 X11 和 libcurl 开发包。
+- 支持 C++17 的编译器：MSVC 19.29+（Visual Studio 2019 16.11+）、GCC/MinGW-w64 12+ 或 Clang 14+
+- 默认渲染器所需的 OpenGL 开发文件
 
-GLFW、glad、tray、FreeType、libpng、zlib 等构建期第三方源码已内置在 `3rd/` 下。受支持的源码库按标志文件自动识别，不依赖目录名或版本号，直接把上游源码文件夹放进 `3rd/` 即可。默认依赖模式是 `auto`：先复用父项目已有的 `glfw` / `glad` target，再尝试包管理器 target，最后才使用本地 `3rd/` 源码或固定上游兜底拉取。需要严格离线构建时，可配置 `-DEUI_DEPS_MODE=bundled`；需要强制联网拉取时，可配置 `-DEUI_DEPS_MODE=fetch`。
-
-内置和 fetch 下载的依赖默认按静态链接构建，包括 GLFW。Release 包因此不需要额外携带 GLFW DLL / dylib / so。只有选择系统 SDL2 包时，SDL2 仍可能是动态库。
-
-默认窗口后端是 GLFW。SDL2 是可选后端，不放进 `3rd/`：如果 GLFW 不可用，或需要测试 SDL2，在构建目录名里加 `sdl2`：
-
-```sh
-cmake -S . -B build-sdl2
-cmake --build build-sdl2
-```
-
-找不到系统 SDL2 包时，加 `-DEUI_DEPS_MODE=fetch` 下载固定版本 SDL2 源码。
-
-macOS / Linux 示例：
-
-```sh
-cmake -S . -B build
-cmake --build build
-./build/gallery
-```
-
-显式选择渲染后端示例：
-
-```sh
-cmake -S . -B build-vk
-cmake --build build-vk --target gallery
-```
-
-构建目录后缀会在首次配置时自动识别：`build` 表示 GLFW + OpenGL，`build-sdl2` 表示 SDL2 + OpenGL，`build-vk` 表示 GLFW + Vulkan，`build-sdl2-vk` 表示 SDL2 + Vulkan。已有构建目录存在 CMake cache 时，删除该目录或显式传入 `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...`。
-
-Windows / PowerShell 示例：
-
-```powershell
-cmake -S . -B build
-cmake --build build --config Release
-.\build\Release\gallery.exe
-```
-
-Linux 依赖提示：
-
-```sh
-sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libcurl4-openssl-dev
-# -DEUI_WINDOW_BACKEND=sdl2 可选安装：
-sudo apt-get install -y libsdl2-dev
-```
-
-顶层构建会为 `examples/*.cpp` 下的每个页面源文件生成一个可执行程序，例如 `gallery`、`card_slider` 和 `eui_demo`。构建后会自动把 `assets/` 复制到可执行文件目录。
-
-用户应用可以放在 `apps/` 下，顶层构建默认会像 examples 一样生成可执行文件。支持两种写法：单文件 `apps/my_app.cpp`，或目录式 `apps/my_app/app.cpp`。目录式应用可以带自己的 `apps/my_app/assets/`，构建后会在框架资源复制完成后继续复制到可执行文件旁边的 `assets/` 目录。需要关闭自动扫描时传入 `-DEUI_BUILD_USER_APPS=OFF`。
-
-## 可选模块
-
-可选功能模块位于 `modules/`，详细说明见 [模块指南](docs/模块.md)。
-
-推送 `v*` tag 后，GitHub Actions 会构建 Windows、Linux、macOS 包，并且 release assets 会上传运行包和 SDK 包。运行包会自动收集所有由 `examples/*.cpp` 生成的可执行文件。
-
-## 接入到你的项目
-
-推荐方式是把 EUI-NEO 作为 CMake 子目录加入，使用框架提供的 app main，并通过公共 facade 头文件编写 UI。
-
-最小 CMake：
+把 EUI-NEO 放到 `external/EUI-NEO`，然后创建：
 
 ```cmake
 cmake_minimum_required(VERSION 3.14)
@@ -112,14 +50,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(external/EUI-NEO)
 
-add_executable(my_app
-    external/EUI-NEO/core/app/glfw_app_main.cpp
-    app.cpp
-)
+add_executable(my_app app.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-最小 `app.cpp`：
+`app.cpp`：
 
 ```cpp
 #include "eui_neo.h"
@@ -158,7 +93,47 @@ cmake --build build --parallel
 ./build/my_app
 ```
 
-这种方式下，EUI-NEO 会接管窗口、事件循环、当前选择的渲染后端和资源复制。SDL2、Vulkan、`FetchContent`、自定义 main loop，以及在父项目里构建仓库自带示例的写法，见 [集成指南](docs/集成指南.md)。
+`eui_neo_configure_app()` 会加入所选 GLFW/SDL2 入口、链接 `eui::neo`、设置平台可执行文件选项并部署运行资源。应用不需要引用 `core/` 下的文件。
+
+Release SDK 使用同一套目标配置：
+
+```cmake
+find_package(EuiNeo CONFIG REQUIRED)
+add_executable(my_app app.cpp)
+eui_neo_configure_app(my_app)
+```
+
+安装、`FetchContent`、SDL2/Vulkan 选择和自定义主循环见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
+
+### Xmake
+
+Xmake 3.0+ 支持源码构建和 xrepo 接入：
+
+```lua
+set_languages("cxx17")
+add_requires("eui-neo")
+
+target("my_app")
+    set_kind("binary")
+    add_files("main.cpp", "app.cpp")
+    add_packages("eui-neo")
+```
+
+直接构建仓库示例：
+
+```powershell
+xmake f -m debug -y --apps=y --user_apps=y
+xmake build gallery
+xmake f -m release -y --apps=y --user_apps=y
+xmake build gallery
+```
+
+Windows 产物在 `.xmake/build/windows/x64/<debug|release>/gallery.exe`。
+SDL2、Vulkan 和共享库选项见 [集成指南](docs/集成指南.md)。
+
+## 可选模块
+
+可选功能模块位于 `modules/`，详细说明见 [模块指南](docs/模块.md)。
 
 ## 目录结构
 
@@ -168,7 +143,7 @@ components/   基于 DSL 封装的通用组件
 core/         DSL、Runtime、图元、文本、图片、网络和平台能力
 docs/         项目实现文档
 examples/     独立 gallery 和示例应用源码
-modules/      键盘、媒体、串口等可选功能模块
+modules/      键盘、串口等可选功能模块
 apps/         用户应用源码；支持单文件 .cpp 或目录式 app.cpp
 include/      公共 include 路径：eui_neo.h 和 eui/* facade 头文件
 tests/        probe 源码、fixture 应用和本地 benchmark 记录
@@ -186,19 +161,22 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 - [动画](docs/动画.md)
 - [异步](docs/异步.md)
 - [渲染后端架构与流程](docs/渲染后端架构.md)
-- [Retained Layer Cache](docs/retained_layer_cache.md)
+- [保留层缓存](docs/retained_layer_cache.md)
 - [图片](docs/图片.md)
 - [网络](docs/网络.md)
 - [平台能力](docs/平台能力.md)
 - [集成指南](docs/集成指南.md)
+- [Shadertoy 底层图元](docs/Shadertoy.md)
 - [开发与发布](docs/开发与发布.md)
 
 ## 许可
 
 EUI-NEO 的原创源码采用 Apache License 2.0。`3rd/` 下的第三方代码、CMake 可选联网拉取的构建期依赖，以及 `assets/` 下随项目分发的字体和图标字体，遵循各自上游许可证和版权声明。
 
-## Star History
+## 贡献者致谢
 
-<a href="https://www.star-history.com/#sudoevolve/EUI-NEO&Date">
-  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=sudoevolve/EUI-NEO&type=Date">
+感谢所有为 EUI-NEO 提交代码、完善文档、报告问题和提供建议的贡献者。
+
+<a href="https://github.com/sudoevolve/EUI-NEO/graphs/contributors">
+  <img alt="EUI-NEO 贡献者" src="https://contrib.rocks/image?repo=sudoevolve/eui-neo&max=100&columns=10">
 </a>

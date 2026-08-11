@@ -185,6 +185,17 @@ bool cancel(const std::string& key) {
     return true;
 }
 
+bool forget(const std::string& key) {
+    std::lock_guard<std::mutex> lock(gMutex);
+    const auto it = gTasks.find(key);
+    if (it == gTasks.end() ||
+        (it->second.status != Status::Done && it->second.status != Status::Failed)) {
+        return false;
+    }
+    gTasks.erase(it);
+    return true;
+}
+
 bool dispatchReady() {
     std::deque<std::function<void()>> callbacks;
     {

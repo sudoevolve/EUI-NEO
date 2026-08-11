@@ -31,10 +31,10 @@ void switchLevel(int delta) {
 }
 
 void handleKeys(const core::KeyboardEvent& event) {
-    if (event.left) {
+    if (event.hasKey(core::InputKey::Left)) {
         switchLevel(-1);
     }
-    if (event.right) {
+    if (event.hasKey(core::InputKey::Right)) {
         switchLevel(1);
     }
 }

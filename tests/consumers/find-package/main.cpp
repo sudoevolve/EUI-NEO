@@ -1,5 +1,7 @@
 #include "eui_neo.h"
 
+bool publicHeaderCompanionIsLinked();
+
 namespace app {
 
 const DslAppConfig& dslAppConfig() {
@@ -20,6 +22,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
 
 } // namespace app
 
+#if !defined(EUI_FIND_PACKAGE_APP)
 int main() {
     eui::Color color{1.0f, 0.0f, 0.0f, 1.0f};
     eui::json::Document document;
@@ -27,5 +30,6 @@ int main() {
     const bool jsonOk = document.parse(R"({"value":"installed"})") &&
                         document.root().get("value").string(value) &&
                         value == "installed";
-    return color.r > 0.5f && jsonOk ? 0 : 1;
+    return color.r > 0.5f && jsonOk && publicHeaderCompanionIsLinked() ? 0 : 1;
 }
+#endif

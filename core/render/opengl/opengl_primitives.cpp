@@ -49,6 +49,16 @@ struct PrimitiveResources {
     int backdropTextureHeight = 0;
 };
 
+struct RoundedRectBatchResources {
+    GLuint vao = 0;
+    GLuint vbo = 0;
+    GLuint shaderProgram = 0;
+    GLint windowSizeLocation = -1;
+};
+
+constexpr std::size_t kRoundedRectBatchVertexFloatCount = 36;
+constexpr std::size_t kRoundedRectBatchMaxVertices = 6u * 2048u;
+
 constexpr int kMaxPolygonEdges = 128;
 
 struct PolygonResources {
@@ -64,6 +74,11 @@ struct PolygonResources {
 
 PrimitiveResources& primitiveResources() {
     static std::unordered_map<window::ContextKey, PrimitiveResources> resourcesByContext;
+    return resourcesByContext[window::currentContextKey()];
+}
+
+RoundedRectBatchResources& roundedRectBatchResources() {
+    static std::unordered_map<window::ContextKey, RoundedRectBatchResources> resourcesByContext;
     return resourcesByContext[window::currentContextKey()];
 }
 
@@ -101,6 +116,19 @@ void releaseResources(PrimitiveResources& resources) {
     }
     if (resources.backdropFramebuffer) {
         glDeleteFramebuffers(1, &resources.backdropFramebuffer);
+    }
+    resources = {};
+}
+
+void releaseResources(RoundedRectBatchResources& resources) {
+    if (resources.vbo) {
+        glDeleteBuffers(1, &resources.vbo);
+    }
+    if (resources.vao) {
+        glDeleteVertexArrays(1, &resources.vao);
+    }
+    if (resources.shaderProgram) {
+        glDeleteProgram(resources.shaderProgram);
     }
     resources = {};
 }
@@ -292,6 +320,161 @@ bool ensurePrimitiveResources() {
     return resources.shaderProgram != 0 && resources.vao != 0 && resources.vbo != 0;
 }
 
+bool ensureRoundedRectBatchResources() {
+    RoundedRectBatchResources& resources = roundedRectBatchResources();
+    if (resources.shaderProgram != 0 && resources.vao != 0 && resources.vbo != 0) {
+        return true;
+    }
+
+    const char* vertexSource =
+        "#version 330 core\n"
+        "layout(location = 0) in vec3 aScreenPos;\n"
+        "layout(location = 1) in vec2 aLocalPos;\n"
+        "layout(location = 2) in vec4 aFillColor;\n"
+        "layout(location = 3) in vec4 aGradientStart;\n"
+        "layout(location = 4) in vec4 aGradientEnd;\n"
+        "layout(location = 5) in vec4 aBorderColor;\n"
+        "layout(location = 6) in vec4 aRect;\n"
+        "layout(location = 7) in vec4 aShapeParams;\n"
+        "layout(location = 8) in vec4 aModeParams;\n"
+        "layout(location = 9) in vec3 aShadowParams;\n"
+        "uniform vec2 uWindowSize;\n"
+        "out vec2 vLocalPos;\n"
+        "flat out vec4 vFillColor;\n"
+        "flat out vec4 vGradientStart;\n"
+        "flat out vec4 vGradientEnd;\n"
+        "flat out vec4 vBorderColor;\n"
+        "flat out vec4 vRect;\n"
+        "flat out vec4 vShapeParams;\n"
+        "flat out vec4 vModeParams;\n"
+        "flat out vec3 vShadowParams;\n"
+        "void main() {\n"
+        "    vLocalPos = aLocalPos;\n"
+        "    vFillColor = aFillColor;\n"
+        "    vGradientStart = aGradientStart;\n"
+        "    vGradientEnd = aGradientEnd;\n"
+        "    vBorderColor = aBorderColor;\n"
+        "    vRect = aRect;\n"
+        "    vShapeParams = aShapeParams;\n"
+        "    vModeParams = aModeParams;\n"
+        "    vShadowParams = aShadowParams;\n"
+        "    vec2 ndc = vec2((aScreenPos.x / uWindowSize.x) * 2.0 - 1.0,\n"
+        "                    1.0 - (aScreenPos.y / uWindowSize.y) * 2.0);\n"
+        "    gl_Position = vec4(ndc * aScreenPos.z, 0.0, aScreenPos.z);\n"
+        "}\n";
+
+    const char* fragmentSource =
+        "#version 330 core\n"
+        "in vec2 vLocalPos;\n"
+        "flat in vec4 vFillColor;\n"
+        "flat in vec4 vGradientStart;\n"
+        "flat in vec4 vGradientEnd;\n"
+        "flat in vec4 vBorderColor;\n"
+        "flat in vec4 vRect;\n"
+        "flat in vec4 vShapeParams;\n"
+        "flat in vec4 vModeParams;\n"
+        "flat in vec3 vShadowParams;\n"
+        "out vec4 FragColor;\n"
+        "float roundedBoxDistance(vec2 point, vec2 halfSize, float radius) {\n"
+        "    vec2 cornerVector = abs(point) - halfSize + vec2(radius);\n"
+        "    return length(max(cornerVector, 0.0)) + min(max(cornerVector.x, cornerVector.y), 0.0) - radius;\n"
+        "}\n"
+        "void main() {\n"
+        "    float radius = vShapeParams.x;\n"
+        "    float borderWidth = vShapeParams.y;\n"
+        "    float opacity = vShapeParams.z;\n"
+        "    float shadowBlur = max(vShapeParams.w, 1.0);\n"
+        "    bool useGradient = vModeParams.x > 0.5;\n"
+        "    bool verticalGradient = vModeParams.y > 0.5;\n"
+        "    bool shadowPass = vModeParams.z > 0.5;\n"
+        "    bool insetShadowPass = vModeParams.w > 0.5;\n"
+        "    vec2 center = vRect.xy + vRect.zw * 0.5;\n"
+        "    float distanceToEdge = roundedBoxDistance(vLocalPos - center, vRect.zw * 0.5, radius);\n"
+        "    if (shadowPass) {\n"
+        "        if (insetShadowPass) {\n"
+        "            float edgeWidth = max(fwidth(distanceToEdge), 0.75);\n"
+        "            float shapeAlpha = 1.0 - smoothstep(-edgeWidth, edgeWidth, distanceToEdge);\n"
+        "            if (shapeAlpha <= 0.0) discard;\n"
+        "            vec2 offset = vShadowParams.xy;\n"
+        "            vec2 sideVector = dot(offset, offset) <= 0.0001 ? vec2(0.0, 1.0) : normalize(-offset);\n"
+        "            vec2 localUnit = (vLocalPos - center) / max(vRect.zw * 0.5, vec2(1.0));\n"
+        "            float sideMask = clamp(0.34 + dot(localUnit, sideVector) * 0.66, 0.0, 1.0);\n"
+        "            float spreadBias = max(vShadowParams.z, 0.0);\n"
+        "            float edgeFalloff = smoothstep(-shadowBlur - spreadBias, 0.0, distanceToEdge);\n"
+        "            float innerAlpha = edgeFalloff * sideMask;\n"
+        "            if (innerAlpha <= 0.0) discard;\n"
+        "            FragColor = vec4(vFillColor.rgb, vFillColor.a * innerAlpha * shapeAlpha * opacity);\n"
+        "            return;\n"
+        "        }\n"
+        "        float shadowAlpha = 1.0 - smoothstep(-shadowBlur, shadowBlur, distanceToEdge);\n"
+        "        if (shadowAlpha <= 0.0) discard;\n"
+        "        FragColor = vec4(vFillColor.rgb, vFillColor.a * shadowAlpha * opacity);\n"
+        "        return;\n"
+        "    }\n"
+        "    float edgeWidth = max(fwidth(distanceToEdge), 0.75);\n"
+        "    float shapeAlpha = 1.0 - smoothstep(-edgeWidth, edgeWidth, distanceToEdge);\n"
+        "    if (shapeAlpha <= 0.0) discard;\n"
+        "    float gradientAmount = verticalGradient ?\n"
+        "        clamp((vLocalPos.y - vRect.y) / max(vRect.w, 1.0), 0.0, 1.0) :\n"
+        "        clamp((vLocalPos.x - vRect.x) / max(vRect.z, 1.0), 0.0, 1.0);\n"
+        "    vec4 fill = useGradient ? mix(vGradientStart, vGradientEnd, gradientAmount) : vFillColor;\n"
+        "    float borderAlpha = borderWidth > 0.0 ? smoothstep(-borderWidth - edgeWidth, -borderWidth + edgeWidth, distanceToEdge) : 0.0;\n"
+        "    vec4 color = mix(fill, vBorderColor, borderAlpha);\n"
+        "    FragColor = vec4(color.rgb, color.a * shapeAlpha * opacity);\n"
+        "}\n";
+
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexSource);
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentSource);
+    if (!vertexShader || !fragmentShader) {
+        if (vertexShader) glDeleteShader(vertexShader);
+        if (fragmentShader) glDeleteShader(fragmentShader);
+        return false;
+    }
+
+    resources.shaderProgram = glCreateProgram();
+    glAttachShader(resources.shaderProgram, vertexShader);
+    glAttachShader(resources.shaderProgram, fragmentShader);
+    glLinkProgram(resources.shaderProgram);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    GLint linked = 0;
+    glGetProgramiv(resources.shaderProgram, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        releaseResources(resources);
+        return false;
+    }
+
+    resources.windowSizeLocation = glGetUniformLocation(resources.shaderProgram, "uWindowSize");
+    glGenVertexArrays(1, &resources.vao);
+    glGenBuffers(1, &resources.vbo);
+    glBindVertexArray(resources.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, resources.vbo);
+    const GLsizei stride = static_cast<GLsizei>(sizeof(float) * kRoundedRectBatchVertexFloatCount);
+    const auto attribute = [stride](GLuint location, GLint size, std::size_t offset) {
+        glVertexAttribPointer(location,
+                              size,
+                              GL_FLOAT,
+                              GL_FALSE,
+                              stride,
+                              reinterpret_cast<void*>(sizeof(float) * offset));
+        glEnableVertexAttribArray(location);
+    };
+    attribute(0, 3, 0);
+    attribute(1, 2, 3);
+    attribute(2, 4, 5);
+    attribute(3, 4, 9);
+    attribute(4, 4, 13);
+    attribute(5, 4, 17);
+    attribute(6, 4, 21);
+    attribute(7, 4, 25);
+    attribute(8, 4, 29);
+    attribute(9, 3, 33);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    return resources.shaderProgram != 0 && resources.vao != 0 && resources.vbo != 0;
+}
+
 bool ensurePolygonResources() {
     PolygonResources& resources = polygonResources();
     if (resources.shaderProgram != 0 && resources.vao != 0 && resources.vbo != 0) {
@@ -430,6 +613,7 @@ void ensureBackdropTexture(int width, int height) {
 } // namespace
 
 void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float blur, int windowWidth, int windowHeight) {
+    flushRoundedRectBatch();
     if (blur <= 0.0f || windowWidth <= 0 || windowHeight <= 0) {
         return;
     }
@@ -489,10 +673,109 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
     resetStateCache();
 }
 
+void OpenGLRenderBackend::flushRoundedRectBatch() {
+    if (roundedRectBatchVertices_.empty()) {
+        return;
+    }
+    if (roundedRectBatchWindowWidth_ <= 0 ||
+        roundedRectBatchWindowHeight_ <= 0 ||
+        !ensureRoundedRectBatchResources()) {
+        roundedRectBatchVertices_.clear();
+        roundedRectBatchWindowWidth_ = 0;
+        roundedRectBatchWindowHeight_ = 0;
+        return;
+    }
+
+    RoundedRectBatchResources& resources = roundedRectBatchResources();
+    setStandardAlphaBlend();
+    useProgram(resources.shaderProgram);
+    glUniform2f(resources.windowSizeLocation,
+                static_cast<float>(roundedRectBatchWindowWidth_),
+                static_cast<float>(roundedRectBatchWindowHeight_));
+    bindVertexArray(resources.vao);
+    bindArrayBuffer(resources.vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(roundedRectBatchVertices_.size() * sizeof(float)),
+                 roundedRectBatchVertices_.data(),
+                 GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLES,
+                 0,
+                 static_cast<GLsizei>(roundedRectBatchVertices_.size() /
+                                      kRoundedRectBatchVertexFloatCount));
+    roundedRectBatchVertices_.clear();
+    roundedRectBatchWindowWidth_ = 0;
+    roundedRectBatchWindowHeight_ = 0;
+}
+
 void OpenGLRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command, int windowWidth, int windowHeight) {
     if (command.vertices.empty() || windowWidth <= 0 || windowHeight <= 0 ||
         !roundedRectHasVisibleContent(command)) {
         return;
+    }
+
+    if (command.backdropBlur <= 0.001f) {
+        if (!roundedRectBatchVertices_.empty() &&
+            (roundedRectBatchWindowWidth_ != windowWidth ||
+             roundedRectBatchWindowHeight_ != windowHeight)) {
+            flushRoundedRectBatch();
+        }
+        RoundedRectBatchResources& batchResources = roundedRectBatchResources();
+        const bool hadBatchResources =
+            batchResources.shaderProgram != 0 &&
+            batchResources.vao != 0 &&
+            batchResources.vbo != 0;
+        if (ensureRoundedRectBatchResources()) {
+            if (!hadBatchResources) {
+                resetStateCache();
+            }
+            const std::size_t currentVertexCount =
+                roundedRectBatchVertices_.size() / kRoundedRectBatchVertexFloatCount;
+            if (currentVertexCount + command.vertices.size() > kRoundedRectBatchMaxVertices) {
+                flushRoundedRectBatch();
+            }
+
+            roundedRectBatchWindowWidth_ = windowWidth;
+            roundedRectBatchWindowHeight_ = windowHeight;
+            roundedRectBatchVertices_.reserve(
+                roundedRectBatchVertices_.size() +
+                command.vertices.size() * kRoundedRectBatchVertexFloatCount);
+            const auto appendColor = [&](const core::Color& color) {
+                roundedRectBatchVertices_.push_back(color.r);
+                roundedRectBatchVertices_.push_back(color.g);
+                roundedRectBatchVertices_.push_back(color.b);
+                roundedRectBatchVertices_.push_back(color.a);
+            };
+            for (const PrimitiveGeometryVertex& vertex : command.vertices) {
+                roundedRectBatchVertices_.push_back(vertex.screen.x);
+                roundedRectBatchVertices_.push_back(vertex.screen.y);
+                roundedRectBatchVertices_.push_back(vertex.screen.z);
+                roundedRectBatchVertices_.push_back(vertex.local.x);
+                roundedRectBatchVertices_.push_back(vertex.local.y);
+                appendColor(command.fillColor);
+                appendColor(command.gradient.start);
+                appendColor(command.gradient.end);
+                appendColor(command.border.color);
+                roundedRectBatchVertices_.push_back(command.rect.x);
+                roundedRectBatchVertices_.push_back(command.rect.y);
+                roundedRectBatchVertices_.push_back(command.rect.width);
+                roundedRectBatchVertices_.push_back(command.rect.height);
+                roundedRectBatchVertices_.push_back(command.radius);
+                roundedRectBatchVertices_.push_back(command.shadowPass ? 0.0f : command.border.width);
+                roundedRectBatchVertices_.push_back(command.opacity);
+                roundedRectBatchVertices_.push_back(command.shadowBlur);
+                roundedRectBatchVertices_.push_back(
+                    command.gradient.enabled && !command.shadowPass ? 1.0f : 0.0f);
+                roundedRectBatchVertices_.push_back(static_cast<float>(command.gradient.direction));
+                roundedRectBatchVertices_.push_back(command.shadowPass ? 1.0f : 0.0f);
+                roundedRectBatchVertices_.push_back(command.insetShadowPass ? 1.0f : 0.0f);
+                roundedRectBatchVertices_.push_back(command.shadowOffset.x);
+                roundedRectBatchVertices_.push_back(command.shadowOffset.y);
+                roundedRectBatchVertices_.push_back(command.shadowSpread);
+            }
+            return;
+        }
+    } else {
+        flushRoundedRectBatch();
     }
 
     PrimitiveResources& resources = primitiveResources();
@@ -553,6 +836,7 @@ void OpenGLRenderBackend::drawPolygon(const PolygonDrawCommand& command, int win
         command.opacity <= 0.001f || command.fillColor.a <= 0.001f) {
         return;
     }
+    flushRoundedRectBatch();
 
     PolygonResources& resources = polygonResources();
     const bool hadResources = resources.shaderProgram != 0 && resources.vao != 0 && resources.vbo != 0;
@@ -592,7 +876,9 @@ void OpenGLRenderBackend::drawPolygon(const PolygonDrawCommand& command, int win
 }
 
 void OpenGLRenderBackend::releasePrimitiveResources() {
+    flushRoundedRectBatch();
     releaseResources(primitiveResources());
+    releaseResources(roundedRectBatchResources());
     resetStateCache();
 }
 

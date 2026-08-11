@@ -327,7 +327,7 @@ void requestText(const std::string& key, const std::string& url) {
         state.body.clear();
     }
 
-    async::runOnce(
+    const bool started = async::runOnce(
         "network.text." + key,
         [url](const async::CancelToken& token) {
             std::string body;
@@ -347,6 +347,16 @@ void requestText(const std::string& key, const std::string& url) {
             }
             platform::requestUiUpdate();
         });
+    if (!started) {
+        std::lock_guard<std::mutex> lock(gTextMutex);
+        const auto it = gTextRequests.find(key);
+        if (it != gTextRequests.end()) {
+            it->second.ready = true;
+            it->second.ok = false;
+            it->second.body.clear();
+        }
+        platform::requestUiUpdate();
+    }
 }
 
 TextResult textResult(const std::string& key) {
@@ -358,7 +368,26 @@ TextResult textResult(const std::string& key) {
     return {it->second.ready, it->second.ok, it->second.body};
 }
 
+TextResult consumeTextResult(const std::string& key) {
+    TextResult result;
+    {
+        std::lock_guard<std::mutex> lock(gTextMutex);
+        const auto it = gTextRequests.find(key);
+        if (it == gTextRequests.end() || !it->second.ready) {
+            return result;
+        }
+        result = {true, it->second.ok, std::move(it->second.body)};
+        gTextRequests.erase(it);
+    }
+    async::forget("network.text." + key);
+    return result;
+}
+
 void shutdown() {
+    {
+        std::lock_guard<std::mutex> lock(gTextMutex);
+        gTextRequests.clear();
+    }
 #if defined(EUI_HAS_CURL)
     curl_global_cleanup();
 #endif

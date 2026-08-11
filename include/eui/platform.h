@@ -12,5 +12,6 @@ using core::platform::chooseFile;
 using core::platform::chooseFiles;
 using core::platform::openFileDialog;
 using core::platform::openUrl;
+using core::platform::resolveResourcePath;
 
 } // namespace eui::platform

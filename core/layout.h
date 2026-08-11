@@ -83,6 +83,10 @@ public:
         width_ = SizeValue::fixed(width);
         height_ = SizeValue::fixed(height);
     }
+    void setIntrinsicSize(float width, float height) {
+        intrinsicWidth_ = std::max(0.0f, width);
+        intrinsicHeight_ = std::max(0.0f, height);
+    }
     void setMargin(const EdgeInsets& margin) { margin_ = margin; }
     void setPadding(const EdgeInsets& padding) { padding_ = padding; }
     void setSpacing(float spacing) { spacing_ = spacing; }
@@ -251,8 +255,8 @@ private:
             return {
                 0.0f,
                 0.0f,
-                width_.mode == SizeMode::Fixed ? width_.value : availableWidth,
-                height_.mode == SizeMode::Fixed ? height_.value : availableHeight
+                width_.mode == SizeMode::Fixed ? width_.value : intrinsicWidth_,
+                height_.mode == SizeMode::Fixed ? height_.value : intrinsicHeight_
             };
         }
 
@@ -689,6 +693,8 @@ private:
     bool ignoreLayout_ = false;
     float measuredWidth_ = 0.0f;
     float measuredHeight_ = 0.0f;
+    float intrinsicWidth_ = 0.0f;
+    float intrinsicHeight_ = 0.0f;
     LayoutRect frame_;
     std::vector<std::unique_ptr<Node>> children_;
 };

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <core/render/shadertoy.h>
+
 #include "core/animation.h"
 #include "core/layout.h"
 #include "core/input/input_types.h"
@@ -28,6 +30,17 @@ using VerticalAlign = core::VerticalAlign;
 using TextStyle = core::TextStyle;
 using CursorShape = core::CursorShape;
 using PointerEvent = core::PointerEvent;
+using ShaderToyChannel = core::render::ShaderToyChannel;
+using ShaderToyChannelKind = core::render::ShaderToyChannelKind;
+using ShaderToyError = core::render::ShaderToyError;
+using ShaderToyErrorCode = core::render::ShaderToyErrorCode;
+using ShaderToyGraph = core::render::ShaderToyGraph;
+using ShaderToyPass = core::render::ShaderToyPass;
+using ShaderToySourceKind = core::render::ShaderToySourceKind;
+using ShaderToyUniform = core::render::ShaderToyUniform;
+using ShaderToyUniformKind = core::render::ShaderToyUniformKind;
+using core::render::loadShaderToyGraphJson;
+using core::render::parseShaderToyGraphJson;
 
 inline Color mixColor(const Color& from, const Color& to, float amount) {
     return core::mixColor(from, to, amount);

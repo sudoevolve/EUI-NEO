@@ -239,7 +239,7 @@ private:
                     .radius(style_.radius).border(metrics_.spacing.hairline, style_.border).shadow(style_.shadow).build();
                 ui_.rect(levelId + ".hit").size(width, height)
                     .states(theme::color(0, 0, 0, 0), theme::color(0, 0, 0, 0), theme::color(0, 0, 0, 0))
-                    .disabled(!visible).onClick([] {}).build();
+                    .disabled(!visible).blockPointer().build();
 
                 for (int index = 0; index < static_cast<int>(levelItems.size()); ++index) {
                     const ContextMenuItem& item = levelItems[index];

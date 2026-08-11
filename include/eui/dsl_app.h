@@ -14,6 +14,7 @@ struct DslAppConfig {
     eui::Color clearColorValue = {0.16f, 0.18f, 0.20f, 1.0f};
     int windowWidthValue = 800;
     int windowHeightValue = 600;
+    float uiScaleValue = 1.0f;
 #ifndef NDEBUG
     bool showDebugStatsInTitleValue = true;
 #else
@@ -38,6 +39,10 @@ struct DslAppConfig {
     }
     DslAppConfig& windowWidth(int value) { windowWidthValue = value; return *this; }
     DslAppConfig& windowHeight(int value) { windowHeightValue = value; return *this; }
+    DslAppConfig& uiScale(float value) {
+        uiScaleValue = value > 0.0f ? value : 1.0f;
+        return *this;
+    }
     DslAppConfig& showDebugStatsInTitle(bool value = true) {
         showDebugStatsInTitleValue = value;
         return *this;

@@ -9,6 +9,14 @@ bool isSourceReady(const std::string& source) {
     return core::ImagePrimitive::isSourceReady(source);
 }
 
+bool hasSourceFailed(const std::string& source) {
+    return core::ImagePrimitive::hasSourceFailed(source);
+}
+
+bool retrySource(const std::string& source) {
+    return core::ImagePrimitive::retrySource(source);
+}
+
 bool consumeRemoteImageReady() {
     return core::ImagePrimitive::consumeRemoteImageReady();
 }

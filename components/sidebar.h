@@ -79,7 +79,7 @@ public:
                             .shadow(34.0f, -10.0f, 12.0f, shadowColor())
                             .disabled(!open_)
                             .transition(transition_)
-                            .onClick([] {})
+                            .blockPointer()
                             .onScroll([](const core::ScrollEvent&) {})
                             .build();
 

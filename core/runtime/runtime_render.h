@@ -2,11 +2,176 @@
 
 namespace core::dsl {
 
-inline void Runtime::renderDirect(core::render::RenderBackend& renderBackend, int windowWidth, int windowHeight, float dpiScale, const Rect* dirtyRect) {
+class RuntimeRenderer {
+public:
+    RuntimeRenderer(Ui& ui, runtime::InstanceStore& instances)
+        : ui_(ui), instances_(instances) {}
+
+    void renderDirect(core::render::RenderBackend& renderBackend,
+                      int windowWidth,
+                      int windowHeight,
+                      float dpiScale,
+                      const Rect* dirtyRect = nullptr);
+
+private:
+    void prepareTextElement(const Element& element,
+                            int windowWidth,
+                            int windowHeight,
+                            float dpiScale,
+                            const RenderTransform& inheritedTransform,
+                            const Rect* dirtyRect = nullptr,
+                            bool hasScissor = false,
+                            const Rect& scissorRect = {});
+
+    void renderElement(core::render::RenderBackend& renderBackend,
+                       const Element& element,
+                       int windowWidth,
+                       int windowHeight,
+                       float dpiScale,
+                       const RenderTransform& inheritedTransform,
+                       const Rect* dirtyRect = nullptr,
+                       bool hasScissor = false,
+                       const Rect& scissorRect = {});
+
+    void renderElementChildren(core::render::RenderBackend& renderBackend,
+                               const Element& element,
+                               int windowWidth,
+                               int windowHeight,
+                               float dpiScale,
+                               const RenderTransform& renderTransform,
+                               const Rect* dirtyRect,
+                               bool hasScissor,
+                               const Rect& scissorRect);
+
+    bool isRetainedLayerCandidate(const Element& element,
+                                  const runtime::PaintBoundsInstance& bounds,
+                                  const Rect& subtreePixels,
+                                  const Rect* dirtyRect,
+                                  bool hasScissor,
+                                  const Rect& scissorRect) const;
+
+    bool isRetainedLayerGeometryCandidate(const runtime::PaintBoundsInstance& bounds,
+                                          const Rect& subtreePixels,
+                                          const Rect* dirtyRect,
+                                          bool hasScissor,
+                                          const Rect& scissorRect) const;
+
+    bool isRetainedSiblingCandidate(const Element& element) const;
+
+    bool renderRetainedSiblingRun(core::render::RenderBackend& renderBackend,
+                                  const Element& parent,
+                                  const std::vector<const Element*>& children,
+                                  std::size_t begin,
+                                  std::size_t end,
+                                  int windowWidth,
+                                  int windowHeight,
+                                  float dpiScale,
+                                  const RenderTransform& renderTransform,
+                                  const Rect* dirtyRect,
+                                  bool hasScissor,
+                                  const Rect& scissorRect);
+
+    std::uint64_t retainedLayerSignature(const Element& element,
+                                         const runtime::PaintBoundsInstance& bounds,
+                                         float dpiScale) const;
+
+    std::uint64_t retainedSiblingRunSignature(const Element& parent,
+                                              const std::vector<const Element*>& children,
+                                              std::size_t begin,
+                                              std::size_t end,
+                                              const runtime::PaintBoundsInstance& bounds,
+                                              float dpiScale) const;
+
+    std::uint64_t retainedElementPaintSignature(const Element& element,
+                                                std::uint64_t seed) const;
+
+    bool renderRetainedLayer(core::render::RenderBackend& renderBackend,
+                             const Element& element,
+                             int windowWidth,
+                             int windowHeight,
+                             float dpiScale,
+                             const RenderTransform& renderTransform,
+                             const Rect* dirtyRect,
+                             bool hasScissor,
+                             const Rect& scissorRect);
+
+    bool renderRetainedElements(core::render::RenderBackend& renderBackend,
+                                const std::string& layerId,
+                                const Element* const* elements,
+                                std::size_t elementCount,
+                                const runtime::PaintBoundsInstance& bounds,
+                                std::uint64_t signature,
+                                int stableFrameThreshold,
+                                int windowWidth,
+                                int windowHeight,
+                                float dpiScale,
+                                const RenderTransform& renderTransform,
+                                const Rect* dirtyRect,
+                                bool hasScissor,
+                                const Rect& scissorRect);
+
+    void renderRect(const Element& element,
+                    int windowWidth,
+                    int windowHeight,
+                    float dpiScale,
+                    const RenderTransform& renderTransform);
+
+    void renderPolygon(const Element& element,
+                       int windowWidth,
+                       int windowHeight,
+                       float dpiScale,
+                       const RenderTransform& renderTransform);
+
+    void prepareText(const Element& element,
+                     int windowWidth,
+                     int windowHeight,
+                     float dpiScale,
+                     const RenderTransform& renderTransform);
+
+    void renderText(const Element& element,
+                    int windowWidth,
+                    int windowHeight,
+                    float dpiScale,
+                    const RenderTransform& renderTransform);
+
+    void renderImage(const Element& element,
+                     int windowWidth,
+                     int windowHeight,
+                     float dpiScale,
+                     const RenderTransform& renderTransform);
+
+    void renderShaderToy(const Element& element,
+                         int windowWidth,
+                         int windowHeight,
+                         float dpiScale,
+                         const RenderTransform& renderTransform);
+
+    Ui& ui_;
+    runtime::InstanceStore& instances_;
+    bool retainedLayerRenderDisabled_ = false;
+};
+
+inline void applyOptionalScissor(core::render::RenderBackend& renderBackend,
+                                 bool enabled,
+                                 const Rect& rect,
+                                 int windowHeight) {
+    renderBackend.setScissor(enabled, rect, windowHeight);
+}
+
+inline std::vector<Vec2> scaledPolygonPoints(const std::vector<Vec2>& points, float dpiScale) {
+    std::vector<Vec2> result;
+    result.reserve(points.size());
+    for (const Vec2& point : points) {
+        result.push_back({toPixels(point.x, dpiScale), toPixels(point.y, dpiScale)});
+    }
+    return result;
+}
+
+inline void RuntimeRenderer::renderDirect(core::render::RenderBackend& renderBackend, int windowWidth, int windowHeight, float dpiScale, const Rect* dirtyRect) {
     const RenderTransform identity;
     const bool hasScissor = dirtyRect != nullptr;
     const Rect scissor = dirtyRect ? *dirtyRect : Rect{};
-    const std::vector<const Element*>& roots = orderedElements(ui_);
+    const std::vector<const Element*>& roots = ui_.orderedRoots();
     for (const Element* root : roots) {
         prepareTextElement(*root, windowWidth, windowHeight, dpiScale, identity, dirtyRect, hasScissor, scissor);
     }
@@ -15,7 +180,7 @@ inline void Runtime::renderDirect(core::render::RenderBackend& renderBackend, in
     }
 }
 
-inline void Runtime::prepareTextElement(
+inline void RuntimeRenderer::prepareTextElement(
     const Element& element,
     int windowWidth,
     int windowHeight,
@@ -25,8 +190,8 @@ inline void Runtime::prepareTextElement(
     bool hasScissor,
     const Rect& scissorRect) {
     if (dirtyRect != nullptr || hasScissor) {
-        const auto cached = paintBounds_.find(element.id);
-        if (cached != paintBounds_.end()) {
+        const auto cached = instances_.paintBounds.find(element.id);
+        if (cached != instances_.paintBounds.end()) {
             if (!cached->second.hasSubtree) {
                 return;
             }
@@ -40,7 +205,7 @@ inline void Runtime::prepareTextElement(
         }
     }
 
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     if (renderTransform.opacity <= 0.001f) {
         return;
     }
@@ -60,7 +225,7 @@ inline void Runtime::prepareTextElement(
     }
 
     if (element.kind == ElementKind::Text) {
-        runtime::TextInstance& instance = textInstance(element.id);
+        runtime::TextInstance& instance = instances_.text(element.id);
         Rect frame = toPixelRect(transformRect({instance.frame.value().x,
                                                 instance.frame.value().y,
                                                 instance.frame.value().width,
@@ -74,13 +239,13 @@ inline void Runtime::prepareTextElement(
         }
     }
 
-    const std::vector<const Element*>& children = orderedElements(element);
+    const std::vector<const Element*>& children = element.orderedChildren;
     for (const Element* child : children) {
         prepareTextElement(*child, windowWidth, windowHeight, dpiScale, renderTransform, dirtyRect, effectiveHasScissor, effectiveScissor);
     }
 }
 
-inline void Runtime::renderElement(
+inline void RuntimeRenderer::renderElement(
     core::render::RenderBackend& renderBackend,
     const Element& element,
     int windowWidth,
@@ -91,8 +256,8 @@ inline void Runtime::renderElement(
     bool hasScissor,
     const Rect& scissorRect) {
     if (dirtyRect != nullptr || hasScissor) {
-        const auto cached = paintBounds_.find(element.id);
-        if (cached != paintBounds_.end()) {
+        const auto cached = instances_.paintBounds.find(element.id);
+        if (cached != instances_.paintBounds.end()) {
             if (!cached->second.hasSubtree) {
                 return;
             }
@@ -106,7 +271,7 @@ inline void Runtime::renderElement(
         }
     }
 
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     if (renderTransform.opacity <= 0.001f) {
         return;
     }
@@ -125,10 +290,10 @@ inline void Runtime::renderElement(
     }
 
     if (element.kind == ElementKind::Rect) {
-        Rect visual = toPixelRect(visualRect(rectInstance(element.id).frame.value(),
-                                            rectInstance(element.id).shadow.value(),
-                                            rectInstance(element.id).blur.value(),
-                                            rectInstance(element.id).transform.value()), dpiScale);
+        Rect visual = toPixelRect(visualRect(instances_.rect(element.id).frame.value(),
+                                            instances_.rect(element.id).shadow.value(),
+                                            instances_.rect(element.id).blur.value(),
+                                            instances_.rect(element.id).transform.value()), dpiScale);
         visual = applyRenderTransform(visual, renderTransform);
         if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
             (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
@@ -136,10 +301,10 @@ inline void Runtime::renderElement(
             renderRect(element, windowWidth, windowHeight, dpiScale, renderTransform);
         }
     } else if (element.kind == ElementKind::Polygon) {
-        Rect visual = toPixelRect(visualRect(polygonInstance(element.id).frame.value(),
+        Rect visual = toPixelRect(visualRect(instances_.polygon(element.id).frame.value(),
                                             Shadow{},
                                             0.0f,
-                                            polygonInstance(element.id).transform.value()), dpiScale);
+                                            instances_.polygon(element.id).transform.value()), dpiScale);
         visual = applyRenderTransform(visual, renderTransform);
         if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
             (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
@@ -147,7 +312,7 @@ inline void Runtime::renderElement(
             renderPolygon(element, windowWidth, windowHeight, dpiScale, renderTransform);
         }
     } else if (element.kind == ElementKind::Text) {
-        runtime::TextInstance& instance = textInstance(element.id);
+        runtime::TextInstance& instance = instances_.text(element.id);
         Rect frame = toPixelRect(transformRect({instance.frame.value().x,
                                                 instance.frame.value().y,
                                                 instance.frame.value().width,
@@ -161,13 +326,22 @@ inline void Runtime::renderElement(
             renderText(element, windowWidth, windowHeight, dpiScale, renderTransform);
         }
     } else if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
-        Rect visual = toPixelRect(imageVisualRect(imageInstance(element.id).frame.value(),
-                                                 imageInstance(element.id).transform.value()), dpiScale);
+        Rect visual = toPixelRect(imageVisualRect(instances_.image(element.id).frame.value(),
+                                                 instances_.image(element.id).transform.value()), dpiScale);
         visual = applyRenderTransform(visual, renderTransform);
         if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
             (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
             applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
             renderImage(element, windowWidth, windowHeight, dpiScale, renderTransform);
+        }
+    } else if (element.kind == ElementKind::Shadertoy) {
+        runtime::ShaderToyInstance& instance = instances_.shaderToy(element.id);
+        Rect visual = toPixelRect(imageVisualRect(instance.frame.value(), instance.transform.value()), dpiScale);
+        visual = applyRenderTransform(visual, renderTransform);
+        if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
+            (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
+            applyOptionalScissor(renderBackend, effectiveHasScissor, effectiveScissor, windowHeight);
+            renderShaderToy(element, windowWidth, windowHeight, dpiScale, renderTransform);
         }
     }
 
@@ -182,7 +356,7 @@ inline void Runtime::renderElement(
                           effectiveScissor);
 }
 
-inline void Runtime::renderElementChildren(
+inline void RuntimeRenderer::renderElementChildren(
     core::render::RenderBackend& renderBackend,
     const Element& element,
     int windowWidth,
@@ -192,8 +366,8 @@ inline void Runtime::renderElementChildren(
     const Rect* dirtyRect,
     bool hasScissor,
     const Rect& scissorRect) {
-    const std::vector<const Element*>& children = orderedElements(element);
-    for (const Element* child : children) {
+    const std::vector<const Element*>& children = element.orderedChildren;
+    const auto renderChild = [&](const Element* child) {
         const bool mayUseRetainedLayer =
             !child->orderedChildren.empty() &&
             !child->subtreeBlocksRetainedLayer &&
@@ -213,6 +387,38 @@ inline void Runtime::renderElementChildren(
         if (!retainedLayerRendered) {
             renderElement(renderBackend, *child, windowWidth, windowHeight, dpiScale, renderTransform, dirtyRect, hasScissor, scissorRect);
         }
+    };
+
+    std::size_t index = 0;
+    while (index < children.size()) {
+        std::size_t runEnd = index;
+        while (runEnd < children.size() && isRetainedSiblingCandidate(*children[runEnd])) {
+            ++runEnd;
+        }
+
+        if (runEnd - index >= 2) {
+            if (!renderRetainedSiblingRun(renderBackend,
+                                          element,
+                                          children,
+                                          index,
+                                          runEnd,
+                                          windowWidth,
+                                          windowHeight,
+                                          dpiScale,
+                                          renderTransform,
+                                          dirtyRect,
+                                          hasScissor,
+                                          scissorRect)) {
+                for (std::size_t childIndex = index; childIndex < runEnd; ++childIndex) {
+                    renderChild(children[childIndex]);
+                }
+            }
+            index = runEnd;
+            continue;
+        }
+
+        renderChild(children[index]);
+        ++index;
     }
 }
 
@@ -226,12 +432,12 @@ struct RetainedLayerRenderScope {
     }
 };
 
-inline bool Runtime::isRetainedLayerCandidate(const Element& element,
-                                              const runtime::PaintBoundsInstance& bounds,
-                                              const Rect& subtreePixels,
-                                              const Rect* dirtyRect,
-                                              bool hasScissor,
-                                              const Rect& scissorRect) const {
+inline bool RuntimeRenderer::isRetainedLayerGeometryCandidate(
+    const runtime::PaintBoundsInstance& bounds,
+    const Rect& subtreePixels,
+    const Rect* dirtyRect,
+    bool hasScissor,
+    const Rect& scissorRect) const {
     if (!bounds.hasSubtree ||
         bounds.drawCost < 8) {
         return false;
@@ -249,16 +455,119 @@ inline bool Runtime::isRetainedLayerCandidate(const Element& element,
     if (hasScissor && !intersects(subtreePixels, scissorRect)) {
         return false;
     }
+    return !bounds.subtreeAnimating;
+}
+
+inline bool RuntimeRenderer::isRetainedLayerCandidate(
+    const Element& element,
+    const runtime::PaintBoundsInstance& bounds,
+    const Rect& subtreePixels,
+    const Rect* dirtyRect,
+    bool hasScissor,
+    const Rect& scissorRect) const {
+    if (!isRetainedLayerGeometryCandidate(bounds,
+                                          subtreePixels,
+                                          dirtyRect,
+                                          hasScissor,
+                                          scissorRect)) {
+        return false;
+    }
     if (element.subtreeHasDependentVisuals ||
         element.subtreeHasBackdropBlur ||
-        element.subtreeBlocksRetainedLayer ||
-        bounds.subtreeAnimating) {
+        element.subtreeBlocksRetainedLayer) {
         return false;
     }
     return true;
 }
 
-inline std::uint64_t Runtime::retainedLayerSignature(const Element& element,
+inline bool RuntimeRenderer::isRetainedSiblingCandidate(const Element& element) const {
+    if (element.subtreeHasDependentVisuals ||
+        element.subtreeHasBackdropBlur ||
+        element.subtreeBlocksRetainedLayer) {
+        return false;
+    }
+    const auto bounds = instances_.paintBounds.find(element.id);
+    return bounds != instances_.paintBounds.end() &&
+           bounds->second.hasSubtree &&
+           bounds->second.drawCost > 0 &&
+           !bounds->second.subtreeAnimating;
+}
+
+inline bool RuntimeRenderer::renderRetainedSiblingRun(
+    core::render::RenderBackend& renderBackend,
+    const Element& parent,
+    const std::vector<const Element*>& children,
+    std::size_t begin,
+    std::size_t end,
+    int windowWidth,
+    int windowHeight,
+    float dpiScale,
+    const RenderTransform& renderTransform,
+    const Rect* dirtyRect,
+    bool hasScissor,
+    const Rect& scissorRect) {
+    if (retainedLayerRenderDisabled_ ||
+        renderTransform.active ||
+        !closeEnough(renderTransform.opacity, 1.0f) ||
+        begin >= end ||
+        end > children.size()) {
+        return false;
+    }
+
+    runtime::PaintBoundsInstance combined;
+    combined.seen = true;
+    for (std::size_t index = begin; index < end; ++index) {
+        const Element* child = children[index];
+        const auto bounds = instances_.paintBounds.find(child->id);
+        if (bounds == instances_.paintBounds.end() ||
+            !bounds->second.hasSubtree ||
+            bounds->second.subtreeAnimating) {
+            return false;
+        }
+        combined.subtree = combined.hasSubtree
+            ? unionRect(combined.subtree, bounds->second.subtree)
+            : bounds->second.subtree;
+        combined.hasSubtree = true;
+        combined.drawCost += bounds->second.drawCost;
+    }
+
+    const Rect subtreePixels = toPixelRect(combined.subtree, dpiScale);
+    if (!isRetainedLayerGeometryCandidate(combined,
+                                          subtreePixels,
+                                          dirtyRect,
+                                          hasScissor,
+                                          scissorRect)) {
+        return false;
+    }
+
+    std::string layerId = "\x1eretained-siblings:";
+    layerId += parent.id;
+    layerId.push_back(':');
+    layerId += children[begin]->id;
+    layerId.push_back(':');
+    layerId += children[end - 1]->id;
+    return renderRetainedElements(renderBackend,
+                                  layerId,
+                                  children.data() + begin,
+                                  end - begin,
+                                  combined,
+                                  retainedSiblingRunSignature(parent,
+                                                              children,
+                                                              begin,
+                                                              end,
+                                                              combined,
+                                                              dpiScale),
+                                  2,
+                                  windowWidth,
+                                  windowHeight,
+                                  dpiScale,
+                                  renderTransform,
+                                  dirtyRect,
+                                  hasScissor,
+                                  scissorRect);
+}
+
+inline std::uint64_t RuntimeRenderer::retainedLayerSignature(const Element& element,
                                                      const runtime::PaintBoundsInstance& bounds,
                                                      float dpiScale) const {
     auto mix = [](std::uint64_t seed, std::uint64_t value) {
@@ -281,11 +590,11 @@ inline std::uint64_t Runtime::retainedLayerSignature(const Element& element,
     seed = mix(seed, quant(bounds.subtree.height));
     seed = mix(seed, quant(dpiScale));
     seed = retainedElementPaintSignature(element, seed);
-    const std::vector<const Element*>& children = orderedElements(element);
+    const std::vector<const Element*>& children = element.orderedChildren;
     seed = mix(seed, static_cast<std::uint64_t>(children.size()));
     for (const Element* child : children) {
-        const auto childBounds = paintBounds_.find(child->id);
-        if (childBounds != paintBounds_.end()) {
+        const auto childBounds = instances_.paintBounds.find(child->id);
+        if (childBounds != instances_.paintBounds.end()) {
             seed = mix(seed, retainedLayerSignature(*child, childBounds->second, dpiScale));
         } else {
             seed = retainedElementPaintSignature(*child, seed);
@@ -294,7 +603,43 @@ inline std::uint64_t Runtime::retainedLayerSignature(const Element& element,
     return seed;
 }
 
-inline std::uint64_t Runtime::retainedElementPaintSignature(const Element& element, std::uint64_t seed) const {
+inline std::uint64_t RuntimeRenderer::retainedSiblingRunSignature(
+    const Element& parent,
+    const std::vector<const Element*>& children,
+    std::size_t begin,
+    std::size_t end,
+    const runtime::PaintBoundsInstance& bounds,
+    float dpiScale) const {
+    auto mix = [](std::uint64_t seed, std::uint64_t value) {
+        seed ^= value + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2);
+        return seed;
+    };
+    auto quant = [](float value) {
+        return static_cast<std::uint64_t>(std::llround(value * 64.0f));
+    };
+    std::uint64_t seed = 1469598103934665603ull;
+    for (char c : parent.id) {
+        seed = mix(seed, static_cast<unsigned char>(c));
+    }
+    seed = mix(seed, static_cast<std::uint64_t>(begin));
+    seed = mix(seed, static_cast<std::uint64_t>(end - begin));
+    seed = mix(seed, static_cast<std::uint64_t>(bounds.drawCost));
+    seed = mix(seed, quant(bounds.subtree.x));
+    seed = mix(seed, quant(bounds.subtree.y));
+    seed = mix(seed, quant(bounds.subtree.width));
+    seed = mix(seed, quant(bounds.subtree.height));
+    seed = mix(seed, quant(dpiScale));
+    for (std::size_t index = begin; index < end; ++index) {
+        const Element& child = *children[index];
+        const auto childBounds = instances_.paintBounds.find(child.id);
+        seed = mix(seed, childBounds != instances_.paintBounds.end()
+            ? retainedLayerSignature(child, childBounds->second, dpiScale)
+            : retainedElementPaintSignature(child, seed));
+    }
+    return seed;
+}
+
+inline std::uint64_t RuntimeRenderer::retainedElementPaintSignature(const Element& element, std::uint64_t seed) const {
     auto mix = [](std::uint64_t current, std::uint64_t value) {
         current ^= value + 0x9e3779b97f4a7c15ull + (current << 6) + (current >> 2);
         return current;
@@ -373,13 +718,7 @@ inline std::uint64_t Runtime::retainedElementPaintSignature(const Element& eleme
     return seed;
 }
 
-inline runtime::RetainedLayerInstance& Runtime::retainedLayerInstance(const std::string& id) {
-    runtime::RetainedLayerInstance& instance = retainedLayers_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline bool Runtime::renderRetainedLayer(core::render::RenderBackend& renderBackend,
+inline bool RuntimeRenderer::renderRetainedLayer(core::render::RenderBackend& renderBackend,
                                          const Element& element,
                                          int windowWidth,
                                          int windowHeight,
@@ -394,8 +733,8 @@ inline bool Runtime::renderRetainedLayer(core::render::RenderBackend& renderBack
     if (retainedLayerRenderDisabled_) {
         return false;
     }
-    const auto boundsIt = paintBounds_.find(element.id);
-    if (boundsIt == paintBounds_.end()) {
+    const auto boundsIt = instances_.paintBounds.find(element.id);
+    if (boundsIt == instances_.paintBounds.end()) {
         return false;
     }
     const Rect subtreePixels = toPixelRect(boundsIt->second.subtree, dpiScale);
@@ -403,9 +742,49 @@ inline bool Runtime::renderRetainedLayer(core::render::RenderBackend& renderBack
         return false;
     }
 
-    const runtime::PaintBoundsInstance& bounds = boundsIt->second;
-    runtime::RetainedLayerInstance& layer = retainedLayerInstance(element.id);
-    const std::uint64_t signature = retainedLayerSignature(element, bounds, dpiScale);
+    const Element* elements[] = {&element};
+    return renderRetainedElements(renderBackend,
+                                  element.id,
+                                  elements,
+                                  1,
+                                  boundsIt->second,
+                                  retainedLayerSignature(element, boundsIt->second, dpiScale),
+                                  2,
+                                  windowWidth,
+                                  windowHeight,
+                                  dpiScale,
+                                  renderTransform,
+                                  dirtyRect,
+                                  hasScissor,
+                                  scissorRect);
+}
+
+inline bool RuntimeRenderer::renderRetainedElements(
+    core::render::RenderBackend& renderBackend,
+    const std::string& layerId,
+    const Element* const* elements,
+    std::size_t elementCount,
+    const runtime::PaintBoundsInstance& bounds,
+    std::uint64_t signature,
+    int stableFrameThreshold,
+    int windowWidth,
+    int windowHeight,
+    float dpiScale,
+    const RenderTransform& renderTransform,
+    const Rect* dirtyRect,
+    bool hasScissor,
+    const Rect& scissorRect) {
+    if (retainedLayerRenderDisabled_ ||
+        renderTransform.active ||
+        !closeEnough(renderTransform.opacity, 1.0f) ||
+        elements == nullptr ||
+        elementCount == 0) {
+        return false;
+    }
+
+    stableFrameThreshold = std::max(1, stableFrameThreshold);
+    runtime::RetainedLayerInstance& layer = instances_.retainedLayer(layerId);
+    const Rect subtreePixels = toPixelRect(bounds.subtree, dpiScale);
     const Rect layerBounds = core::render::clampRenderRect(subtreePixels, windowWidth, windowHeight);
     const int layerWidth = static_cast<int>(std::ceil(layerBounds.width));
     const int layerHeight = static_cast<int>(std::ceil(layerBounds.height));
@@ -425,9 +804,9 @@ inline bool Runtime::renderRetainedLayer(core::render::RenderBackend& renderBack
         layer.bounds = layerBounds;
         layer.width = layerWidth;
         layer.height = layerHeight;
-        layer.stableFrames = std::min(layer.stableFrames + 1, 2);
+        layer.stableFrames = std::min(layer.stableFrames + 1, stableFrameThreshold);
         ++core::render::currentRenderFrameStats().retainedLayerMisses;
-        if (layer.stableFrames < 2) {
+        if (layer.stableFrames < stableFrameThreshold) {
             return false;
         }
         if (layer.handle == nullptr) {
@@ -452,11 +831,17 @@ inline bool Runtime::renderRetainedLayer(core::render::RenderBackend& renderBack
         renderBackend.setScissor(false, {}, layerHeight);
         renderBackend.clear({0.0f, 0.0f, 0.0f, 0.0f});
         RetainedLayerRenderScope scope(retainedLayerRenderDisabled_);
-        renderElement(renderBackend, element, layerWidth, layerHeight, dpiScale, layerTransform);
+        for (std::size_t index = 0; index < elementCount; ++index) {
+            renderElement(renderBackend,
+                          *elements[index],
+                          layerWidth,
+                          layerHeight,
+                          dpiScale,
+                          layerTransform);
+        }
         renderBackend.endLayerFrame();
         layer.valid = true;
         ++core::render::currentRenderFrameStats().retainedLayerRebuilds;
-        // Use the freshly rebuilt layer on the next repaint; keep this frame on the direct path.
         return false;
     } else {
         ++core::render::currentRenderFrameStats().retainedLayerHits;
@@ -484,13 +869,13 @@ inline bool Runtime::renderRetainedLayer(core::render::RenderBackend& renderBack
     return true;
 }
 
-inline void Runtime::renderRect(
+inline void RuntimeRenderer::renderRect(
     const Element& element,
     int windowWidth,
     int windowHeight,
     float dpiScale,
     const RenderTransform& renderTransform) {
-    runtime::RectInstance& instance = rectInstance(element.id);
+    runtime::RectInstance& instance = instances_.rect(element.id);
     if (!instance.initialized) {
         instance.initialized = instance.primitive->initialize();
         if (!instance.initialized) {
@@ -515,13 +900,13 @@ inline void Runtime::renderRect(
     instance.primitive->render(windowWidth, windowHeight);
 }
 
-inline void Runtime::renderPolygon(
+inline void RuntimeRenderer::renderPolygon(
     const Element& element,
     int windowWidth,
     int windowHeight,
     float dpiScale,
     const RenderTransform& renderTransform) {
-    runtime::PolygonInstance& instance = polygonInstance(element.id);
+    runtime::PolygonInstance& instance = instances_.polygon(element.id);
     if (!instance.initialized) {
         instance.initialized = instance.primitive->initialize();
         if (!instance.initialized) {
@@ -542,13 +927,13 @@ inline void Runtime::renderPolygon(
     instance.primitive->render(windowWidth, windowHeight);
 }
 
-inline void Runtime::prepareText(
+inline void RuntimeRenderer::prepareText(
     const Element& element,
     int,
     int,
     float dpiScale,
     const RenderTransform& renderTransform) {
-    runtime::TextInstance& instance = textInstance(element.id);
+    runtime::TextInstance& instance = instances_.text(element.id);
     if (!instance.initialized) {
         instance.initialized = instance.primitive->initialize();
         if (!instance.initialized) {
@@ -594,13 +979,13 @@ inline void Runtime::prepareText(
     instance.primitive->prepare();
 }
 
-inline void Runtime::renderText(
+inline void RuntimeRenderer::renderText(
     const Element& element,
     int windowWidth,
     int windowHeight,
     float dpiScale,
     const RenderTransform& renderTransform) {
-    runtime::TextInstance& instance = textInstance(element.id);
+    runtime::TextInstance& instance = instances_.text(element.id);
     if (!instance.initialized) {
         instance.initialized = instance.primitive->initialize();
         if (!instance.initialized) {
@@ -646,13 +1031,13 @@ inline void Runtime::renderText(
     instance.primitive->render(windowWidth, windowHeight);
 }
 
-inline void Runtime::renderImage(
+inline void RuntimeRenderer::renderImage(
     const Element& element,
     int windowWidth,
     int windowHeight,
     float dpiScale,
     const RenderTransform& renderTransform) {
-    runtime::ImageInstance& instance = imageInstance(element.id);
+    runtime::ImageInstance& instance = instances_.image(element.id);
     if (!instance.initialized) {
         instance.initialized = instance.primitive->initialize();
         if (!instance.initialized) {
@@ -666,6 +1051,7 @@ inline void Runtime::renderImage(
     instance.primitive->setBounds(frame.x, frame.y, frame.width, frame.height);
     instance.primitive->setTint(instance.tint.value());
     instance.primitive->setCornerRadius(toPixels(instance.radius.value(), dpiScale));
+    instance.primitive->setBlur(toPixels(instance.blur.value(), dpiScale));
     instance.primitive->setOpacity(instance.opacity.value() * renderTransform.opacity);
     instance.primitive->setTransformMatrix(combinedPrimitiveMatrix(renderTransform, frame, transform));
     instance.primitive->setFit(instance.fit);
@@ -676,6 +1062,45 @@ inline void Runtime::renderImage(
                                           toPixels(instance.coverViewportOffset.y, dpiScale)});
     ++core::render::currentRenderFrameStats().imageDraws;
     instance.primitive->render(windowWidth, windowHeight);
+}
+
+inline void RuntimeRenderer::renderShaderToy(
+    const Element& element,
+    int windowWidth,
+    int windowHeight,
+    float dpiScale,
+    const RenderTransform& renderTransform) {
+    runtime::ShaderToyInstance& instance = instances_.shaderToy(element.id);
+    if (!instance.initialized) {
+        instance.initialized = instance.primitive->initialize();
+        if (!instance.initialized) {
+            return;
+        }
+    }
+
+    const Rect frame = toPixelRect(instance.frame.value(), dpiScale);
+    const Transform transform = scaleTransform(instance.transform.value(), dpiScale);
+    instance.primitive->setElementId(element.id);
+    instance.primitive->setBounds(frame.x, frame.y, frame.width, frame.height);
+    instance.primitive->setCornerRadius(toPixels(instance.radius.value(), dpiScale));
+    instance.primitive->setOpacity(instance.opacity.value() * renderTransform.opacity);
+    instance.primitive->setTransformMatrix(combinedPrimitiveMatrix(renderTransform, frame, transform));
+    instance.primitive->setResolutionScale(element.shaderToyResolutionScale);
+    instance.primitive->setTimeScale(element.shaderToyTimeScale);
+    instance.primitive->setPaused(element.shaderToyPaused);
+    ++core::render::currentRenderFrameStats().shadertoyDraws;
+    instance.primitive->render(windowWidth, windowHeight);
+
+    const core::render::ShaderToyError& error = instance.primitive->error();
+    if (error && element.onShaderToyError) {
+        const std::uint64_t errorHash = core::render::shaderToyErrorHash(error);
+        if (errorHash != instance.reportedErrorHash) {
+            instance.reportedErrorHash = errorHash;
+            element.onShaderToyError(error);
+        }
+    } else if (!error) {
+        instance.reportedErrorHash = 0;
+    }
 }
 
 } // namespace core::dsl

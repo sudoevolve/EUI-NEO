@@ -1,0 +1,38 @@
+{
+  "passes": [
+    {
+      "name": "A",
+      "source": "1.frag",
+      "channels": {
+        "0": "image:color_noise.png",
+        "1": "image:london.png",
+        "2": "self"
+      }
+    },
+    {
+      "name": "B",
+      "source": "2.frag",
+      "channels": {"0": "A"}
+    },
+    {
+      "name": "C",
+      "source": "3.frag",
+      "channels": {"0": "B"}
+    },
+    {
+      "name": "D",
+      "source": "4.frag",
+      "channels": {"0": "C"}
+    },
+    {
+      "name": "Image",
+      "source": "5.frag",
+      "channels": {
+        "0": "A",
+        "1": "B",
+        "2": "C",
+        "3": "D"
+      }
+    }
+  ]
+}

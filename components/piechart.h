@@ -127,7 +127,6 @@ public:
                                 core::mixColor(color, theme::color(0.0f, 0.0f, 0.0f), 0.12f))
                         .instantStates()
                         .transition(transition_)
-                        .onClick([] {})
                         .build();
 
                     const core::Vec2 anchor = sliceAnchor(pieX, pieY, pieSize, (startAngle + endAngle) * 0.5f);

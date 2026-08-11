@@ -215,6 +215,7 @@ bool VulkanRenderBackend::hasCurrentCommandBuffer() const {
 }
 
 void VulkanRenderBackend::endActiveRenderPass() {
+    flushRoundedRectBatch();
     if (!renderPassActive_ || !hasCurrentCommandBuffer()) {
         return;
     }
@@ -324,6 +325,8 @@ void VulkanRenderBackend::beginFrame(const RenderSurface& surface) {
     vkWaitForFences(device_, 1, &inFlight_, VK_TRUE, UINT64_MAX);
     releasePendingTextureDeletes();
     releasePendingUploads();
+    releasePendingShaderToyPipelines();
+    releasePendingShaderToys();
 
     const VkResult acquire = vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, imageAvailable_, VK_NULL_HANDLE, &currentImage_);
     if (acquire == VK_ERROR_OUT_OF_DATE_KHR) {
@@ -348,6 +351,11 @@ void VulkanRenderBackend::beginFrame(const RenderSurface& surface) {
     activeLayer_ = nullptr;
     backdropReady_ = false;
     primitiveVertices_.used = 0;
+    roundedRectBatchVertices_.used = 0;
+    roundedRectBatchStart_ = 0;
+    roundedRectBatchCount_ = 0;
+    roundedRectBatchWindowWidth_ = 0;
+    roundedRectBatchWindowHeight_ = 0;
     polygonEdges_.used = 0;
     textVertices_.used = 0;
     imageVertices_.used = 0;
@@ -442,6 +450,7 @@ void VulkanRenderBackend::present() {
 }
 
 void VulkanRenderBackend::clear(const core::Color& color) {
+    flushRoundedRectBatch();
     clearColor_ = color;
     if (!frameActive_) {
         return;
@@ -473,6 +482,7 @@ void VulkanRenderBackend::clear(const core::Color& color) {
 }
 
 void VulkanRenderBackend::setScissor(bool enabled, const core::Rect& rect, int) {
+    flushRoundedRectBatch();
     scissorEnabled_ = enabled;
     scissorRect_ = rect;
 }
@@ -927,6 +937,8 @@ void VulkanRenderBackend::destroySwapchain() {
     destroyTextResources();
     destroyImagePipeline();
     destroyImageResources();
+    releasePendingShaderToyPipelines();
+    releasePendingShaderToys();
     releaseAllLayerFramebuffers();
     destroyRenderCacheResolvePipeline();
     destroyRenderCacheResources();
@@ -980,6 +992,7 @@ void VulkanRenderBackend::destroy() {
         vkDeviceWaitIdle(device_);
     }
     destroySwapchain();
+    releaseAllShaderToys();
     releaseAllLayerResources();
     for (LayerResource* layer : layers_) {
         delete layer;
@@ -1051,14 +1064,24 @@ bool VulkanRenderBackend::createTargetImage(TextureResource& texture,
                                             int height,
                                             VkFormat format,
                                             VkImageUsageFlags usage) {
-    if (device_ == VK_NULL_HANDLE || width <= 0 || height <= 0 || format == VK_FORMAT_UNDEFINED) {
+    if (device_ == VK_NULL_HANDLE || width <= 0 || height <= 0 ||
+        format == VK_FORMAT_UNDEFINED) {
+        return false;
+    }
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(physicalDevice_, &properties);
+    const std::uint32_t maxDimension = properties.limits.maxImageDimension2D;
+    if (static_cast<std::uint32_t>(width) > maxDimension ||
+        static_cast<std::uint32_t>(height) > maxDimension) {
         return false;
     }
 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1};
+    imageInfo.extent = {static_cast<std::uint32_t>(width),
+                        static_cast<std::uint32_t>(height),
+                        1};
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
     imageInfo.format = format;
@@ -1107,7 +1130,9 @@ bool VulkanRenderBackend::createTargetImage(TextureResource& texture,
     return true;
 }
 
-bool VulkanRenderBackend::ensureTextureSampler(TextureResource& texture) {
+bool VulkanRenderBackend::ensureTextureSampler(
+    TextureResource& texture,
+    VkSamplerAddressMode addressMode) {
     if (texture.sampler != VK_NULL_HANDLE) {
         return true;
     }
@@ -1120,10 +1145,10 @@ bool VulkanRenderBackend::ensureTextureSampler(TextureResource& texture) {
     samplerInfo.magFilter = VK_FILTER_LINEAR;
     samplerInfo.minFilter = VK_FILTER_LINEAR;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    samplerInfo.maxLod = 1.0f;
+    samplerInfo.addressModeU = addressMode;
+    samplerInfo.addressModeV = addressMode;
+    samplerInfo.addressModeW = addressMode;
+    samplerInfo.maxLod = 0.0f;
     return vkCreateSampler(device_, &samplerInfo, nullptr, &texture.sampler) == VK_SUCCESS;
 }
 

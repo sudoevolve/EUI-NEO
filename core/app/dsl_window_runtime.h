@@ -51,6 +51,10 @@ public:
                 float dpiScale,
                 bool updateRequested,
                 bool inputEnabled = true) {
+        const float configuredScale = uiScale();
+        const float effectiveScale = dpiScale * configuredScale;
+        logicalWidth /= configuredScale;
+        logicalHeight /= configuredScale;
         bool changed = false;
         const auto composeFrame = [&] {
             runtime_.compose(request_.pageId, logicalWidth, logicalHeight,
@@ -69,7 +73,7 @@ public:
             changed = true;
         }
 
-        if (runtime_.update(window, deltaSeconds, pointerScale, dpiScale, inputEnabled)) {
+        if (runtime_.update(window, deltaSeconds, pointerScale, effectiveScale, inputEnabled)) {
             paintRequested_ = true;
             changed = true;
         }
@@ -79,7 +83,7 @@ public:
             // Rebuild the complete cache so state-driven text is visible immediately.
             runtime_.requestFullPaint();
             composeFrame();
-            if (runtime_.update(window, 0.0f, pointerScale, dpiScale, inputEnabled)) {
+            if (runtime_.update(window, 0.0f, pointerScale, effectiveScale, inputEnabled)) {
                 changed = true;
             }
             paintRequested_ = true;
@@ -91,7 +95,7 @@ public:
 
     void render(core::render::RenderBackend& renderBackend, int framebufferWidth, int framebufferHeight, float dpiScale) {
         core::render::ScopedRenderBackend scopedRenderBackend(renderBackend);
-        runtime_.render(framebufferWidth, framebufferHeight, dpiScale, request_.clearColor);
+        runtime_.render(framebufferWidth, framebufferHeight, dpiScale * uiScale(), request_.clearColor);
         paintRequested_ = runtime_.paintRequested();
     }
 

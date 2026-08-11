@@ -12,9 +12,7 @@
 #include "core/runtime/runtime_geometry.h"
 #include "core/runtime/runtime_hit_test.h"
 #include "core/runtime/runtime_instances.h"
-#include "core/runtime/runtime_render_helpers.h"
 #include "core/runtime/runtime_state_bindings.h"
-#include "core/runtime/runtime_tree.h"
 #include "core/window/window_backend.h"
 
 #include <algorithm>
@@ -120,69 +118,6 @@ private:
                                                    bool ancestorFrameChanged,
                                                    bool ancestorDisabled);
 
-    bool isRetainedLayerCandidate(const Element& element,
-                                  const runtime::PaintBoundsInstance& bounds,
-                                  const Rect& subtreePixels,
-                                  const Rect* dirtyRect,
-                                  bool hasScissor,
-                                  const Rect& scissorRect) const;
-
-    std::uint64_t retainedLayerSignature(const Element& element,
-                                         const runtime::PaintBoundsInstance& bounds,
-                                         float dpiScale) const;
-
-    std::uint64_t retainedElementPaintSignature(const Element& element, std::uint64_t seed) const;
-
-    runtime::RetainedLayerInstance& retainedLayerInstance(const std::string& id);
-
-    void renderElementChildren(core::render::RenderBackend& renderBackend,
-                               const Element& element,
-                               int windowWidth,
-                               int windowHeight,
-                               float dpiScale,
-                               const RenderTransform& renderTransform,
-                               const Rect* dirtyRect,
-                               bool hasScissor,
-                               const Rect& scissorRect);
-
-    bool renderRetainedLayer(core::render::RenderBackend& renderBackend,
-                             const Element& element,
-                             int windowWidth,
-                             int windowHeight,
-                             float dpiScale,
-                             const RenderTransform& renderTransform,
-                             const Rect* dirtyRect,
-                             bool hasScissor,
-                             const Rect& scissorRect);
-
-    runtime::RectInstance& rectInstance(const std::string& id);
-
-    runtime::PolygonInstance& polygonInstance(const std::string& id);
-
-    runtime::TextInstance& textInstance(const std::string& id);
-
-    runtime::ImageInstance& imageInstance(const std::string& id);
-
-    runtime::InteractionInstance& interactionInstance(const std::string& id);
-
-    runtime::DirtyKeyInstance& dirtyKeyInstance(const std::string& id);
-
-    runtime::LayoutInstance& layoutInstance(const std::string& id);
-
-    runtime::ScrollStateInstance& scrollStateInstance(const std::string& id);
-
-    runtime::SliderStateInstance& sliderStateInstance(const std::string& id);
-
-    runtime::TimerInstance& timerInstance(const std::string& id);
-
-    void markInstancesUnseen();
-
-    void releaseUnseenInstances();
-
-    void markTimersUnseen();
-
-    void releaseUnseenTimers();
-
     std::string capturedInteractionId() const;
 
     bool isElementInDisabledTree(const std::string& id) const;
@@ -284,6 +219,13 @@ private:
                      const RenderTransform& inheritedTransform,
                      bool snapFrame);
 
+    void updateShaderToy(const Element& element,
+                         const PointerEvent& event,
+                         float deltaSeconds,
+                         float dpiScale,
+                         const RenderTransform& inheritedTransform,
+                         bool snapFrame);
+
     runtime::DependentVisualState dependentVisualStateForElement(const Element& element,
                                                         float dpiScale,
                                                         const RenderTransform& inheritedTransform) const;
@@ -293,12 +235,6 @@ private:
     void updateDependentVisualDirtyRegions(const Element& element,
                                            float dpiScale,
                                            const RenderTransform& inheritedTransform);
-
-    bool hoverBlendForSource(const std::string& id, float& value) const;
-
-    bool pressBlendForSource(const std::string& id, float& value, LayoutRect& frame) const;
-
-    RenderTransform resolveRenderTransform(const Element& element, float dpiScale, const RenderTransform& inherited) const;
 
     void syncScrollStateElement(const Element& element);
 
@@ -328,72 +264,8 @@ private:
 
     void updateRuntimeSlider(const Element& element, double pointerX, float dpiScale, bool dragging);
 
-    void renderDirect(core::render::RenderBackend& renderBackend, int windowWidth, int windowHeight, float dpiScale, const Rect* dirtyRect = nullptr);
-
-    void prepareTextElement(const Element& element,
-                            int windowWidth,
-                            int windowHeight,
-                            float dpiScale,
-                            const RenderTransform& inheritedTransform,
-                            const Rect* dirtyRect = nullptr,
-                            bool hasScissor = false,
-                            const Rect& scissorRect = {});
-
-    void renderElement(core::render::RenderBackend& renderBackend,
-                       const Element& element,
-                       int windowWidth,
-                       int windowHeight,
-                       float dpiScale,
-                       const RenderTransform& inheritedTransform,
-                       const Rect* dirtyRect = nullptr,
-                       bool hasScissor = false,
-                       const Rect& scissorRect = {});
-
-    void renderRect(const Element& element,
-                    int windowWidth,
-                    int windowHeight,
-                    float dpiScale,
-                    const RenderTransform& renderTransform);
-
-    void renderPolygon(const Element& element,
-                       int windowWidth,
-                       int windowHeight,
-                       float dpiScale,
-                       const RenderTransform& renderTransform);
-
-    void prepareText(const Element& element,
-                     int,
-                     int,
-                     float dpiScale,
-                     const RenderTransform& renderTransform);
-
-    void renderText(const Element& element,
-                    int windowWidth,
-                    int windowHeight,
-                    float dpiScale,
-                    const RenderTransform& renderTransform);
-
-    void renderImage(const Element& element,
-                     int windowWidth,
-                     int windowHeight,
-                     float dpiScale,
-                     const RenderTransform& renderTransform);
-
     Ui ui_;
-    std::unordered_map<std::string, runtime::RectInstance> rects_;
-    std::unordered_map<std::string, runtime::PolygonInstance> polygons_;
-    std::unordered_map<std::string, runtime::TextInstance> texts_;
-    std::unordered_map<std::string, runtime::ImageInstance> images_;
-    std::unordered_map<std::string, runtime::InteractionInstance> interactions_;
-    std::unordered_map<std::string, runtime::DirtyKeyInstance> dirtyKeys_;
-    std::unordered_map<std::string, runtime::LayoutInstance> layouts_;
-    std::unordered_map<std::string, runtime::ScrollStateInstance> scrollStates_;
-    std::unordered_map<std::string, runtime::SliderStateInstance> sliderStates_;
-    std::unordered_map<std::string, runtime::TimerInstance> timers_;
-    std::unordered_map<std::string, runtime::DependentVisualState> dependentVisualStates_;
-    std::unordered_map<std::string, runtime::FrameTargetInstance> frameTargets_;
-    std::unordered_map<std::string, runtime::PaintBoundsInstance> paintBounds_;
-    std::unordered_map<std::string, runtime::RetainedLayerInstance> retainedLayers_;
+    runtime::InstanceStore instances_;
     std::vector<runtime::ElementSnapshot> elementStructure_;
     std::vector<runtime::LogicalDirtyRect> dirtyRects_;
     bool paintRequested_ = true;
@@ -403,7 +275,6 @@ private:
     bool wantsHandCursor_ = false;
     bool fullTreeUpdateRequested_ = true;
     bool pruneInstancesRequested_ = true;
-    bool retainedLayerRenderDisabled_ = false;
     bool previousFrameAnimating_ = false;
     bool hoverTargetCacheValid_ = false;
     PointerEvent hoverTargetCacheEvent_;
@@ -414,6 +285,7 @@ private:
     bool focusedElementRenderTransformValid_ = false;
     float logicalWidth_ = 0.0f;
     float logicalHeight_ = 0.0f;
+    std::uint64_t updateFrameToken_ = 0;
     core::window::CursorHandle arrowCursor_ = nullptr;
     core::window::CursorHandle handCursor_ = nullptr;
     core::window::CursorHandle currentCursor_ = nullptr;
@@ -424,7 +296,7 @@ private:
 
 } // namespace core::dsl
 
+#include "core/runtime/runtime_render.h"
 #include "core/runtime/runtime_lifecycle.h"
 #include "core/runtime/runtime_input.h"
 #include "core/runtime/runtime_update.h"
-#include "core/runtime/runtime_render.h"

@@ -162,7 +162,7 @@ public:
                                     theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                     theme::color(0.0f, 0.0f, 0.0f, 0.0f))
                             .disabled(!open_)
-                            .onClick([] {})
+                            .blockPointer()
                             .build();
 
                         for (int index = 0; index < count; ++index) {

@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sudoevolve.github.io/EUI-NEO/assets/shaders/shadertoy/eui-shadertoy.schema.json",
+  "title": "EUI-NEO Shadertoy graph",
+  "description": "EUI Shadertoy graph configuration.",
+  "type": "object",
+  "required": ["passes"],
+  "additionalProperties": false,
+  "properties": {
+    "passes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/pass"}
+    },
+    "uniforms": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {"$ref": "#/$defs/uniform"}
+    }
+  },
+  "$defs": {
+    "pass": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "source": {"type": "string"},
+        "inlineSource": {"type": "string"},
+        "sourceName": {"type": "string"},
+        "spirv": {"type": "string"},
+        "channels": {"$ref": "#/$defs/channels"}
+      },
+      "oneOf": [
+        {
+          "required": ["source"],
+          "properties": {
+            "source": {"minLength": 1},
+            "inlineSource": {"maxLength": 0}
+          }
+        },
+        {
+          "required": ["inlineSource"],
+          "properties": {
+            "inlineSource": {"minLength": 1},
+            "source": {"maxLength": 0}
+          }
+        }
+      ]
+    },
+    "channels": {
+      "type": "object",
+      "description": "Compact channels. Keys are channel indices 0-3.",
+      "propertyNames": {"pattern": "^[0-3]$"},
+      "additionalProperties": {"$ref": "#/$defs/compactChannel"}
+    },
+    "compactChannel": {
+      "type": "string",
+      "pattern": "^(none|self|image:.+|buffer:.+|[^:]+)$"
+    },
+    "uniform": {
+      "type": "object",
+      "required": ["name", "type", "value"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+          "not": {
+            "enum": [
+              "iResolution", "iTime", "iTimeDelta", "iFrame",
+              "iFrameRate", "iDate", "iMouse", "iChannel0",
+              "iChannel1", "iChannel2", "iChannel3", "iChannelTime",
+              "iChannelResolution", "iSampleRate"
+            ]
+          }
+        },
+        "type": {"enum": ["float", "int", "vec2", "vec3", "vec4"]},
+        "value": {}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"type": {"const": "float"}},
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "oneOf": [
+                  {"type": "number"},
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 1,
+                    "prefixItems": [{"type": "number"}]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"type": {"const": "int"}},
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"type": {"const": "vec2"}},
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {"value": {"$ref": "#/$defs/vec2"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"type": {"const": "vec3"}},
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {"value": {"$ref": "#/$defs/vec3"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"type": {"const": "vec4"}},
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {"value": {"$ref": "#/$defs/vec4"}}
+          }
+        }
+      ]
+    },
+    "vec2": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {"type": "number"},
+        {"type": "number"}
+      ]
+    },
+    "vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"type": "number"},
+        {"type": "number"},
+        {"type": "number"}
+      ]
+    },
+    "vec4": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "prefixItems": [
+        {"type": "number"},
+        {"type": "number"},
+        {"type": "number"},
+        {"type": "number"}
+      ]
+    }
+  }
+}

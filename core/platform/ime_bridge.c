@@ -23,6 +23,13 @@
 
 typedef struct EuiImeFilterState {
     WNDPROC previousProc;
+    double cursorX;
+    double cursorY;
+    double cursorWidth;
+    double cursorHeight;
+    double fontHeight;
+    BOOL hasCursorRect;
+    BOOL applyingCursorRect;
 } EuiImeFilterState;
 
 static LONG eui_ime_round_long(double value) {
@@ -46,18 +53,94 @@ static void eui_ime_apply_font(HIMC context, double fontHeight) {
     ImmSetCompositionFontW(context, &font);
 }
 
+static void eui_ime_apply_cursor_rect(HWND hwnd,
+                                      double x,
+                                      double y,
+                                      double width,
+                                      double height,
+                                      double fontHeight) {
+    if (hwnd == 0) {
+        return;
+    }
+
+    HIMC context = ImmGetContext(hwnd);
+    if (context == 0) {
+        return;
+    }
+
+    eui_ime_apply_font(context, fontHeight);
+
+    // Keep both IMM placement paths on the same line box.  Some IMEs derive
+    // the candidate position from COMPOSITIONFORM even when CANDIDATEFORM is
+    // supplied; placing the composition point at the line bottom makes them
+    // add a second line of vertical offset.
+    const LONG caretX = eui_ime_round_long(x);
+    const LONG compositionY = eui_ime_round_long(y);
+
+    COMPOSITIONFORM composition;
+    ZeroMemory(&composition, sizeof(composition));
+    composition.dwStyle = CFS_FORCE_POSITION;
+    composition.ptCurrentPos.x = caretX;
+    composition.ptCurrentPos.y = compositionY;
+    composition.rcArea.left = eui_ime_round_long(x);
+    composition.rcArea.top = eui_ime_round_long(y);
+    composition.rcArea.right = eui_ime_round_long(x + width);
+    composition.rcArea.bottom = eui_ime_round_long(y + height);
+    ImmSetCompositionWindow(context, &composition);
+
+    CANDIDATEFORM candidate;
+    ZeroMemory(&candidate, sizeof(candidate));
+    candidate.dwIndex = 0;
+    // CFS_CANDIDATEPOS is only a preferred point and Microsoft Pinyin may
+    // move it below the entire composition area.  Exclude the cursor
+    // rectangle instead, so the IME chooses the adjacent free position.
+    candidate.dwStyle = CFS_EXCLUDE;
+    candidate.rcArea = composition.rcArea;
+    ImmSetCandidateWindow(context, &candidate);
+
+    ImmReleaseContext(hwnd, context);
+}
+
+static void eui_ime_reapply_cursor_rect(HWND hwnd, EuiImeFilterState* state) {
+    if (state == 0 || !state->hasCursorRect || state->applyingCursorRect) {
+        return;
+    }
+    state->applyingCursorRect = TRUE;
+    eui_ime_apply_cursor_rect(hwnd,
+                              state->cursorX,
+                              state->cursorY,
+                              state->cursorWidth,
+                              state->cursorHeight,
+                              state->fontHeight);
+    if ((EuiImeFilterState*)GetPropW(hwnd, EUI_IME_FILTER_PROP) == state) {
+        state->applyingCursorRect = FALSE;
+    }
+}
+
 static LRESULT CALLBACK eui_ime_window_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     EuiImeFilterState* state = (EuiImeFilterState*)GetPropW(hwnd, EUI_IME_FILTER_PROP);
+    const BOOL placementChanged = message == WM_IME_COMPOSITION ||
+                                  (message == WM_IME_NOTIFY &&
+                                   (wParam == IMN_OPENCANDIDATE || wParam == IMN_CHANGECANDIDATE));
     if (message == WM_IME_COMPOSITION && (lParam & GCS_COMPSTR) != 0) {
         lParam &= ~GCS_COMPSTR;
         if (lParam == 0) {
+            eui_ime_reapply_cursor_rect(hwnd, state);
             return 0;
         }
     }
+    LRESULT result;
     if (state != 0 && state->previousProc != 0) {
-        return CallWindowProcW(state->previousProc, hwnd, message, wParam, lParam);
+        result = CallWindowProcW(state->previousProc, hwnd, message, wParam, lParam);
+    } else {
+        result = DefWindowProcW(hwnd, message, wParam, lParam);
     }
-    return DefWindowProcW(hwnd, message, wParam, lParam);
+    if (placementChanged) {
+        eui_ime_reapply_cursor_rect(
+            hwnd,
+            (EuiImeFilterState*)GetPropW(hwnd, EUI_IME_FILTER_PROP));
+    }
+    return result;
 }
 
 void eui_ime_install_message_filter(GLFWwindow* window) {
@@ -116,36 +199,16 @@ void eui_ime_set_cursor_rect_with_font(GLFWwindow* window, double x, double y, d
         return;
     }
 
-    HIMC context = ImmGetContext(hwnd);
-    if (context == 0) {
-        return;
+    EuiImeFilterState* state = (EuiImeFilterState*)GetPropW(hwnd, EUI_IME_FILTER_PROP);
+    if (state != 0) {
+        state->cursorX = x;
+        state->cursorY = y;
+        state->cursorWidth = width;
+        state->cursorHeight = height;
+        state->fontHeight = fontHeight;
+        state->hasCursorRect = TRUE;
     }
-
-    eui_ime_apply_font(context, fontHeight);
-
-    const LONG caretX = eui_ime_round_long(x);
-    const LONG caretY = eui_ime_round_long(y + height);
-    const LONG candidateY = eui_ime_round_long(y + height * 0.45);
-
-    COMPOSITIONFORM composition;
-    composition.dwStyle = CFS_FORCE_POSITION;
-    composition.ptCurrentPos.x = caretX;
-    composition.ptCurrentPos.y = caretY;
-    composition.rcArea.left = eui_ime_round_long(x);
-    composition.rcArea.top = eui_ime_round_long(y);
-    composition.rcArea.right = eui_ime_round_long(x + width);
-    composition.rcArea.bottom = eui_ime_round_long(y + height);
-    ImmSetCompositionWindow(context, &composition);
-
-    CANDIDATEFORM candidate;
-    candidate.dwIndex = 0;
-    candidate.dwStyle = CFS_CANDIDATEPOS;
-    candidate.ptCurrentPos.x = caretX;
-    candidate.ptCurrentPos.y = candidateY;
-    candidate.rcArea = composition.rcArea;
-    ImmSetCandidateWindow(context, &candidate);
-
-    ImmReleaseContext(hwnd, context);
+    eui_ime_apply_cursor_rect(hwnd, x, y, width, height, fontHeight);
 }
 
 int eui_ime_is_composing(GLFWwindow* window) {

@@ -14,12 +14,22 @@ OUT_DIR = ROOT / "core" / "render" / "vulkan"
 
 GROUPS = [
     {
+        "name": "ShaderToy",
+        "comment": "shadertoy.vert",
+        "header": "vulkan_shadertoy_shaders.h",
+        "stages": [
+            ("Vertex", "shadertoy.vert"),
+        ],
+    },
+    {
         "name": "RoundedRect",
-        "comment": "rounded_rect.vert and rounded_rect.frag",
+        "comment": "rounded_rect*.vert and rounded_rect*.frag",
         "header": "vulkan_rounded_rect_shaders.h",
         "stages": [
             ("Vertex", "rounded_rect.vert"),
             ("Fragment", "rounded_rect.frag"),
+            ("BatchVertex", "rounded_rect_batch.vert"),
+            ("BatchFragment", "rounded_rect_batch.frag"),
         ],
     },
     {

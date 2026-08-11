@@ -36,72 +36,10 @@ EUI-NEO is a cross-platform, high-performance, low-overhead C++17 UI framework w
 Requirements:
 
 - CMake 3.14+
-- A C++17 compiler
-- OpenGL development files for the default renderer.
-- Vulkan SDK is optional. Use a `build-vk` directory only when you want the Vulkan renderer.
-- Platform OpenGL/windowing development files. Linux builds also need X11 and libcurl development packages.
+- A C++17 compiler: MSVC 19.29+ (Visual Studio 2019 16.11+), GCC/MinGW-w64 12+, or Clang 14+
+- OpenGL development files for the default renderer
 
-Build-time sources for GLFW, glad, tray, FreeType, libpng, and zlib are vendored under `3rd/`. Supported source trees are discovered by marker files rather than directory names or version suffixes, so an upstream source directory can be placed directly under `3rd/` without editing EUI-NEO's CMake files. The default dependency mode is `auto`: CMake uses existing parent targets for `glfw` / `glad` first, then package targets, then the local `3rd/` sources or pinned fetch fallback. Use `-DEUI_DEPS_MODE=bundled` for strict offline builds, or `-DEUI_DEPS_MODE=fetch` to force online dependency fetches.
-
-Bundled and fetched dependencies are built for static linking by default, including GLFW. Release packages therefore do not need to ship a GLFW DLL / dylib / so. SDL2 may still be dynamic when you choose a system SDL2 package. The `eui_neo` target itself is static by default; configure with `-DEUI_BUILD_SHARED=ON` when you want to build and install it as a shared library.
-
-GLFW is the default window backend. SDL2 is optional and is not vendored. If GLFW is not available or you want to test SDL2, add `sdl2` to the build directory name:
-
-```sh
-cmake -S . -B build-sdl2
-cmake --build build-sdl2
-```
-
-If a system SDL2 package is not available, add `-DEUI_DEPS_MODE=fetch` to download the pinned SDL2 source.
-
-macOS / Linux example:
-
-```sh
-cmake -S . -B build
-cmake --build build
-./build/gallery
-```
-
-Explicit render backend examples:
-
-```sh
-cmake -S . -B build-vk
-cmake --build build-vk --target gallery
-```
-
-Build directory suffixes are recognized on first configure: `build` means GLFW + OpenGL, `build-sdl2` means SDL2 + OpenGL, `build-vk` means GLFW + Vulkan, and `build-sdl2-vk` means SDL2 + Vulkan. If a build directory already has a CMake cache, delete it or pass `-DEUI_WINDOW_BACKEND=...` / `-DEUI_RENDER_BACKEND=...` explicitly.
-
-Windows / PowerShell example:
-
-```powershell
-cmake -S . -B build
-cmake --build build --config Release
-.\build\Release\gallery.exe
-```
-
-Linux package hint:
-
-```sh
-sudo apt-get install -y ninja-build libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev libcurl4-openssl-dev
-# Optional for -DEUI_WINDOW_BACKEND=sdl2:
-sudo apt-get install -y libsdl2-dev
-```
-
-Top-level builds create one executable for each `examples/*.cpp` page source, such as `gallery`, `card_slider`, and `eui_demo`. After build, `assets/` is copied next to the executable automatically.
-
-User apps can live under `apps/` and are built the same way by default in a top-level checkout. Use either a flat `apps/my_app.cpp` file or a directory app such as `apps/my_app/app.cpp`. Directory apps may include their own `apps/my_app/assets/`; those files are copied into the executable `assets/` directory after the framework assets. Disable this scan with `-DEUI_BUILD_USER_APPS=OFF`.
-
-## Optional Modules
-
-Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/modules.md).
-
-Tagged releases (`v*`) build Windows, Linux, and macOS packages through GitHub Actions and upload runtime and SDK packages as release assets. Runtime packages automatically collect every executable generated from `examples/*.cpp`.
-
-## Use In Your Project
-
-The recommended path is to add EUI-NEO as a CMake subdirectory, use the provided app main source, and write your UI through the public facade header.
-
-Minimal CMake:
+Add EUI-NEO under `external/EUI-NEO`, then create:
 
 ```cmake
 cmake_minimum_required(VERSION 3.14)
@@ -112,14 +50,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(external/EUI-NEO)
 
-add_executable(my_app
-    external/EUI-NEO/core/app/glfw_app_main.cpp
-    app.cpp
-)
+add_executable(my_app app.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-Minimal `app.cpp`:
+`app.cpp`:
 
 ```cpp
 #include "eui_neo.h"
@@ -158,7 +93,51 @@ cmake --build build --parallel
 ./build/my_app
 ```
 
-EUI-NEO owns the window, event loop, selected render backend, and asset copying in this setup. For SDL2, Vulkan, `FetchContent`, custom main loops, or building the bundled examples from a parent project, see the [Integration Guide](docs/集成指南.md).
+`eui_neo_configure_app()` adds the selected GLFW/SDL2 entry point, links `eui::neo`, applies platform executable settings, and deploys the runtime assets. The application does not reference files under `core/`.
+
+The release SDK supports the same target setup:
+
+```cmake
+find_package(EuiNeo CONFIG REQUIRED)
+add_executable(my_app app.cpp)
+eui_neo_configure_app(my_app)
+```
+
+See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, SDL2/Vulkan selection, and custom main loops. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
+
+### Xmake
+
+Xmake 3.0+ is supported for source builds and xrepo library consumers:
+
+```lua
+set_languages("cxx17")
+add_requires("eui-neo")
+
+target("my_app")
+    set_kind("binary")
+    add_files("main.cpp", "app.cpp")
+    add_packages("eui-neo")
+```
+
+The xrepo package provides the `eui_neo` library; `main.cpp` owns the window
+loop and application entry point. When building this repository directly,
+the `eui.app` rule adds the selected platform entry point and deploys assets.
+
+Build a repository example:
+
+```powershell
+xmake f -m debug -y --apps=y --user_apps=y
+xmake build gallery
+xmake f -m release -y --apps=y --user_apps=y
+xmake build gallery
+```
+
+On Windows, the executable is `.xmake/build/windows/x64/<debug|release>/gallery.exe`.
+See the [Integration Guide](docs/集成指南.md) for backend options and other targets.
+
+## Optional Modules
+
+Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/modules.md).
 
 ## Project Layout
 
@@ -168,7 +147,7 @@ components/   Reusable UI components built on top of the DSL
 core/         DSL, Runtime, primitives, text, image, network, and platform code
 docs/         Implementation notes and API documentation
 examples/     Standalone gallery and example application sources
-modules/      Optional feature modules such as keyboard, media, and serial
+modules/      Optional feature modules such as keyboard and serial
 apps/         User application sources; flat .cpp files or app folders
 include/      Public include path: eui_neo.h and eui/* facade headers
 tests/        Probe sources, fixture apps, and local benchmark notes
@@ -191,14 +170,17 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 - [Network](docs/网络.md)
 - [Platform Capabilities](docs/平台能力.md)
 - [Integration Guide](docs/集成指南.md)
+- [Shadertoy Primitive](docs/Shadertoy.md)
 - [Development And Release](docs/开发与发布.md)
 
 ## License
 
 EUI-NEO's original source code is licensed under the Apache License 2.0. Third-party code under `3rd/`, optional build-time dependencies fetched by CMake, and bundled fonts or icon fonts under `assets/` follow their respective upstream licenses and copyright notices.
 
-## Star History
+## Contributors
 
-<a href="https://www.star-history.com/#sudoevolve/EUI-NEO&Date">
-  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=sudoevolve/EUI-NEO&type=Date">
+Thank you to everyone who has contributed code, improved the documentation, reported issues, or shared feedback with EUI-NEO.
+
+<a href="https://github.com/sudoevolve/EUI-NEO/graphs/contributors">
+  <img alt="EUI-NEO contributors" src="https://contrib.rocks/image?repo=sudoevolve/eui-neo&max=100&columns=10">
 </a>

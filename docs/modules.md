@@ -15,10 +15,10 @@ If `modules/` or a module subdirectory is missing, CMake skips it without failin
 Known module folders:
 
 - `modules/keyboard`: on-screen keyboard components and bindings.
-- `modules/media`: reserved for media-facing optional features.
-- `modules/serial`: reserved for serial-port optional features.
+- `modules/serial`: cross-platform serial discovery, connection, and I/O.
 
 Each module owns its own `CMakeLists.txt`, README, headers, examples, and tests when needed.
+Installed modules are exported with the same `eui::module_*` target names used by source-tree consumers.
 
 ## Using A Module
 

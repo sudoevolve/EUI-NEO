@@ -151,7 +151,7 @@ private:
     std::string label_;
     bool checked_ = false;
     float width_ = 180.0f;
-    float height_ = 30.0f;
+    float height_ = 32.0f;
     float trackWidth_ = 0.0f;
     float trackHeight_ = 0.0f;
     float gap_ = 0.0f;

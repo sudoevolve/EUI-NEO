@@ -1,0 +1,14 @@
+{
+  "passes": [
+    {
+      "name": "A",
+      "source": "1.frag",
+      "channels": {"0": "self"}
+    },
+    {
+      "name": "Image",
+      "source": "2.frag",
+      "channels": {"0": "A"}
+    }
+  ]
+}

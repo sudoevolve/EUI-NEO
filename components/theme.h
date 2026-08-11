@@ -63,7 +63,7 @@ struct RadiusTokens {
 };
 
 struct ControlSizeTokens {
-    float progress = 15.0f;
+    float progress = 14.0f;
     float indicator = 22.0f;
     float switchHeight = 24.0f;
     float compact = 28.0f;
@@ -71,7 +71,7 @@ struct ControlSizeTokens {
     float field = 35.0f;
     float segmented = 36.0f;
     float input = 40.0f;
-    float control = 42.0f;
+    float control = 44.0f;
     float large = 44.0f;
     float switchWidth = 46.0f;
     float navigation = 50.0f;

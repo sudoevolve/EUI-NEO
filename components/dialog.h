@@ -133,7 +133,7 @@ public:
                             .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                     theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                     theme::color(0.0f, 0.0f, 0.0f, 0.0f))
-                            .onClick([] {})
+                            .blockPointer()
                             .build();
 
                         if (content_) {

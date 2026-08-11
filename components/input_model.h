@@ -44,6 +44,7 @@ struct InputModel {
         int dragAnchor = 0;
         bool selecting = false;
         bool hasPreferredCursorX = false;
+        bool followCaret = true;
         float preferredCursorX = 0.0f;
         float horizontalScroll = 0.0f;
         float verticalScroll = 0.0f;
@@ -124,7 +125,9 @@ struct InputModel {
                 layout.cursorX = inset + layout.cursorPixel;
                 layout.maxVerticalScroll = std::max(0.0f, layout.contentHeight - viewportHeight);
                 state.verticalScroll = std::clamp(state.verticalScroll, 0.0f, layout.maxVerticalScroll);
-                syncVerticalScroll(state, layout.cursorLine, lineHeight, viewportHeight);
+                if (state.followCaret) {
+                    syncVerticalScroll(state, layout.cursorLine, lineHeight, viewportHeight);
+                }
                 state.verticalScroll = std::clamp(state.verticalScroll, 0.0f, layout.maxVerticalScroll);
                 layout.currentVerticalScroll = state.verticalScroll;
                 layout.cursorY = textTop + static_cast<float>(layout.cursorLine) * lineHeight - state.verticalScroll;

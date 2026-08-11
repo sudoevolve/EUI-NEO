@@ -72,7 +72,6 @@ struct GallerySettingsPage {
             .height(eui::SizeValue::wrapContent())
             .gap(14.0f)
             .content([&] {
-                settingRow(ui, "setting.dense", "Dense layout", "Use tighter spacing for gallery pages.", optionDense, rowWidth, [] { optionDense = !optionDense; });
                 settingRow(ui, "setting.glass", "Glass surfaces", "Show transparent panel examples in controls.", optionGlass, rowWidth, [] { optionGlass = !optionGlass; });
                 settingRow(ui, "setting.motion", "Animated transitions", "Keep page and property transitions enabled.", optionMotion, rowWidth, [] { optionMotion = !optionMotion; });
 
@@ -132,6 +131,25 @@ struct GallerySettingsPage {
 
                 settingRow(ui, "setting.unlockFps", "Unlock 90 FPS limit", "Let animation rendering use the display refresh rate.", optionUnlockFps, rowWidth, [] { optionUnlockFps = !optionUnlockFps; });
                 settingRow(ui, "setting.night", "Night mode", "Switch gallery between light and dark theme tokens.", optionNight, rowWidth, [] { optionNight = !optionNight; });
+                settingRow(ui, "setting.shadertoy", "Shadertoy demo", "Show the demo.frag shader below the settings.", optionShaderToy, rowWidth, [] { optionShaderToy = !optionShaderToy; });
+
+                if (optionShaderToy) {
+                    const float demoHeight = std::max(180.0f, rowWidth * 9.0f / 16.0f);
+                    ui.stack("setting.shadertoy.demo")
+                        .size(rowWidth, demoHeight)
+                        .content([&] {
+                            ui.shadertoy("setting.shadertoy.demo.canvas")
+                                .size(rowWidth, demoHeight)
+                                .graph(galleryShaderToyGraph())
+                                .radius(16.0f)
+                                .opacity(1.0f)
+                                .resolutionScale(1.0f)
+                                .timeScale(1.0f)
+                                .paused(false)
+                                .build();
+                        })
+                        .build();
+                }
             })
             .build();
     }

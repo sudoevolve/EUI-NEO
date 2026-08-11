@@ -2,15 +2,32 @@
 #include "core/platform/native_bridge.h"
 
 #include <algorithm>
-
+#include <cmath>
+#include <cstdlib>
 #if defined(EUI_WINDOW_BACKEND_SDL2)
 
 #include <SDL.h>
 #if defined(EUI_RENDER_BACKEND_VULKAN)
 #include <SDL_vulkan.h>
 #endif
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
 #include <SDL_syswm.h>
+#include <X11/Xresource.h>
+#endif
+#ifdef None
+#undef None
+#endif
+#ifdef Bool
+#undef Bool
+#endif
+#ifdef Status
+#undef Status
+#endif
+#ifdef CursorShape
+#undef CursorShape
+#endif
+#ifdef Success
+#undef Success
 #endif
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -21,8 +38,13 @@
 #endif
 #include <windows.h>
 #include <imm.h>
-#endif
 
+#include <new>
+#include <unordered_map>
+#endif
+#if defined(_WIN32) || defined(__APPLE__)
+#include <SDL_syswm.h>
+#endif
 namespace core::window {
 
 namespace {
@@ -39,21 +61,280 @@ void configureOpenGLWindowAttributes() {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 }
 
-} // namespace
-
 #if defined(_WIN32)
-namespace {
 
-LONG roundLong(float value) {
-    return static_cast<LONG>(value >= 0.0f ? value + 0.5f : value - 0.5f);
+struct SdlImeFilterState {
+    WNDPROC previousProc = nullptr;
+    SDL_Rect rect{};
+    bool hasRect = false;
+    bool applying = false;
+    UINT_PTR reapplyTimer = 0;
+};
+
+std::unordered_map<HWND, SdlImeFilterState*> gSdlImeFilters;
+
+SdlImeFilterState* sdlImeState(HWND hwnd) {
+    const auto iterator = gSdlImeFilters.find(hwnd);
+    return iterator != gSdlImeFilters.end() ? iterator->second : nullptr;
 }
 
-HWND hwndForWindow(Handle window) {
-    return static_cast<HWND>(nativeWindowInfo(window).platformWindow);
+HWND hwndForSdlWindow(SDL_Window* window) {
+    if (window == nullptr) {
+        return nullptr;
+    }
+
+    SDL_SysWMinfo info{};
+    SDL_VERSION(&info.version);
+    if (SDL_GetWindowWMInfo(window, &info) != SDL_TRUE ||
+        info.subsystem != SDL_SYSWM_WINDOWS) {
+        return nullptr;
+    }
+    return info.info.win.window;
 }
+
+void applySdlImeRect(HWND hwnd, const SDL_Rect& rect) {
+    HIMC context = ImmGetContext(hwnd);
+    if (context == nullptr) {
+        return;
+    }
+
+    LOGFONTW font{};
+    const HFONT defaultFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+    if (defaultFont != nullptr &&
+        GetObjectW(defaultFont, sizeof(font), &font) == sizeof(font)) {
+        font.lfHeight = -std::max(12, rect.h);
+        font.lfQuality = CLEARTYPE_QUALITY;
+        ImmSetCompositionFontW(context, &font);
+    }
+
+    COMPOSITIONFORM composition{};
+    composition.dwStyle = CFS_FORCE_POSITION;
+    composition.ptCurrentPos.x = rect.x;
+    composition.ptCurrentPos.y = rect.y;
+    composition.rcArea.left = rect.x;
+    composition.rcArea.top = rect.y;
+    composition.rcArea.right = rect.x + rect.w;
+    composition.rcArea.bottom = rect.y + rect.h;
+    ImmSetCompositionWindow(context, &composition);
+
+    CANDIDATEFORM candidate{};
+    candidate.dwIndex = 0;
+    candidate.dwStyle = CFS_EXCLUDE;
+    candidate.ptCurrentPos = composition.ptCurrentPos;
+    candidate.rcArea = composition.rcArea;
+    ImmSetCandidateWindow(context, &candidate);
+
+    ImmReleaseContext(hwnd, context);
+}
+
+void reapplySdlImeRect(HWND hwnd, SdlImeFilterState* state) {
+    if (state == nullptr || !state->hasRect || state->applying) {
+        return;
+    }
+
+    state->applying = true;
+    applySdlImeRect(hwnd, state->rect);
+    if (sdlImeState(hwnd) == state) {
+        state->applying = false;
+    }
+}
+
+LRESULT CALLBACK sdlImeWindowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    auto* state = sdlImeState(hwnd);
+    if (message == WM_TIMER && state != nullptr &&
+        state->reapplyTimer != 0 && wParam == state->reapplyTimer) {
+        KillTimer(hwnd, state->reapplyTimer);
+        state->reapplyTimer = 0;
+        reapplySdlImeRect(hwnd, state);
+        return 0;
+    }
+
+    const bool placementChanged = message == WM_IME_STARTCOMPOSITION ||
+        message == WM_IME_COMPOSITION ||
+        (message == WM_IME_NOTIFY &&
+         (wParam == IMN_OPENCANDIDATE || wParam == IMN_CHANGECANDIDATE));
+
+    if (placementChanged) {
+        reapplySdlImeRect(hwnd, state);
+    }
+
+    const LRESULT result = state != nullptr && state->previousProc != nullptr
+        ? CallWindowProcW(state->previousProc, hwnd, message, wParam, lParam)
+        : DefWindowProcW(hwnd, message, wParam, lParam);
+
+    if (placementChanged) {
+        state = sdlImeState(hwnd);
+        reapplySdlImeRect(hwnd, state);
+        if (state != nullptr) {
+            if (state->reapplyTimer != 0) {
+                KillTimer(hwnd, state->reapplyTimer);
+            }
+            state->reapplyTimer = SetTimer(hwnd, 0, USER_TIMER_MINIMUM, nullptr);
+        }
+    }
+    return result;
+}
+
+void installSdlImeFilter(SDL_Window* window) {
+    HWND hwnd = hwndForSdlWindow(window);
+    if (hwnd == nullptr || sdlImeState(hwnd) != nullptr) {
+        return;
+    }
+
+    auto* state = new (std::nothrow) SdlImeFilterState{};
+    if (state == nullptr) {
+        return;
+    }
+    state->previousProc = reinterpret_cast<WNDPROC>(GetWindowLongPtrW(hwnd, GWLP_WNDPROC));
+    if (state->previousProc == nullptr) {
+        delete state;
+        return;
+    }
+
+    gSdlImeFilters.emplace(hwnd, state);
+    SetLastError(ERROR_SUCCESS);
+    const LONG_PTR previous = SetWindowLongPtrW(
+        hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(sdlImeWindowProc));
+    if (previous == 0 && GetLastError() != ERROR_SUCCESS) {
+        gSdlImeFilters.erase(hwnd);
+        delete state;
+    }
+}
+
+void uninstallSdlImeFilter(SDL_Window* window) {
+    HWND hwnd = hwndForSdlWindow(window);
+    if (hwnd == nullptr) {
+        return;
+    }
+
+    auto* state = sdlImeState(hwnd);
+    if (state == nullptr) {
+        return;
+    }
+
+    if (state->reapplyTimer != 0) {
+        KillTimer(hwnd, state->reapplyTimer);
+    }
+    SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(state->previousProc));
+    gSdlImeFilters.erase(hwnd);
+    delete state;
+}
+
+#endif
+#if defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
+struct X11ResourceApi {
+    using Initialize = void (*)();
+    using ResourceManagerString = char* (*)(Display*);
+    using GetStringDatabase = XrmDatabase (*)(const char*);
+    using GetResource = int (*)(XrmDatabase, const char*, const char*, char**, XrmValue*);
+    using DestroyDatabase = void (*)(XrmDatabase);
+
+    void* library = nullptr;
+    Initialize initialize = nullptr;
+    ResourceManagerString resourceManagerString = nullptr;
+    GetStringDatabase getStringDatabase = nullptr;
+    GetResource getResource = nullptr;
+    DestroyDatabase destroyDatabase = nullptr;
+
+    bool available() const {
+        return library != nullptr && initialize != nullptr &&
+               resourceManagerString != nullptr && getStringDatabase != nullptr &&
+               getResource != nullptr && destroyDatabase != nullptr;
+    }
+};
+
+X11ResourceApi loadX11ResourceApi() {
+    X11ResourceApi api;
+    void* library = SDL_LoadObject("libX11.so.6");
+    if (library == nullptr) {
+        library = SDL_LoadObject("libX11.so");
+    }
+    if (library == nullptr) {
+        return api;
+    }
+
+    api.library = library;
+    api.initialize = reinterpret_cast<X11ResourceApi::Initialize>(
+        SDL_LoadFunction(library, "XrmInitialize"));
+    api.resourceManagerString = reinterpret_cast<X11ResourceApi::ResourceManagerString>(
+        SDL_LoadFunction(library, "XResourceManagerString"));
+    api.getStringDatabase = reinterpret_cast<X11ResourceApi::GetStringDatabase>(
+        SDL_LoadFunction(library, "XrmGetStringDatabase"));
+    api.getResource = reinterpret_cast<X11ResourceApi::GetResource>(
+        SDL_LoadFunction(library, "XrmGetResource"));
+    api.destroyDatabase = reinterpret_cast<X11ResourceApi::DestroyDatabase>(
+        SDL_LoadFunction(library, "XrmDestroyDatabase"));
+    if (!api.available()) {
+        SDL_UnloadObject(library);
+        return {};
+    }
+    return api;
+}
+
+const X11ResourceApi& x11ResourceApi() {
+    static const X11ResourceApi api = loadX11ResourceApi();
+    return api;
+}
+#endif
+
 
 } // namespace
+
+
+float x11ContentScale(Handle window) {
+    SDL_Window* sdlWindow = static_cast<SDL_Window*>(window);
+    if (sdlWindow == nullptr) {
+        return 0.0f;
+    }
+#if defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
+    SDL_SysWMinfo info{};
+    SDL_VERSION(&info.version);
+    if (SDL_GetWindowWMInfo(sdlWindow, &info) != SDL_TRUE ||
+        info.subsystem != SDL_SYSWM_X11 ||
+        info.info.x11.display == nullptr) {
+        return 0.0f;
+    }
+
+    const X11ResourceApi& api = x11ResourceApi();
+    if (!api.available()) {
+        return 0.0f;
+    }
+
+    static Display* cachedDisplay = nullptr;
+    static float cachedScale = 1.0f;
+    if (cachedDisplay == info.info.x11.display) {
+        return cachedScale;
+    }
+    cachedDisplay = info.info.x11.display;
+    cachedScale = 1.0f;
+
+    api.initialize();
+    char* resources = api.resourceManagerString(info.info.x11.display);
+    if (resources == nullptr) {
+        return cachedScale;
+    }
+    XrmDatabase database = api.getStringDatabase(resources);
+    if (database == nullptr) {
+        return cachedScale;
+    }
+
+    char* type = nullptr;
+    XrmValue value{};
+    if (api.getResource(database, "Xft.dpi", "Xft.Dpi", &type, &value) &&
+        value.addr != nullptr) {
+        char* end = nullptr;
+        const float dpi = std::strtof(value.addr, &end);
+        if (end != value.addr && std::isfinite(dpi) && dpi > 0.0f) {
+            cachedScale = dpi / 96.0f;
+        }
+    }
+    api.destroyDatabase(database);
+    return cachedScale;
+#else
+    (void)sdlWindow;
+    return 0.0f;
 #endif
+}
 
 Handle createWindow(const WindowCreateRequest& request) {
     if (request.renderApi == RenderApi::OpenGL) {
@@ -69,18 +350,41 @@ Handle createWindow(const WindowCreateRequest& request) {
     }
     flags |= request.renderApi == RenderApi::Vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL;
 
-    return SDL_CreateWindow(
+    SDL_Window* window = SDL_CreateWindow(
         request.title != nullptr ? request.title : "",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         request.width,
         request.height,
         flags);
+#if defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
+    if (window != nullptr && request.highDpi) {
+        const float scale = x11ContentScale(window);
+        if (scale > 0.0f && scale != 1.0f) {
+            SDL_SetWindowSize(
+                window,
+                static_cast<int>(std::lround(static_cast<float>(request.width) * scale)),
+                static_cast<int>(std::lround(static_cast<float>(request.height) * scale)));
+            SDL_SetWindowPosition(
+                window,
+                SDL_WINDOWPOS_CENTERED,
+                SDL_WINDOWPOS_CENTERED);
+        }
+    }
+#endif
+#if defined(_WIN32)
+    installSdlImeFilter(window);
+#endif
+    return window;
 }
 
 void destroyWindow(Handle window) {
     if (window != nullptr) {
-        SDL_DestroyWindow(static_cast<SDL_Window*>(window));
+        auto* sdlWindow = static_cast<SDL_Window*>(window);
+#if defined(_WIN32)
+        uninstallSdlImeFilter(sdlWindow);
+#endif
+        SDL_DestroyWindow(sdlWindow);
     }
 }
 
@@ -126,20 +430,6 @@ void postEmptyEvent() {
     SDL_PushEvent(&event);
 }
 
-void getCursorPosition(Handle, double& x, double& y) {
-    int cursorX = 0;
-    int cursorY = 0;
-    SDL_GetMouseState(&cursorX, &cursorY);
-    x = static_cast<double>(cursorX);
-    y = static_cast<double>(cursorY);
-}
-
-bool isMouseButtonDown(Handle, int button) {
-    const Uint32 state = SDL_GetMouseState(nullptr, nullptr);
-    const Uint32 mask = button == 1 ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
-    return (state & mask) != 0;
-}
-
 std::string clipboardText(Handle) {
     char* text = SDL_GetClipboardText();
     if (text == nullptr) {
@@ -181,49 +471,20 @@ void setWindowIcon(Handle window, int width, int height, unsigned char* pixels) 
 
 void setImeCursorRect(Handle window, float x, float y, float width, float height) {
 #if defined(_WIN32)
-    HWND hwnd = hwndForWindow(window);
+    SDL_Rect rect{
+        static_cast<int>(x + 0.5f),
+        static_cast<int>(y + 0.5f),
+        static_cast<int>(width + 0.5f),
+        static_cast<int>(height + 0.5f)
+    };
+    HWND hwnd = hwndForSdlWindow(static_cast<SDL_Window*>(window));
     if (hwnd != nullptr) {
-        HIMC context = ImmGetContext(hwnd);
-        if (context != nullptr) {
-            const double fontHeight = std::max(12.0f, height);
-            const LONG caretX = roundLong(x);
-            const LONG caretY = roundLong(y + height);
-            const LONG candidateY = roundLong(y + height * 0.45f);
-
-            COMPOSITIONFORM composition{};
-            composition.dwStyle = CFS_FORCE_POSITION;
-            composition.ptCurrentPos.x = caretX;
-            composition.ptCurrentPos.y = caretY;
-            composition.rcArea.left = roundLong(x);
-            composition.rcArea.top = roundLong(y);
-            composition.rcArea.right = roundLong(x + width);
-            composition.rcArea.bottom = roundLong(y + height);
-            ImmSetCompositionWindow(context, &composition);
-
-            CANDIDATEFORM candidate{};
-            candidate.dwIndex = 0;
-            candidate.dwStyle = CFS_CANDIDATEPOS;
-            candidate.ptCurrentPos.x = caretX;
-            candidate.ptCurrentPos.y = candidateY;
-            candidate.rcArea = composition.rcArea;
-            ImmSetCandidateWindow(context, &candidate);
-            LOGFONTW font{};
-            font.lfHeight = -roundLong(static_cast<float>(fontHeight));
-            font.lfCharSet = DEFAULT_CHARSET;
-            font.lfQuality = CLEARTYPE_QUALITY;
-            wcscpy_s(font.lfFaceName, LF_FACESIZE, L"Microsoft YaHei UI");
-            ImmSetCompositionFontW(context, &font);
-
-            ImmReleaseContext(hwnd, context);
+        auto* state = sdlImeState(hwnd);
+        if (state != nullptr) {
+            state->rect = rect;
+            state->hasRect = true;
         }
     }
-
-    SDL_Rect rect{
-        roundLong(x),
-        roundLong(y),
-        roundLong(width),
-        roundLong(height)
-    };
     SDL_SetTextInputRect(&rect);
 #else
     int windowWidth = 0;
@@ -323,15 +584,6 @@ double timeSeconds() {
 
 void postEmptyEvent() {
     glfwPostEmptyEvent();
-}
-
-void getCursorPosition(Handle window, double& x, double& y) {
-    glfwGetCursorPos(static_cast<GLFWwindow*>(window), &x, &y);
-}
-
-bool isMouseButtonDown(Handle window, int button) {
-    const int glfwButton = button == 1 ? GLFW_MOUSE_BUTTON_RIGHT : GLFW_MOUSE_BUTTON_LEFT;
-    return glfwGetMouseButton(static_cast<GLFWwindow*>(window), glfwButton) == GLFW_PRESS;
 }
 
 std::string clipboardText(Handle window) {

@@ -902,27 +902,52 @@ section {
   background: var(--hover);
 }
 
-.code-grid {
+.start .section-heading {
+  max-width: 1100px;
+}
+
+.start h2 {
+  font-size: 64px;
+  line-height: 1;
+}
+
+.start-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
-.code-step {
-  display: grid;
-  gap: 12px;
-  align-content: start;
+.start-step {
+  min-width: 0;
 }
 
-.code-step > span {
+.start-step > span {
+  display: block;
+  margin-bottom: 8px;
   color: var(--primary);
   font-size: 12px;
   font-weight: 860;
 }
 
-.code-step h3 {
-  margin: 0;
-  font-size: clamp(22px, 2.4vw, 32px);
+.start-step h3 {
+  margin-bottom: 12px;
+}
+
+.start-step pre {
+  min-height: 180px;
+}
+
+.start-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.start .secondary-action {
+  color: var(--ink);
+  border-color: var(--line);
+  background: var(--panel);
 }
 
 pre {
@@ -1282,6 +1307,18 @@ code {
     gap: 8px;
   }
 
+  .start h2 {
+    font-size: 42px;
+  }
+
+  .start-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .start-step pre {
+    min-height: 0;
+  }
+
   .hero-preview {
     min-height: 330px;
   }
@@ -1303,8 +1340,7 @@ code {
   .search-panel,
   .render-flow,
   .showcase,
-  .components-band,
-  .code-grid {
+  .components-band {
     grid-template-columns: 1fr;
   }
 

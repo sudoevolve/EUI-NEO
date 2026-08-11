@@ -35,7 +35,7 @@ inline void Runtime::promoteBackdropBlurDirtyRegions(float dpiScale) {
     const RenderTransform identity;
     do {
         expandedThisPass = false;
-        const std::vector<const Element*>& roots = orderedElements(ui_);
+        const std::vector<const Element*>& roots = ui_.orderedRoots();
         for (const Element* root : roots) {
             expandBackdropBlurDirtyRegions(*root, dpiScale, identity, mergedDirty, expandedThisPass);
         }
@@ -59,12 +59,12 @@ inline void Runtime::expandBackdropBlurDirtyRegions(
         return;
     }
 
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     if (element.kind == ElementKind::Rect) {
-        const auto instance = rects_.find(element.id);
-        const LayoutRect frame = instance != rects_.end() ? instance->second.frame.value() : element.frame;
-        const Transform transform = instance != rects_.end() ? instance->second.transform.value() : element.transform;
-        const float blur = std::max(element.blur, instance != rects_.end() ? instance->second.blur.value() : element.blur);
+        const auto instance = instances_.rects.find(element.id);
+        const LayoutRect frame = instance != instances_.rects.end() ? instance->second.frame.value() : element.frame;
+        const Transform transform = instance != instances_.rects.end() ? instance->second.transform.value() : element.transform;
+        const float blur = std::max(element.blur, instance != instances_.rects.end() ? instance->second.blur.value() : element.blur);
         if (blur > 0.0f) {
             const Rect captureRect = applyRenderTransformToLogicalRect(
                 backdropCaptureRect(frame, blur, transform),
@@ -77,7 +77,7 @@ inline void Runtime::expandBackdropBlurDirtyRegions(
         }
     }
 
-    const std::vector<const Element*>& children = orderedElements(element);
+    const std::vector<const Element*>& children = element.orderedChildren;
     for (const Element* child : children) {
         expandBackdropBlurDirtyRegions(*child, dpiScale, renderTransform, mergedDirty, expanded);
     }
@@ -87,11 +87,11 @@ inline Rect Runtime::visualDirtyRectForElement(
     const Element& element,
     float dpiScale,
     const RenderTransform& inheritedTransform) const {
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     Rect local{element.frame.x, element.frame.y, element.frame.width, element.frame.height};
     if (element.kind == ElementKind::Rect) {
-        const auto instance = rects_.find(element.id);
-        if (instance != rects_.end()) {
+        const auto instance = instances_.rects.find(element.id);
+        if (instance != instances_.rects.end()) {
             local = visualRect(instance->second.frame.value(),
                                instance->second.shadow.value(),
                                instance->second.blur.value(),
@@ -100,19 +100,24 @@ inline Rect Runtime::visualDirtyRectForElement(
             local = visualRect(element.frame, element.shadow, element.blur, element.transform);
         }
     } else if (element.kind == ElementKind::Polygon) {
-        const auto instance = polygons_.find(element.id);
-        const LayoutRect frame = instance != polygons_.end() ? instance->second.frame.value() : element.frame;
-        const Transform transform = instance != polygons_.end() ? instance->second.transform.value() : element.transform;
+        const auto instance = instances_.polygons.find(element.id);
+        const LayoutRect frame = instance != instances_.polygons.end() ? instance->second.frame.value() : element.frame;
+        const Transform transform = instance != instances_.polygons.end() ? instance->second.transform.value() : element.transform;
         local = transformRect({frame.x, frame.y, frame.width, frame.height}, frame, transform);
     } else if (element.kind == ElementKind::Text) {
-        const auto instance = texts_.find(element.id);
-        const LayoutRect frame = instance != texts_.end() ? instance->second.frame.value() : element.frame;
-        const Transform transform = instance != texts_.end() ? instance->second.transform.value() : element.transform;
+        const auto instance = instances_.texts.find(element.id);
+        const LayoutRect frame = instance != instances_.texts.end() ? instance->second.frame.value() : element.frame;
+        const Transform transform = instance != instances_.texts.end() ? instance->second.transform.value() : element.transform;
         local = transformRect({frame.x, frame.y, frame.width, frame.height}, frame, transform);
     } else if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
-        const auto instance = images_.find(element.id);
-        const LayoutRect frame = instance != images_.end() ? instance->second.frame.value() : element.frame;
-        const Transform transform = instance != images_.end() ? instance->second.transform.value() : element.transform;
+        const auto instance = instances_.images.find(element.id);
+        const LayoutRect frame = instance != instances_.images.end() ? instance->second.frame.value() : element.frame;
+        const Transform transform = instance != instances_.images.end() ? instance->second.transform.value() : element.transform;
+        local = imageVisualRect(frame, transform);
+    } else if (element.kind == ElementKind::Shadertoy) {
+        const auto instance = instances_.shaderToys.find(element.id);
+        const LayoutRect frame = instance != instances_.shaderToys.end() ? instance->second.frame.value() : element.frame;
+        const Transform transform = instance != instances_.shaderToys.end() ? instance->second.transform.value() : element.transform;
         local = imageVisualRect(frame, transform);
     }
     return applyRenderTransformToLogicalRect(local, dpiScale, renderTransform);
@@ -126,7 +131,7 @@ inline void Runtime::updateExplicitDirtyKey(
         return;
     }
 
-    runtime::DirtyKeyInstance& instance = dirtyKeyInstance(element.id);
+    runtime::DirtyKeyInstance& instance = instances_.dirtyKey(element.id);
     const Rect current = visualDirtyRectForElement(element, dpiScale, inheritedTransform);
     if (!instance.initialized) {
         instance.key = element.dirtyKey;
@@ -147,12 +152,16 @@ inline runtime::DependentVisualState Runtime::dependentVisualStateForElement(
     float dpiScale,
     const RenderTransform& inheritedTransform) const {
     runtime::DependentVisualState state;
-    state.rect = inflateRect(visualDirtyRectForElement(element, dpiScale, inheritedTransform),
-                             dependentVisualPadding());
+    const auto paintBounds = instances_.paintBounds.find(element.id);
+    const Rect visualBounds = paintBounds != instances_.paintBounds.end() &&
+                              paintBounds->second.hasSubtree
+        ? paintBounds->second.subtree
+        : visualDirtyRectForElement(element, dpiScale, inheritedTransform);
+    state.rect = inflateRect(visualBounds, dependentVisualPadding());
 
     if (!element.hoverOpacitySourceId.empty()) {
         float hover = 0.0f;
-        if (hoverBlendForSource(element.hoverOpacitySourceId, hover)) {
+        if (instances_.hoverBlend(element.hoverOpacitySourceId, hover)) {
             hover = std::clamp(hover, 0.0f, 1.0f);
             state.opacity *= lerpValue(element.hoverHiddenOpacity, element.hoverVisibleOpacity, hover);
         } else {
@@ -163,7 +172,7 @@ inline runtime::DependentVisualState Runtime::dependentVisualStateForElement(
     if (!element.visualStateSourceId.empty()) {
         float press = 0.0f;
         LayoutRect sourceFrame;
-        if (pressBlendForSource(element.visualStateSourceId, press, sourceFrame)) {
+        if (instances_.pressBlend(element.visualStateSourceId, press, sourceFrame)) {
             (void)sourceFrame;
             state.scale = 1.0f - (1.0f - element.pressedScale) * press;
         }
@@ -175,30 +184,30 @@ inline runtime::DependentVisualState Runtime::dependentVisualStateForElement(
 
 inline void Runtime::updateDependentVisualDirtyRegions(float dpiScale) {
     if (!ui_.hasDependentVisuals()) {
-        for (const auto& item : dependentVisualStates_) {
+        for (const auto& item : instances_.dependentVisualStates) {
             addDirtyRect(item.second.rect);
         }
-        dependentVisualStates_.clear();
+        instances_.dependentVisualStates.clear();
         return;
     }
 
-    for (auto& item : dependentVisualStates_) {
+    for (auto& item : instances_.dependentVisualStates) {
         item.second.seen = false;
     }
 
     const RenderTransform identity;
-    const std::vector<const Element*>& roots = orderedElements(ui_);
+    const std::vector<const Element*>& roots = ui_.orderedRoots();
     for (const Element* root : roots) {
         updateDependentVisualDirtyRegions(*root, dpiScale, identity);
     }
 
-    for (auto item = dependentVisualStates_.begin(); item != dependentVisualStates_.end(); ) {
+    for (auto item = instances_.dependentVisualStates.begin(); item != instances_.dependentVisualStates.end(); ) {
         if (item->second.seen) {
             ++item;
             continue;
         }
         addDirtyRect(item->second.rect);
-        item = dependentVisualStates_.erase(item);
+        item = instances_.dependentVisualStates.erase(item);
     }
 }
 
@@ -212,9 +221,9 @@ inline void Runtime::updateDependentVisualDirtyRegions(
 
     if (!element.hoverOpacitySourceId.empty() || !element.visualStateSourceId.empty()) {
         const runtime::DependentVisualState current = dependentVisualStateForElement(element, dpiScale, inheritedTransform);
-        auto item = dependentVisualStates_.find(element.id);
-        if (item == dependentVisualStates_.end()) {
-            dependentVisualStates_.emplace(element.id, current);
+        auto item = instances_.dependentVisualStates.find(element.id);
+        if (item == instances_.dependentVisualStates.end()) {
+            instances_.dependentVisualStates.emplace(element.id, current);
             if (!fullPaintRequested_ && current.opacity > 0.001f) {
                 addDirtyRect(current.rect);
             }
@@ -234,8 +243,8 @@ inline void Runtime::updateDependentVisualDirtyRegions(
         }
     }
 
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
-    const std::vector<const Element*>& children = orderedElements(element);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
+    const std::vector<const Element*>& children = element.orderedChildren;
     for (const Element* child : children) {
         updateDependentVisualDirtyRegions(*child, dpiScale, renderTransform);
     }
@@ -243,7 +252,7 @@ inline void Runtime::updateDependentVisualDirtyRegions(
 
 template <typename Fn>
 inline void Runtime::forEachElement(Fn&& fn) const {
-    const std::vector<const Element*>& roots = orderedElements(ui_);
+    const std::vector<const Element*>& roots = ui_.orderedRoots();
     for (const Element* root : roots) {
         forEachElement(*root, fn);
     }
@@ -252,7 +261,7 @@ inline void Runtime::forEachElement(Fn&& fn) const {
 template <typename Fn>
 inline void Runtime::forEachElement(const Element& element, Fn&& fn) {
     fn(element);
-    const std::vector<const Element*>& children = orderedElements(element);
+    const std::vector<const Element*>& children = element.orderedChildren;
     for (const Element* child : children) {
         forEachElement(*child, fn);
     }
@@ -288,8 +297,8 @@ inline bool Runtime::canReuseStaticSubtree(
         return false;
     }
 
-    const auto cached = paintBounds_.find(element.id);
-    if (cached == paintBounds_.end() || !cached->second.hasSubtree) {
+    const auto cached = instances_.paintBounds.find(element.id);
+    if (cached == instances_.paintBounds.end() || !cached->second.hasSubtree) {
         return false;
     }
 
@@ -298,7 +307,7 @@ inline bool Runtime::canReuseStaticSubtree(
         return false;
     }
 
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     return !renderTransform.active && closeEnough(renderTransform.opacity, 1.0f);
 }
 
@@ -307,24 +316,33 @@ inline bool Runtime::elementHasActiveAnimation(const Element& element) const {
         element.kind == ElementKind::Column ||
         element.kind == ElementKind::Stack ||
         element.kind == ElementKind::Flow) {
-        const auto item = layouts_.find(element.id);
-        return item != layouts_.end() && isLayoutAnimating(item->second);
+        const auto item = instances_.layouts.find(element.id);
+        return item != instances_.layouts.end() && isLayoutAnimating(item->second);
     }
     if (element.kind == ElementKind::Rect) {
-        const auto item = rects_.find(element.id);
-        return item != rects_.end() && isRectAnimating(element, item->second);
+        const auto item = instances_.rects.find(element.id);
+        return item != instances_.rects.end() && isRectAnimating(element, item->second);
     }
     if (element.kind == ElementKind::Polygon) {
-        const auto item = polygons_.find(element.id);
-        return item != polygons_.end() && isPolygonAnimating(element, item->second);
+        const auto item = instances_.polygons.find(element.id);
+        return item != instances_.polygons.end() && isPolygonAnimating(element, item->second);
     }
     if (element.kind == ElementKind::Text) {
-        const auto item = texts_.find(element.id);
-        return item != texts_.end() && isTextAnimating(item->second);
+        const auto item = instances_.texts.find(element.id);
+        return item != instances_.texts.end() && isTextAnimating(item->second);
     }
     if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
-        const auto item = images_.find(element.id);
-        return item != images_.end() && isImageAnimating(item->second);
+        const auto item = instances_.images.find(element.id);
+        return item != instances_.images.end() && isImageAnimating(item->second);
+    }
+    if (element.kind == ElementKind::Shadertoy) {
+        const auto item = instances_.shaderToys.find(element.id);
+        return item != instances_.shaderToys.end() &&
+               (item->second.primitive->isAnimating() ||
+                item->second.frame.isActive() ||
+                item->second.radius.isActive() ||
+                item->second.opacity.isActive() ||
+                item->second.transform.isActive());
     }
     return false;
 }
@@ -343,7 +361,7 @@ inline Transform Runtime::pointerRuntimeTransform(
 }
 
 inline bool Runtime::updateFrameTarget(const Element& element) {
-    runtime::FrameTargetInstance& instance = frameTargets_.try_emplace(element.id).first->second;
+    runtime::FrameTargetInstance& instance = instances_.frameTargets.try_emplace(element.id).first->second;
     instance.seen = true;
     if (!instance.initialized) {
         instance.frame = element.frame;
@@ -356,132 +374,12 @@ inline bool Runtime::updateFrameTarget(const Element& element) {
     return changed;
 }
 
-inline runtime::RectInstance& Runtime::rectInstance(const std::string& id) {
-    runtime::RectInstance& instance = rects_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::PolygonInstance& Runtime::polygonInstance(const std::string& id) {
-    runtime::PolygonInstance& instance = polygons_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::TextInstance& Runtime::textInstance(const std::string& id) {
-    runtime::TextInstance& instance = texts_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::ImageInstance& Runtime::imageInstance(const std::string& id) {
-    runtime::ImageInstance& instance = images_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::InteractionInstance& Runtime::interactionInstance(const std::string& id) {
-    runtime::InteractionInstance& instance = interactions_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::DirtyKeyInstance& Runtime::dirtyKeyInstance(const std::string& id) {
-    runtime::DirtyKeyInstance& instance = dirtyKeys_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::LayoutInstance& Runtime::layoutInstance(const std::string& id) {
-    runtime::LayoutInstance& instance = layouts_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::ScrollStateInstance& Runtime::scrollStateInstance(const std::string& id) {
-    runtime::ScrollStateInstance& instance = scrollStates_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::SliderStateInstance& Runtime::sliderStateInstance(const std::string& id) {
-    runtime::SliderStateInstance& instance = sliderStates_.try_emplace(id).first->second;
-    instance.seen = true;
-    return instance;
-}
-
-inline runtime::TimerInstance& Runtime::timerInstance(const std::string& id) {
-    return timers_.try_emplace(id).first->second;
-}
-
-inline void Runtime::markInstancesUnseen() {
-    runtime::markEntriesUnseen(rects_);
-    runtime::markEntriesUnseen(polygons_);
-    runtime::markEntriesUnseen(texts_);
-    runtime::markEntriesUnseen(images_);
-    runtime::markEntriesUnseen(interactions_);
-    runtime::markEntriesUnseen(dirtyKeys_);
-    runtime::markEntriesUnseen(layouts_);
-    runtime::markEntriesUnseen(scrollStates_);
-    runtime::markEntriesUnseen(sliderStates_);
-    runtime::markEntriesUnseen(frameTargets_);
-    runtime::markEntriesUnseen(paintBounds_);
-    runtime::markEntriesUnseen(retainedLayers_);
-}
-
-inline void Runtime::releaseUnseenInstances() {
-    auto releasePrimitive = [](auto& instance) {
-        if (instance.initialized) {
-            instance.primitive->destroy();
-            instance.initialized = false;
-        }
-    };
-    auto noop = [](auto&) {};
-    auto releaseLayer = [](runtime::RetainedLayerInstance& instance) {
-        core::render::RenderBackend* renderBackend = core::render::activeRenderBackend();
-        if (renderBackend != nullptr && instance.handle != nullptr) {
-            renderBackend->destroyLayer(instance.handle);
-        }
-        instance.handle = nullptr;
-        instance.valid = false;
-    };
-
-    runtime::releaseUnseenEntries(rects_, releasePrimitive);
-    runtime::releaseUnseenEntries(polygons_, releasePrimitive);
-    runtime::releaseUnseenEntries(texts_, releasePrimitive);
-    runtime::releaseUnseenEntries(images_, releasePrimitive);
-    runtime::releaseUnseenEntries(interactions_, noop);
-    runtime::releaseUnseenEntries(dirtyKeys_, noop);
-    runtime::releaseUnseenEntries(layouts_, noop);
-    runtime::releaseUnseenEntries(scrollStates_, noop);
-    runtime::releaseUnseenEntries(sliderStates_, noop);
-    runtime::releaseUnseenEntries(frameTargets_, noop);
-    runtime::releaseUnseenEntries(paintBounds_, noop);
-    runtime::releaseUnseenEntries(retainedLayers_, releaseLayer);
-}
-
-inline void Runtime::markTimersUnseen() {
-    for (auto& item : timers_) {
-        item.second.seen = false;
-    }
-}
-
-inline void Runtime::releaseUnseenTimers() {
-    for (auto item = timers_.begin(); item != timers_.end(); ) {
-        if (!item->second.seen) {
-            item = timers_.erase(item);
-        } else {
-            ++item;
-        }
-    }
-}
-
 inline void Runtime::updateTimer(const Element& element, float deltaSeconds) {
     if (!element.onTimer || element.timerSeconds <= 0.0f) {
         return;
     }
 
-    runtime::TimerInstance& instance = timerInstance(element.id);
+    runtime::TimerInstance& instance = instances_.timer(element.id);
     instance.seen = true;
     if (!instance.active || !closeEnough(instance.seconds, element.timerSeconds)) {
         instance.seconds = element.timerSeconds;
@@ -514,86 +412,12 @@ inline void Runtime::updateFrameCallback(const Element& element, float deltaSeco
     animating_ = true;
 }
 
-inline bool Runtime::hoverBlendForSource(const std::string& id, float& value) const {
-    const auto rect = rects_.find(id);
-    if (rect != rects_.end()) {
-        value = rect->second.hoverBlend.value();
-        return true;
-    }
-    const auto polygon = polygons_.find(id);
-    if (polygon != polygons_.end()) {
-        value = polygon->second.hoverBlend.value();
-        return true;
-    }
-    return false;
-}
-
-inline bool Runtime::pressBlendForSource(const std::string& id, float& value, LayoutRect& frame) const {
-    const auto rect = rects_.find(id);
-    if (rect != rects_.end()) {
-        value = rect->second.pressBlend.value();
-        frame = rect->second.frame.value();
-        return true;
-    }
-    const auto polygon = polygons_.find(id);
-    if (polygon != polygons_.end()) {
-        value = polygon->second.pressBlend.value();
-        frame = polygon->second.frame.value();
-        return true;
-    }
-    return false;
-}
-
-inline RenderTransform Runtime::resolveRenderTransform(const Element& element, float dpiScale, const RenderTransform& inherited) const {
-    RenderTransform result = inherited;
-
-    if (element.kind == ElementKind::Row ||
-        element.kind == ElementKind::Column ||
-        element.kind == ElementKind::Stack ||
-        element.kind == ElementKind::Flow) {
-        const auto layout = layouts_.find(element.id);
-        if (layout != layouts_.end()) {
-            const Transform local = layout->second.transform.value();
-            const float opacity = layout->second.opacity.value();
-            const bool hasTransform = !isIdentityTransform(local);
-            const bool hasOpacity = !closeEnough(opacity, 1.0f);
-            if (hasTransform || hasOpacity) {
-                Transform scaled = scaleTransform(local, dpiScale);
-                result = appendRenderMatrix(result, matrixForTransform(toPixelRect(element.frame, dpiScale), scaled));
-                result.opacity *= opacity;
-            }
-        }
-    }
-
-    if (!element.hoverOpacitySourceId.empty()) {
-        float hover = 0.0f;
-        if (hoverBlendForSource(element.hoverOpacitySourceId, hover)) {
-            hover = std::clamp(hover, 0.0f, 1.0f);
-            result.opacity *= lerpValue(element.hoverHiddenOpacity, element.hoverVisibleOpacity, hover);
-        } else {
-            result.opacity *= element.hoverHiddenOpacity;
-        }
-    }
-
-    if (!element.visualStateSourceId.empty()) {
-        float press = 0.0f;
-        LayoutRect sourceFrame;
-        if (pressBlendForSource(element.visualStateSourceId, press, sourceFrame)) {
-            const float scale = 1.0f - (1.0f - element.pressedScale) * press;
-            if (std::fabs(scale - 1.0f) > 0.0001f) {
-                result = appendRenderMatrix(result, matrixForScaleAround(toPixelRect(sourceFrame, dpiScale), scale));
-            }
-        }
-    }
-    return result;
-}
-
 inline void Runtime::syncScrollStateElement(const Element& element) {
     if (element.scrollStateId.empty()) {
         return;
     }
 
-    runtime::ScrollStateInstance& instance = scrollStateInstance(element.scrollStateId);
+    runtime::ScrollStateInstance& instance = instances_.scrollState(element.scrollStateId);
     if (!ownsScrollState(element)) {
         return;
     }
@@ -606,7 +430,7 @@ inline void Runtime::syncSliderStateElement(const Element& element) {
         return;
     }
 
-    runtime::SliderStateInstance& instance = sliderStateInstance(element.sliderStateId);
+    runtime::SliderStateInstance& instance = instances_.sliderState(element.sliderStateId);
     if (!ownsSliderState(element)) {
         return;
     }
@@ -622,8 +446,8 @@ inline void Runtime::syncScrollStateBindings() {
 }
 
 inline float Runtime::scrollStepFor(const Element& element) const {
-    const auto state = scrollStates_.find(element.scrollStateId);
-    if (state != scrollStates_.end()) {
+    const auto state = instances_.scrollStates.find(element.scrollStateId);
+    if (state != instances_.scrollStates.end()) {
         return state->second.step;
     }
     return std::max(1.0f, element.scrollStep);
@@ -642,8 +466,8 @@ inline void Runtime::addSliderDirtyRect(const runtime::SliderStateInstance& inst
 }
 
 inline void Runtime::setScrollOffset(const std::string& stateId, float offset) {
-    auto state = scrollStates_.find(stateId);
-    if (state == scrollStates_.end()) {
+    auto state = instances_.scrollStates.find(stateId);
+    if (state == instances_.scrollStates.end()) {
         return;
     }
 
@@ -672,8 +496,8 @@ inline void Runtime::applyRuntimeScroll(const Element& element, float delta) {
     if (element.scrollStateId.empty()) {
         return;
     }
-    auto state = scrollStates_.find(element.scrollStateId);
-    if (state == scrollStates_.end()) {
+    auto state = instances_.scrollStates.find(element.scrollStateId);
+    if (state == instances_.scrollStates.end()) {
         return;
     }
     runtime::ScrollStateInstance& instance = state->second;
@@ -692,7 +516,7 @@ inline void Runtime::applyRuntimeScroll(const Element& element, float delta) {
 }
 
 inline void Runtime::updateScrollMotion(float deltaSeconds) {
-    for (auto& entry : scrollStates_) {
+    for (auto& entry : instances_.scrollStates) {
         runtime::ScrollStateInstance& instance = entry.second;
         const ScrollMotionStep motion = advanceScrollMotion(
             instance.offset,
@@ -711,8 +535,8 @@ inline void Runtime::beginRuntimeScrollDrag(const Element& element) {
     if (element.scrollDragSourceId.empty()) {
         return;
     }
-    auto state = scrollStates_.find(element.scrollDragSourceId);
-    if (state == scrollStates_.end()) {
+    auto state = instances_.scrollStates.find(element.scrollDragSourceId);
+    if (state == instances_.scrollStates.end()) {
         return;
     }
     state->second.velocity = 0.0f;
@@ -723,8 +547,8 @@ inline void Runtime::updateRuntimeScrollDrag(const Element& element, double drag
     if (element.scrollDragSourceId.empty() || element.scrollDragTravel <= 0.0f) {
         return;
     }
-    const auto state = scrollStates_.find(element.scrollDragSourceId);
-    if (state == scrollStates_.end() || state->second.maxOffset <= 0.0f) {
+    const auto state = instances_.scrollStates.find(element.scrollDragSourceId);
+    if (state == instances_.scrollStates.end() || state->second.maxOffset <= 0.0f) {
         return;
     }
     state->second.velocity = 0.0f;
@@ -738,8 +562,8 @@ inline float Runtime::sliderValueFromPointer(const Element& element, double poin
     if (element.sliderInputSourceId.empty()) {
         return 0.0f;
     }
-    const auto state = sliderStates_.find(element.sliderInputSourceId);
-    if (state == sliderStates_.end()) {
+    const auto state = instances_.sliderStates.find(element.sliderInputSourceId);
+    if (state == instances_.sliderStates.end()) {
         return 0.0f;
     }
 
@@ -752,8 +576,8 @@ inline float Runtime::sliderValueFromPointer(const Element& element, double poin
 }
 
 inline void Runtime::setSliderValue(const std::string& stateId, float value, bool dragging) {
-    auto state = sliderStates_.find(stateId);
-    if (state == sliderStates_.end()) {
+    auto state = instances_.sliderStates.find(stateId);
+    if (state == instances_.sliderStates.end()) {
         return;
     }
 
@@ -787,10 +611,10 @@ inline void Runtime::updateElementTree(
     float deltaSeconds,
     float dpiScale,
     const std::string& hoverTargetId) {
-    runtime::markEntriesUnseen(paintBounds_);
+    runtime::markEntriesUnseen(instances_.paintBounds);
     focusedElementRenderTransformValid_ = false;
     const RenderTransform identity;
-    const std::vector<const Element*>& roots = orderedElements(ui_);
+    const std::vector<const Element*>& roots = ui_.orderedRoots();
     for (const Element* root : roots) {
         updateElementTree(*root, event, deltaSeconds, dpiScale, hoverTargetId, identity, false, false);
     }
@@ -807,16 +631,16 @@ inline runtime::PaintBoundsInstance Runtime::updateElementTree(
     bool ancestorDisabled) {
     const bool disabledTree = ancestorDisabled || element.disabled;
     if (canReuseStaticSubtree(element, event, dpiScale, inheritedTransform, ancestorFrameChanged, disabledTree)) {
-        runtime::PaintBoundsInstance cached = paintBounds_[element.id];
+        runtime::PaintBoundsInstance cached = instances_.paintBounds[element.id];
         cached.seen = true;
-        paintBounds_[element.id] = cached;
+        instances_.paintBounds[element.id] = cached;
         return cached;
     }
 
     const bool frameTargetChanged = updateFrameTarget(element);
     updateExplicitDirtyKey(element, dpiScale, inheritedTransform);
     if (disabledTree) {
-        interactionInstance(element.id).state.update({}, event, false, false);
+        instances_.interaction(element.id).state.update({}, event, false, false);
     } else {
         updateInteraction(element, event, dpiScale, hoverTargetId, inheritedTransform);
     }
@@ -836,10 +660,12 @@ inline runtime::PaintBoundsInstance Runtime::updateElementTree(
         updateText(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
     } else if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
         updateImage(element, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
+    } else if (element.kind == ElementKind::Shadertoy) {
+        updateShaderToy(element, event, deltaSeconds, dpiScale, inheritedTransform, ancestorFrameChanged);
     }
 
     const bool childAncestorFrameChanged = ancestorFrameChanged || frameTargetChanged;
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     if (element.id == focusedId_) {
         focusedElementRenderTransform_ = renderTransform;
         focusedElementRenderTransformValid_ = true;
@@ -859,7 +685,7 @@ inline runtime::PaintBoundsInstance Runtime::updateElementTree(
         bounds.drawCost = bounds.hasOwn ? 1 : 0;
     }
 
-    const std::vector<const Element*>& children = orderedElements(element);
+    const std::vector<const Element*>& children = element.orderedChildren;
     for (const Element* child : children) {
         const runtime::PaintBoundsInstance childBounds =
             updateElementTree(*child, event, deltaSeconds, dpiScale, hoverTargetId, renderTransform, childAncestorFrameChanged, disabledTree);
@@ -887,7 +713,7 @@ inline runtime::PaintBoundsInstance Runtime::updateElementTree(
         }
     }
 
-    paintBounds_[element.id] = bounds;
+    instances_.paintBounds[element.id] = bounds;
     return bounds;
 }
 
@@ -898,7 +724,7 @@ inline void Runtime::updateLayoutElement(
     const RenderTransform& inheritedTransform,
     const PointerEvent& event,
     const std::string& hoverTargetId) {
-    runtime::LayoutInstance& instance = layoutInstance(element.id);
+    runtime::LayoutInstance& instance = instances_.layout(element.id);
     const Rect beforeRect = applyRenderTransformToLogicalRect(inflateRect(
         transformRect({element.frame.x, element.frame.y, element.frame.width, element.frame.height},
                       element.frame,
@@ -907,7 +733,7 @@ inline void Runtime::updateLayoutElement(
 
     bool changed = false;
     Transform targetTransform = pointerRuntimeTransform(element, event, dpiScale, hoverTargetId);
-    targetTransform = core::dsl::runtimeTransformForElement(element, scrollStates_, sliderStates_, targetTransform);
+    targetTransform = core::dsl::runtimeTransformForElement(element, instances_.scrollStates, instances_.sliderStates, targetTransform);
     changed = instance.transform.setTarget(targetTransform, element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
     changed = instance.opacity.setTarget(element.opacity, element.transition, shouldAnimate(element, AnimProperty::Opacity)) || changed;
 
@@ -931,8 +757,8 @@ inline void Runtime::updateRect(
     float dpiScale,
     const RenderTransform& inheritedTransform,
     bool snapFrame) {
-    runtime::RectInstance& instance = rectInstance(element.id);
-    instance.interaction = interactionInstance(element.id).state;
+    runtime::RectInstance& instance = instances_.rect(element.id);
+    instance.interaction = instances_.interaction(element.id).state;
     const Rect beforeRect = applyRenderTransformToLogicalRect(
         visualRect(instance.frame.value(), instance.shadow.value(), instance.blur.value(), instance.transform.value()),
         dpiScale,
@@ -960,8 +786,8 @@ inline void Runtime::updateRect(
 
     LayoutRect targetFrame = element.frame;
     if (!element.sliderFillSourceId.empty()) {
-        const auto state = sliderStates_.find(element.sliderFillSourceId);
-        if (state != sliderStates_.end()) {
+        const auto state = instances_.sliderStates.find(element.sliderFillSourceId);
+        if (state != instances_.sliderStates.end()) {
             targetFrame.width = std::max(0.0f, state->second.width * state->second.value);
         }
     }
@@ -974,7 +800,7 @@ inline void Runtime::updateRect(
     changed = instance.opacity.setTarget(element.opacity, element.transition, shouldAnimate(element, AnimProperty::Opacity)) || changed;
     changed = instance.border.setTarget(element.border, element.transition, shouldAnimate(element, AnimProperty::Border)) || changed;
     changed = instance.shadow.setTarget(element.shadow, element.transition, shouldAnimate(element, AnimProperty::Shadow)) || changed;
-    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, scrollStates_, sliderStates_, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
+    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, instances_.scrollStates, instances_.sliderStates, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
 
     changed = instance.frame.tick(deltaSeconds) || changed;
     changed = instance.color.tick(deltaSeconds) || changed;
@@ -1001,8 +827,8 @@ inline void Runtime::updatePolygon(
     float dpiScale,
     const RenderTransform& inheritedTransform,
     bool snapFrame) {
-    runtime::PolygonInstance& instance = polygonInstance(element.id);
-    instance.interaction = interactionInstance(element.id).state;
+    runtime::PolygonInstance& instance = instances_.polygon(element.id);
+    instance.interaction = instances_.interaction(element.id).state;
     const Rect beforeRect = applyRenderTransformToLogicalRect(
         transformRect({instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height},
                       instance.frame.value(),
@@ -1035,7 +861,7 @@ inline void Runtime::updatePolygon(
     changed = instance.color.setTarget(currentColor, element.transition, shouldAnimate(element, AnimProperty::Color)) || changed;
     changed = instance.radius.setTarget(element.radius, element.transition, shouldAnimate(element, AnimProperty::Radius)) || changed;
     changed = instance.opacity.setTarget(element.opacity, element.transition, shouldAnimate(element, AnimProperty::Opacity)) || changed;
-    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, scrollStates_, sliderStates_, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
+    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, instances_.scrollStates, instances_.sliderStates, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
 
     changed = instance.frame.tick(deltaSeconds) || changed;
     changed = instance.color.tick(deltaSeconds) || changed;
@@ -1061,7 +887,7 @@ inline void Runtime::updateText(
     float dpiScale,
     const RenderTransform& inheritedTransform,
     bool snapFrame) {
-    runtime::TextInstance& instance = textInstance(element.id);
+    runtime::TextInstance& instance = instances_.text(element.id);
     const Rect beforeRect = applyRenderTransformToLogicalRect(
         transformRect({instance.frame.value().x,
                        instance.frame.value().y,
@@ -1103,7 +929,7 @@ inline void Runtime::updateText(
     changed = instance.frame.setTarget(element.frame, element.transition, !snapFrame && shouldAnimateFrame(element)) || changed;
     changed = instance.color.setTarget(element.textColor, element.transition, shouldAnimate(element, AnimProperty::TextColor)) || changed;
     changed = instance.opacity.setTarget(element.opacity, element.transition, shouldAnimate(element, AnimProperty::Opacity)) || changed;
-    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, scrollStates_, sliderStates_, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
+    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, instances_.scrollStates, instances_.sliderStates, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
 
     changed = instance.frame.tick(deltaSeconds) || changed;
     changed = instance.color.tick(deltaSeconds) || changed;
@@ -1131,7 +957,7 @@ inline void Runtime::updateImage(
     float dpiScale,
     const RenderTransform& inheritedTransform,
     bool snapFrame) {
-    runtime::ImageInstance& instance = imageInstance(element.id);
+    runtime::ImageInstance& instance = instances_.image(element.id);
     const Rect beforeRect = applyRenderTransformToLogicalRect(
         imageVisualRect(instance.frame.value(), instance.transform.value()),
         dpiScale,
@@ -1141,12 +967,14 @@ inline void Runtime::updateImage(
     changed = instance.frame.setTarget(element.frame, element.transition, !snapFrame && shouldAnimateFrame(element)) || changed;
     changed = instance.tint.setTarget(element.color, element.transition, shouldAnimate(element, AnimProperty::Color)) || changed;
     changed = instance.radius.setTarget(element.radius, element.transition, shouldAnimate(element, AnimProperty::Radius)) || changed;
+    changed = instance.blur.setTarget(element.blur, element.transition, shouldAnimate(element, AnimProperty::Blur)) || changed;
     changed = instance.opacity.setTarget(element.opacity, element.transition, shouldAnimate(element, AnimProperty::Opacity)) || changed;
-    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, scrollStates_, sliderStates_, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
+    changed = instance.transform.setTarget(core::dsl::runtimeTransformForElement(element, instances_.scrollStates, instances_.sliderStates, element.transform), element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
 
     changed = instance.frame.tick(deltaSeconds) || changed;
     changed = instance.tint.tick(deltaSeconds) || changed;
     changed = instance.radius.tick(deltaSeconds) || changed;
+    changed = instance.blur.tick(deltaSeconds) || changed;
     changed = instance.opacity.tick(deltaSeconds) || changed;
     changed = instance.transform.tick(deltaSeconds) || changed;
 
@@ -1192,6 +1020,85 @@ inline void Runtime::updateImage(
         addDirtyUnion(beforeRect, afterRect);
     }
     animating_ = animating_ || isImageAnimating(instance);
+}
+
+inline void Runtime::updateShaderToy(
+    const Element& element,
+    const PointerEvent& event,
+    float deltaSeconds,
+    float dpiScale,
+    const RenderTransform& inheritedTransform,
+    bool snapFrame) {
+    runtime::ShaderToyInstance& instance = instances_.shaderToy(element.id);
+    const Rect beforeRect = applyRenderTransformToLogicalRect(
+        imageVisualRect(instance.frame.value(), instance.transform.value()),
+        dpiScale, inheritedTransform);
+
+    bool changed = false;
+    changed = instance.frame.setTarget(element.frame, element.transition,
+                                       !snapFrame && shouldAnimateFrame(element)) || changed;
+    changed = instance.radius.setTarget(element.radius, element.transition,
+                                        shouldAnimate(element, AnimProperty::Radius)) || changed;
+    changed = instance.opacity.setTarget(element.opacity, element.transition,
+                                         shouldAnimate(element, AnimProperty::Opacity)) || changed;
+    changed = instance.transform.setTarget(
+        core::dsl::runtimeTransformForElement(element, instances_.scrollStates, instances_.sliderStates, element.transform),
+        element.transition, shouldAnimate(element, AnimProperty::Transform)) || changed;
+    changed = instance.frame.tick(deltaSeconds) || changed;
+    changed = instance.radius.tick(deltaSeconds) || changed;
+    changed = instance.opacity.tick(deltaSeconds) || changed;
+    changed = instance.transform.tick(deltaSeconds) || changed;
+
+    const std::uint64_t graphHash = core::render::shaderToyGraphHash(element.shaderToyGraph);
+    if (instance.graphHash != graphHash) {
+        instance.graphHash = graphHash;
+        instance.primitive->setGraph(element.shaderToyGraph);
+        changed = true;
+    }
+    if (instance.resetKey != element.shaderToyResetKey) {
+        instance.resetKey = element.shaderToyResetKey;
+        instance.primitive->requestReset();
+        changed = true;
+    }
+
+    const LayoutRect frame = instance.frame.value();
+    const Rect pixelFrame = toPixelRect(frame, dpiScale);
+    const Transform localTransform = scaleTransform(instance.transform.value(), dpiScale);
+    const RenderTransform elementTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
+    const TransformMatrix matrix = combinedPrimitiveMatrix(elementTransform, pixelFrame, localTransform);
+    TransformMatrix inverse;
+    Vec2 pointerPixels{static_cast<float>(event.x), static_cast<float>(event.y)};
+    const bool invertible = inverseMatrix(matrix, inverse);
+    if (invertible) {
+        pointerPixels = core::transformPoint(inverse, pointerPixels.x, pointerPixels.y);
+    }
+    const Vec2 localPointer{pointerPixels.x - pixelFrame.x, pointerPixels.y - pixelFrame.y};
+    const bool pointerInside = invertible &&
+        localPointer.x >= 0.0f && localPointer.y >= 0.0f &&
+        localPointer.x <= pixelFrame.width && localPointer.y <= pixelFrame.height;
+
+    instance.primitive->setElementId(element.id);
+    instance.primitive->setBounds(pixelFrame.x, pixelFrame.y, pixelFrame.width, pixelFrame.height);
+    instance.primitive->setCornerRadius(toPixels(instance.radius.value(), dpiScale));
+    instance.primitive->setOpacity(instance.opacity.value() * elementTransform.opacity);
+    instance.primitive->setTransformMatrix(matrix);
+    instance.primitive->setResolutionScale(element.shaderToyResolutionScale);
+    instance.primitive->setTimeScale(element.shaderToyTimeScale);
+    instance.primitive->setPaused(element.shaderToyPaused);
+    instance.primitive->update(deltaSeconds, localPointer, event.down,
+                               event.pressedThisFrame, event.releasedThisFrame,
+                               updateFrameToken_, pointerInside);
+
+    const bool active = instance.primitive->isAnimating() || instance.frame.isActive() ||
+                        instance.radius.isActive() || instance.opacity.isActive() ||
+                        instance.transform.isActive();
+    if (changed || active) {
+        const Rect afterRect = applyRenderTransformToLogicalRect(
+            imageVisualRect(instance.frame.value(), instance.transform.value()),
+            dpiScale, inheritedTransform);
+        addDirtyUnion(beforeRect, afterRect);
+    }
+    animating_ = animating_ || active;
 }
 
 } // namespace core::dsl

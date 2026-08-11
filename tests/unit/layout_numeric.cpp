@@ -85,6 +85,45 @@ bool overlayDoesNotAffectColumnHeight() {
            expectClose("second content y", children[2]->frame().y, 48.0f);
 }
 
+bool intrinsicLeafDoesNotFillColumn() {
+    core::Node column(core::LayoutType::Column);
+    column.setFixedSize(800.0f, 600.0f);
+    column.setPadding(core::EdgeInsets::all(32.0f));
+
+    auto text = std::make_unique<core::Node>(core::LayoutType::Stack);
+    text->setWidth(core::SizeValue::wrapContent());
+    text->setHeight(core::SizeValue::wrapContent());
+    text->setIntrinsicSize(220.0f, 38.4f);
+    column.addChild(std::move(text));
+    column.addChild(fixedNode(240.0f, 70.0f));
+
+    column.measure(800.0f, 600.0f);
+    column.layout(0.0f, 0.0f);
+
+    const auto& children = column.children();
+    return expectClose("intrinsic text height", children[0]->frame().height, 38.4f) &&
+           expectClose("button follows text", children[1]->frame().y, 70.4f) &&
+           expectClose("button remains visible", children[1]->frame().height, 70.0f);
+}
+
+bool fillLeafStillUsesAvailableSize() {
+    core::Node stack(core::LayoutType::Stack);
+    stack.setFixedSize(320.0f, 180.0f);
+    stack.setPadding(core::EdgeInsets::all(12.0f));
+
+    auto fill = std::make_unique<core::Node>(core::LayoutType::Stack);
+    fill->setWidth(core::SizeValue::fill());
+    fill->setHeight(core::SizeValue::fill());
+    stack.addChild(std::move(fill));
+
+    stack.measure(320.0f, 180.0f);
+    stack.layout(0.0f, 0.0f);
+
+    const core::LayoutRect& frame = stack.children()[0]->frame();
+    return expectClose("fill leaf width", frame.width, 296.0f) &&
+           expectClose("fill leaf height", frame.height, 156.0f);
+}
+
 bool themeMetricsDriveComponentVisuals() {
     components::theme::ThemeColorTokens tokens = components::theme::dark();
     tokens.metrics.typography.body = 19.0f;
@@ -197,6 +236,8 @@ int main() {
     bool ok = true;
     ok = flexStaysInsideFixedRow() && ok;
     ok = overlayDoesNotAffectColumnHeight() && ok;
+    ok = intrinsicLeafDoesNotFillColumn() && ok;
+    ok = fillLeafStillUsesAvailableSize() && ok;
     ok = themeMetricsDriveComponentVisuals() && ok;
     ok = themeMetricsScaleUniformly() && ok;
     ok = buttonUsesThemeTypography() && ok;

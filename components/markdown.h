@@ -8,6 +8,10 @@
 #include <cctype>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -710,6 +714,106 @@ inline std::vector<MarkdownBlock> parseMarkdownBlocks(const std::string& source)
 }
 #endif
 
+struct MarkdownDocument {
+    std::vector<MarkdownBlock> blocks;
+};
+
+struct MarkdownDocumentCacheEntry {
+    std::shared_ptr<const MarkdownDocument> document;
+    std::size_t lastUsed = 0;
+    std::size_t bytes = 0;
+};
+
+struct MarkdownDocumentCache {
+    std::unordered_map<std::string, MarkdownDocumentCacheEntry> entries;
+    std::size_t accessTick = 0;
+    std::size_t bytes = 0;
+};
+
+inline MarkdownDocumentCache& sharedMarkdownDocumentCache() {
+    static thread_local MarkdownDocumentCache cache;
+    return cache;
+}
+
+inline void addMarkdownCacheBytes(std::size_t& total, std::size_t value) {
+    const std::size_t available = std::numeric_limits<std::size_t>::max() - total;
+    total += std::min(value, available);
+}
+
+inline std::size_t markdownCacheBytesForItems(std::size_t count, std::size_t bytesPerItem) {
+    if (count == 0 || bytesPerItem == 0) {
+        return 0;
+    }
+    const std::size_t maxCount = std::numeric_limits<std::size_t>::max() / bytesPerItem;
+    return count > maxCount ? std::numeric_limits<std::size_t>::max() : count * bytesPerItem;
+}
+
+inline std::size_t markdownRunCacheBytes(const MarkdownRun& run) {
+    std::size_t bytes = 0;
+    addMarkdownCacheBytes(bytes, run.text.capacity());
+    addMarkdownCacheBytes(bytes, run.href.capacity());
+    addMarkdownCacheBytes(bytes, run.title.capacity());
+    return bytes;
+}
+
+inline std::size_t markdownDocumentCacheBytes(const std::string& source, const MarkdownDocument& document) {
+    std::size_t bytes = 0;
+    addMarkdownCacheBytes(bytes, sizeof(MarkdownDocument));
+    addMarkdownCacheBytes(bytes, source.size());
+    addMarkdownCacheBytes(bytes, markdownCacheBytesForItems(document.blocks.capacity(), sizeof(MarkdownBlock)));
+    for (const MarkdownBlock& block : document.blocks) {
+        addMarkdownCacheBytes(bytes, block.codeInfo.capacity());
+        addMarkdownCacheBytes(bytes, block.codeLang.capacity());
+        addMarkdownCacheBytes(bytes, markdownCacheBytesForItems(block.runs.capacity(), sizeof(MarkdownRun)));
+        for (const MarkdownRun& run : block.runs) {
+            addMarkdownCacheBytes(bytes, markdownRunCacheBytes(run));
+        }
+        addMarkdownCacheBytes(bytes, markdownCacheBytesForItems(block.cells.capacity(), sizeof(MarkdownTableCell)));
+        for (const MarkdownTableCell& cell : block.cells) {
+            addMarkdownCacheBytes(bytes, markdownCacheBytesForItems(cell.runs.capacity(), sizeof(MarkdownRun)));
+            for (const MarkdownRun& run : cell.runs) {
+                addMarkdownCacheBytes(bytes, markdownRunCacheBytes(run));
+            }
+        }
+    }
+    return bytes;
+}
+
+inline std::shared_ptr<const MarkdownDocument> cachedMarkdownDocument(const std::string& source) {
+    constexpr std::size_t kCacheCapacity = 8;
+    constexpr std::size_t kCacheByteCapacity = 1024 * 1024;
+    constexpr std::size_t kEntryByteCapacity = 256 * 1024;
+    MarkdownDocumentCache& cache = sharedMarkdownDocumentCache();
+    const auto existing = cache.entries.find(source);
+    if (existing != cache.entries.end()) {
+        existing->second.lastUsed = ++cache.accessTick;
+        return existing->second.document;
+    }
+
+    auto document = std::make_shared<MarkdownDocument>();
+    document->blocks = parseMarkdownBlocks(source);
+    const std::size_t documentBytes = markdownDocumentCacheBytes(source, *document);
+    if (documentBytes > kEntryByteCapacity) {
+        return document;
+    }
+
+    while (!cache.entries.empty() &&
+           (cache.entries.size() >= kCacheCapacity || documentBytes > kCacheByteCapacity - cache.bytes)) {
+        const auto oldest = std::min_element(cache.entries.begin(), cache.entries.end(),
+                                             [](const auto& left, const auto& right) {
+                                                 return left.second.lastUsed < right.second.lastUsed;
+                                             });
+        if (oldest != cache.entries.end()) {
+            cache.bytes -= oldest->second.bytes;
+            cache.entries.erase(oldest);
+        }
+    }
+
+    const auto inserted = cache.entries.emplace(source, MarkdownDocumentCacheEntry{document, ++cache.accessTick, documentBytes});
+    cache.bytes += documentBytes;
+    return inserted.first->second.document;
+}
+
 } // namespace detail
 
 class MarkdownBuilder {
@@ -720,7 +824,8 @@ public:
     static float estimateHeight(const std::string& markdown,
                                 float width,
                                 const MarkdownStyle& style = MarkdownStyle()) {
-        const std::vector<detail::MarkdownBlock> blocks = detail::parseMarkdownBlocks(markdown);
+        const std::shared_ptr<const detail::MarkdownDocument> document = detail::cachedMarkdownDocument(markdown);
+        const std::vector<detail::MarkdownBlock>& blocks = document->blocks;
         float height = 0.0f;
         for (std::size_t index = 0; index < blocks.size(); ++index) {
             if (blocks[index].kind == detail::MarkdownBlockKind::TableRow) {
@@ -778,7 +883,8 @@ public:
     MarkdownBuilder& zIndex(int value) { zIndex_ = value; return *this; }
 
     void build() {
-        const std::vector<detail::MarkdownBlock>& blocks = parsedBlocks();
+        const std::shared_ptr<const detail::MarkdownDocument> document = parsedDocument();
+        const std::vector<detail::MarkdownBlock>& blocks = document->blocks;
         auto root = ui_.column(id_)
             .width(width_)
             .height(height_)
@@ -809,20 +915,8 @@ public:
     }
 
 private:
-    struct ParseCache {
-        std::string markdown;
-        std::vector<detail::MarkdownBlock> blocks;
-        bool valid = false;
-    };
-
-    const std::vector<detail::MarkdownBlock>& parsedBlocks() {
-        ParseCache& cache = ui_.state<ParseCache>(id_ + ".parse");
-        if (!cache.valid || cache.markdown != markdown_) {
-            cache.markdown = markdown_;
-            cache.blocks = detail::parseMarkdownBlocks(markdown_);
-            cache.valid = true;
-        }
-        return cache.blocks;
+    std::shared_ptr<const detail::MarkdownDocument> parsedDocument() const {
+        return detail::cachedMarkdownDocument(markdown_);
     }
 
     static bool runIsChip(const detail::MarkdownRun& run) {
@@ -866,42 +960,87 @@ private:
         float measuredHeight = 0.0f;
     };
 
-    struct InlineLayoutCache {
-        std::unordered_map<std::string, InlineLayoutEntry> entries;
+    struct InlineLayoutCacheEntry {
+        std::shared_ptr<const InlineLayoutEntry> layout;
+        std::size_t lastUsed = 0;
+        std::size_t bytes = 0;
     };
 
-    static std::string inlineLayoutKey(const std::string& partId,
-                                       const std::vector<detail::MarkdownRun>& runs,
+    struct InlineLayoutCache {
+        std::unordered_map<std::string, InlineLayoutCacheEntry> entries;
+        std::size_t accessTick = 0;
+        std::size_t bytes = 0;
+    };
+
+    static InlineLayoutCache& sharedInlineLayoutCache() {
+        static thread_local InlineLayoutCache cache;
+        return cache;
+    }
+
+    static void appendInlineLayoutKey(std::string& key, std::uint32_t value) {
+        for (int shift = 0; shift < 32; shift += 8) {
+            key.push_back(static_cast<char>((value >> shift) & 0xFFU));
+        }
+    }
+
+    static void appendInlineLayoutKey(std::string& key, float value) {
+        static_assert(sizeof(float) == sizeof(std::uint32_t));
+        std::uint32_t bits = 0;
+        std::memcpy(&bits, &value, sizeof(bits));
+        appendInlineLayoutKey(key, bits);
+    }
+
+    static void appendInlineLayoutKey(std::string& key, const std::string& value) {
+        appendInlineLayoutKey(key, static_cast<std::uint32_t>(value.size()));
+        key.append(value);
+    }
+
+    static std::string inlineLayoutKey(const std::vector<detail::MarkdownRun>& runs,
                                        float width,
                                        float fontSize,
                                        float lineHeight,
                                        bool heading,
                                        core::HorizontalAlign align,
                                        const MarkdownStyle& style) {
-        std::string key = partId;
-        key += "|w=" + std::to_string(static_cast<int>(width * 10.0f + 0.5f));
-        key += "|fs=" + std::to_string(static_cast<int>(fontSize * 10.0f + 0.5f));
-        key += "|lh=" + std::to_string(static_cast<int>(lineHeight * 10.0f + 0.5f));
-        key += heading ? "|h=1" : "|h=0";
-        key += "|a=" + std::to_string(static_cast<int>(align));
-        key += "|font=" + style.fontFamily;
-        key += "|code=" + style.codeFontFamily;
+        std::string key;
+        key.reserve(32 + style.fontFamily.size() + style.codeFontFamily.size());
+        appendInlineLayoutKey(key, width);
+        appendInlineLayoutKey(key, fontSize);
+        appendInlineLayoutKey(key, lineHeight);
+        key.push_back(heading ? 1 : 0);
+        appendInlineLayoutKey(key, static_cast<std::uint32_t>(align));
+        appendInlineLayoutKey(key, style.fontFamily);
+        appendInlineLayoutKey(key, style.codeFontFamily);
+        appendInlineLayoutKey(key, static_cast<std::uint32_t>(runs.size()));
         for (const detail::MarkdownRun& run : runs) {
-            key += "|";
-            key += std::to_string(static_cast<int>(run.kind));
-            key += run.style.emphasis ? "e" : "";
-            key += run.style.strong ? "s" : "";
-            key += run.style.deleted ? "d" : "";
-            key += run.style.underline ? "u" : "";
-            key += run.style.link ? "l" : "";
-            key += run.style.image ? "i" : "";
-            key += run.style.math ? "m" : "";
-            key += run.style.wiki ? "w" : "";
-            key += run.style.html ? "h" : "";
-            key += ":";
-            key += detail::displayText(run);
+            appendInlineLayoutKey(key, static_cast<std::uint32_t>(run.kind));
+            key.push_back(run.style.emphasis ? 1 : 0);
+            key.push_back(run.style.strong ? 1 : 0);
+            key.push_back(run.style.deleted ? 1 : 0);
+            key.push_back(run.style.underline ? 1 : 0);
+            key.push_back(run.style.link ? 1 : 0);
+            key.push_back(run.style.image ? 1 : 0);
+            key.push_back(run.style.math ? 1 : 0);
+            key.push_back(run.style.wiki ? 1 : 0);
+            key.push_back(run.style.html ? 1 : 0);
+            appendInlineLayoutKey(key, run.text);
+            appendInlineLayoutKey(key, run.href);
+            appendInlineLayoutKey(key, run.title);
         }
         return key;
+    }
+
+    static std::size_t inlineLayoutCacheBytes(const InlineLayoutEntry& layout, std::size_t keyBytes) {
+        std::size_t bytes = 0;
+        detail::addMarkdownCacheBytes(bytes, sizeof(InlineLayoutEntry));
+        detail::addMarkdownCacheBytes(bytes, keyBytes);
+        detail::addMarkdownCacheBytes(bytes,
+                                      detail::markdownCacheBytesForItems(layout.segments.capacity(), sizeof(InlineSegment)));
+        for (const InlineSegment& segment : layout.segments) {
+            detail::addMarkdownCacheBytes(bytes, segment.text.capacity());
+            detail::addMarkdownCacheBytes(bytes, detail::markdownRunCacheBytes(segment.run));
+        }
+        return bytes;
     }
 
     static std::vector<InlineSegment> layoutInlineRunsWithStyle(const std::vector<detail::MarkdownRun>& runs,
@@ -999,30 +1138,48 @@ private:
         return segments;
     }
 
-    const InlineLayoutEntry& cachedInlineLayout(const std::string& partId,
-                                                const std::vector<detail::MarkdownRun>& runs,
-                                                float width,
-                                                float fontSize,
-                                                float lineHeight,
-                                                bool heading,
-                                                core::HorizontalAlign align) {
-        InlineLayoutCache& cache = ui_.state<InlineLayoutCache>(id_ + ".inlineLayout");
-        const std::string key = inlineLayoutKey(partId, runs, width, fontSize, lineHeight, heading, align, style_);
+    static std::shared_ptr<const InlineLayoutEntry> cachedInlineLayout(const std::vector<detail::MarkdownRun>& runs,
+                                                                        float width,
+                                                                        float fontSize,
+                                                                        float lineHeight,
+                                                                        bool heading,
+                                                                        core::HorizontalAlign align,
+                                                                        const MarkdownStyle& style) {
+        constexpr std::size_t kCacheCapacity = 256;
+        constexpr std::size_t kCacheByteCapacity = 1024 * 1024;
+        constexpr std::size_t kEntryByteCapacity = 256 * 1024;
+        InlineLayoutCache& cache = sharedInlineLayoutCache();
+        const std::string key = inlineLayoutKey(runs, width, fontSize, lineHeight, heading, align, style);
         const auto existing = cache.entries.find(key);
         if (existing != cache.entries.end()) {
-            return existing->second;
+            existing->second.lastUsed = ++cache.accessTick;
+            return existing->second.layout;
         }
 
-        if (cache.entries.size() >= 256) {
-            cache.entries.clear();
+        auto layout = std::make_shared<InlineLayoutEntry>();
+        layout->measuredHeight = lineHeight;
+        layout->segments = layoutInlineRunsWithStyle(runs, width, fontSize, lineHeight, heading, style, layout->measuredHeight);
+        alignInlineSegments(layout->segments, width, align);
+        const std::size_t layoutBytes = inlineLayoutCacheBytes(*layout, key.size());
+        if (layoutBytes > kEntryByteCapacity) {
+            return layout;
         }
 
-        InlineLayoutEntry entry;
-        entry.measuredHeight = lineHeight;
-        entry.segments = layoutInlineRunsWithStyle(runs, width, fontSize, lineHeight, heading, style_, entry.measuredHeight);
-        alignInlineSegments(entry.segments, width, align);
-        const auto inserted = cache.entries.emplace(key, std::move(entry));
-        return inserted.first->second;
+        while (!cache.entries.empty() &&
+               (cache.entries.size() >= kCacheCapacity || layoutBytes > kCacheByteCapacity - cache.bytes)) {
+            const auto oldest = std::min_element(cache.entries.begin(), cache.entries.end(),
+                                                 [](const auto& left, const auto& right) {
+                                                     return left.second.lastUsed < right.second.lastUsed;
+                                                 });
+            if (oldest != cache.entries.end()) {
+                cache.bytes -= oldest->second.bytes;
+                cache.entries.erase(oldest);
+            }
+        }
+
+        const auto inserted = cache.entries.emplace(key, InlineLayoutCacheEntry{layout, ++cache.accessTick, layoutBytes});
+        cache.bytes += layoutBytes;
+        return inserted.first->second.layout;
     }
 
     static float estimateInlineRunsHeight(const std::vector<detail::MarkdownRun>& runs,
@@ -1031,9 +1188,8 @@ private:
                                           float lineHeight,
                                           bool heading,
                                           const MarkdownStyle& style) {
-        float height = lineHeight;
-        (void)layoutInlineRunsWithStyle(runs, width, fontSize, lineHeight, heading, style, height);
-        return height;
+        return cachedInlineLayout(runs, width, fontSize, lineHeight, heading,
+                                  core::HorizontalAlign::Left, style)->measuredHeight;
     }
 
     static float estimateTableRowHeight(const detail::MarkdownBlock& block,
@@ -1100,10 +1256,13 @@ private:
         const bool heading = block.kind == detail::MarkdownBlockKind::Heading;
         const float fontSize = heading ? detail::markdownHeadingSize(style, block.headingLevel) : style.bodySize;
         const float lineHeight = heading ? fontSize + 6.0f : style.bodyLineHeight;
-        const float textHeight = estimateInlineRunsHeight(block.runs, contentWidth, fontSize, lineHeight, heading, style);
         if (block.quoteDepth > 0) {
-            return textHeight + style.quotePadding * 2.0f;
+            const float barWidth = 3.0f;
+            const float barGap = 8.0f;
+            const float textWidth = std::max(0.0f, contentWidth - barWidth - barGap - style.quotePadding * 2.0f);
+            return estimateInlineRunsHeight(block.runs, textWidth, fontSize, lineHeight, heading, style) + style.quotePadding * 2.0f;
         }
+        const float textHeight = estimateInlineRunsHeight(block.runs, contentWidth, fontSize, lineHeight, heading, style);
         return textHeight;
     }
 
@@ -1155,8 +1314,7 @@ private:
         const float markerWidth = block.task ? 34.0f : 24.0f;
         const float textWidth = std::max(0.0f, contentWidth - markerWidth - 8.0f);
         const float height = std::max(style_.bodyLineHeight,
-                                      inlineRunsHeight(partId + ".text",
-                                                       block.runs,
+                                      inlineRunsHeight(block.runs,
                                                        textWidth,
                                                        style_.bodySize,
                                                        style_.bodyLineHeight,
@@ -1182,14 +1340,13 @@ private:
     }
 
     void renderInlineBlock(const std::string& partId,
-                           const detail::MarkdownBlock& block,
-                           float quoteInset,
-                           float listInset,
-                           float contentWidth,
-                           float fontSize,
-                           float lineHeight,
-                           bool heading) {
-        const float blockHeight = inlineRunsHeight(partId + ".text", block.runs, contentWidth, fontSize, lineHeight, heading);
+                            const detail::MarkdownBlock& block,
+                            float quoteInset,
+                            float listInset,
+                            float contentWidth,
+                            float fontSize,
+                            float lineHeight,
+                            bool heading) {
         if (block.quoteDepth > 0) {
             const float barWidth = 3.0f;
             const float barGap = 8.0f;
@@ -1197,7 +1354,7 @@ private:
             const float panelWidth = std::max(0.0f, contentWidth - panelX);
             const float textX = panelX + style_.quotePadding;
             const float textWidth = std::max(0.0f, panelWidth - style_.quotePadding * 2.0f);
-            const float textHeight = inlineRunsHeight(partId + ".text", block.runs, textWidth, fontSize, lineHeight, heading);
+            const float textHeight = inlineRunsHeight(block.runs, textWidth, fontSize, lineHeight, heading);
             const float height = textHeight + style_.quotePadding * 2.0f;
             ui_.stack(partId)
                 .width(contentWidth)
@@ -1222,6 +1379,7 @@ private:
             return;
         }
 
+        const float blockHeight = inlineRunsHeight(block.runs, contentWidth, fontSize, lineHeight, heading);
         ui_.stack(partId)
             .width(contentWidth)
             .height(blockHeight)
@@ -1248,14 +1406,13 @@ private:
         return heading ? style_.heading : style_.text;
     }
 
-    float inlineRunsHeight(const std::string& partId,
-                           const std::vector<detail::MarkdownRun>& runs,
-                           float width,
-                           float fontSize,
-                           float lineHeight,
-                           bool heading,
-                           core::HorizontalAlign align = core::HorizontalAlign::Left) {
-        return cachedInlineLayout(partId, runs, width, fontSize, lineHeight, heading, align).measuredHeight;
+    float inlineRunsHeight(const std::vector<detail::MarkdownRun>& runs,
+                            float width,
+                            float fontSize,
+                            float lineHeight,
+                            bool heading,
+                            core::HorizontalAlign align = core::HorizontalAlign::Left) {
+        return cachedInlineLayout(runs, width, fontSize, lineHeight, heading, align, style_)->measuredHeight;
     }
 
     void renderInlineRuns(const std::string& partId,
@@ -1265,16 +1422,17 @@ private:
                           float fontSize,
                           float lineHeight,
                           bool heading,
-                          float x = 0.0f,
-                          float y = 0.0f,
-                          core::HorizontalAlign align = core::HorizontalAlign::Left) {
-        const InlineLayoutEntry& layout = cachedInlineLayout(partId, runs, width, fontSize, lineHeight, heading, align);
+                           float x = 0.0f,
+                           float y = 0.0f,
+                           core::HorizontalAlign align = core::HorizontalAlign::Left) {
+        const std::shared_ptr<const InlineLayoutEntry> layout = cachedInlineLayout(
+            runs, width, fontSize, lineHeight, heading, align, style_);
         ui_.stack(partId)
             .position(x, y)
             .size(width, height)
             .content([&] {
-                for (std::size_t index = 0; index < layout.segments.size(); ++index) {
-                    renderInlineSegment(partId + ".seg." + std::to_string(index), layout.segments[index], fontSize, lineHeight, heading);
+                for (std::size_t index = 0; index < layout->segments.size(); ++index) {
+                    renderInlineSegment(partId + ".seg." + std::to_string(index), layout->segments[index], fontSize, lineHeight, heading);
                 }
             })
             .build();
@@ -1329,9 +1487,9 @@ private:
             .build();
     }
 
-    void alignInlineSegments(std::vector<InlineSegment>& segments,
-                             float width,
-                             core::HorizontalAlign align) const {
+    static void alignInlineSegments(std::vector<InlineSegment>& segments,
+                                    float width,
+                                    core::HorizontalAlign align) {
         if (align == core::HorizontalAlign::Left || width <= 0.0f) {
             return;
         }
@@ -1467,7 +1625,6 @@ private:
                 ? detail::horizontalAlign(block.cells[cell].align)
                 : core::HorizontalAlign::Left;
             height = std::max(height, inlineRunsHeight(
-                partId + ".cell." + std::to_string(cell) + ".text",
                 runs,
                 textWidth,
                 style_.bodySize,
@@ -1520,7 +1677,7 @@ private:
                          float rowHeight) {
         const float textWidth = std::max(0.0f, cellWidth - style_.tableCellPadding * 2.0f);
         const core::HorizontalAlign align = detail::horizontalAlign(cell.align);
-        const float textHeight = inlineRunsHeight(partId, cell.runs, textWidth, style_.bodySize, style_.bodyLineHeight, header, align);
+        const float textHeight = inlineRunsHeight(cell.runs, textWidth, style_.bodySize, style_.bodyLineHeight, header, align);
         float textX = style_.tableCellPadding;
         if (cell.align == detail::MarkdownAlign::Center) {
             textX = style_.tableCellPadding;

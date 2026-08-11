@@ -144,7 +144,6 @@ public:
                         .instantStates()
                         .transition(transition_)
                         .animate(core::AnimProperty::Frame | core::AnimProperty::Color)
-                        .onClick([] {})
                         .build();
 
                     tooltips.push_back({barId, dataLabel(index) + "  " + percent(value), x + barWidth * 0.5f, y});

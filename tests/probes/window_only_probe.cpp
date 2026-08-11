@@ -1,4 +1,5 @@
 #include "core/window/window_backend.h"
+#include "core/input/input_state.h"
 
 #if defined(EUI_WINDOW_BACKEND_SDL2)
 #ifndef SDL_MAIN_HANDLED
@@ -63,6 +64,60 @@ bool pollOnce(core::window::Handle window) {
     return true;
 }
 
+#if defined(EUI_WINDOW_BACKEND_SDL2)
+bool verifySdlWindowInput(core::window::Handle firstWindow,
+                          const core::window::WindowCreateRequest& request) {
+    core::window::Handle secondWindow = core::window::createWindow(request);
+    if (secondWindow == nullptr) {
+        return false;
+    }
+
+    auto* second = static_cast<SDL_Window*>(secondWindow);
+    SDL_HideWindow(second);
+
+    core::queuePointerMotion(firstWindow, 31.0, 47.0, false, false);
+
+    double firstX = 0.0;
+    double firstY = 0.0;
+    double secondX = 0.0;
+    double secondY = 0.0;
+    core::window::getCursorPosition(firstWindow, firstX, firstY);
+    core::window::getCursorPosition(secondWindow, secondX, secondY);
+    if (firstX != 31.0 || firstY != 47.0 ||
+        (secondX == firstX && secondY == firstY)) {
+        core::window::destroyWindow(secondWindow);
+        return false;
+    }
+
+    core::queuePointerButton(firstWindow, 31.0, 47.0, 0, true);
+    if (!core::window::isMouseButtonDown(firstWindow, 0) ||
+        core::window::isMouseButtonDown(secondWindow, 0)) {
+        core::window::destroyWindow(secondWindow);
+        return false;
+    }
+
+    core::queueTextInput(firstWindow, "ok");
+    core::queueTextEditing(firstWindow, "ime");
+    core::queueScrollInput(firstWindow, 1.25, -2.5);
+    core::queueKeyInput(firstWindow,
+                        {core::InputKey::Left,
+                         core::KeyAction::Repeat,
+                         {false, true}});
+
+    auto input = core::consumeInputEvents(firstWindow);
+    const core::KeyEvent* left = input.first.findKey(core::InputKey::Left);
+    const bool queued = input.first.text == "ok" &&
+        input.first.compositionText == "ime" && input.first.composing &&
+        left != nullptr && left->action == core::KeyAction::Repeat && left->modifiers.shift &&
+        input.second.x == 1.25 && input.second.y == -2.5;
+
+    core::queuePointerButton(firstWindow, 31.0, 47.0, 0, false);
+    core::releaseInputQueue(secondWindow);
+    core::window::destroyWindow(secondWindow);
+    return queued;
+}
+#endif
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -95,6 +150,15 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+#if defined(EUI_WINDOW_BACKEND_SDL2)
+    if (!verifySdlWindowInput(window, request)) {
+        core::releaseInputQueue(window);
+        core::window::destroyWindow(window);
+        SDL_Quit();
+        return 2;
+    }
+#endif
+
     int renderedFrames = 0;
     while (frames < 0 || renderedFrames < frames) {
         if (!pollOnce(window)) {
@@ -104,6 +168,7 @@ int main(int argc, char** argv) {
         ++renderedFrames;
     }
 
+    core::releaseInputQueue(window);
     core::window::destroyWindow(window);
 #if defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_Quit();

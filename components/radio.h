@@ -152,7 +152,7 @@ private:
     std::string text_;
     bool selected_ = false;
     float width_ = 180.0f;
-    float height_ = 28.0f;
+    float height_ = 30.0f;
     float dotSize_ = 0.0f;
     float gap_ = 0.0f;
     float fontSize_ = 0.0f;

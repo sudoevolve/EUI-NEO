@@ -3,15 +3,6 @@
 #include "core/input/input_types.h"
 #include "core/window/window_backend.h"
 
-#if !defined(EUI_WINDOW_BACKEND_SDL2)
-#include "core/platform/ime_bridge.h"
-
-#ifndef GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_NONE
-#endif
-#include <GLFW/glfw3.h>
-#endif
-
 #include <unordered_map>
 #include <utility>
 
@@ -23,37 +14,23 @@ struct InputQueue {
     std::string text;
     std::string pasteText;
     std::string compositionText;
+    std::vector<KeyEvent> keys;
     double scrollX = 0.0;
     double scrollY = 0.0;
-    bool backspace = false;
-    bool del = false;
-    bool enter = false;
-    bool left = false;
-    bool right = false;
-    bool up = false;
-    bool down = false;
-    bool home = false;
-    bool end = false;
-    bool selectAll = false;
-    bool copy = false;
-    bool cut = false;
-    bool undo = false;
-    bool redo = false;
-    bool shift = false;
-    bool escape = false;
     bool compositionChanged = false;
 };
 
 struct PointerState {
     double lastX = 0.0;
     double lastY = 0.0;
+    double x = 0.0;
+    double y = 0.0;
     bool lastDown = false;
     bool lastRightDown = false;
-    bool hasQueuedPointer = false;
-    double queuedX = 0.0;
-    double queuedY = 0.0;
-    bool queuedDown = false;
-    bool queuedRightDown = false;
+    bool down = false;
+    bool rightDown = false;
+    bool hasPosition = false;
+    bool inside = false;
 };
 
 inline std::unordered_map<window::Handle, InputQueue>& inputQueues() {
@@ -123,7 +100,89 @@ inline void appendUtf8(std::string& output, unsigned int codepoint) {
     }
 }
 
+inline bool hasQueuedPointerState(window::Handle window) {
+    const auto iterator = pointerStates().find(window);
+    return iterator != pointerStates().end() && iterator->second.hasPosition;
+}
+
+inline bool queuedPointerPosition(window::Handle window, double& x, double& y) {
+    const auto iterator = pointerStates().find(window);
+    if (iterator == pointerStates().end()) {
+        return false;
+    }
+    const PointerState& state = iterator->second;
+    if (!state.hasPosition || (!state.inside && !state.down && !state.rightDown)) {
+        return false;
+    }
+    x = state.x;
+    y = state.y;
+    return true;
+}
+
+inline bool queuedPointerButtonDown(window::Handle window, int button) {
+    const auto iterator = pointerStates().find(window);
+    if (iterator == pointerStates().end()) {
+        return false;
+    }
+    return button == 1 ? iterator->second.rightDown : iterator->second.down;
+}
+
 } // namespace detail
+
+inline void queuePointerMotion(window::Handle window,
+                               double x,
+                               double y,
+                               bool down,
+                               bool rightDown) {
+    detail::PointerState& state = detail::pointerState(window);
+    state.x = x;
+    state.y = y;
+    state.down = down;
+    state.rightDown = rightDown;
+    state.hasPosition = true;
+    state.inside = true;
+}
+
+inline void queuePointerButton(window::Handle window,
+                               double x,
+                               double y,
+                               int button,
+                               bool down) {
+    detail::PointerState& state = detail::pointerState(window);
+    state.x = x;
+    state.y = y;
+    state.hasPosition = true;
+    state.inside = true;
+    if (button == 0) {
+        state.down = down;
+    } else if (button == 1) {
+        state.rightDown = down;
+    }
+}
+
+inline void queuePointerInput(window::Handle window,
+                              double x,
+                              double y,
+                              bool down,
+                              bool rightDown = false) {
+    queuePointerMotion(window, x, y, down, rightDown);
+}
+
+inline void queuePointerPresence(window::Handle window, bool inside) {
+    detail::pointerState(window).inside = inside;
+}
+
+inline void clearPointerInput(window::Handle window) {
+    const auto iterator = detail::pointerStates().find(window);
+    if (iterator == detail::pointerStates().end()) {
+        return;
+    }
+    detail::PointerState& state = iterator->second;
+    state.down = false;
+    state.rightDown = false;
+    state.hasPosition = false;
+    state.inside = false;
+}
 
 inline void queueTextInput(window::Handle window, const std::string& text) {
     detail::InputQueue& queue = detail::inputQueue(window);
@@ -148,115 +207,19 @@ inline void queueScrollInput(window::Handle window, double x, double y) {
     queue.scrollY += y;
 }
 
-inline void queueKeyInput(window::Handle window, InputKey key, bool ctrl = false, bool shift = false) {
+inline void queueKeyInput(window::Handle window, const KeyEvent& event) {
     detail::InputQueue& queue = detail::inputQueue(window);
-    queue.shift = shift;
-    if (ctrl && key == InputKey::V) {
+    if (event.modifiers.shortcut && event.key == InputKey::V) {
         queue.pasteText += core::window::clipboardText(window);
         return;
     }
-    if (ctrl && key == InputKey::C) {
-        queue.copy = true;
-        return;
-    }
-    if (ctrl && key == InputKey::X) {
-        queue.cut = true;
-        return;
-    }
-    if (ctrl && key == InputKey::Z) {
-        shift ? queue.redo = true : queue.undo = true;
-        return;
-    }
-    if (ctrl && key == InputKey::Y) {
-        queue.redo = true;
-        return;
-    }
-    if (ctrl && key == InputKey::A) {
-        queue.selectAll = true;
+
+    if (detail::isComposing(window) &&
+        (event.key == InputKey::Backspace || event.key == InputKey::Delete)) {
         return;
     }
 
-    if (detail::isComposing(window) && (key == InputKey::Backspace || key == InputKey::Delete)) {
-        return;
-    }
-
-    switch (key) {
-    case InputKey::Backspace: queue.backspace = true; break;
-    case InputKey::Delete: queue.del = true; break;
-    case InputKey::Enter: queue.enter = true; break;
-    case InputKey::Left: queue.left = true; break;
-    case InputKey::Right: queue.right = true; break;
-    case InputKey::Up: queue.up = true; break;
-    case InputKey::Down: queue.down = true; break;
-    case InputKey::Home: queue.home = true; break;
-    case InputKey::End: queue.end = true; break;
-    case InputKey::Escape: queue.escape = true; break;
-    default: break;
-    }
-}
-
-inline void queuePointerInput(window::Handle window, double x, double y, bool down, bool rightDown = false) {
-    detail::PointerState& state = detail::pointerState(window);
-    state.hasQueuedPointer = true;
-    state.queuedX = x;
-    state.queuedY = y;
-    state.queuedDown = down;
-    state.queuedRightDown = rightDown;
-}
-
-inline void installInputCallbacks(window::Handle window) {
-    if (!window) {
-        return;
-    }
-
-#if !defined(EUI_WINDOW_BACKEND_SDL2)
-    GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window);
-    eui_ime_install_message_filter(glfwWindow);
-    glfwSetCharCallback(glfwWindow, [](GLFWwindow* currentWindow, unsigned int codepoint) {
-        detail::InputQueue& queue = detail::inputQueue(currentWindow);
-        detail::appendUtf8(queue.text, codepoint);
-        eui_ime_clear_composition(currentWindow);
-        queue.compositionText.clear();
-        queue.compositionChanged = true;
-        detail::setComposing(currentWindow, false);
-        detail::setCompositionText(currentWindow, {});
-    });
-
-    glfwSetScrollCallback(glfwWindow, [](GLFWwindow* currentWindow, double xoffset, double yoffset) {
-        queueScrollInput(currentWindow, xoffset, yoffset);
-    });
-
-    glfwSetKeyCallback(glfwWindow, [](GLFWwindow* currentWindow, int key, int, int action, int mods) {
-        if (action != GLFW_PRESS && action != GLFW_REPEAT) {
-            return;
-        }
-
-        const bool ctrl = (mods & GLFW_MOD_CONTROL) != 0 || (mods & GLFW_MOD_SUPER) != 0;
-        const bool shift = (mods & GLFW_MOD_SHIFT) != 0;
-        detail::setComposing(currentWindow, eui_ime_is_composing(currentWindow) != 0);
-        switch (key) {
-        case GLFW_KEY_BACKSPACE: queueKeyInput(currentWindow, InputKey::Backspace, ctrl, shift); break;
-        case GLFW_KEY_DELETE: queueKeyInput(currentWindow, InputKey::Delete, ctrl, shift); break;
-        case GLFW_KEY_ENTER:
-        case GLFW_KEY_KP_ENTER: queueKeyInput(currentWindow, InputKey::Enter, ctrl, shift); break;
-        case GLFW_KEY_LEFT: queueKeyInput(currentWindow, InputKey::Left, ctrl, shift); break;
-        case GLFW_KEY_RIGHT: queueKeyInput(currentWindow, InputKey::Right, ctrl, shift); break;
-        case GLFW_KEY_UP: queueKeyInput(currentWindow, InputKey::Up, ctrl, shift); break;
-        case GLFW_KEY_DOWN: queueKeyInput(currentWindow, InputKey::Down, ctrl, shift); break;
-        case GLFW_KEY_HOME: queueKeyInput(currentWindow, InputKey::Home, ctrl, shift); break;
-        case GLFW_KEY_END: queueKeyInput(currentWindow, InputKey::End, ctrl, shift); break;
-        case GLFW_KEY_ESCAPE: queueKeyInput(currentWindow, InputKey::Escape, ctrl, shift); break;
-        case GLFW_KEY_A: queueKeyInput(currentWindow, InputKey::A, ctrl, shift); break;
-        case GLFW_KEY_C: queueKeyInput(currentWindow, InputKey::C, ctrl, shift); break;
-        case GLFW_KEY_V: queueKeyInput(currentWindow, InputKey::V, ctrl, shift); break;
-        case GLFW_KEY_X: queueKeyInput(currentWindow, InputKey::X, ctrl, shift); break;
-        case GLFW_KEY_Y: queueKeyInput(currentWindow, InputKey::Y, ctrl, shift); break;
-        case GLFW_KEY_Z: queueKeyInput(currentWindow, InputKey::Z, ctrl, shift); break;
-        default:
-            break;
-        }
-    });
-#endif
+    queue.keys.push_back(event);
 }
 
 inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents(window::Handle window) {
@@ -268,42 +231,24 @@ inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents(window::Handle w
     keyboard.text = std::move(queue.text);
     keyboard.pasteText = std::move(queue.pasteText);
     keyboard.compositionText = std::move(queue.compositionText);
-    keyboard.backspace = queue.backspace;
-    keyboard.del = queue.del;
-    keyboard.enter = queue.enter;
-    keyboard.left = queue.left;
-    keyboard.right = queue.right;
-    keyboard.up = queue.up;
-    keyboard.down = queue.down;
-    keyboard.home = queue.home;
-    keyboard.end = queue.end;
-    keyboard.selectAll = queue.selectAll;
-    keyboard.copy = queue.copy;
-    keyboard.cut = queue.cut;
-    keyboard.undo = queue.undo;
-    keyboard.redo = queue.redo;
-    keyboard.shift = queue.shift;
-    keyboard.escape = queue.escape;
+    keyboard.keys = std::move(queue.keys);
     keyboard.composing = detail::isComposing(window);
     if (!queuedCompositionChanged && keyboard.composing) {
         keyboard.compositionText = previousCompositionText;
     }
-#if !defined(EUI_WINDOW_BACKEND_SDL2) && (defined(_WIN32) || defined(__APPLE__))
-    char compositionBuffer[512];
-    const int compositionLength = eui_ime_get_composition_string_utf8(
-        static_cast<GLFWwindow*>(window),
-        compositionBuffer,
-        static_cast<int>(sizeof(compositionBuffer)));
-    if (compositionLength > 0) {
-        keyboard.compositionText = compositionBuffer;
-        keyboard.composing = true;
-        detail::setComposing(window, true);
-    } else if (!queuedCompositionChanged) {
-        keyboard.compositionText.clear();
-        keyboard.composing = false;
-        detail::setComposing(window, false);
+    std::string nativeComposition;
+    bool nativeComposing = false;
+    if (window::queryImeComposition(window, nativeComposition, nativeComposing)) {
+        if (nativeComposing) {
+            keyboard.compositionText = std::move(nativeComposition);
+            keyboard.composing = true;
+            detail::setComposing(window, true);
+        } else if (!queuedCompositionChanged) {
+            keyboard.compositionText.clear();
+            keyboard.composing = false;
+            detail::setComposing(window, false);
+        }
     }
-#endif
     keyboard.compositionChanged = queuedCompositionChanged ||
                                   wasComposing != keyboard.composing ||
                                   previousCompositionText != keyboard.compositionText;
@@ -323,30 +268,29 @@ inline bool hasPendingPointerInput(window::Handle window, float dpiScale = 1.0f)
     double x = 0.0;
     double y = 0.0;
     bool down = false;
-    if (stateIt->second.hasQueuedPointer) {
-        x = stateIt->second.queuedX * dpiScale;
-        y = stateIt->second.queuedY * dpiScale;
-        down = stateIt->second.queuedDown;
+    bool rightDown = false;
+    if (stateIt->second.hasPosition) {
+        x = stateIt->second.x * dpiScale;
+        y = stateIt->second.y * dpiScale;
+        down = stateIt->second.down;
+        rightDown = stateIt->second.rightDown;
     } else {
         core::window::getCursorPosition(window, x, y);
         x *= dpiScale;
         y *= dpiScale;
         down = core::window::isMouseButtonDown(window, 0);
+        rightDown = core::window::isMouseButtonDown(window, 1);
     }
 
     const detail::PointerState& state = stateIt->second;
     return x != state.lastX ||
            y != state.lastY ||
            down != state.lastDown ||
-           (state.hasQueuedPointer ? state.queuedRightDown : core::window::isMouseButtonDown(window, 1)) != state.lastRightDown;
+           rightDown != state.lastRightDown;
 }
 
 inline void releaseInputQueue(window::Handle window) {
-#if !defined(EUI_WINDOW_BACKEND_SDL2)
-    if (window != nullptr) {
-        eui_ime_uninstall_message_filter(static_cast<GLFWwindow*>(window));
-    }
-#endif
+    window::uninstallInputCallbacks(window);
     detail::inputQueues().erase(window);
     detail::pointerStates().erase(window);
     detail::composingStates().erase(window);
@@ -360,11 +304,11 @@ inline PointerEvent readPointerEvent(window::Handle window, float dpiScale = 1.0
     double y = 0.0;
     bool down = false;
     bool rightDown = false;
-    if (state.hasQueuedPointer) {
-        x = state.queuedX * dpiScale;
-        y = state.queuedY * dpiScale;
-        down = state.queuedDown;
-        rightDown = state.queuedRightDown;
+    if (state.hasPosition) {
+        x = state.x * dpiScale;
+        y = state.y * dpiScale;
+        down = state.down;
+        rightDown = state.rightDown;
     } else {
         core::window::getCursorPosition(window, x, y);
         x *= dpiScale;
@@ -389,9 +333,6 @@ inline PointerEvent readPointerEvent(window::Handle window, float dpiScale = 1.0
     state.lastY = y;
     state.lastDown = event.down;
     state.lastRightDown = event.rightDown;
-    if (state.hasQueuedPointer && !state.queuedDown && !state.queuedRightDown) {
-        state.hasQueuedPointer = false;
-    }
     return event;
 }
 

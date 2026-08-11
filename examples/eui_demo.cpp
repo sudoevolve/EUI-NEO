@@ -1,60 +1,43 @@
+// 1. 包含主头文件，一切从这里开始
 #include "eui_neo.h"
 
+#include <iostream>
+
+// 2. 所有的代码都放在 app 命名空间下
 namespace app {
 
+// 3. 应用配置：标题、窗口大小等
 const DslAppConfig& dslAppConfig() {
     static const DslAppConfig config = DslAppConfig{}
-        .title("Hello EUI")
-        .pageId("demo")
-        .clearColor({0.16f, 0.18f, 0.20f, 1.0f})
-        .windowSize(800, 600);
+        .title("我的第一个应用")
+        .windowSize(800, 600)
+        .fps(90.0); // 帧率上限
     return config;
 }
 
+// 4. 核心界面构建函数
 void compose(eui::Ui& ui, const eui::Screen& screen) {
-    ui.stack("root")
+    // 创建根列，填满整个屏幕
+    ui.column("root")
         .size(screen.width, screen.height)
-        .align(eui::Align::CENTER, eui::Align::CENTER)
-        .content([&] {
-            components::panel(ui, "card")
-                .size(360.0f, 260.0f)
-                .radius(18.0f)
-                .gradient({0.10f, 0.12f, 0.16f, 1.0f}, {0.05f, 0.07f, 0.10f, 1.0f})
-                .border(1.0f, {0.23f, 0.29f, 0.38f, 1.0f})
-                .shadow(26.0f, 0.0f, 8.0f, {0.0f, 0.0f, 0.0f, 0.26f})
+        .padding(32.0f) // 内边距
+        .gap(0.0f) // 子元素间距
+        .content([&] { // 子元素开始
+            // 一个标题文本
+            ui.text("title")
+                .text("你好，EUI-NEO！")
+                .fontSize(32.0f)
                 .build();
 
-            ui.column("content")
-                .size(360.0f, 260.0f)
-                .gap(8.0f)
-                .justifyContent(eui::Align::CENTER)
-                .alignItems(eui::Align::CENTER)
-                .content([&] {
-                    components::text(ui, "title")
-                        .size(300.0f, 38.0f)
-                        .text("Hello EUI")
-                        .fontSize(30.0f)
-                        .lineHeight(38.0f)
-                        .color({0.94f, 0.97f, 1.0f, 1.0f})
-                        .horizontalAlign(eui::HorizontalAlign::Center)
-                        .build();
-
-                    components::text(ui, "subtitle")
-                        .size(300.0f, 30.0f)
-                        .margin(0.0f, 0.0f, 0.0f, 16.0f)
-                        .text("Text Button Component")
-                        .fontSize(24.0f)
-                        .lineHeight(30.0f)
-                        .color({0.62f, 0.70f, 0.82f, 1.0f})
-                        .horizontalAlign(eui::HorizontalAlign::Center)
-                        .build();
-
-                    components::button(ui, "primary")
-                        .size(240.0f, 70.0f)
-                        .text("Click Me")
-                        .build();
-                });
-        });
+            // 一个按钮，点击时在控制台输出
+            components::button(ui, "my_button")
+                .text("点我")
+                .onClick([] {
+                    std::cout << "按钮被点击了！" << std::endl;
+                })
+                .build();
+        })
+        .build(); // 根列构建完成
 }
 
 } // namespace app

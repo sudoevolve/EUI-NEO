@@ -191,7 +191,6 @@ public:
                         .instantStates()
                         .transition(transition_)
                         .animate(core::AnimProperty::Color)
-                        .onClick([] {})
                         .build();
 
                     tooltips.push_back({pointId, dataLabel(index) + "  " + percent(valueAt(values_, index)), point.x, point.y});

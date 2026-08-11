@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/render/image_types.h"
 #include "core/render/render_types.h"
 
 #include <memory>
@@ -27,6 +26,7 @@ public:
     void setBounds(float x, float y, float width, float height);
     void setTint(const Color& tint);
     void setCornerRadius(float radius);
+    void setBlur(float blur);
     void setOpacity(float opacity);
     void setTransform(const Transform& transform);
     void setTransformMatrix(const TransformMatrix& matrix);
@@ -39,7 +39,10 @@ public:
     void render(int windowWidth, int windowHeight);
 
     static bool isSourceReady(const std::string& source);
+    static bool hasSourceFailed(const std::string& source);
+    static bool retrySource(const std::string& source);
     static bool consumeRemoteImageReady();
+    static void beginRenderFrame();
     static void releaseCachedTextures();
 
 private:

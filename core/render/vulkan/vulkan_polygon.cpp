@@ -34,6 +34,7 @@ void VulkanRenderBackend::drawPolygon(const PolygonDrawCommand& command, int win
         command.edges.size() < 3 || command.opacity <= 0.001f || command.fillColor.a <= 0.001f) {
         return;
     }
+    flushRoundedRectBatch();
     if (!ensurePolygonPipeline() ||
         !ensurePrimitiveVertexBuffer(command.vertices.size()) ||
         !ensurePolygonEdgeBuffer(std::min(command.edges.size(), kMaxPolygonEdges))) {

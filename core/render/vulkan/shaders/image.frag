@@ -27,5 +27,19 @@ void main() {
         discard;
     }
     vec4 sampled = texture(uTexture, vUv);
+    if (pc.flags.y > 0.01) {
+        vec2 pixelStep = max(fwidth(vUv), 1.0 / vec2(textureSize(uTexture, 0)));
+        vec2 blurStep = pixelStep * pc.flags.y * 0.5;
+        sampled *= 4.0;
+        sampled += texture(uTexture, clamp(vUv + vec2( blurStep.x, 0.0), 0.0, 1.0)) * 2.0;
+        sampled += texture(uTexture, clamp(vUv + vec2(-blurStep.x, 0.0), 0.0, 1.0)) * 2.0;
+        sampled += texture(uTexture, clamp(vUv + vec2(0.0,  blurStep.y), 0.0, 1.0)) * 2.0;
+        sampled += texture(uTexture, clamp(vUv + vec2(0.0, -blurStep.y), 0.0, 1.0)) * 2.0;
+        sampled += texture(uTexture, clamp(vUv + blurStep, 0.0, 1.0));
+        sampled += texture(uTexture, clamp(vUv - blurStep, 0.0, 1.0));
+        sampled += texture(uTexture, clamp(vUv + vec2( blurStep.x, -blurStep.y), 0.0, 1.0));
+        sampled += texture(uTexture, clamp(vUv + vec2(-blurStep.x,  blurStep.y), 0.0, 1.0));
+        sampled /= 16.0;
+    }
     outColor = vec4(sampled.rgb * pc.tint.rgb, sampled.a * pc.tint.a * shapeAlpha);
 }

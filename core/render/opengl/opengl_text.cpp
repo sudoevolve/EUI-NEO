@@ -210,6 +210,7 @@ void OpenGLRenderBackend::drawText(const TextDrawCommand& command, int windowWid
     if (command.vertices == nullptr || command.vertexFloatCount == 0 || windowWidth <= 0 || windowHeight <= 0) {
         return;
     }
+    flushRoundedRectBatch();
 
     TextRenderResources& resources = textResources();
     const bool hadResources = resources.shaderProgram != 0 && resources.vao != 0 && resources.vbo != 0;
@@ -268,6 +269,7 @@ void OpenGLRenderBackend::drawText(const TextDrawCommand& command, int windowWid
 }
 
 void OpenGLRenderBackend::releaseTextResources() {
+    flushRoundedRectBatch();
     auto& resourcesByContext = textResourcesByContext();
     const auto current = window::currentContextKey();
     const auto item = resourcesByContext.find(current);

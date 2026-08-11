@@ -329,7 +329,7 @@ private:
     long long min_ = 0;
     long long max_ = 0;
     float width_ = 180.0f;
-    float height_ = 38.0f;
+    float height_ = 40.0f;
     float fontSize_ = 0.0f;
     int base_ = 10;
     int digits_ = 0;

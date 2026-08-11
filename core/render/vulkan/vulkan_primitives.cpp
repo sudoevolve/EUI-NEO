@@ -13,6 +13,8 @@ namespace core::render::vulkan {
 namespace {
 
 constexpr std::size_t kPrimitiveVertexCapacity = 65536;
+constexpr std::size_t kRoundedRectBatchVertexCapacity = 65536;
+constexpr std::size_t kRoundedRectBatchMaxVertices = 6u * 2048u;
 
 struct RoundedRectPushConstants {
     float windowAndShape[4] = {};
@@ -27,9 +29,30 @@ struct RoundedRectPushConstants {
 
 static_assert(sizeof(RoundedRectPushConstants) == 128, "Rounded rect push constants must fit Vulkan 1.0 minimum size.");
 
+struct RoundedRectBatchPushConstants {
+    float windowSize[2] = {};
+};
+
+struct RoundedRectBatchVertex {
+    float screen[3] = {};
+    float local[2] = {};
+    float fillColor[4] = {};
+    float gradientStart[4] = {};
+    float gradientEnd[4] = {};
+    float borderColor[4] = {};
+    float rect[4] = {};
+    float shapeParams[4] = {};
+    float modeParams[4] = {};
+    float shadowParams[3] = {};
+};
+
+static_assert(sizeof(RoundedRectBatchVertex) == sizeof(float) * 36,
+              "Rounded rect batch vertex layout must match the Vulkan shader.");
+
 } // namespace
 
 void VulkanRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float blur, int windowWidth, int windowHeight) {
+    flushRoundedRectBatch();
     if (!frameActive_ || blur <= 0.0f || windowWidth <= 0 || windowHeight <= 0 ||
         (!swapchainTransferSrcSupported_ && renderTarget_ == RenderTarget::Swapchain)) {
         backdropReady_ = false;
@@ -110,13 +133,21 @@ void VulkanRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
         return;
     }
     const bool needsBackdrop = !command.shadowPass && command.backdropBlur > 0.001f;
+    if (!frameRecorded_) {
+        recordClearPass(clearColor_);
+    }
+    if (!renderPassActive_) {
+        return;
+    }
+    if (!needsBackdrop && appendRoundedRectBatch(command, windowWidth, windowHeight)) {
+        return;
+    }
+
+    flushRoundedRectBatch();
     const std::uint32_t backdropWidth = needsBackdrop && backdropReady_ ? std::max(1u, backdropExtent_.width) : 1u;
     const std::uint32_t backdropHeight = needsBackdrop && backdropReady_ ? std::max(1u, backdropExtent_.height) : 1u;
     if (!ensureRoundedRectPipeline() || !ensureBackdropResources(backdropWidth, backdropHeight)) {
         return;
-    }
-    if (!frameRecorded_) {
-        recordClearPass(clearColor_);
     }
     if (!renderPassActive_ || !ensurePrimitiveVertexBuffer(command.vertices.size())) {
         return;
@@ -181,6 +212,100 @@ void VulkanRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(command.vertices.size()), 1, 0, 0);
+}
+
+bool VulkanRenderBackend::appendRoundedRectBatch(const RoundedRectDrawCommand& command,
+                                                 int windowWidth,
+                                                 int windowHeight) {
+    if (roundedRectBatchCount_ > 0 &&
+        (roundedRectBatchWindowWidth_ != windowWidth || roundedRectBatchWindowHeight_ != windowHeight)) {
+        flushRoundedRectBatch();
+    }
+    if (roundedRectBatchCount_ + command.vertices.size() > kRoundedRectBatchMaxVertices) {
+        flushRoundedRectBatch();
+    }
+    if (!ensureRoundedRectBatchPipeline() || !ensureRoundedRectBatchVertexBuffer(command.vertices.size())) {
+        return false;
+    }
+
+    if (roundedRectBatchCount_ == 0) {
+        roundedRectBatchStart_ = roundedRectBatchVertices_.used;
+        roundedRectBatchWindowWidth_ = windowWidth;
+        roundedRectBatchWindowHeight_ = windowHeight;
+    }
+
+    auto* vertices = static_cast<RoundedRectBatchVertex*>(roundedRectBatchVertices_.mapped);
+    const auto copyColor = [](float (&target)[4], const core::Color& color) {
+        target[0] = color.r;
+        target[1] = color.g;
+        target[2] = color.b;
+        target[3] = color.a;
+    };
+    for (const PrimitiveGeometryVertex& source : command.vertices) {
+        RoundedRectBatchVertex& target = vertices[roundedRectBatchVertices_.used++];
+        target.screen[0] = source.screen.x;
+        target.screen[1] = source.screen.y;
+        target.screen[2] = source.screen.z;
+        target.local[0] = source.local.x;
+        target.local[1] = source.local.y;
+        copyColor(target.fillColor, command.fillColor);
+        copyColor(target.gradientStart, command.gradient.start);
+        copyColor(target.gradientEnd, command.gradient.end);
+        copyColor(target.borderColor, command.border.color);
+        target.rect[0] = command.rect.x;
+        target.rect[1] = command.rect.y;
+        target.rect[2] = command.rect.width;
+        target.rect[3] = command.rect.height;
+        target.shapeParams[0] = command.radius;
+        target.shapeParams[1] = command.shadowPass ? 0.0f : command.border.width;
+        target.shapeParams[2] = command.opacity;
+        target.shapeParams[3] = command.shadowBlur;
+        target.modeParams[0] = command.gradient.enabled && !command.shadowPass ? 1.0f : 0.0f;
+        target.modeParams[1] = command.gradient.direction == core::GradientDirection::Horizontal ? 0.0f : 1.0f;
+        target.modeParams[2] = command.shadowPass ? 1.0f : 0.0f;
+        target.modeParams[3] = command.insetShadowPass ? 1.0f : 0.0f;
+        target.shadowParams[0] = command.shadowOffset.x;
+        target.shadowParams[1] = command.shadowOffset.y;
+        target.shadowParams[2] = command.shadowSpread;
+    }
+    roundedRectBatchCount_ += command.vertices.size();
+    return true;
+}
+
+void VulkanRenderBackend::flushRoundedRectBatch() {
+    if (roundedRectBatchCount_ == 0) {
+        return;
+    }
+
+    const std::size_t batchStart = roundedRectBatchStart_;
+    const std::size_t batchCount = roundedRectBatchCount_;
+    const int windowWidth = roundedRectBatchWindowWidth_;
+    const int windowHeight = roundedRectBatchWindowHeight_;
+    roundedRectBatchStart_ = 0;
+    roundedRectBatchCount_ = 0;
+    roundedRectBatchWindowWidth_ = 0;
+    roundedRectBatchWindowHeight_ = 0;
+
+    if (!frameActive_ || !renderPassActive_ || roundedRectBatchPipeline_ == VK_NULL_HANDLE ||
+        roundedRectBatchVertices_.buffer == VK_NULL_HANDLE ||
+        !applyDrawViewportAndScissor(windowWidth, windowHeight)) {
+        return;
+    }
+
+    RoundedRectBatchPushConstants constants{};
+    constants.windowSize[0] = static_cast<float>(windowWidth);
+    constants.windowSize[1] = static_cast<float>(windowHeight);
+    const VkDeviceSize offset = static_cast<VkDeviceSize>(batchStart * sizeof(RoundedRectBatchVertex));
+    VkCommandBuffer commandBuffer = currentCommandBuffer();
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, roundedRectBatchPipeline_);
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &roundedRectBatchVertices_.buffer, &offset);
+    vkCmdPushConstants(commandBuffer,
+                       roundedRectBatchPipelineLayout_,
+                       VK_SHADER_STAGE_VERTEX_BIT,
+                       0,
+                       sizeof(constants),
+                       &constants);
+    vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(batchCount), 1, 0, 0);
 }
 
 bool VulkanRenderBackend::ensureRoundedRectPipeline() {
@@ -336,6 +461,157 @@ bool VulkanRenderBackend::ensureRoundedRectPipeline() {
     vkDestroyShaderModule(device_, vertexShader, nullptr);
     if (!created) {
         destroyRoundedRectPipeline();
+    }
+    return created;
+}
+
+bool VulkanRenderBackend::ensureRoundedRectBatchPipeline() {
+    if (roundedRectBatchPipeline_ != VK_NULL_HANDLE) {
+        return true;
+    }
+    if (device_ == VK_NULL_HANDLE || renderPass_ == VK_NULL_HANDLE) {
+        return false;
+    }
+
+    VkShaderModule vertexShader = createShaderModule(device_,
+                                                     shaders::kRoundedRectBatchVertexSpirv,
+                                                     shaders::kRoundedRectBatchVertexSpirvSize);
+    VkShaderModule fragmentShader = createShaderModule(device_,
+                                                       shaders::kRoundedRectBatchFragmentSpirv,
+                                                       shaders::kRoundedRectBatchFragmentSpirvSize);
+    if (vertexShader == VK_NULL_HANDLE || fragmentShader == VK_NULL_HANDLE) {
+        if (vertexShader != VK_NULL_HANDLE) {
+            vkDestroyShaderModule(device_, vertexShader, nullptr);
+        }
+        if (fragmentShader != VK_NULL_HANDLE) {
+            vkDestroyShaderModule(device_, fragmentShader, nullptr);
+        }
+        return false;
+    }
+
+    VkPipelineShaderStageCreateInfo shaderStages[2]{};
+    shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shaderStages[0].module = vertexShader;
+    shaderStages[0].pName = "main";
+    shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shaderStages[1].module = fragmentShader;
+    shaderStages[1].pName = "main";
+
+    VkVertexInputBindingDescription binding{};
+    binding.binding = 0;
+    binding.stride = sizeof(RoundedRectBatchVertex);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::array<VkVertexInputAttributeDescription, 10> attributes{};
+    const auto attribute = [&](std::size_t index, std::uint32_t location, VkFormat format, std::size_t offset) {
+        attributes[index].binding = 0;
+        attributes[index].location = location;
+        attributes[index].format = format;
+        attributes[index].offset = static_cast<std::uint32_t>(offset);
+    };
+    attribute(0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(RoundedRectBatchVertex, screen));
+    attribute(1, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(RoundedRectBatchVertex, local));
+    attribute(2, 2, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RoundedRectBatchVertex, fillColor));
+    attribute(3, 3, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RoundedRectBatchVertex, gradientStart));
+    attribute(4, 4, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RoundedRectBatchVertex, gradientEnd));
+    attribute(5, 5, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RoundedRectBatchVertex, borderColor));
+    attribute(6, 6, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RoundedRectBatchVertex, rect));
+    attribute(7, 7, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RoundedRectBatchVertex, shapeParams));
+    attribute(8, 8, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(RoundedRectBatchVertex, modeParams));
+    attribute(9, 9, VK_FORMAT_R32G32B32_SFLOAT, offsetof(RoundedRectBatchVertex, shadowParams));
+
+    VkPipelineVertexInputStateCreateInfo vertexInput{};
+    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInput.vertexBindingDescriptionCount = 1;
+    vertexInput.pVertexBindingDescriptions = &binding;
+    vertexInput.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributes.size());
+    vertexInput.pVertexAttributeDescriptions = attributes.data();
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+    VkPipelineViewportStateCreateInfo viewportState{};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount = 1;
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.cullMode = VK_CULL_MODE_NONE;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer.lineWidth = 1.0f;
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+                                          VK_COLOR_COMPONENT_G_BIT |
+                                          VK_COLOR_COMPONENT_B_BIT |
+                                          VK_COLOR_COMPONENT_A_BIT;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+
+    std::array<VkDynamicState, 2> dynamicStates{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamicState{};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = static_cast<std::uint32_t>(dynamicStates.size());
+    dynamicState.pDynamicStates = dynamicStates.data();
+
+    VkPushConstantRange pushConstant{};
+    pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstant.size = sizeof(RoundedRectBatchPushConstants);
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+    if (vkCreatePipelineLayout(device_, &pipelineLayoutInfo, nullptr, &roundedRectBatchPipelineLayout_) != VK_SUCCESS) {
+        vkDestroyShaderModule(device_, fragmentShader, nullptr);
+        vkDestroyShaderModule(device_, vertexShader, nullptr);
+        return false;
+    }
+
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInput;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.layout = roundedRectBatchPipelineLayout_;
+    pipelineInfo.renderPass = renderPass_;
+    pipelineInfo.subpass = 0;
+
+    const bool created = vkCreateGraphicsPipelines(device_,
+                                                   VK_NULL_HANDLE,
+                                                   1,
+                                                   &pipelineInfo,
+                                                   nullptr,
+                                                   &roundedRectBatchPipeline_) == VK_SUCCESS;
+    vkDestroyShaderModule(device_, fragmentShader, nullptr);
+    vkDestroyShaderModule(device_, vertexShader, nullptr);
+    if (!created) {
+        destroyRoundedRectBatchResources();
     }
     return created;
 }
@@ -525,7 +801,45 @@ bool VulkanRenderBackend::ensurePrimitiveVertexBuffer(std::size_t vertexCount) {
     return primitiveVertices_.mapped != nullptr && primitiveVertices_.used + vertexCount <= primitiveVertices_.capacity;
 }
 
+bool VulkanRenderBackend::ensureRoundedRectBatchVertexBuffer(std::size_t vertexCount) {
+    if (vertexCount == 0 || vertexCount > kRoundedRectBatchVertexCapacity) {
+        return false;
+    }
+    if (roundedRectBatchVertices_.buffer == VK_NULL_HANDLE) {
+        const VkDeviceSize size = static_cast<VkDeviceSize>(kRoundedRectBatchVertexCapacity *
+                                                            sizeof(RoundedRectBatchVertex));
+        VkBufferCreateInfo bufferInfo{};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = size;
+        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        if (vkCreateBuffer(device_, &bufferInfo, nullptr, &roundedRectBatchVertices_.buffer) != VK_SUCCESS) {
+            return false;
+        }
+
+        VkMemoryRequirements memoryRequirements{};
+        vkGetBufferMemoryRequirements(device_, roundedRectBatchVertices_.buffer, &memoryRequirements);
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memoryRequirements.size;
+        allocInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits,
+                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        if (allocInfo.memoryTypeIndex == std::numeric_limits<std::uint32_t>::max() ||
+            vkAllocateMemory(device_, &allocInfo, nullptr, &roundedRectBatchVertices_.memory) != VK_SUCCESS ||
+            vkBindBufferMemory(device_, roundedRectBatchVertices_.buffer, roundedRectBatchVertices_.memory, 0) != VK_SUCCESS ||
+            vkMapMemory(device_, roundedRectBatchVertices_.memory, 0, size, 0, &roundedRectBatchVertices_.mapped) != VK_SUCCESS) {
+            destroyRoundedRectBatchResources();
+            return false;
+        }
+        roundedRectBatchVertices_.capacity = kRoundedRectBatchVertexCapacity;
+    }
+    return roundedRectBatchVertices_.mapped != nullptr &&
+           roundedRectBatchVertices_.used + vertexCount <= roundedRectBatchVertices_.capacity;
+}
+
 void VulkanRenderBackend::destroyRoundedRectPipeline() {
+    destroyRoundedRectBatchResources();
     if (roundedRectPipeline_ != VK_NULL_HANDLE) {
         vkDestroyPipeline(device_, roundedRectPipeline_, nullptr);
         roundedRectPipeline_ = VK_NULL_HANDLE;
@@ -539,6 +853,38 @@ void VulkanRenderBackend::destroyRoundedRectPipeline() {
         vkDestroyDescriptorSetLayout(device_, roundedRectDescriptorSetLayout_, nullptr);
         roundedRectDescriptorSetLayout_ = VK_NULL_HANDLE;
     }
+}
+
+void VulkanRenderBackend::destroyRoundedRectBatchResources() {
+    roundedRectBatchStart_ = 0;
+    roundedRectBatchCount_ = 0;
+    roundedRectBatchWindowWidth_ = 0;
+    roundedRectBatchWindowHeight_ = 0;
+    if (device_ == VK_NULL_HANDLE) {
+        roundedRectBatchPipeline_ = VK_NULL_HANDLE;
+        roundedRectBatchPipelineLayout_ = VK_NULL_HANDLE;
+        roundedRectBatchVertices_ = {};
+        return;
+    }
+    if (roundedRectBatchPipeline_ != VK_NULL_HANDLE) {
+        vkDestroyPipeline(device_, roundedRectBatchPipeline_, nullptr);
+        roundedRectBatchPipeline_ = VK_NULL_HANDLE;
+    }
+    if (roundedRectBatchPipelineLayout_ != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(device_, roundedRectBatchPipelineLayout_, nullptr);
+        roundedRectBatchPipelineLayout_ = VK_NULL_HANDLE;
+    }
+    if (roundedRectBatchVertices_.mapped != nullptr && roundedRectBatchVertices_.memory != VK_NULL_HANDLE) {
+        vkUnmapMemory(device_, roundedRectBatchVertices_.memory);
+        roundedRectBatchVertices_.mapped = nullptr;
+    }
+    if (roundedRectBatchVertices_.buffer != VK_NULL_HANDLE) {
+        vkDestroyBuffer(device_, roundedRectBatchVertices_.buffer, nullptr);
+    }
+    if (roundedRectBatchVertices_.memory != VK_NULL_HANDLE) {
+        vkFreeMemory(device_, roundedRectBatchVertices_.memory, nullptr);
+    }
+    roundedRectBatchVertices_ = {};
 }
 
 void VulkanRenderBackend::destroyBackdropResources() {

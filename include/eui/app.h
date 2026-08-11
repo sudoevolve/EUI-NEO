@@ -27,6 +27,7 @@ bool showDebugStatsInTitle();
 double frameRateLimit();
 int initialWindowWidth();
 int initialWindowHeight();
+float uiScale();
 bool trayEnabled();
 const char* trayTitle();
 const char* trayIconPath();

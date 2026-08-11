@@ -1,88 +1,89 @@
-# Retained Layer Cache
+# 保留层缓存
 
-This document describes the runtime-level retained layer cache. It is a bottom-layer optimization and does not require component API changes.
+本文介绍 Runtime 层的保留层缓存。它是一项底层优化，不需要修改组件 API。
 
-## Goal
+## 目标
 
-Dirty repaint reduces the repaint area. It does not reduce the number of static primitives that must be replayed inside that area.
+脏区重绘可以缩小重绘区域，但不会减少该区域内需要重新提交的静态图元数量。
 
-The retained layer cache addresses that second cost:
-
-```text
-static subtree primitives -> offscreen layer texture
-dirty repaint -> draw cached layer texture + dynamic primitives
-```
-
-This is useful for complex pages such as Gallery, where a button hover can intersect many static cards, shadows, and text runs.
-
-## Current MVP
-
-The first implementation is intentionally conservative:
-
-- Runtime automatically selects static child subtrees.
-- Components do not opt in and do not expose a cache API.
-- OpenGL stores each retained layer as a texture-backed framebuffer.
-- Vulkan stores each retained layer as a sampled color-attachment image plus framebuffer, and composites it with premultiplied alpha.
-- Non-supporting backends safely fall back to normal primitive replay.
-- Backdrop blur and dependent visual subtrees are not cached.
-- Animated, interactive, scroll, timer, frame callback, dirty-key, image, and SVG subtrees are not cached.
-- A subtree must have enough draw cost and area before it is cached.
-- A candidate must be stable for two frames before creating a layer texture.
-
-The cache key includes structure, paint bounds, draw cost, DPI scale, and paint-affecting element properties.
-
-## Hot Path Optimization
-
-After the first MVP shipped, the runtime kept the candidate checks on the render hot path too long. That was fine for complex static pages, but it was wasteful on animation-heavy demos that mostly contain leaf primitives.
-
-The current shape is:
-
-- `layout()` / subtree rebuild caches static blocker flags on `Element`.
-- `update()` caches whether a subtree currently has active animation in `PaintBoundsInstance`.
-- `render()` only reads those cached flags and skips retained-layer probing for leaf-only children.
-
-This keeps the optimization bottom-layer only, while avoiding repeated subtree recursion during every frame.
-
-## Render Flow
+保留层缓存用于减少后一项成本：
 
 ```text
-render dirty rect
-  traverse ordered children
-    if child subtree has a valid retained layer:
-      draw layer texture clipped by dirty/scissor
-    else if child subtree is a cache candidate:
-      render child subtree into a transparent layer texture
-      render the same child normally for this frame
-      request one follow-up full paint so the next frame can use the layer/cache
-    else:
-      render child subtree normally
+静态子树图元 -> 离屏图层纹理
+脏区重绘 -> 绘制已缓存的图层纹理 + 动态图元
 ```
 
-Layer rebuild disables nested retained-layer use for that subtree. This keeps the first implementation simple and avoids nested framebuffer state surprises.
+这对 Gallery 一类复杂页面很有用，因为一次按钮 hover 可能与大量静态卡片、阴影和文本绘制段相交。
 
-A freshly rebuilt layer is not sampled in the same frame that creates it. The runtime marks the layer valid, renders the subtree through the normal primitive path for that frame, and requests one follow-up full paint. The follow-up frame lets the render cache and the retained layer become visible together from a stable state. After that, unchanged static subtrees continue to use retained-layer hits; the cache is not disabled for transition-capable static UI.
+## 当前实现
 
-## Stats
+当前实现有意采用保守策略：
 
-The window title render stats include:
+- Runtime 自动选择静态子树和相邻的稳定兄弟节点。
+- 两个及以上相邻且符合条件的兄弟节点，可以在不改变绘制顺序的前提下合并为一个保留绘制段图层。
+- 组件不需要主动启用，也不对外暴露缓存 API。
+- OpenGL 将每个保留层存储为纹理支持的 framebuffer。
+- Vulkan 将每个保留层存储为可采样的 color-attachment image 和 framebuffer，并使用预乘 alpha 合成。
+- 不支持保留层的后端会安全回退到普通图元重放。
+- Backdrop blur 和 dependent visual 子树不会被缓存。它们会切断兄弟节点绘制段，但前后的合格静态兄弟节点仍可分别形成独立绘制段。
+- 包含动画、交互、滚动、timer、frame callback、dirty key、image 或 SVG 的子树不会被缓存。
+- 子树的绘制成本和面积必须达到阈值才会进入缓存。
+- 候选内容必须连续稳定两帧，Runtime 才会创建图层纹理。
+
+缓存键包含结构、绘制边界、绘制成本、DPI scale，以及会影响绘制结果的元素属性。
+
+## 热路径优化
+
+首版 MVP 上线后，Runtime 在渲染热路径中保留候选检查的时间过长。这对复杂静态页面影响不大，但会给主要由叶子图元组成的高动画负载 demo 带来额外开销。
+
+当前流程如下：
+
+- `layout()` 或子树重建时，在 `Element` 上缓存静态阻断标记。
+- `update()` 在 `PaintBoundsInstance` 中缓存子树当前是否存在活动动画。
+- `render()` 只读取这些缓存标记，并跳过仅包含叶子节点的保留层探测。
+
+这样既能让优化保持在底层，又能避免每帧重复递归扫描子树。
+
+## 渲染流程
+
+```text
+渲染脏区
+  遍历已排序的子节点
+    收集每一段相邻且符合条件的稳定兄弟节点
+    如果绘制段至少包含两个兄弟节点，并通过合并后的成本/面积检查：
+      使用或创建一个保留绘制段图层
+    否则逐个处理子节点：
+      如果子树已有有效保留层：
+        在 dirty/scissor 裁剪下绘制图层纹理
+      否则，如果子树是缓存候选：
+        创建保留层，并在本帧正常绘制该子树
+      否则：
+        正常绘制子树
+```
+
+创建单个子树图层或兄弟节点绘制段图层时，都会在该次创建过程中禁用嵌套保留层复用，避免出现意外的嵌套 framebuffer 状态。
+
+新建或重建的图层不会在创建它的同一帧中被采样。Runtime 会先将图层标记为有效，让子树或兄弟节点绘制段在本帧继续走普通图元路径，并请求下一帧完整绘制。后续帧会从稳定状态同时接管 render cache 和保留层；此后，未变化的静态内容会继续命中保留层缓存，带 transition 能力的静态 UI 也不会因此永久禁用缓存。
+
+## 统计字段
+
+窗口标题中的渲染统计包含：
 
 ```text
 Layer H/M/D/Re
 ```
 
-- `H`: retained layer cache hits.
-- `M`: cache misses or unstable candidates.
-- `D`: layer texture draws.
-- `Re`: layer texture rebuilds.
+- `H`：保留层缓存命中次数。
+- `M`：缓存未命中或候选内容不稳定的次数。
+- `D`：图层纹理绘制次数。
+- `Re`：图层纹理重建次数。
 
-Healthy button interaction on a complex static page should trend toward high `H`, low `Re`, and lower primitive draw counts.
+复杂静态页面上的正常按钮交互，应表现为较高的 `H`、较低的 `Re`，以及更少的图元绘制次数。
 
-## Known Limits
+## 当前限制
 
-- The MVP caches individual static child subtrees, not merged sibling paint runs yet.
-- It currently avoids inherited active transforms for correctness.
-- It does not cache backdrop blur because blur samples existing framebuffer content.
-- It is not a full retained scene graph or batch renderer.
-- Vulkan keeps retained layer textures alive across swapchain rebuilds when possible, while recreating render-pass-dependent framebuffers lazily.
-
-The next step is to merge adjacent static sibling subtrees into paint runs so several static islands can become one layer draw.
+- 兄弟节点绘制段只合并相邻且符合条件的子节点；阻断节点会切开绘制段，Runtime 不会跨过它们重新排序或合并。
+- 为保证正确性，当前不会缓存继承了活动 transform 的内容。
+- Backdrop blur 需要采样已有 framebuffer 内容，因此不会进入缓存。
+- 它不是完整的 retained scene graph。`Rect` 批处理是独立的后端优化，并非由该缓存提供的跨图元通用 batch renderer。
+- Vulkan 会尽可能在 swapchain 重建期间保留图层纹理，并延迟重建依赖 render pass 的 framebuffer。

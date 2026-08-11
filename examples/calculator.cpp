@@ -865,8 +865,14 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                     const float toolSize = std::clamp(button * 0.52f, 34.0f, 44.0f);
                     const float exprY = advancedMode ? std::max(50.0f, headerH - 102.0f) : std::max(58.0f, headerH - 136.0f);
                     const float exprH = advancedMode ? 36.0f : 48.0f;
-                    const float resultY = advancedMode ? std::max(exprY + 32.0f, headerH - 62.0f) : std::max(106.0f, headerH - 78.0f);
-                    const float resultH = advancedMode ? std::max(54.0f, std::min(82.0f, gridY - resultY - 4.0f)) : 100.0f;
+                    const float resultY = advancedMode ? std::max(exprY + exprH + 6.0f, headerH - 62.0f)
+                                                       : std::max(106.0f, headerH - 78.0f);
+                    const float displayKeyGap = advancedMode ? 12.0f : 22.0f;
+                    const float desiredResultH = advancedMode ? 82.0f : 92.0f;
+                    const float resultH = std::max(16.0f,
+                        std::min(desiredResultH, gridY - resultY - displayKeyGap));
+                    const float resultFontFloor = advancedMode ? 52.0f : 72.0f;
+                    const float resultFontLimit = std::max(resultFontFloor, resultH * 1.50f);
                     roundToolButton(ui, "tool.undo", "",
                                     w - toolSize * 2.0f - 12.0f, 14.0f, toolSize, !history.empty(), [] {
                                         undo();
@@ -901,7 +907,9 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                         .y(resultY)
                         .size(w - 32.0f, resultH)
                         .text(shown)
-                        .fontSize(std::min(displayFont(w - 32.0f, shown), advancedMode ? 72.0f : 96.0f))
+                        .fontSize(std::min({displayFont(w - 32.0f, shown),
+                                            advancedMode ? 72.0f : 96.0f,
+                                            resultFontLimit}))
                         .lineHeight(resultH)
                         .color(eui::Color{1.0f, 1.0f, 1.0f, 1.0f})
                         .horizontalAlign(eui::HorizontalAlign::Right)

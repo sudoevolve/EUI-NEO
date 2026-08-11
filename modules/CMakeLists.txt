@@ -5,7 +5,6 @@
 
 set(EUI_NEO_KNOWN_MODULES
     keyboard
-    media
     serial
 )
 

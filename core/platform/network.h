@@ -21,6 +21,7 @@ bool downloadUrlToString(const std::string& url, std::string& output, const asyn
 
 void requestText(const std::string& key, const std::string& url);
 TextResult textResult(const std::string& key);
+TextResult consumeTextResult(const std::string& key);
 void shutdown();
 
 } // namespace core::network

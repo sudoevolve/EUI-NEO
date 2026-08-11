@@ -138,7 +138,7 @@ private:
     std::function<void(int)> onChange_;
     int selected_ = 0;
     float width_ = 300.0f;
-    float height_ = 36.0f;
+    float height_ = 38.0f;
     float fontSize_ = 0.0f;
     float radius_ = 0.0f;
 };

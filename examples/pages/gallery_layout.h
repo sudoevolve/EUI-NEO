@@ -572,7 +572,7 @@ struct GalleryLayoutPage {
     }
 
     void compose(eui::Ui& ui, float width, float) {
-        const float gap = optionDense ? 14.0f : 18.0f;
+        const float gap = 18.0f;
         const bool twoColumns = width >= 820.0f;
         const float cardWidth = twoColumns ? std::max(320.0f, (width - gap) * 0.5f) : std::max(300.0f, width);
         const float responsiveHeight = cardWidth - 36.0f < 360.0f ? 286.0f : 196.0f;

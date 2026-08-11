@@ -3,7 +3,7 @@
 namespace core::dsl {
 
 inline std::string Runtime::capturedInteractionId() const {
-    for (const auto& item : interactions_) {
+    for (const auto& item : instances_.interactions) {
         if (item.second.state.active && ui_.find(item.first) && !isElementInDisabledTree(item.first)) {
             return item.first;
         }
@@ -18,7 +18,7 @@ inline bool Runtime::isElementInDisabledTree(const std::string& id) const {
 
     bool disabledTree = false;
     const std::string resolvedId = ui_.resolveId(id);
-    const std::vector<const Element*>& roots = orderedElements(ui_);
+    const std::vector<const Element*>& roots = ui_.orderedRoots();
     for (const Element* root : roots) {
         if (findElementDisabledState(*root, resolvedId, false, disabledTree)) {
             return disabledTree;
@@ -55,7 +55,7 @@ inline std::string Runtime::hitTestInteractive(const PointerEvent& event, float 
 inline std::string Runtime::hitTestFocusable(const PointerEvent& event, float dpiScale) const {
     std::string targetId;
     const RenderTransform identity;
-    const std::vector<const Element*>& roots = orderedElements(ui_);
+    const std::vector<const Element*>& roots = ui_.orderedRoots();
     for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
         if (hitTestFocusableElement(**it, event, dpiScale, identity, false, {}, false, targetId)) {
             break;
@@ -115,7 +115,7 @@ template <typename Predicate>
 inline std::string Runtime::hitTest(const PointerEvent& event, float dpiScale, Predicate&& predicate) const {
     std::string targetId;
     const RenderTransform identity;
-    const std::vector<const Element*>& roots = orderedElements(ui_);
+    const std::vector<const Element*>& roots = ui_.orderedRoots();
     for (auto it = roots.rbegin(); it != roots.rend(); ++it) {
         if (hitTestElement(**it, event, dpiScale, identity, predicate, false, {}, false, targetId)) {
             break;
@@ -136,7 +136,7 @@ inline bool Runtime::hitTestElement(
     bool ancestorDisabled,
     std::string& targetId) const {
     const bool disabledTree = ancestorDisabled || element.disabled;
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     Rect effectiveClip = clipRect;
     bool effectiveHasClip = hasClip;
     const Rect bounds = toPixelRect(element.frame, dpiScale);
@@ -156,7 +156,7 @@ inline bool Runtime::hitTestElement(
         return false;
     }
 
-    const std::vector<const Element*>& children = orderedElements(element);
+    const std::vector<const Element*>& children = element.orderedChildren;
     for (auto it = children.rbegin(); it != children.rend(); ++it) {
         if (hitTestElement(**it, event, dpiScale, renderTransform, predicate, effectiveHasClip, effectiveClip, disabledTree, targetId)) {
             return true;
@@ -180,7 +180,7 @@ inline bool Runtime::hitTestFocusableElement(
     bool ancestorDisabled,
     std::string& targetId) const {
     const bool disabledTree = ancestorDisabled || element.disabled;
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     Rect effectiveClip = clipRect;
     bool effectiveHasClip = hasClip;
     const Rect bounds = toPixelRect(element.frame, dpiScale);
@@ -200,7 +200,7 @@ inline bool Runtime::hitTestFocusableElement(
         return false;
     }
 
-    const std::vector<const Element*>& children = orderedElements(element);
+    const std::vector<const Element*>& children = element.orderedChildren;
     for (auto it = children.rbegin(); it != children.rend(); ++it) {
         if (hitTestFocusableElement(**it, event, dpiScale, renderTransform, effectiveHasClip, effectiveClip, disabledTree, targetId)) {
             return true;
@@ -257,7 +257,7 @@ inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& t
     const std::string activeScrollStateId = element != nullptr && !element->disabled
         ? element->scrollStateId
         : std::string{};
-    for (auto& entry : scrollStates_) {
+    for (auto& entry : instances_.scrollStates) {
         if (entry.first != activeScrollStateId) {
             entry.second.velocity = 0.0f;
         }
@@ -352,13 +352,13 @@ inline void Runtime::updateInteraction(
     float dpiScale,
     const std::string& hoverTargetId,
     const RenderTransform& inheritedTransform) {
-    if (!element.interactive && interactions_.find(element.id) == interactions_.end()) {
+    if (!element.interactive && instances_.interactions.find(element.id) == instances_.interactions.end()) {
         return;
     }
 
-    runtime::InteractionInstance& instance = interactionInstance(element.id);
+    runtime::InteractionInstance& instance = instances_.interaction(element.id);
     const Rect bounds = toPixelRect(element.frame, dpiScale);
-    const RenderTransform renderTransform = resolveRenderTransform(element, dpiScale, inheritedTransform);
+    const RenderTransform renderTransform = instances_.renderTransform(element, dpiScale, inheritedTransform);
     const bool enabled = element.interactive && !element.disabled;
     const bool topmostHover = enabled && element.id == hoverTargetId;
     const bool wasHover = instance.state.hover;
@@ -443,7 +443,7 @@ inline void Runtime::updateInteraction(
     }
 
     if (enabled && instance.state.released && !element.sliderInputSourceId.empty()) {
-        if (auto state = sliderStates_.find(element.sliderInputSourceId); state != sliderStates_.end()) {
+        if (auto state = instances_.sliderStates.find(element.sliderInputSourceId); state != instances_.sliderStates.end()) {
             state->second.dragging = false;
         }
         composeRequested_ = true;
@@ -480,30 +480,35 @@ inline void Runtime::updateInteraction(
 
 inline Transform Runtime::currentElementTransform(const Element& element) const {
     if (element.kind == ElementKind::Rect) {
-        const auto instance = rects_.find(element.id);
-        if (instance != rects_.end()) {
+        const auto instance = instances_.rects.find(element.id);
+        if (instance != instances_.rects.end()) {
             return instance->second.transform.value();
         }
     } else if (element.kind == ElementKind::Polygon) {
-        const auto instance = polygons_.find(element.id);
-        if (instance != polygons_.end()) {
+        const auto instance = instances_.polygons.find(element.id);
+        if (instance != instances_.polygons.end()) {
             return instance->second.transform.value();
         }
     } else if (element.kind == ElementKind::Text) {
-        const auto instance = texts_.find(element.id);
-        if (instance != texts_.end()) {
+        const auto instance = instances_.texts.find(element.id);
+        if (instance != instances_.texts.end()) {
             return instance->second.transform.value();
         }
     } else if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
-        const auto instance = images_.find(element.id);
-        if (instance != images_.end()) {
+        const auto instance = instances_.images.find(element.id);
+        if (instance != instances_.images.end()) {
+            return instance->second.transform.value();
+        }
+    } else if (element.kind == ElementKind::Shadertoy) {
+        const auto instance = instances_.shaderToys.find(element.id);
+        if (instance != instances_.shaderToys.end()) {
             return instance->second.transform.value();
         }
     } else if (element.kind == ElementKind::Row ||
                element.kind == ElementKind::Column ||
                element.kind == ElementKind::Stack) {
-        const auto instance = layouts_.find(element.id);
-        if (instance != layouts_.end()) {
+        const auto instance = instances_.layouts.find(element.id);
+        if (instance != instances_.layouts.end()) {
             return instance->second.transform.value();
         }
     }
@@ -514,7 +519,8 @@ inline TransformMatrix Runtime::hitMatrixForElement(const Element& element, floa
     if (element.kind == ElementKind::Rect ||
         element.kind == ElementKind::Polygon ||
         element.kind == ElementKind::Text ||
-        element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
+        element.kind == ElementKind::Image || element.kind == ElementKind::Svg ||
+        element.kind == ElementKind::Shadertoy) {
         return combinedPrimitiveMatrix(renderTransform, bounds, scaleTransform(currentElementTransform(element), dpiScale));
     }
     return renderTransform.matrix;

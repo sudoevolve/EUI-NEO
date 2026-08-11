@@ -80,6 +80,7 @@ public:
                                           const std::string& fontFamily = {},
                                           float fontSize = 16.0f,
                                           int fontWeight = 400);
+    static Vec2 measureTextSize(const TextStyle& style);
     static void setDefaultFontFiles(const std::string& textFontFile, const std::string& iconFontFile);
 
     void prepare();

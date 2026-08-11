@@ -35,7 +35,7 @@
           <div class="hero-copy">
             <p class="eyebrow" data-i18n="hero.eyebrow">C++17 · OpenGL / Vulkan · GLFW / SDL2</p>
             <h1 data-i18n="hero.title">EUI-NEO</h1>
-            <p class="hero-lede" data-i18n="hero.lede">一个面向高性能桌面工具、仪表盘和组件系统的轻量级 UI 框架。</p>
+            <p class="hero-lede" data-i18n="hero.lede">一个基于 C++17、支持 GLFW/SDL2 和 OpenGL/Vulkan 的跨平台高性能轻量级 UI 框架。</p>
             <div class="hero-actions">
               <a class="primary-action" href="#docs" data-i18n="hero.docs">查阅文档</a>
               <a class="secondary-action" href="https://github.com/sudoevolve/EUI-NEO" data-i18n="hero.github">GitHub</a>
@@ -67,7 +67,7 @@
             <span data-i18n="stats.render">渲染后端</span>
           </div>
           <div>
-            <strong>20+</strong>
+            <strong>30+</strong>
             <span data-i18n="stats.components">组件</span>
           </div>
         </div>
@@ -171,37 +171,38 @@
           <span class="section-index">05 / BUILD</span>
           <p class="eyebrow" data-i18n="start.eyebrow">Quick Start</p>
           <h2 data-i18n="start.title">把 EUI-NEO 接入你的 CMake 项目</h2>
+          <p data-i18n="start.lede">只需一个应用源文件；框架负责入口、链接选项和运行资源。</p>
         </div>
-        <div class="code-grid">
-          <article class="code-step">
+        <div class="start-steps">
+          <article class="start-step">
             <span>01</span>
-            <h3 data-i18n="start.cmake">CMake 引入</h3>
+            <h3 data-i18n="start.cmake">配置目标</h3>
             <pre><code>add_subdirectory(external/EUI-NEO)
 
-add_executable(my_app
-    external/EUI-NEO/core/app/glfw_app_main.cpp
-    app.cpp
-)
+add_executable(my_app app.cpp)
 eui_neo_configure_app(my_app)</code></pre>
           </article>
-          <article class="code-step">
+          <article class="start-step">
             <span>02</span>
-            <h3 data-i18n="start.app">实现入口</h3>
+            <h3 data-i18n="start.app">实现应用</h3>
             <pre><code>#include "eui_neo.h"
 
 namespace app {
 const DslAppConfig& dslAppConfig();
-
-void compose(eui::Ui& ui, const eui::Screen& screen);
+void compose(eui::Ui&, const eui::Screen&);
 }</code></pre>
           </article>
-          <article class="code-step">
+          <article class="start-step">
             <span>03</span>
             <h3 data-i18n="start.build">构建运行</h3>
-            <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+            <pre><code>cmake -S . -B build
 cmake --build build --parallel
 ./build/my_app</code></pre>
           </article>
+        </div>
+        <div class="start-links">
+          <a class="primary-action" id="quickStartLink" href="../README.zh-CN.md#快速开始" data-i18n="start.readme">Quick Start</a>
+          <a class="secondary-action" href="../docs/集成指南.md" data-i18n="start.guide">安装与进阶接入</a>
         </div>
       </section>
     </main>

@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <string>
+#include <vector>
 
 namespace core {
 
@@ -25,45 +26,6 @@ struct PointerEvent {
     bool rightReleasedThisFrame = false;
 };
 
-struct KeyboardEvent {
-    std::string text;
-    std::string pasteText;
-    std::string compositionText;
-    bool backspace = false;
-    bool del = false;
-    bool enter = false;
-    bool left = false;
-    bool right = false;
-    bool up = false;
-    bool down = false;
-    bool home = false;
-    bool end = false;
-    bool selectAll = false;
-    bool copy = false;
-    bool cut = false;
-    bool undo = false;
-    bool redo = false;
-    bool shift = false;
-    bool escape = false;
-    bool composing = false;
-    bool compositionChanged = false;
-
-    bool hasInput() const {
-        return !text.empty() || !pasteText.empty() || compositionChanged || composing || !compositionText.empty() || backspace || del || enter ||
-               left || right || up || down || home || end || selectAll || copy || cut ||
-               undo || redo || escape;
-    }
-};
-
-struct ScrollEvent {
-    double x = 0.0;
-    double y = 0.0;
-
-    bool active() const {
-        return x != 0.0 || y != 0.0;
-    }
-};
-
 enum class InputKey {
     Backspace,
     Delete,
@@ -81,6 +43,85 @@ enum class InputKey {
     X,
     Y,
     Z
+};
+
+enum class KeyAction {
+    Press,
+    Repeat
+};
+
+struct KeyModifiers {
+    bool shortcut = false;
+    bool shift = false;
+};
+
+struct KeyEvent {
+    InputKey key = InputKey::Enter;
+    KeyAction action = KeyAction::Press;
+    KeyModifiers modifiers;
+};
+
+struct KeyboardEvent {
+    std::string text;
+    std::string pasteText;
+    std::string compositionText;
+    std::vector<KeyEvent> keys;
+    bool composing = false;
+    bool compositionChanged = false;
+
+    const KeyEvent* findKey(InputKey key) const {
+        for (const KeyEvent& event : keys) {
+            if (event.key == key) {
+                return &event;
+            }
+        }
+        return nullptr;
+    }
+
+    bool hasKey(InputKey key) const {
+        return findKey(key) != nullptr;
+    }
+
+    bool hasShortcut(InputKey key) const {
+        for (const KeyEvent& event : keys) {
+            if (event.key == key && event.modifiers.shortcut) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool hasUnshiftedShortcut(InputKey key) const {
+        for (const KeyEvent& event : keys) {
+            if (event.key == key && event.modifiers.shortcut && !event.modifiers.shift) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool hasShiftedShortcut(InputKey key) const {
+        for (const KeyEvent& event : keys) {
+            if (event.key == key && event.modifiers.shortcut && event.modifiers.shift) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool hasInput() const {
+        return !text.empty() || !pasteText.empty() || compositionChanged || composing ||
+               !compositionText.empty() || !keys.empty();
+    }
+};
+
+struct ScrollEvent {
+    double x = 0.0;
+    double y = 0.0;
+
+    bool active() const {
+        return x != 0.0 || y != 0.0;
+    }
 };
 
 struct InteractionState {

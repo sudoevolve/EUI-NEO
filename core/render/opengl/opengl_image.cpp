@@ -36,6 +36,7 @@ GLuint textureIdFromHandle(RenderBackend::TextureHandle handle) {
 } // namespace
 
 OpenGLRenderBackend::LayerHandle OpenGLRenderBackend::createLayer(int width, int height) {
+    flushRoundedRectBatch();
     if (width <= 0 || height <= 0) {
         return nullptr;
     }
@@ -48,6 +49,7 @@ OpenGLRenderBackend::LayerHandle OpenGLRenderBackend::createLayer(int width, int
 }
 
 bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height) {
+    flushRoundedRectBatch();
     auto* resource = static_cast<LayerTextureResource*>(handle);
     if (resource == nullptr || width <= 0 || height <= 0) {
         return false;
@@ -56,6 +58,11 @@ bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height)
         resource->width == width && resource->height == height) {
         return true;
     }
+
+    GLint previousFramebuffer = 0;
+    GLint previousTexture = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFramebuffer);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
     if (resource->texture != 0) {
         glDeleteTextures(1, &resource->texture);
         resource->texture = 0;
@@ -67,6 +74,8 @@ bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height)
 
     glGenTextures(1, &resource->texture);
     if (resource->texture == 0) {
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(std::max(0, previousFramebuffer)));
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(std::max(0, previousTexture)));
         resetStateCache();
         return false;
     }
@@ -81,8 +90,8 @@ bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height)
     glBindFramebuffer(GL_FRAMEBUFFER, resource->framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resource->texture, 0);
     const bool complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(std::max(0, previousFramebuffer)));
+    glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(std::max(0, previousTexture)));
     resetStateCache();
 
     if (!complete) {
@@ -103,6 +112,7 @@ bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height)
 }
 
 void OpenGLRenderBackend::destroyLayer(LayerHandle handle) {
+    flushRoundedRectBatch();
     auto* resource = static_cast<LayerTextureResource*>(handle);
     if (resource == nullptr) {
         return;
@@ -120,12 +130,16 @@ void OpenGLRenderBackend::destroyLayer(LayerHandle handle) {
 }
 
 bool OpenGLRenderBackend::beginLayerFrame(LayerHandle handle, int width, int height) {
+    flushRoundedRectBatch();
     auto* resource = static_cast<LayerTextureResource*>(handle);
-    if (resource == nullptr || !resizeLayer(resource, width, height)) {
+    if (resource == nullptr) {
         return false;
     }
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &layerPreviousFramebuffer_);
     glGetIntegerv(GL_VIEWPORT, layerPreviousViewport_);
+    if (!resizeLayer(resource, width, height)) {
+        return false;
+    }
     layerFrameActive_ = true;
     glBindFramebuffer(GL_FRAMEBUFFER, resource->framebuffer);
     glViewport(0, 0, width, height);
@@ -134,6 +148,7 @@ bool OpenGLRenderBackend::beginLayerFrame(LayerHandle handle, int width, int hei
 }
 
 void OpenGLRenderBackend::endLayerFrame() {
+    flushRoundedRectBatch();
     if (layerFrameActive_) {
         glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(std::max(0, layerPreviousFramebuffer_)));
         glViewport(layerPreviousViewport_[0],
@@ -155,6 +170,7 @@ OpenGLRenderBackend::TextureHandle OpenGLRenderBackend::layerTexture(LayerHandle
 OpenGLRenderBackend::TextureHandle OpenGLRenderBackend::createTexture(const unsigned char* pixels,
                                                                       int width,
                                                                       int height) {
+    flushRoundedRectBatch();
     if (pixels == nullptr || width <= 0 || height <= 0) {
         return nullptr;
     }
@@ -181,6 +197,7 @@ OpenGLRenderBackend::TextureHandle OpenGLRenderBackend::createTexture(const unsi
 }
 
 bool OpenGLRenderBackend::updateTexture(TextureHandle handle, const unsigned char* pixels, int width, int height) {
+    flushRoundedRectBatch();
     auto* resource = static_cast<ImageTextureResource*>(handle);
     if (resource == nullptr || resource->texture == 0 || pixels == nullptr || width <= 0 || height <= 0) {
         return false;
@@ -201,6 +218,7 @@ bool OpenGLRenderBackend::updateTexture(TextureHandle handle, const unsigned cha
 }
 
 void OpenGLRenderBackend::destroyTexture(TextureHandle handle) {
+    flushRoundedRectBatch();
     auto* resource = static_cast<ImageTextureResource*>(handle);
     if (resource == nullptr) {
         return;
@@ -219,6 +237,7 @@ void OpenGLRenderBackend::drawTexture(TextureHandle handle,
                                       const core::Color& tint,
                                       const core::Rect& rect,
                                       float radius,
+                                      float blur,
                                       int windowWidth,
                                       int windowHeight) {
     const GLuint texture = textureIdFromHandle(handle);
@@ -226,6 +245,7 @@ void OpenGLRenderBackend::drawTexture(TextureHandle handle,
         tint.a <= 0.001f || windowWidth <= 0 || windowHeight <= 0) {
         return;
     }
+    flushRoundedRectBatch();
     if (!ensureImageResources()) {
         return;
     }
@@ -238,6 +258,7 @@ void OpenGLRenderBackend::drawTexture(TextureHandle handle,
     glUniform4f(imageTintLocation_, tint.r, tint.g, tint.b, tint.a);
     glUniform4f(imageRectLocation_, rect.x, rect.y, rect.width, rect.height);
     glUniform1f(imageRadiusLocation_, radius);
+    glUniform1f(imageBlurLocation_, blur);
     glUniform1i(imageTextureLocation_, 0);
 
     bindVertexArray(imageVao_);
@@ -259,6 +280,7 @@ void OpenGLRenderBackend::drawLayerTexture(TextureHandle handle,
         windowWidth <= 0 || windowHeight <= 0) {
         return;
     }
+    flushRoundedRectBatch();
     if (!ensureImageResources()) {
         return;
     }
@@ -271,6 +293,7 @@ void OpenGLRenderBackend::drawLayerTexture(TextureHandle handle,
     glUniform4f(imageTintLocation_, 1.0f, 1.0f, 1.0f, 1.0f);
     glUniform4f(imageRectLocation_, rect.x, rect.y, rect.width, rect.height);
     glUniform1f(imageRadiusLocation_, 0.0f);
+    glUniform1f(imageBlurLocation_, 0.0f);
     glUniform1i(imageTextureLocation_, 0);
 
     bindVertexArray(imageVao_);
@@ -311,6 +334,7 @@ bool OpenGLRenderBackend::ensureImageResources() {
         "uniform vec4 uTint;\n"
         "uniform vec4 uRect;\n"
         "uniform float uRadius;\n"
+        "uniform float uBlur;\n"
         "float roundedBoxDistance(vec2 point, vec2 halfSize, float radius) {\n"
         "    vec2 cornerVector = abs(point) - halfSize + vec2(radius);\n"
         "    return length(max(cornerVector, 0.0)) + min(max(cornerVector.x, cornerVector.y), 0.0) - radius;\n"
@@ -322,6 +346,20 @@ bool OpenGLRenderBackend::ensureImageResources() {
         "    float shapeAlpha = 1.0 - smoothstep(-edgeWidth, edgeWidth, distanceToEdge);\n"
         "    if (shapeAlpha <= 0.0) discard;\n"
         "    vec4 sampled = texture(uTexture, vUV);\n"
+        "    if (uBlur > 0.01) {\n"
+        "        vec2 pixelStep = max(fwidth(vUV), 1.0 / vec2(textureSize(uTexture, 0)));\n"
+        "        vec2 blurStep = pixelStep * uBlur * 0.5;\n"
+        "        sampled *= 4.0;\n"
+        "        sampled += texture(uTexture, clamp(vUV + vec2( blurStep.x, 0.0), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += texture(uTexture, clamp(vUV + vec2(-blurStep.x, 0.0), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += texture(uTexture, clamp(vUV + vec2(0.0,  blurStep.y), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += texture(uTexture, clamp(vUV + vec2(0.0, -blurStep.y), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += texture(uTexture, clamp(vUV + blurStep, 0.0, 1.0));\n"
+        "        sampled += texture(uTexture, clamp(vUV - blurStep, 0.0, 1.0));\n"
+        "        sampled += texture(uTexture, clamp(vUV + vec2( blurStep.x, -blurStep.y), 0.0, 1.0));\n"
+        "        sampled += texture(uTexture, clamp(vUV + vec2(-blurStep.x,  blurStep.y), 0.0, 1.0));\n"
+        "        sampled /= 16.0;\n"
+        "    }\n"
         "    FragColor = vec4(sampled.rgb * uTint.rgb, sampled.a * uTint.a * shapeAlpha);\n"
         "}\n";
 
@@ -356,6 +394,7 @@ bool OpenGLRenderBackend::ensureImageResources() {
     imageTintLocation_ = glGetUniformLocation(imageShaderProgram_, "uTint");
     imageRectLocation_ = glGetUniformLocation(imageShaderProgram_, "uRect");
     imageRadiusLocation_ = glGetUniformLocation(imageShaderProgram_, "uRadius");
+    imageBlurLocation_ = glGetUniformLocation(imageShaderProgram_, "uBlur");
 
     glGenVertexArrays(1, &imageVao_);
     glGenBuffers(1, &imageVbo_);
@@ -390,6 +429,7 @@ unsigned int OpenGLRenderBackend::compileImageShader(unsigned int type, const ch
 }
 
 void OpenGLRenderBackend::releaseImageResources() {
+    flushRoundedRectBatch();
     if (imageVbo_ != 0) {
         glDeleteBuffers(1, &imageVbo_);
         imageVbo_ = 0;
@@ -407,6 +447,7 @@ void OpenGLRenderBackend::releaseImageResources() {
     imageTintLocation_ = -1;
     imageRectLocation_ = -1;
     imageRadiusLocation_ = -1;
+    imageBlurLocation_ = -1;
     resetStateCache();
 }
 

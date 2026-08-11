@@ -1,13 +1,8 @@
 #pragma once
 
-#include <string>
+#include "core/dsl.h"
 
-namespace core::dsl {
-class Ui;
-struct Screen;
-enum class HitTestMode;
-enum class LoaderMode;
-} // namespace core::dsl
+#include <string>
 
 namespace eui {
 

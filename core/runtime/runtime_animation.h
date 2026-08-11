@@ -47,10 +47,10 @@ inline bool isImageAnimating(const runtime::ImageInstance& instance) {
     return instance.frame.isActive() ||
            instance.tint.isActive() ||
            instance.radius.isActive() ||
+           instance.blur.isActive() ||
            instance.opacity.isActive() ||
            instance.transform.isActive() ||
-           instance.primitive->isAnimating() ||
-           instance.primitive->hasPendingLoad();
+           instance.primitive->isAnimating();
 }
 
 inline bool isLayoutAnimating(const runtime::LayoutInstance& instance) {

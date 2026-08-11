@@ -15,10 +15,13 @@ int main() {
     app::DslAppConfig config = app::DslAppConfig{}
         .title(title)
         .pageId(pageId)
+        .uiScale(1.25f)
         .iconPath(iconPath)
         .fonts(textFont, iconFont)
         .trayTitle(trayTitle)
         .trayIcon(trayIcon);
+
+    assert(config.uiScaleValue == 1.25f);
 
     title.clear();
     pageId.clear();
@@ -51,5 +54,7 @@ int main() {
     assert(config.iconFontFileValue == "fonts/temporary-icons.ttf");
     assert(config.trayTitleValue == "Temporary tray title");
     assert(config.trayIconPathValue == "icons/temporary-tray.png");
+    config.uiScale(0.0f);
+    assert(config.uiScaleValue == 1.0f);
     return 0;
 }

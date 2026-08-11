@@ -607,6 +607,34 @@ bool repairCurrentWorkingDirectory() {
 #endif
 }
 
+std::string resolveResourcePath(const std::string& path) {
+    namespace fs = std::filesystem;
+    if (path.empty()) {
+        return {};
+    }
+
+    const fs::path requested = fs::u8path(path);
+    std::vector<fs::path> candidates{requested};
+    if (requested.is_relative()) {
+        const fs::path executableDir = executableDirectory();
+        if (!executableDir.empty()) {
+            candidates.push_back(executableDir / requested);
+        }
+    }
+
+    std::error_code error;
+    for (const fs::path& candidate : candidates) {
+        error.clear();
+        if (!fs::exists(candidate, error) || error) {
+            continue;
+        }
+        error.clear();
+        const fs::path absolute = fs::absolute(candidate, error);
+        return (error ? candidate : absolute).u8string();
+    }
+    return {};
+}
+
 bool openUrl(const std::string& url) {
     if (url.empty()) {
         return false;
