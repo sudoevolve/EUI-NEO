@@ -1,11 +1,15 @@
 package com.sudoevolve.euineo;
 
-import android.os.Bundle;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowInsets;
 
 import org.libsdl.app.SDLActivity;
 
@@ -33,6 +37,61 @@ public class MainActivity extends SDLActivity {
     protected void onCreate(Bundle savedInstanceState) {
         copyBundledAssets();
         super.onCreate(savedInstanceState);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            getWindow().getDecorView().post(this::configureEdgeToEdgeLayout);
+        }
+    }
+
+    private void configureEdgeToEdgeLayout() {
+        Window window = getWindow();
+        Api30.configureEdgeToEdge(window);
+
+        View content = SDLActivity.getContentView();
+        if (content == null) {
+            return;
+        }
+        content.setBackgroundColor(Color.rgb(26, 26, 31));
+        content.setOnApplyWindowInsetsListener((view, windowInsets) -> {
+            int[] insets = Api30.contentInsets(windowInsets);
+            int left = insets[0];
+            int top = insets[1];
+            int right = insets[2];
+            int bottom = insets[3];
+            if (view.getPaddingLeft() != left || view.getPaddingTop() != top ||
+                    view.getPaddingRight() != right || view.getPaddingBottom() != bottom) {
+                view.setPadding(left, top, right, bottom);
+            }
+            return windowInsets;
+        });
+        content.requestApplyInsets();
+    }
+
+    @android.annotation.TargetApi(Build.VERSION_CODES.R)
+    private static final class Api30 {
+        private Api30() {
+        }
+
+        static void configureEdgeToEdge(Window window) {
+            window.setDecorFitsSystemWindows(false);
+            android.view.WindowInsetsController controller = window.getInsetsController();
+            if (controller != null) {
+                controller.setSystemBarsAppearance(
+                        0,
+                        android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS |
+                                android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+            }
+        }
+
+        static int[] contentInsets(WindowInsets windowInsets) {
+            android.graphics.Insets systemBars =
+                    windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars());
+            return new int[] {
+                    systemBars.left,
+                    systemBars.top,
+                    systemBars.right,
+                    systemBars.bottom
+            };
+        }
     }
 
     private void copyBundledAssets() {

@@ -22,8 +22,10 @@ struct GalleryAboutPage {
     const bool compact = contentWidth < 620.0f;
     const float logoSize = compact ? 112.0f : 126.0f;
     const float buttonGap = compact ? 16.0f : 14.0f;
+    const float actionPadding = compact ? 20.0f : 0.0f;
+    const float actionWidth = std::max(0.0f, contentWidth - actionPadding * 2.0f);
     const float buttonWidth = compact
-        ? std::max(124.0f, std::min(180.0f, (contentWidth - buttonGap) * 0.5f))
+        ? std::max(104.0f, std::min(180.0f, (actionWidth - buttonGap) * 0.5f))
         : 162.0f;
     const float buttonRowWidth = buttonWidth * 2.0f + buttonGap;
     const float heroHeight = compact ? 342.0f : 238.0f;

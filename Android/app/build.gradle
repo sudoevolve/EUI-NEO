@@ -90,8 +90,8 @@ android {
         applicationId "com.sudoevolve.euineo"
         minSdk 26
         targetSdk 36
-        versionCode 50101
-        versionName "0.5.1.1"
+        versionCode 50600
+        versionName "0.5.6"
 
         externalNativeBuild {
             cmake {

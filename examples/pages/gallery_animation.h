@@ -19,9 +19,10 @@ struct GalleryAnimationPage {
     const float actorBaseX = 46.0f;
     const float actorBaseY = 50.0f;
     const float actorTravel = std::max(0.0f, stageWidth - actorWidth * actorScale - 180.0f - actorBaseX);
-    const int buttonColumns = stageWidth < 360.0f ? 2 : 3;
-    const float buttonGap = 18.0f;
-    const float buttonWidth = std::max(92.0f, std::min(166.0f, (stageWidth - buttonGap * static_cast<float>(buttonColumns - 1)) / static_cast<float>(buttonColumns)));
+    constexpr int buttonColumns = 3;
+    const float buttonGap = stageWidth < 360.0f ? 8.0f : 18.0f;
+    const float buttonWidth = std::max(72.0f, std::min(166.0f, (stageWidth - buttonGap * static_cast<float>(buttonColumns - 1)) / static_cast<float>(buttonColumns)));
+    const float buttonFontSize = stageWidth < 360.0f ? 12.0f : 18.0f;
     const eui::Color rotateColor{0.84f, 0.46f, 0.60f, 1.0f};
     const eui::Color fadeColor{0.50f, 0.72f, 0.34f, 1.0f};
     const eui::Color scaleColor{0.92f, 0.62f, 0.26f, 1.0f};
@@ -35,6 +36,7 @@ struct GalleryAnimationPage {
     auto matrixButton = [&](const std::string& id, const char* label, bool active, const eui::Color& color, const std::function<void()>& onClick) {
         components::button(ui, id)
             .size(buttonWidth, 50.0f)
+            .fontSize(buttonFontSize)
             .text(label)
             .colors(active ? color : surfaceSoft(),
                     buttonHover(active ? color : surfaceSoft()),
@@ -48,14 +50,14 @@ struct GalleryAnimationPage {
             .build();
     };
 
-    ui.flow("animation.controls")
+    ui.row("animation.controls")
         .width(stageWidth)
-        .height(eui::SizeValue::wrapContent())
+        .height(50.0f)
         .gap(buttonGap)
-        .lineGap(10.0f)
         .content([&] {
             components::button(ui, "anim.move")
                 .size(buttonWidth, 50.0f)
+                .fontSize(buttonFontSize)
                 .text("Move")
                 .colors(moved ? accent() : surfaceSoft(),
                         buttonHover(moved ? accent() : surfaceSoft()),
@@ -70,6 +72,7 @@ struct GalleryAnimationPage {
 
             components::button(ui, "anim.rotate")
                 .size(buttonWidth, 50.0f)
+                .fontSize(buttonFontSize)
                 .text("Rotate")
                 .colors(rotated ? rotateColor : surfaceSoft(),
                         buttonHover(rotated ? rotateColor : surfaceSoft()),
@@ -84,6 +87,7 @@ struct GalleryAnimationPage {
 
             components::button(ui, "anim.fade")
                 .size(buttonWidth, 50.0f)
+                .fontSize(buttonFontSize)
                 .text("Fade")
                 .colors(faded ? fadeColor : surfaceSoft(),
                         buttonHover(faded ? fadeColor : surfaceSoft()),
@@ -97,14 +101,14 @@ struct GalleryAnimationPage {
                 .build();
         });
 
-    ui.flow("animation.controls.extra")
+    ui.row("animation.controls.extra")
         .width(stageWidth)
-        .height(eui::SizeValue::wrapContent())
+        .height(50.0f)
         .gap(buttonGap)
-        .lineGap(10.0f)
         .content([&] {
             components::button(ui, "anim.scale")
                 .size(buttonWidth, 50.0f)
+                .fontSize(buttonFontSize)
                 .text("Scale")
                 .colors(scaled ? scaleColor : surfaceSoft(),
                         buttonHover(scaled ? scaleColor : surfaceSoft()),
@@ -119,6 +123,7 @@ struct GalleryAnimationPage {
 
             components::button(ui, "anim.radius")
                 .size(buttonWidth, 50.0f)
+                .fontSize(buttonFontSize)
                 .text("Radius")
                 .colors(rounded ? radiusColor : surfaceSoft(),
                         buttonHover(rounded ? radiusColor : surfaceSoft()),
@@ -133,6 +138,7 @@ struct GalleryAnimationPage {
 
             components::button(ui, "anim.glow")
                 .size(buttonWidth, 50.0f)
+                .fontSize(buttonFontSize)
                 .text("Glow")
                 .colors(glowing ? glowColor : surfaceSoft(),
                         buttonHover(glowing ? glowColor : surfaceSoft()),
@@ -146,11 +152,10 @@ struct GalleryAnimationPage {
                 .build();
         });
 
-    ui.flow("animation.controls.matrix")
+    ui.row("animation.controls.matrix")
         .width(stageWidth)
-        .height(eui::SizeValue::wrapContent())
+        .height(50.0f)
         .gap(buttonGap)
-        .lineGap(10.0f)
         .content([&] {
             matrixButton("anim.matrix.flipX", "Flip X", flipX, flipXColor, [this] {
                 flipX = !flipX;

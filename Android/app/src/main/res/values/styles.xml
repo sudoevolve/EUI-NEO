@@ -1,8 +1,12 @@
 <resources>
-    <style name="EuiNeoTheme" parent="@android:style/Theme.NoTitleBar.Fullscreen">
+    <style name="EuiNeoTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
-        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowContentTransitions">false</item>
         <item name="android:colorAccent">#4f8cff</item>
     </style>
