@@ -796,6 +796,12 @@ if(EUI_NEO_WINDOW_BACKEND STREQUAL "sdl2")
     find_dependency(SDL2 CONFIG)
 endif()
 
+if(NOT APPLE AND NOT WIN32)
+    # window_backend.cpp's dragWindow()/startWindowResize() speak X11 directly,
+    # so eui_neo carries X11 symbols and the consumer must link libX11 too.
+    find_dependency(X11)
+endif()
+
 if(NOT WIN32)
     find_dependency(CURL)
 endif()
