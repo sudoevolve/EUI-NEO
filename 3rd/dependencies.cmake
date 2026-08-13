@@ -549,9 +549,36 @@ if(EUI_ENABLE_MARKDOWN)
 endif()
 
 if(UNIX AND NOT APPLE)
+    # eui_begin/end_quiet_third_party_config above replaces PKG_CONFIG_EXECUTABLE
+    # with a stub and then FORCE-restores the (usually empty) pre-stub value
+    # into the cache, which poisons find_program for the rest of the run.
+    # Platform tray detection below genuinely needs the real pkg-config, so
+    # drop the poisoned cache entry and let FindPkgConfig search again.
+    unset(PKG_CONFIG_EXECUTABLE CACHE)
     find_package(PkgConfig QUIET)
     if(PkgConfig_FOUND)
+        # SNI (StatusNotifierItem) backend: only glib/gio, present on every
+        # desktop Linux. Preferred over the GTK + libappindicator chain.
+        # gobject-2.0 is listed explicitly: gio-2.0.pc normally pulls it in
+        # via Requires, but naming it keeps the link line complete even with
+        # stripped-down or pkgconf-incompatible .pc files.
+        pkg_check_modules(EUI_GIO QUIET gio-2.0 gobject-2.0 glib-2.0)
+        # Legacy chain. libappindicator upstream is unmaintained and the
+        # Ayatana fork renamed the module, so this only fires on hosts that
+        # still ship the old build. Kept as a fallback; the SNI branch takes
+        # precedence in CMakeLists.txt.
         pkg_check_modules(EUI_APPINDICATOR QUIET appindicator3-0.1)
         pkg_check_modules(EUI_GTK3 QUIET gtk+-3.0)
+    endif()
+    # Fail loudly instead of silently compiling the empty tray stub: a Linux
+    # build with EUI_TRAY_HAS_BACKEND=0 looks successful but has no tray.
+    if(EUI_ENABLE_TRAY AND NOT EUI_GIO_FOUND
+       AND NOT (EUI_APPINDICATOR_FOUND AND EUI_GTK3_FOUND))
+        message(FATAL_ERROR
+            "Linux tray support requires glib/gio (gio-2.0, preferred, SNI backend) "
+            "or GTK3 + libappindicator (legacy fallback), detected via pkg-config, "
+            "but none of them were found. Install your distribution's glib2 development "
+            "package (e.g. glib2-devel / libglib2.0-dev), or configure with "
+            "-DEUI_ENABLE_TRAY=OFF to build without tray support.")
     endif()
 endif()

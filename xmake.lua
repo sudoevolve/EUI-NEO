@@ -64,6 +64,12 @@ option("vulkan_low_latency")
     set_description("Prefer low-latency Vulkan presentation when available.")
 option_end()
 
+option("tray")
+    set_default(true)
+    set_showmenu(true)
+    set_description("Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; disable to build without tray support.")
+option_end()
+
 function eui_apply_compile_options(target)
     if not is_mode("debug") then
         target:add("defines", "NDEBUG")
@@ -278,6 +284,42 @@ target("eui_neo")
         add_frameworks("Cocoa", {public = true})
         add_syslinks("objc", {public = true})
     end
+
+    -- Linux tray: StatusNotifierItem backend over plain GDBus (needs only
+    -- glib/gio, see tray_bridge.c), with the GTK3 + libappindicator chain
+    -- kept as a fallback because libappindicator upstream is unmaintained.
+    -- Done in on_load because package detection and os.raise() are only
+    -- available in script scope, not in the description scope above.
+    on_load(function (target)
+        if not is_plat("linux") or not get_config("tray") then
+            return
+        end
+        import("package.manager.find_package")
+        local function apply(result, define)
+            target:add("defines", define, {public = true})
+            if result.includedirs then target:add("includedirs", result.includedirs, {public = true}) end
+            if result.linkdirs then target:add("linkdirs", result.linkdirs, {public = true}) end
+            if result.links then target:add("links", result.links, {public = true}) end
+        end
+        local gio = find_package("pkgconfig::gio-2.0")
+        if gio then
+            apply(gio, "EUI_TRAY_SNI=1")
+            return
+        end
+        local appindicator = find_package("pkgconfig::appindicator3-0.1")
+        if appindicator then
+            apply(appindicator, "EUI_TRAY_APPINDICATOR=1")
+            return
+        end
+        -- Fail loudly instead of silently compiling the empty tray stub:
+        -- a build with EUI_TRAY_HAS_BACKEND=0 looks successful but has no
+        -- tray.
+        os.raise("Linux tray support requires glib/gio (gio-2.0, preferred, SNI backend) " ..
+                 "or GTK3 + libappindicator (legacy fallback), detected via pkg-config, " ..
+                 "but none of them were found. Install your distribution's glib2 development " ..
+                 "package (e.g. glib2-devel / libglib2.0-dev), or configure with " ..
+                 "--tray=n to build without tray support.")
+    end)
 
     if enable_markdown then
         add_defines("EUI_HAS_MD4C=1", {public = true})

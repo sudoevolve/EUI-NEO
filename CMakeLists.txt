@@ -20,6 +20,7 @@ option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static l
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ON)
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
+option(EUI_ENABLE_TRAY "Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; turn this OFF to build without tray support." ON)
 
 set(EUI_DEFAULT_WINDOW_BACKEND "glfw")
 set(EUI_DEFAULT_RENDER_BACKEND "opengl")
@@ -345,7 +346,18 @@ if(WIN32)
 elseif(APPLE)
     target_compile_definitions(eui_neo PUBLIC EUI_TRAY_APPKIT=1)
     target_link_libraries(eui_neo PUBLIC "-framework Cocoa" objc)
-elseif(UNIX AND EUI_APPINDICATOR_FOUND AND EUI_GTK3_FOUND)
+elseif(UNIX AND EUI_ENABLE_TRAY AND EUI_GIO_FOUND)
+    # StatusNotifierItem backend: speaks the freedesktop SNI + DBusMenu
+    # protocols over GDBus, needing only glib/gio (see tray_bridge.c). This is
+    # the default because glib is ubiquitous and libappindicator is dead.
+    target_compile_definitions(eui_neo PUBLIC EUI_TRAY_SNI=1)
+    target_include_directories(eui_neo PUBLIC ${EUI_GIO_INCLUDE_DIRS})
+    target_compile_options(eui_neo PRIVATE ${EUI_GIO_CFLAGS_OTHER})
+    target_link_directories(eui_neo PUBLIC ${EUI_GIO_LIBRARY_DIRS})
+    target_link_libraries(eui_neo PUBLIC ${EUI_GIO_LIBRARIES})
+elseif(UNIX AND EUI_ENABLE_TRAY AND EUI_APPINDICATOR_FOUND AND EUI_GTK3_FOUND)
+    # Legacy fallback: GTK3 + libappindicator. Only reached when glib/gio is
+    # absent but the old stack is present.
     target_compile_definitions(eui_neo PUBLIC EUI_TRAY_APPINDICATOR=1)
     target_include_directories(eui_neo PUBLIC ${EUI_APPINDICATOR_INCLUDE_DIRS} ${EUI_GTK3_INCLUDE_DIRS})
     target_compile_options(eui_neo PRIVATE ${EUI_APPINDICATOR_CFLAGS_OTHER} ${EUI_GTK3_CFLAGS_OTHER})
