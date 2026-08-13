@@ -10,6 +10,8 @@
 #if defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
 #include <SDL_syswm.h>
 #include <X11/Xresource.h>
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
 #endif
 #ifdef None
 #undef None
@@ -345,6 +347,9 @@ Handle createWindow(const WindowCreateRequest& request) {
     if (request.resizable) {
         flags |= SDL_WINDOW_RESIZABLE;
     }
+    if (!request.decorated) {
+        flags |= SDL_WINDOW_BORDERLESS;
+    }
     flags |= request.renderApi == RenderApi::Vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL;
 
     SDL_Window* window = SDL_CreateWindow(
@@ -506,9 +511,176 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 #endif
 }
 
+void minimizeWindow(Handle window) {
+    if (window != nullptr) {
+        SDL_MinimizeWindow(static_cast<SDL_Window*>(window));
+    }
+}
+
+void maximizeWindow(Handle window) {
+    if (window != nullptr) {
+        SDL_MaximizeWindow(static_cast<SDL_Window*>(window));
+    }
+}
+
+void restoreWindow(Handle window) {
+    if (window != nullptr) {
+        SDL_RestoreWindow(static_cast<SDL_Window*>(window));
+    }
+}
+
+bool isWindowMaximized(Handle window) {
+    if (window == nullptr) {
+        return false;
+    }
+    return (SDL_GetWindowFlags(static_cast<SDL_Window*>(window)) & SDL_WINDOW_MAXIMIZED) != 0;
+}
+
+void requestWindowClose(Handle window) {
+    if (window == nullptr) {
+        return;
+    }
+    SDL_Event event{};
+    event.type = SDL_QUIT;
+    SDL_PushEvent(&event);
+}
+
+bool dragWindow(Handle window) {
+    if (window == nullptr) {
+        return false;
+    }
+#if defined(_WIN32)
+    HWND hwnd = hwndForSdlWindow(static_cast<SDL_Window*>(window));
+    if (hwnd == nullptr) {
+        return false;
+    }
+    ReleaseCapture();
+    SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    return true;
+#elif defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
+    SDL_SysWMinfo info{};
+    SDL_VERSION(&info.version);
+    if (SDL_GetWindowWMInfo(static_cast<SDL_Window*>(window), &info) != SDL_TRUE ||
+        info.subsystem != SDL_SYSWM_X11) {
+        return false;
+    }
+    Display* display = info.info.x11.display;
+    const Window xwindow = info.info.x11.window;
+    if (display == nullptr || xwindow == 0) {
+        return false;
+    }
+    // The WM grabs the pointer from the root position we report; pass the
+    // cursor's current root coordinates so the window doesn't jump to (0,0).
+    int rootX = 0;
+    int rootY = 0;
+    {
+        Window rootRet = 0;
+        Window childRet = 0;
+        int winX = 0;
+        int winY = 0;
+        unsigned int mask = 0;
+        if (XQueryPointer(display, xwindow, &rootRet, &childRet,
+                          &rootX, &rootY, &winX, &winY, &mask) == False) {
+            rootX = 0;
+            rootY = 0;
+        }
+    }
+    XEvent event{};
+    event.xclient.type = ClientMessage;
+    event.xclient.message_type = XInternAtom(display, "_NET_WM_MOVERESIZE", False);
+    event.xclient.display = display;
+    event.xclient.window = xwindow;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = rootX;  /* cursor root x */
+    event.xclient.data.l[1] = rootY;  /* cursor root y */
+    event.xclient.data.l[2] = 8;      /* _NET_WM_MOVERESIZE_MOVE */
+    event.xclient.data.l[3] = Button1;
+    event.xclient.data.l[4] = 0;
+    XSendEvent(display, DefaultRootWindow(display), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(display);
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool startWindowResize(Handle window, ResizeEdge edge) {
+    if (window == nullptr) {
+        return false;
+    }
+#if defined(_WIN32)
+    HWND hwnd = hwndForSdlWindow(static_cast<SDL_Window*>(window));
+    if (hwnd == nullptr) {
+        return false;
+    }
+    static const int hitTests[] = {
+        HTTOPLEFT, HTTOP, HTTOPRIGHT, HTRIGHT,
+        HTBOTTOMRIGHT, HTBOTTOM, HTBOTTOMLEFT, HTLEFT
+    };
+    ReleaseCapture();
+    SendMessageW(hwnd, WM_NCLBUTTONDOWN, hitTests[static_cast<int>(edge)], 0);
+    return true;
+#elif defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
+    SDL_SysWMinfo info{};
+    SDL_VERSION(&info.version);
+    if (SDL_GetWindowWMInfo(static_cast<SDL_Window*>(window), &info) != SDL_TRUE ||
+        info.subsystem != SDL_SYSWM_X11) {
+        return false;
+    }
+    Display* display = info.info.x11.display;
+    const Window xwindow = info.info.x11.window;
+    if (display == nullptr || xwindow == 0) {
+        return false;
+    }
+    // ResizeEdge enum order matches _NET_WM_MOVERESIZE directions
+    // (SIZE_TOPLEFT=0 .. SIZE_LEFT=7).
+    const int direction = static_cast<int>(edge);
+    int rootX = 0;
+    int rootY = 0;
+    {
+        Window rootRet = 0;
+        Window childRet = 0;
+        int winX = 0;
+        int winY = 0;
+        unsigned int mask = 0;
+        if (XQueryPointer(display, xwindow, &rootRet, &childRet,
+                          &rootX, &rootY, &winX, &winY, &mask) == False) {
+            rootX = 0;
+            rootY = 0;
+        }
+    }
+    XEvent event{};
+    event.xclient.type = ClientMessage;
+    event.xclient.message_type = XInternAtom(display, "_NET_WM_MOVERESIZE", False);
+    event.xclient.display = display;
+    event.xclient.window = xwindow;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = rootX;
+    event.xclient.data.l[1] = rootY;
+    event.xclient.data.l[2] = direction;
+    event.xclient.data.l[3] = Button1;
+    event.xclient.data.l[4] = 0;
+    XSendEvent(display, DefaultRootWindow(display), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(display);
+    return true;
+#else
+    return false;
+#endif
+}
+
 } // namespace core::window
 
 #else
+
+#if defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#elif defined(__linux__) && !defined(__ANDROID__)
+#define GLFW_EXPOSE_NATIVE_X11
+#elif defined(__APPLE__)
+#define GLFW_EXPOSE_NATIVE_COCOA
+#endif
 
 #ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
@@ -516,6 +688,36 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 #include <GLFW/glfw3.h>
 
 #include "core/platform/ime_bridge.h"
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <GLFW/glfw3native.h>
+#elif defined(__linux__) && !defined(__ANDROID__)
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <GLFW/glfw3native.h>
+// X11 headers (including the ones glfw3native.h pulls in) use the Bool/Status
+// macros below; undef only after they are all included to avoid polluting the
+// C++ code that follows.
+#ifdef None
+#undef None
+#endif
+#ifdef Bool
+#undef Bool
+#endif
+#ifdef Status
+#undef Status
+#endif
+#ifdef Success
+#undef Success
+#endif
+#endif
 
 namespace core::window {
 
@@ -546,6 +748,7 @@ Handle createWindow(const WindowCreateRequest& request) {
         shareContext = static_cast<GLFWwindow*>(request.parent);
     }
     glfwWindowHint(GLFW_RESIZABLE, request.resizable ? GLFW_TRUE : GLFW_FALSE);
+    glfwWindowHint(GLFW_DECORATED, request.decorated ? GLFW_TRUE : GLFW_FALSE);
 
     return glfwCreateWindow(
         request.width,
@@ -564,6 +767,17 @@ void destroyWindow(Handle window) {
 NativeWindowInfo nativeWindowInfo(Handle window) {
     NativeWindowInfo result;
     result.handle = window;
+    if (window == nullptr) {
+        return result;
+    }
+#if defined(_WIN32)
+    result.platformWindow = glfwGetWin32Window(static_cast<GLFWwindow*>(window));
+#elif defined(__APPLE__)
+    result.platformWindow = glfwGetCocoaWindow(static_cast<GLFWwindow*>(window));
+#endif
+    // X11's Window is an XID (unsigned long), not a pointer, so platformWindow
+    // stays null there — matching the SDL2 backend. dragWindow() reads the X11
+    // window directly via glfwGetX11Window() instead.
     return result;
 }
 
@@ -614,6 +828,150 @@ void setWindowIcon(Handle window, int width, int height, unsigned char* pixels) 
 
 void setImeCursorRect(Handle window, float x, float y, float width, float height) {
     eui_ime_set_cursor_rect_with_font(static_cast<GLFWwindow*>(window), x, y, width, height, height);
+}
+
+void minimizeWindow(Handle window) {
+    if (window != nullptr) {
+        glfwIconifyWindow(static_cast<GLFWwindow*>(window));
+    }
+}
+
+void maximizeWindow(Handle window) {
+    if (window != nullptr) {
+        glfwMaximizeWindow(static_cast<GLFWwindow*>(window));
+    }
+}
+
+void restoreWindow(Handle window) {
+    if (window != nullptr) {
+        glfwRestoreWindow(static_cast<GLFWwindow*>(window));
+    }
+}
+
+bool isWindowMaximized(Handle window) {
+    if (window == nullptr) {
+        return false;
+    }
+    return glfwGetWindowAttrib(static_cast<GLFWwindow*>(window), GLFW_MAXIMIZED) == GLFW_TRUE;
+}
+
+void requestWindowClose(Handle window) {
+    if (window != nullptr) {
+        glfwSetWindowShouldClose(static_cast<GLFWwindow*>(window), GLFW_TRUE);
+    }
+}
+
+bool dragWindow(Handle window) {
+    if (window == nullptr) {
+        return false;
+    }
+#if defined(_WIN32)
+    HWND hwnd = glfwGetWin32Window(static_cast<GLFWwindow*>(window));
+    if (hwnd == nullptr) {
+        return false;
+    }
+    ReleaseCapture();
+    SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+    return true;
+#elif defined(__linux__) && !defined(__ANDROID__)
+    Display* display = glfwGetX11Display();
+    const Window xwindow = glfwGetX11Window(static_cast<GLFWwindow*>(window));
+    if (display == nullptr || xwindow == 0) {
+        return false;
+    }
+    // The WM grabs the pointer from the root position we report; pass the
+    // cursor's current root coordinates so the window doesn't jump to (0,0).
+    int rootX = 0;
+    int rootY = 0;
+    {
+        Window rootRet = 0;
+        Window childRet = 0;
+        int winX = 0;
+        int winY = 0;
+        unsigned int mask = 0;
+        if (XQueryPointer(display, xwindow, &rootRet, &childRet,
+                          &rootX, &rootY, &winX, &winY, &mask) == False) {
+            rootX = 0;
+            rootY = 0;
+        }
+    }
+    XEvent event{};
+    event.xclient.type = ClientMessage;
+    event.xclient.message_type = XInternAtom(display, "_NET_WM_MOVERESIZE", False);
+    event.xclient.display = display;
+    event.xclient.window = xwindow;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = rootX;  /* cursor root x */
+    event.xclient.data.l[1] = rootY;  /* cursor root y */
+    event.xclient.data.l[2] = 8;      /* _NET_WM_MOVERESIZE_MOVE */
+    event.xclient.data.l[3] = Button1;
+    event.xclient.data.l[4] = 0;
+    XSendEvent(display, DefaultRootWindow(display), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(display);
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool startWindowResize(Handle window, ResizeEdge edge) {
+    if (window == nullptr) {
+        return false;
+    }
+#if defined(_WIN32)
+    HWND hwnd = glfwGetWin32Window(static_cast<GLFWwindow*>(window));
+    if (hwnd == nullptr) {
+        return false;
+    }
+    static const int hitTests[] = {
+        HTTOPLEFT, HTTOP, HTTOPRIGHT, HTRIGHT,
+        HTBOTTOMRIGHT, HTBOTTOM, HTBOTTOMLEFT, HTLEFT
+    };
+    ReleaseCapture();
+    SendMessageW(hwnd, WM_NCLBUTTONDOWN, hitTests[static_cast<int>(edge)], 0);
+    return true;
+#elif defined(__linux__) && !defined(__ANDROID__)
+    Display* display = glfwGetX11Display();
+    const Window xwindow = glfwGetX11Window(static_cast<GLFWwindow*>(window));
+    if (display == nullptr || xwindow == 0) {
+        return false;
+    }
+    // ResizeEdge enum order matches _NET_WM_MOVERESIZE directions
+    // (SIZE_TOPLEFT=0 .. SIZE_LEFT=7).
+    const int direction = static_cast<int>(edge);
+    int rootX = 0;
+    int rootY = 0;
+    {
+        Window rootRet = 0;
+        Window childRet = 0;
+        int winX = 0;
+        int winY = 0;
+        unsigned int mask = 0;
+        if (XQueryPointer(display, xwindow, &rootRet, &childRet,
+                          &rootX, &rootY, &winX, &winY, &mask) == False) {
+            rootX = 0;
+            rootY = 0;
+        }
+    }
+    XEvent event{};
+    event.xclient.type = ClientMessage;
+    event.xclient.message_type = XInternAtom(display, "_NET_WM_MOVERESIZE", False);
+    event.xclient.display = display;
+    event.xclient.window = xwindow;
+    event.xclient.format = 32;
+    event.xclient.data.l[0] = rootX;
+    event.xclient.data.l[1] = rootY;
+    event.xclient.data.l[2] = direction;
+    event.xclient.data.l[3] = Button1;
+    event.xclient.data.l[4] = 0;
+    XSendEvent(display, DefaultRootWindow(display), False,
+               SubstructureRedirectMask | SubstructureNotifyMask, &event);
+    XFlush(display);
+    return true;
+#else
+    return false;
+#endif
 }
 
 } // namespace core::window

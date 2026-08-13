@@ -52,6 +52,15 @@ inline DslAppState& dslAppState() {
     return state;
 }
 
+// The window currently backing the running DSL app. Set on initialize() and
+// refreshed on every update(), so the window-control helpers below always act
+// on the most recently driven window (the main window in the single-window
+// case, which is what a custom title bar targets).
+inline core::window::Handle& windowHandle() {
+    static core::window::Handle handle = nullptr;
+    return handle;
+}
+
 inline std::string resolveIconPath(const std::string& iconPath) {
     if (iconPath.empty()) {
         return {};
@@ -201,8 +210,45 @@ const char* trayIconPath() {
     return (config.trayIconPathValue.empty() ? config.iconPathValue : config.trayIconPathValue).c_str();
 }
 
+bool frameless() {
+    return dslAppConfig().framelessValue;
+}
+
 void requestUpdate() {
     core::platform::requestUiUpdate();
+}
+
+void minimizeWindow() {
+    core::window::minimizeWindow(detail::windowHandle());
+}
+
+void maximizeWindow() {
+    core::window::maximizeWindow(detail::windowHandle());
+}
+
+void toggleMaximizeWindow() {
+    const core::window::Handle window = detail::windowHandle();
+    if (core::window::isWindowMaximized(window)) {
+        core::window::restoreWindow(window);
+    } else {
+        core::window::maximizeWindow(window);
+    }
+}
+
+bool isWindowMaximized() {
+    return core::window::isWindowMaximized(detail::windowHandle());
+}
+
+void requestWindowClose() {
+    core::window::requestWindowClose(detail::windowHandle());
+}
+
+bool dragWindow() {
+    return core::window::dragWindow(detail::windowHandle());
+}
+
+bool startWindowResize(eui::window::ResizeEdge edge) {
+    return core::window::startWindowResize(detail::windowHandle(), edge);
 }
 
 namespace detail {
@@ -223,6 +269,7 @@ bool initialize(core::window::Handle window) {
         detail::applyWindowIcon(window);
         state.iconApplied = true;
     }
+    detail::windowHandle() = window;
     return detail::dslRuntime().initialize(window);
 }
 
@@ -241,6 +288,7 @@ bool update(core::window::Handle window, float deltaSeconds, int windowWidth, in
         return false;
     }
 
+    detail::windowHandle() = window;
     const DslAppConfig& config = dslAppConfig();
     const float effectiveScale = dpiScale * uiScale();
     const float logicalWidth = static_cast<float>(windowWidth) / effectiveScale;

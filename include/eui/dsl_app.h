@@ -27,6 +27,7 @@ struct DslAppConfig {
     bool trayEnabledValue = false;
     std::string trayTitleValue;
     std::string trayIconPathValue;
+    bool framelessValue = false;
 
     DslAppConfig& title(std::string value) { titleValue = std::move(value); return *this; }
     DslAppConfig& pageId(std::string value) { pageIdValue = std::move(value); return *this; }
@@ -66,6 +67,10 @@ struct DslAppConfig {
     }
     DslAppConfig& trayIcon(std::string value) {
         trayIconPathValue = std::move(value);
+        return *this;
+    }
+    DslAppConfig& frameless(bool value = true) {
+        framelessValue = value;
         return *this;
     }
 };

@@ -409,6 +409,7 @@ int main() {
     windowRequest.height = app::initialWindowHeight();
     windowRequest.title = app::windowTitle();
     windowRequest.renderApi = core::render::windowRenderApi();
+    windowRequest.decorated = !app::frameless();
     GLFWwindow* window = static_cast<GLFWwindow*>(core::window::createWindow(windowRequest));
     if (!window) {
         glfwTerminate();

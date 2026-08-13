@@ -324,6 +324,15 @@ else()
     set(EUI_APP_MAIN_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/core/app/glfw_app_main.cpp")
 endif()
 
+if(UNIX AND NOT APPLE)
+    # window_backend.cpp's dragWindow() speaks _NET_WM_MOVERESIZE directly,
+    # which needs libX11. Neither GLFW nor SDL2 forwards X11 to the app.
+    find_package(X11 QUIET)
+    if(X11_FOUND)
+        target_link_libraries(eui_neo PRIVATE X11::X11)
+    endif()
+endif()
+
 target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
 
 # -----------------------------------------------------------------------------

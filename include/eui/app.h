@@ -31,6 +31,7 @@ float uiScale();
 bool trayEnabled();
 const char* trayTitle();
 const char* trayIconPath();
+bool frameless();
 void requestUpdate();
 bool initialize(eui::window::Handle window);
 bool update(eui::window::Handle window, float deltaSeconds, int windowWidth, int windowHeight, float dpiScale, float pointerScale);
@@ -41,6 +42,17 @@ void render(int windowWidth, int windowHeight, float dpiScale);
 void releaseGraphicsResources();
 void shutdown();
 std::vector<DslWindowRequest> consumeWindowRequests();
+
+// Window controls for a custom (frameless) title bar. Each operates on the
+// window backing the running DSL app, so they only have an effect after
+// initialize() has captured the window handle. Safe no-ops otherwise.
+void minimizeWindow();
+void maximizeWindow();
+void toggleMaximizeWindow();
+bool isWindowMaximized();
+void requestWindowClose();
+bool dragWindow();
+bool startWindowResize(eui::window::ResizeEdge edge);
 
 namespace detail {
 void requestFullPaint();

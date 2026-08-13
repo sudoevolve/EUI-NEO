@@ -24,6 +24,7 @@
 #include "components/dialog.h"
 #include "components/sidebar.h"
 #include "components/navbar.h"
+#include "components/titlebar.h"
 #include "components/toast.h"
 #include "components/tooltip.h"
 #include "components/contextmenu.h"
