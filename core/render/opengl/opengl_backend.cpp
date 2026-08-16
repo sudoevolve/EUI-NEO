@@ -273,6 +273,11 @@ void OpenGLRenderBackend::present() {
     }
 }
 
+void OpenGLRenderBackend::flush() {
+    makeCurrent();
+    glFinish();
+}
+
 bool OpenGLRenderBackend::ensureRenderCache(int width, int height) {
     flushRoundedRectBatch();
     cacheRecreated_ = false;

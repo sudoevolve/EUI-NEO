@@ -23,6 +23,7 @@ public:
     void makeCurrent() override;
     void beginFrame(const RenderSurface& surface) override;
     void present() override;
+    void flush() override;
     bool ensureRenderCache(int width, int height) override;
     bool renderCacheWasRecreated() const override;
     void releaseRenderCache() override;

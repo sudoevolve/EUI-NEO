@@ -180,6 +180,10 @@ public:
     virtual void makeCurrent() = 0;
     virtual void beginFrame(const RenderSurface& surface) = 0;
     virtual void present() = 0;
+    // Blocks until all pending GPU work has completed. Used after a resize drag
+    // to let the driver release back buffers that were reallocated at each
+    // intermediate size.
+    virtual void flush() {}
     virtual bool ensureRenderCache(int width, int height) = 0;
     virtual bool renderCacheWasRecreated() const = 0;
     virtual void releaseRenderCache() = 0;

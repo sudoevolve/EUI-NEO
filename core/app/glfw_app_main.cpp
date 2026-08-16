@@ -253,6 +253,7 @@ namespace {
 struct ResizeRepaintHook {
     WNDPROC previousProc = nullptr;
     std::function<void()> repaint;
+    std::function<void()> onResizeEnd;
 };
 
 const wchar_t* const kResizeRepaintProp = L"EuiNeoResizeRepaint";
@@ -273,11 +274,15 @@ LRESULT CALLBACK resizeRepaintWndProc(HWND hwnd, UINT message, WPARAM wParam, LP
 
     if (message == WM_SIZING && hook->repaint) {
         hook->repaint();
+    } else if (message == WM_EXITSIZEMOVE && hook->onResizeEnd) {
+        hook->onResizeEnd();
     }
     return result;
 }
 
-void installResizeRepaintHook(GLFWwindow* window, std::function<void()> repaint) {
+void installResizeRepaintHook(GLFWwindow* window,
+                              std::function<void()> repaint,
+                              std::function<void()> onResizeEnd) {
     HWND hwnd = glfwGetWin32Window(window);
     if (hwnd == nullptr || resizeRepaintHook(hwnd) != nullptr) {
         return;
@@ -286,6 +291,7 @@ void installResizeRepaintHook(GLFWwindow* window, std::function<void()> repaint)
     auto* hook = new ResizeRepaintHook();
     hook->previousProc = reinterpret_cast<WNDPROC>(GetWindowLongPtrW(hwnd, GWLP_WNDPROC));
     hook->repaint = std::move(repaint);
+    hook->onResizeEnd = std::move(onResizeEnd);
     SetPropW(hwnd, kResizeRepaintProp, hook);
     SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(resizeRepaintWndProc));
 }
@@ -559,9 +565,17 @@ int main() {
     // Install after the IME filter so that when the IME filter is uninstalled
     // it restores the WndProc chain back to this hook; this hook is then
     // removed before the IME filter on shutdown, keeping the chain intact.
-    installResizeRepaintHook(window, [&] {
-        renderMainFrameDuringResize(window, windowState, *renderBackend, mainWindowRuntime);
-    });
+    installResizeRepaintHook(
+        window,
+        [&] {
+            renderMainFrameDuringResize(window, windowState, *renderBackend, mainWindowRuntime);
+        },
+        [&] {
+            // The drag reallocated the window's back buffer at every
+            // intermediate size; glFinish lets the driver actually release the
+            // retained buffers instead of keeping them pooled.
+            renderBackend->flush();
+        });
 #endif
     windowState.initializeTray();
     glfwSetWindowCloseCallback(window, [](GLFWwindow* currentWindow) {
