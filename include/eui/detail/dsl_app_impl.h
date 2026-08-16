@@ -212,6 +212,10 @@ void requestFullPaint() {
     core::platform::requestUiUpdate();
 }
 
+void setDirectRender(bool enabled) {
+    dslRuntime().setDirectRender(enabled);
+}
+
 } // namespace detail
 
 bool initialize(core::window::Handle window) {

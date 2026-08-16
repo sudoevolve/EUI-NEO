@@ -326,6 +326,11 @@ void renderMainFrameDuringResize(GLFWwindow* window,
     const float dpiScale = getDpiScale(window);
     const float pointerScale = getPointerScale(window);
 
+    // While resizing, the whole window is repainted every frame, so the
+    // retained render cache would be rebuilt at each intermediate size for no
+    // benefit. Render directly to the framebuffer instead, which avoids the
+    // GPU memory churn of recreating the cache texture during the drag.
+    app::detail::setDirectRender(true);
     mainWindowRuntime.updateAndRender(
         window,
         renderBackend,
@@ -334,6 +339,7 @@ void renderMainFrameDuringResize(GLFWwindow* window,
         false,  // recompose/layout only when the size actually changed
         false,  // neutralise pointer input so the drag is not treated as UI interaction
         [] {});
+    app::detail::setDirectRender(false);
     windowState.advanceFrameClock(now, false);
 }
 #endif // _WIN32

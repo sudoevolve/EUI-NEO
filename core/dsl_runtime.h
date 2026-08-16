@@ -47,6 +47,12 @@ public:
 
     void requestFullPaint();
 
+    // When enabled, render() draws directly to the default framebuffer and
+    // skips the retained render cache. Useful when the whole window is known
+    // to be dirty every frame (e.g. while the window is being resized), which
+    // avoids churning the cache texture through many intermediate sizes.
+    void setDirectRender(bool enabled);
+
     void render(int windowWidth, int windowHeight, float dpiScale, const Color& clearColor);
 
     void render(int windowWidth, int windowHeight, float dpiScale);
@@ -269,6 +275,7 @@ private:
     std::vector<runtime::ElementSnapshot> elementStructure_;
     std::vector<runtime::LogicalDirtyRect> dirtyRects_;
     bool paintRequested_ = true;
+    bool directRender_ = false;
     bool animating_ = false;
     bool composeRequested_ = false;
     bool fullPaintRequested_ = true;

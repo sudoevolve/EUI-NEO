@@ -136,6 +136,10 @@ inline void Runtime::requestFullPaint() {
     paintRequested_ = true;
 }
 
+inline void Runtime::setDirectRender(bool enabled) {
+    directRender_ = enabled;
+}
+
 inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, const Color& clearColor) {
     core::render::RenderBackend* renderBackend = core::render::activeRenderBackend();
     if (renderBackend == nullptr) {
@@ -156,7 +160,7 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
         return;
     }
 
-    if (!renderBackend->ensureRenderCache(windowWidth, windowHeight)) {
+    if (directRender_ || !renderBackend->ensureRenderCache(windowWidth, windowHeight)) {
         ++stats.clearCalls;
         renderBackend->clear(clearColor);
         ++stats.renderDirectPasses;
