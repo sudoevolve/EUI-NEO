@@ -32,6 +32,7 @@
 #include <cstdio>
 #include <memory>
 #include <thread>
+#include <utility>
 #include <vector>
 
 struct WindowState : app::AppRunner {
@@ -236,6 +237,106 @@ void installWindowCallbacks(GLFWwindow* window, WindowState& windowState) {
         }
     });
 }
+
+#ifdef _WIN32
+namespace {
+
+// Live-resize repaint hook.
+//
+// While the user drags the resize border, Windows runs a modal loop inside
+// DefWindowProc (entered from WM_SYSCOMMAND/SC_SIZE). That loop keeps
+// dispatching messages but never returns control to the app's main loop, so
+// the regular render loop stalls until the mouse is released. To repaint
+// while the drag is in progress we subclass the window and render one frame
+// directly from WM_SIZING, which the modal loop dispatches continuously.
+// Rendering here is safe: update/render/swap never dispatch window messages.
+struct ResizeRepaintHook {
+    WNDPROC previousProc = nullptr;
+    std::function<void()> repaint;
+};
+
+const wchar_t* const kResizeRepaintProp = L"EuiNeoResizeRepaint";
+
+ResizeRepaintHook* resizeRepaintHook(HWND hwnd) {
+    return static_cast<ResizeRepaintHook*>(GetPropW(hwnd, kResizeRepaintProp));
+}
+
+LRESULT CALLBACK resizeRepaintWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    ResizeRepaintHook* hook = resizeRepaintHook(hwnd);
+    if (hook == nullptr) {
+        return DefWindowProcW(hwnd, message, wParam, lParam);
+    }
+
+    const LRESULT result = hook->previousProc != nullptr
+        ? CallWindowProcW(hook->previousProc, hwnd, message, wParam, lParam)
+        : DefWindowProcW(hwnd, message, wParam, lParam);
+
+    if (message == WM_SIZING && hook->repaint) {
+        hook->repaint();
+    }
+    return result;
+}
+
+void installResizeRepaintHook(GLFWwindow* window, std::function<void()> repaint) {
+    HWND hwnd = glfwGetWin32Window(window);
+    if (hwnd == nullptr || resizeRepaintHook(hwnd) != nullptr) {
+        return;
+    }
+
+    auto* hook = new ResizeRepaintHook();
+    hook->previousProc = reinterpret_cast<WNDPROC>(GetWindowLongPtrW(hwnd, GWLP_WNDPROC));
+    hook->repaint = std::move(repaint);
+    SetPropW(hwnd, kResizeRepaintProp, hook);
+    SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(resizeRepaintWndProc));
+}
+
+void uninstallResizeRepaintHook(GLFWwindow* window) {
+    HWND hwnd = glfwGetWin32Window(window);
+    ResizeRepaintHook* hook = hwnd != nullptr ? resizeRepaintHook(hwnd) : nullptr;
+    if (hook == nullptr) {
+        return;
+    }
+
+    SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(hook->previousProc));
+    RemovePropW(hwnd, kResizeRepaintProp);
+    delete hook;
+}
+
+} // namespace
+
+// Renders one frame of the main window immediately, at the current committed
+// framebuffer size. Invoked from the resize hook while the Windows resize
+// modal loop is running, so it must not pump window messages or sleep.
+void renderMainFrameDuringResize(GLFWwindow* window,
+                                 WindowState& windowState,
+                                 core::render::RenderBackend& renderBackend,
+                                 app::MainWindowRuntime& mainWindowRuntime) {
+    const double now = glfwGetTime();
+    if (now < windowState.nextFrameTime) {
+        return;
+    }
+
+    int framebufferWidth = 0;
+    int framebufferHeight = 0;
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+    if (framebufferWidth <= 0 || framebufferHeight <= 0) {
+        return;
+    }
+
+    const float dpiScale = getDpiScale(window);
+    const float pointerScale = getPointerScale(window);
+
+    mainWindowRuntime.updateAndRender(
+        window,
+        renderBackend,
+        {framebufferWidth, framebufferHeight, dpiScale, pointerScale},
+        windowState.consumeFrameDelta(now),
+        false,  // recompose/layout only when the size actually changed
+        false,  // neutralise pointer input so the drag is not treated as UI interaction
+        [] {});
+    windowState.advanceFrameClock(now, false);
+}
+#endif // _WIN32
 
 std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& request,
                                                    GLFWwindow* parentWindow,
@@ -448,6 +549,14 @@ int main() {
         return -1;
     }
     app::MainWindowRuntime mainWindowRuntime(windowState);
+#ifdef _WIN32
+    // Install after the IME filter so that when the IME filter is uninstalled
+    // it restores the WndProc chain back to this hook; this hook is then
+    // removed before the IME filter on shutdown, keeping the chain intact.
+    installResizeRepaintHook(window, [&] {
+        renderMainFrameDuringResize(window, windowState, *renderBackend, mainWindowRuntime);
+    });
+#endif
     windowState.initializeTray();
     glfwSetWindowCloseCallback(window, [](GLFWwindow* currentWindow) {
         WindowState* state = static_cast<WindowState*>(glfwGetWindowUserPointer(currentWindow));
@@ -571,6 +680,9 @@ int main() {
     }
 
     childWindows.destroyAll(destroyManagedWindow);
+#ifdef _WIN32
+    uninstallResizeRepaintHook(window);
+#endif
     core::releaseInputQueue(window);
     renderBackend->makeCurrent();
     renderBackend->releaseRenderCache();
