@@ -103,12 +103,18 @@ bool verifySdlWindowInput(core::window::Handle firstWindow,
                         {core::InputKey::Left,
                          core::KeyAction::Repeat,
                          {false, true}});
+    core::queueKeyInput(firstWindow,
+                        {core::InputKey::Tab,
+                         core::KeyAction::Press,
+                         {false, true}});
 
     auto input = core::consumeInputEvents(firstWindow);
     const core::KeyEvent* left = input.first.findKey(core::InputKey::Left);
+    const core::KeyEvent* tab = input.first.findKey(core::InputKey::Tab);
     const bool queued = input.first.text == "ok" &&
         input.first.compositionText == "ime" && input.first.composing &&
         left != nullptr && left->action == core::KeyAction::Repeat && left->modifiers.shift &&
+        tab != nullptr && tab->modifiers.shift && !tab->modifiers.shortcut &&
         input.second.x == 1.25 && input.second.y == -2.5;
 
     core::queuePointerButton(firstWindow, 31.0, 47.0, 0, false);
