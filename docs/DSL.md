@@ -628,7 +628,8 @@ components::button(ui, "save")
 
 - 已有基础 z-index、矩形 clip 和 Runtime scroll state；复杂圆角 clip、嵌套滚动区域的事件冒泡还没做。
 - `components::scrollView` 是推荐的普通滚动区域；超长固定行高数据使用 `components::virtualList`，避免一次性 compose 全部行。底层 `components::scroll` 只负责滚动条，需要和内容容器绑定同一个 Runtime scroll state。
-- 已有基础键盘 focus / text input / 选择 / 剪贴板 / 撤销 / 重做 / IME 预编辑组合串和系统候选窗口定位。
+- 已有基础键盘 focus / Tab 焦点遍历（按绘制序在 focusable 元素间循环，Shift+Tab 反向）/ text input / 选择 / 剪贴板 / 撤销 / 重做 / IME 预编辑组合串和系统候选窗口定位。
+- Tab 遍历集合 = `.focusable()` / `.onTextInput()` / `.onFocusChanged()` 的元素；`components::button` 默认只设 `interactive` 不设 `focusable`，不参与 Tab，需要时显式 `.focusable()`。第一版不跳过滚出视口/被裁剪的元素。
 - 还没有事件冒泡。
 - 已有 click / press / release / pointer move / hover / context menu / text input / scroll / drag 回调；局部坐标或组合手势开发使用 `components::mouseArea`，简单点击直接绑定可视图元。
 - 默认 hit-test 按布局矩形计算；开启 `.transformedHitTest()` 后会按元素当前 transform 和父容器继承矩阵反投影命中。
