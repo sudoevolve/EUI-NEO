@@ -42,7 +42,8 @@ enum class InputKey {
     V,
     X,
     Y,
-    Z
+    Z,
+    Tab
 };
 
 enum class KeyAction {

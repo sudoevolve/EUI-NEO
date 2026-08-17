@@ -144,6 +144,7 @@ void installInputCallbacks(Handle window) {
         case GLFW_KEY_DOWN: queueKey(core::InputKey::Down); break;
         case GLFW_KEY_HOME: queueKey(core::InputKey::Home); break;
         case GLFW_KEY_END: queueKey(core::InputKey::End); break;
+        case GLFW_KEY_TAB: queueKey(core::InputKey::Tab); break;
         case GLFW_KEY_ESCAPE: queueKey(core::InputKey::Escape); break;
         case GLFW_KEY_A: queueKey(core::InputKey::A); break;
         case GLFW_KEY_C: queueKey(core::InputKey::C); break;

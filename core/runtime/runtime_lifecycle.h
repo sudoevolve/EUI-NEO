@@ -99,7 +99,7 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
     updateElementTree(event, deltaSeconds, dpiScale, hoverTargetId);
     updateDependentVisualDirtyRegions(dpiScale);
 
-    if (keyboardEvent.hasInput()) {
+    if (keyboardEvent.hasInput() && !handleFocusTraversal(keyboardEvent)) {
         updateTextInput(keyboardEvent);
     }
     instances_.releaseUnseenTimers();

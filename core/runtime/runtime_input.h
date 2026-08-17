@@ -252,6 +252,27 @@ inline void Runtime::setFocusedId(const std::string& id) {
     paintRequested_ = true;
 }
 
+inline void Runtime::traverseFocus(bool reverse) {
+    const std::vector<std::string> ids = collectOrderedFocusableIds(ui_);
+    if (ids.empty()) {
+        return;
+    }
+    setFocusedId(nextFocusTarget(ids, focusedId_, reverse));
+}
+
+inline bool Runtime::handleFocusTraversal(const KeyboardEvent& event) {
+    const KeyEvent* tab = event.findKey(InputKey::Tab);
+    if (tab == nullptr || tab->modifiers.shortcut) {
+        return false;
+    }
+    traverseFocus(tab->modifiers.shift);
+    return true;
+}
+
+inline std::string Runtime::focusedId() const {
+    return focusedId_;
+}
+
 inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& targetId) {
     const Element* element = targetId.empty() ? nullptr : ui_.find(targetId);
     const std::string activeScrollStateId = element != nullptr && !element->disabled

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/dsl.h"
+#include "core/dsl_focus.h"
 #include "core/platform/platform.h"
 #include "core/input/input_state.h"
 #include "core/render/image.h"
@@ -38,6 +39,13 @@ public:
     void compose(const std::string& pageId, float logicalWidth, float logicalHeight, ComposeFn&& composeFn);
 
     bool update(core::window::Handle window, float deltaSeconds, float pointerScale, float dpiScale, bool inputEnabled = true);
+
+    // Move keyboard focus to the next (or previous, when reverse) focusable
+    // element, wrapping around the ends. No-op when there is nothing focusable.
+    void traverseFocus(bool reverse = false);
+
+    // Currently focused element id (resolved, empty when nothing is focused).
+    std::string focusedId() const;
 
     bool isAnimating() const;
 
@@ -161,6 +169,10 @@ private:
                                  std::string& targetId) const;
 
     void setFocusedId(const std::string& id);
+
+    // Consume Tab/Shift+Tab for focus traversal. Returns true when the event
+    // was handled (caller should not forward it to updateTextInput).
+    bool handleFocusTraversal(const KeyboardEvent& event);
 
     void updateScroll(const ScrollEvent& event, const std::string& targetId);
 
