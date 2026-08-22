@@ -75,7 +75,9 @@ bool verifySdlWindowInput(core::window::Handle firstWindow,
     auto* second = static_cast<SDL_Window*>(secondWindow);
     SDL_HideWindow(second);
 
-    core::queuePointerMotion(firstWindow, 31.0, 47.0, false, false);
+    core::KeyModifiers shiftModifiers;
+    shiftModifiers.shift = true;
+    core::queuePointerMotion(firstWindow, 31.0, 47.0, {}, shiftModifiers);
 
     double firstX = 0.0;
     double firstY = 0.0;
@@ -89,9 +91,19 @@ bool verifySdlWindowInput(core::window::Handle firstWindow,
         return false;
     }
 
-    core::queuePointerButton(firstWindow, 31.0, 47.0, 0, true);
-    if (!core::window::isMouseButtonDown(firstWindow, 0) ||
-        core::window::isMouseButtonDown(secondWindow, 0)) {
+    core::queuePointerButton(firstWindow, 31.0, 47.0,
+                             core::PointerButton::Middle,
+                             core::PointerAction::Press,
+                             shiftModifiers);
+    core::queuePointerMotion(firstWindow, 35.0, 51.0,
+                             core::PointerButton::Middle,
+                             shiftModifiers);
+    core::queuePointerButton(firstWindow, 35.0, 51.0,
+                             core::PointerButton::Middle,
+                             core::PointerAction::Release,
+                             shiftModifiers);
+    if (!core::hasPendingPointerInput(firstWindow) ||
+        core::hasPendingPointerInput(secondWindow)) {
         core::window::destroyWindow(secondWindow);
         return false;
     }
@@ -100,18 +112,43 @@ bool verifySdlWindowInput(core::window::Handle firstWindow,
     core::queueTextEditing(firstWindow, "ime");
     core::queueScrollInput(firstWindow, 1.25, -2.5);
     core::queueKeyInput(firstWindow,
+                        {core::InputKey::LeftShift,
+                         core::KeyAction::Press,
+                         shiftModifiers});
+    core::queueKeyInput(firstWindow,
                         {core::InputKey::Left,
                          core::KeyAction::Repeat,
                          {false, true}});
+    core::queueKeyInput(firstWindow,
+                        {core::InputKey::LeftShift,
+                         core::KeyAction::Release,
+                         {}});
 
-    auto input = core::consumeInputEvents(firstWindow);
-    const core::KeyEvent* left = input.first.findKey(core::InputKey::Left);
-    const bool queued = input.first.text == "ok" &&
-        input.first.compositionText == "ime" && input.first.composing &&
-        left != nullptr && left->action == core::KeyAction::Repeat && left->modifiers.shift &&
-        input.second.x == 1.25 && input.second.y == -2.5;
+    const std::vector<core::KeyEvent> keys = core::consumeKeyEvents(firstWindow);
+    const core::TextInputEvent text = core::consumeTextInput(firstWindow);
+    const core::ScrollEvent scroll = core::consumeScrollInput(firstWindow);
+    const auto findKey = [&](core::InputKey key, core::KeyAction action) {
+        return std::find_if(keys.begin(), keys.end(), [&](const core::KeyEvent& event) {
+            return event.key == key && event.action == action;
+        });
+    };
+    const auto left = findKey(core::InputKey::Left, core::KeyAction::Repeat);
+    const std::vector<core::PointerEvent> pointer = core::consumePointerEvents(firstWindow);
+    const bool queued = text.text == "ok" &&
+        text.compositionText == "ime" && text.composing &&
+        left != keys.end() && left->modifiers.shift &&
+        findKey(core::InputKey::LeftShift, core::KeyAction::Press) != keys.end() &&
+        findKey(core::InputKey::LeftShift, core::KeyAction::Release) != keys.end() &&
+        scroll.x == 1.25 && scroll.y == -2.5 &&
+        pointer.size() == 4 &&
+        pointer[0].action == core::PointerAction::Move &&
+        pointer[1].isPress(core::PointerButton::Middle) &&
+        pointer[1].modifiers.shift &&
+        pointer[2].action == core::PointerAction::Move &&
+        pointer[2].isDown(core::PointerButton::Middle) &&
+        pointer[3].isRelease(core::PointerButton::Middle) &&
+        !pointer[3].isDown(core::PointerButton::Middle);
 
-    core::queuePointerButton(firstWindow, 31.0, 47.0, 0, false);
     core::releaseInputQueue(secondWindow);
     core::window::destroyWindow(secondWindow);
     return queued;

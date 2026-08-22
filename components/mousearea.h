@@ -19,8 +19,10 @@ struct MouseEvent {
     float deltaX = 0.0f;
     float deltaY = 0.0f;
     core::Rect bounds;
-    bool down = false;
-    bool rightDown = false;
+    core::PointerAction action = core::PointerAction::Move;
+    core::PointerButton button = core::PointerButton::None;
+    core::PointerButtons buttons;
+    core::KeyModifiers modifiers;
     bool inside = false;
 };
 
@@ -53,6 +55,7 @@ public:
     MouseAreaBuilder& cursor(core::CursorShape value) { cursor_ = value; return *this; }
     MouseAreaBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
     MouseAreaBuilder& preserveFocusOnPress(bool value = true) { preserveFocusOnPress_ = value; return *this; }
+    MouseAreaBuilder& acceptedButtons(core::PointerButtons value) { acceptedButtons_ = value; return *this; }
     MouseAreaBuilder& scrollStep(float value) { scrollStep_ = std::max(0.0f, value); return *this; }
     MouseAreaBuilder& maxScrollStep(float value) { maxScrollStep_ = std::max(0.0f, value); return *this; }
     MouseAreaBuilder& dragThreshold(float value) { dragThreshold_ = std::max(0.0f, value); return *this; }
@@ -119,6 +122,8 @@ public:
             .radius(radius_)
             .disabled(disabled_)
             .preserveFocusOnPress(preserveFocusOnPress_)
+            .acceptedButtons(acceptedButtons_)
+            .dragThreshold(dragThreshold)
             .interactive()
             .cursor(cursor_);
 
@@ -142,7 +147,9 @@ public:
         if (onClick || onClickAt || onRelease || onDragEnd) {
             area.onRelease([state, onClick, onClickAt, onRelease, onDragEnd, suppressClickAfterDrag](const core::PointerEvent& event, const core::Rect& bounds) {
                 state->lastEvent = makeMouseEvent(event, bounds, state->width, state->height);
-                if (state->lastEvent.inside && (!suppressClickAfterDrag || !state->dragged)) {
+                if (event.action == core::PointerAction::Release &&
+                    state->lastEvent.inside &&
+                    (!suppressClickAfterDrag || !state->dragged)) {
                     if (onClick) {
                         onClick();
                     }
@@ -185,19 +192,14 @@ public:
         }
 
         if (onDrag || onDragStart || onDragEnd) {
-            area.onDrag([state, safeWidth, safeHeight, onDrag, onDragStart, dragThreshold](const core::dsl::DragEvent& event) {
+            area.onDrag([state, safeWidth, safeHeight, onDrag, onDragStart](const core::dsl::DragEvent& event) {
                 if (state->bounds.width <= 0.0f || state->bounds.height <= 0.0f) {
                     state->bounds = {0.0f, 0.0f, safeWidth, safeHeight};
                     state->width = safeWidth;
                     state->height = safeHeight;
                 }
                 MouseDragEvent drag = makeMouseDragEvent(event, state->bounds, state->width, state->height);
-                if (!state->dragged && (std::fabs(drag.totalX) >= dragThreshold || std::fabs(drag.totalY) >= dragThreshold)) {
-                    state->dragged = true;
-                }
-                if (!state->dragged) {
-                    return;
-                }
+                state->dragged = true;
                 if (!state->dragging) {
                     if (onDragStart) {
                         onDragStart(state->pressEvent);
@@ -265,8 +267,10 @@ private:
             width,
             height
         };
-        result.down = event.down;
-        result.rightDown = event.rightDown;
+        result.action = event.action;
+        result.button = event.button;
+        result.buttons = event.buttons;
+        result.modifiers = event.modifiers;
         result.inside = result.x >= 0.0f && result.y >= 0.0f && result.x <= width && result.y <= height;
         return result;
     }
@@ -289,7 +293,10 @@ private:
             width,
             height
         };
-        result.down = true;
+        result.action = core::PointerAction::Move;
+        result.button = event.button;
+        result.buttons = event.buttons;
+        result.modifiers = event.modifiers;
         result.inside = result.x >= 0.0f && result.y >= 0.0f && result.x <= width && result.y <= height;
         return result;
     }
@@ -334,6 +341,7 @@ private:
     float scrollStep_ = 1.0f;
     float maxScrollStep_ = 1.0f;
     float dragThreshold_ = 2.0f;
+    core::PointerButtons acceptedButtons_ = core::PointerButton::Left;
     int zIndex_ = 0;
     bool hasX_ = false;
     bool hasY_ = false;

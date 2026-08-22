@@ -83,6 +83,9 @@ struct DragEvent {
     double deltaY = 0.0;
     double totalX = 0.0;
     double totalY = 0.0;
+    PointerButton button = PointerButton::None;
+    PointerButtons buttons;
+    KeyModifiers modifiers;
 };
 
 struct Element {
@@ -152,6 +155,8 @@ struct Element {
     bool focusable = false;
     bool preserveFocusOnPress = false;
     bool disabled = false;
+    PointerButtons acceptedButtons = PointerButton::Left;
+    float dragThreshold = 2.0f;
     HitTestMode hitTestMode = HitTestMode::Layout;
     bool hasImeRect = false;
     Rect imeRect;
@@ -167,7 +172,8 @@ struct Element {
     std::function<void(const PointerEvent&, const Rect&)> onContextMenu;
     std::function<void(bool)> onHoverChanged;
     std::function<void(bool)> onFocusChanged;
-    std::function<void(const KeyboardEvent&)> onTextInput;
+    std::function<bool(const KeyEvent&)> onKeyEvent;
+    std::function<void(const TextInputEvent&)> onTextInput;
     std::function<void(const ScrollEvent&)> onScroll;
     std::function<void(float)> onScrollOffsetChanged;
     std::function<void(const DragEvent&)> onDrag;
@@ -700,7 +706,25 @@ public:
         return self();
     }
 
-    Derived& onTextInput(std::function<void(const KeyboardEvent&)> callback) {
+    Derived& acceptedButtons(PointerButtons buttons) {
+        element_->interactive = true;
+        element_->acceptedButtons = buttons;
+        return self();
+    }
+
+    Derived& dragThreshold(float value) {
+        element_->dragThreshold = std::max(0.0f, value);
+        return self();
+    }
+
+    Derived& onKeyEvent(std::function<bool(const KeyEvent&)> callback) {
+        element_->focusable = true;
+        element_->interactive = true;
+        element_->onKeyEvent = std::move(callback);
+        return self();
+    }
+
+    Derived& onTextInput(std::function<void(const TextInputEvent&)> callback) {
         element_->focusable = true;
         element_->interactive = true;
         element_->onTextInput = std::move(callback);

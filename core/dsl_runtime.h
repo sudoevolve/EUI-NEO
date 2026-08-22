@@ -34,6 +34,10 @@ public:
 
     bool initialize(core::window::Handle window);
 
+    void setKeyEventHandler(std::function<void(const KeyEvent&)> handler) {
+        keyEventHandler_ = std::move(handler);
+    }
+
     template <typename ComposeFn>
     void compose(const std::string& pageId, float logicalWidth, float logicalHeight, ComposeFn&& composeFn);
 
@@ -164,7 +168,9 @@ private:
 
     void updateScroll(const ScrollEvent& event, const std::string& targetId);
 
-    void updateTextInput(const KeyboardEvent& event);
+    void updateTextInput(const TextInputEvent& event);
+
+    void updateKeyInput(const std::vector<KeyEvent>& events);
 
     void updateImeCursorRect(core::window::Handle window, float dpiScale);
 
@@ -281,6 +287,7 @@ private:
     float hoverTargetCacheDpiScale_ = 0.0f;
     std::string hoverTargetCacheId_;
     std::string focusedId_;
+    std::function<void(const KeyEvent&)> keyEventHandler_;
     RenderTransform focusedElementRenderTransform_;
     bool focusedElementRenderTransformValid_ = false;
     float logicalWidth_ = 0.0f;

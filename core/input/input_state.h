@@ -3,32 +3,46 @@
 #include "core/input/input_types.h"
 #include "core/window/window_backend.h"
 
+#include <array>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 namespace core {
 
 namespace detail {
+
+struct QueuedPointerEvent {
+    double x = 0.0;
+    double y = 0.0;
+    PointerAction action = PointerAction::Move;
+    PointerButton button = PointerButton::None;
+    PointerButtons buttons;
+    KeyModifiers modifiers;
+};
 
 struct InputQueue {
     std::string text;
     std::string pasteText;
     std::string compositionText;
     std::vector<KeyEvent> keys;
+    std::array<bool, static_cast<std::size_t>(InputKey::Count)> keysDown{};
+    KeyModifiers modifiers;
     double scrollX = 0.0;
     double scrollY = 0.0;
     bool compositionChanged = false;
 };
 
 struct PointerState {
-    double lastX = 0.0;
-    double lastY = 0.0;
+    double dispatchedX = 0.0;
+    double dispatchedY = 0.0;
     double x = 0.0;
     double y = 0.0;
-    bool lastDown = false;
-    bool lastRightDown = false;
-    bool down = false;
-    bool rightDown = false;
+    PointerButtons buttons;
+    KeyModifiers modifiers;
+    std::vector<QueuedPointerEvent> events;
+    float dispatchedScale = 1.0f;
+    bool dispatchedPositionValid = false;
     bool hasPosition = false;
     bool inside = false;
 };
@@ -53,13 +67,8 @@ inline std::unordered_map<window::Handle, std::string>& compositionTextStates() 
     return states;
 }
 
-inline InputQueue& inputQueue(window::Handle window) {
-    return inputQueues()[window];
-}
-
-inline PointerState& pointerState(window::Handle window) {
-    return pointerStates()[window];
-}
+inline InputQueue& inputQueue(window::Handle window) { return inputQueues()[window]; }
+inline PointerState& pointerState(window::Handle window) { return pointerStates()[window]; }
 
 inline bool isComposing(window::Handle window) {
     const auto it = composingStates().find(window);
@@ -100,18 +109,13 @@ inline void appendUtf8(std::string& output, unsigned int codepoint) {
     }
 }
 
-inline bool hasQueuedPointerState(window::Handle window) {
-    const auto iterator = pointerStates().find(window);
-    return iterator != pointerStates().end() && iterator->second.hasPosition;
-}
-
 inline bool queuedPointerPosition(window::Handle window, double& x, double& y) {
     const auto iterator = pointerStates().find(window);
     if (iterator == pointerStates().end()) {
         return false;
     }
     const PointerState& state = iterator->second;
-    if (!state.hasPosition || (!state.inside && !state.down && !state.rightDown)) {
+    if (!state.hasPosition || (!state.inside && state.buttons.empty())) {
         return false;
     }
     x = state.x;
@@ -119,12 +123,18 @@ inline bool queuedPointerPosition(window::Handle window, double& x, double& y) {
     return true;
 }
 
-inline bool queuedPointerButtonDown(window::Handle window, int button) {
-    const auto iterator = pointerStates().find(window);
-    if (iterator == pointerStates().end()) {
-        return false;
+inline KeyModifiers currentModifiers(window::Handle window) {
+    const auto iterator = inputQueues().find(window);
+    return iterator == inputQueues().end() ? KeyModifiers{} : iterator->second.modifiers;
+}
+
+inline void pushPointerEvent(PointerState& state, QueuedPointerEvent event) {
+    if (event.action == PointerAction::Move && !state.events.empty() &&
+        state.events.back().action == PointerAction::Move) {
+        state.events.back() = std::move(event);
+        return;
     }
-    return button == 1 ? iterator->second.rightDown : iterator->second.down;
+    state.events.push_back(std::move(event));
 }
 
 } // namespace detail
@@ -132,47 +142,57 @@ inline bool queuedPointerButtonDown(window::Handle window, int button) {
 inline void queuePointerMotion(window::Handle window,
                                double x,
                                double y,
-                               bool down,
-                               bool rightDown) {
+                               PointerButtons buttons,
+                               const KeyModifiers& modifiers) {
     detail::PointerState& state = detail::pointerState(window);
     state.x = x;
     state.y = y;
-    state.down = down;
-    state.rightDown = rightDown;
+    state.buttons = buttons;
+    state.modifiers = modifiers;
     state.hasPosition = true;
     state.inside = true;
+    detail::pushPointerEvent(state, {x, y, PointerAction::Move, PointerButton::None, buttons, modifiers});
 }
 
 inline void queuePointerButton(window::Handle window,
                                double x,
                                double y,
-                               int button,
-                               bool down) {
+                               PointerButton button,
+                               PointerAction action,
+                               const KeyModifiers& modifiers) {
+    if (button == PointerButton::None ||
+        (action != PointerAction::Press && action != PointerAction::Release)) {
+        return;
+    }
     detail::PointerState& state = detail::pointerState(window);
     state.x = x;
     state.y = y;
+    state.buttons.set(button, action == PointerAction::Press);
+    state.modifiers = modifiers;
     state.hasPosition = true;
     state.inside = true;
-    if (button == 0) {
-        state.down = down;
-    } else if (button == 1) {
-        state.rightDown = down;
-    }
+    detail::pushPointerEvent(state, {x, y, action, button, state.buttons, modifiers});
 }
 
 inline void queuePointerPresence(window::Handle window, bool inside) {
     detail::pointerState(window).inside = inside;
 }
 
-inline void clearPointerInput(window::Handle window) {
-    const auto iterator = detail::pointerStates().find(window);
-    if (iterator == detail::pointerStates().end()) {
-        return;
+inline void cancelPointerInput(window::Handle window) {
+    detail::PointerState& state = detail::pointerState(window);
+    constexpr PointerButton buttons[] = {
+        PointerButton::Left, PointerButton::Middle, PointerButton::Right,
+        PointerButton::X1, PointerButton::X2
+    };
+    for (PointerButton button : buttons) {
+        if (!state.buttons.contains(button)) {
+            continue;
+        }
+        state.buttons.set(button, false);
+        detail::pushPointerEvent(state, {
+            state.x, state.y, PointerAction::Cancel, button, state.buttons, state.modifiers
+        });
     }
-    detail::PointerState& state = iterator->second;
-    state.down = false;
-    state.rightDown = false;
-    state.hasPosition = false;
     state.inside = false;
 }
 
@@ -201,73 +221,139 @@ inline void queueScrollInput(window::Handle window, double x, double y) {
 
 inline void queueKeyInput(window::Handle window, const KeyEvent& event) {
     detail::InputQueue& queue = detail::inputQueue(window);
-    if (event.modifiers.shortcut && event.key == InputKey::V) {
-        queue.pasteText += core::window::clipboardText(window);
-        return;
+    queue.modifiers = event.modifiers;
+    const std::size_t index = static_cast<std::size_t>(event.key);
+    if (event.key != InputKey::Unknown && index < queue.keysDown.size()) {
+        if (event.action == KeyAction::Press) {
+            queue.keysDown[index] = true;
+        } else if (event.action == KeyAction::Release) {
+            queue.keysDown[index] = false;
+        }
     }
 
-    if (detail::isComposing(window) &&
-        (event.key == InputKey::Backspace || event.key == InputKey::Delete)) {
-        return;
+    if (event.isDown() && event.modifiers.shortcut() && event.key == InputKey::V) {
+        queue.pasteText += core::window::clipboardText(window);
     }
 
     queue.keys.push_back(event);
 }
 
-inline std::pair<KeyboardEvent, ScrollEvent> consumeInputEvents(window::Handle window) {
+inline void cancelKeyboardInput(window::Handle window) {
+    detail::InputQueue& queue = detail::inputQueue(window);
+    for (std::size_t index = 1; index < queue.keysDown.size(); ++index) {
+        if (!queue.keysDown[index]) {
+            continue;
+        }
+        queue.keysDown[index] = false;
+        queue.keys.push_back({static_cast<InputKey>(index), KeyAction::Release, {}, 0});
+    }
+    queue.modifiers = {};
+}
+
+inline void cancelInput(window::Handle window) {
+    cancelPointerInput(window);
+    cancelKeyboardInput(window);
+}
+
+inline std::vector<KeyEvent> consumeKeyEvents(window::Handle window) {
+    detail::InputQueue& queue = detail::inputQueue(window);
+    std::vector<KeyEvent> events = std::move(queue.keys);
+    queue.keys.clear();
+    return events;
+}
+
+inline TextInputEvent consumeTextInput(window::Handle window) {
     detail::InputQueue& queue = detail::inputQueue(window);
     const bool wasComposing = detail::isComposing(window);
     const std::string previousCompositionText = detail::compositionText(window);
     const bool queuedCompositionChanged = queue.compositionChanged;
-    KeyboardEvent keyboard;
-    keyboard.text = std::move(queue.text);
-    keyboard.pasteText = std::move(queue.pasteText);
-    keyboard.compositionText = std::move(queue.compositionText);
-    keyboard.keys = std::move(queue.keys);
-    keyboard.composing = detail::isComposing(window);
-    if (!queuedCompositionChanged && keyboard.composing) {
-        keyboard.compositionText = previousCompositionText;
+    TextInputEvent input;
+    input.text = std::move(queue.text);
+    input.pasteText = std::move(queue.pasteText);
+    input.compositionText = std::move(queue.compositionText);
+    input.composing = detail::isComposing(window);
+    if (!queuedCompositionChanged && input.composing) {
+        input.compositionText = previousCompositionText;
     }
     std::string nativeComposition;
     bool nativeComposing = false;
     if (window::queryImeComposition(window, nativeComposition, nativeComposing)) {
         if (nativeComposing) {
-            keyboard.compositionText = std::move(nativeComposition);
-            keyboard.composing = true;
+            input.compositionText = std::move(nativeComposition);
+            input.composing = true;
             detail::setComposing(window, true);
         } else if (!queuedCompositionChanged) {
-            keyboard.compositionText.clear();
-            keyboard.composing = false;
+            input.compositionText.clear();
+            input.composing = false;
             detail::setComposing(window, false);
         }
     }
-    keyboard.compositionChanged = queuedCompositionChanged ||
-                                  wasComposing != keyboard.composing ||
-                                  previousCompositionText != keyboard.compositionText;
-    detail::setCompositionText(window, keyboard.compositionText);
+    input.compositionChanged = queuedCompositionChanged ||
+                               wasComposing != input.composing ||
+                               previousCompositionText != input.compositionText;
+    detail::setCompositionText(window, input.compositionText);
 
-    ScrollEvent scroll{queue.scrollX, queue.scrollY};
-    queue = {};
-    return {std::move(keyboard), scroll};
+    queue.text.clear();
+    queue.pasteText.clear();
+    queue.compositionText.clear();
+    queue.compositionChanged = false;
+    return input;
 }
 
-inline bool hasPendingPointerInput(window::Handle window, float dpiScale = 1.0f) {
-    const auto stateIt = detail::pointerStates().find(window);
-    if (stateIt == detail::pointerStates().end()) {
-        return false;
+inline ScrollEvent consumeScrollInput(window::Handle window) {
+    detail::InputQueue& queue = detail::inputQueue(window);
+    ScrollEvent scroll{queue.scrollX, queue.scrollY};
+    queue.scrollX = 0.0;
+    queue.scrollY = 0.0;
+    return scroll;
+}
+
+inline std::vector<PointerEvent> consumePointerEvents(window::Handle window, float dpiScale = 1.0f) {
+    detail::PointerState& state = detail::pointerState(window);
+    std::vector<detail::QueuedPointerEvent> queued = std::move(state.events);
+    state.events.clear();
+    if (queued.empty()) {
+        const bool dispatchPosition = state.inside || !state.buttons.empty();
+        queued.push_back({
+            dispatchPosition ? state.x : -1000000.0,
+            dispatchPosition ? state.y : -1000000.0,
+            PointerAction::Move, PointerButton::None,
+            state.buttons, state.modifiers
+        });
     }
 
-    double x = 0.0;
-    double y = 0.0;
-    core::window::getCursorPosition(window, x, y);
-    x *= dpiScale;
-    y *= dpiScale;
+    std::vector<PointerEvent> events;
+    events.reserve(queued.size());
+    if (state.dispatchedScale != dpiScale) {
+        state.dispatchedPositionValid = false;
+        state.dispatchedScale = dpiScale;
+    }
+    for (const detail::QueuedPointerEvent& raw : queued) {
+        PointerEvent event;
+        event.x = raw.x * dpiScale;
+        event.y = raw.y * dpiScale;
+        const bool positionValid = raw.x > -999999.0 && raw.y > -999999.0;
+        if (positionValid && state.dispatchedPositionValid) {
+            event.deltaX = event.x - state.dispatchedX;
+            event.deltaY = event.y - state.dispatchedY;
+        }
+        event.action = raw.action;
+        event.button = raw.button;
+        event.buttons = raw.buttons;
+        event.modifiers = raw.modifiers;
+        if (positionValid) {
+            state.dispatchedX = event.x;
+            state.dispatchedY = event.y;
+        }
+        state.dispatchedPositionValid = positionValid;
+        events.push_back(event);
+    }
+    return events;
+}
 
-    const detail::PointerState& state = stateIt->second;
-    return x != state.lastX ||
-           y != state.lastY ||
-           core::window::isMouseButtonDown(window, 0) != state.lastDown ||
-           core::window::isMouseButtonDown(window, 1) != state.lastRightDown;
+inline bool hasPendingPointerInput(window::Handle window, float = 1.0f) {
+    const auto state = detail::pointerStates().find(window);
+    return state != detail::pointerStates().end() && !state->second.events.empty();
 }
 
 inline void releaseInputQueue(window::Handle window) {
@@ -276,34 +362,6 @@ inline void releaseInputQueue(window::Handle window) {
     detail::pointerStates().erase(window);
     detail::composingStates().erase(window);
     detail::compositionTextStates().erase(window);
-}
-
-inline PointerEvent readPointerEvent(window::Handle window, float dpiScale = 1.0f) {
-    detail::PointerState& state = detail::pointerState(window);
-
-    double x = 0.0;
-    double y = 0.0;
-    core::window::getCursorPosition(window, x, y);
-    x *= dpiScale;
-    y *= dpiScale;
-
-    PointerEvent event;
-    event.x = x;
-    event.y = y;
-    event.deltaX = x - state.lastX;
-    event.deltaY = y - state.lastY;
-    event.down = core::window::isMouseButtonDown(window, 0);
-    event.rightDown = core::window::isMouseButtonDown(window, 1);
-    event.pressedThisFrame = event.down && !state.lastDown;
-    event.releasedThisFrame = !event.down && state.lastDown;
-    event.rightPressedThisFrame = event.rightDown && !state.lastRightDown;
-    event.rightReleasedThisFrame = !event.rightDown && state.lastRightDown;
-
-    state.lastX = x;
-    state.lastY = y;
-    state.lastDown = event.down;
-    state.lastRightDown = event.rightDown;
-    return event;
 }
 
 } // namespace core

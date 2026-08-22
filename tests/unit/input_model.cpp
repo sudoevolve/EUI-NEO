@@ -9,18 +9,25 @@
 int main() {
     using Model = components::input_detail::InputModel;
 
-    core::KeyboardEvent keyboard;
-    keyboard.keys = {
-        {core::InputKey::Left, core::KeyAction::Repeat, {false, true}},
-        {core::InputKey::Z, core::KeyAction::Press, {true, true}}
+    const core::KeyEvent left{
+        core::InputKey::Left, core::KeyAction::Repeat, {false, true}
     };
-    const core::KeyEvent* left = keyboard.findKey(core::InputKey::Left);
-    if (!keyboard.hasInput() || left == nullptr ||
-        left->action != core::KeyAction::Repeat || !left->modifiers.shift ||
-        !keyboard.hasShortcut(core::InputKey::Z) ||
-        keyboard.hasUnshiftedShortcut(core::InputKey::Z) ||
-        !keyboard.hasShiftedShortcut(core::InputKey::Z) ||
-        keyboard.hasShortcut(core::InputKey::Left)) {
+    core::KeyModifiers shortcutModifiers;
+    shortcutModifiers.shift = true;
+#if defined(__APPLE__)
+    shortcutModifiers.super = true;
+#else
+    shortcutModifiers.control = true;
+#endif
+    const core::KeyEvent shiftedShortcut{
+        core::InputKey::Z, core::KeyAction::Press, shortcutModifiers
+    };
+    const core::KeyEvent shiftRelease{
+        core::InputKey::LeftShift, core::KeyAction::Release, {}
+    };
+    if (!left.isDown() || !left.modifiers.shift ||
+        !shiftedShortcut.isDown() || !shiftedShortcut.modifiers.shortcut() ||
+        !shiftedShortcut.modifiers.shift || shiftRelease.isDown()) {
         std::cerr << "Generic keyboard events lost key action or modifiers\n";
         return 1;
     }

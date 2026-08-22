@@ -293,6 +293,8 @@ inline bool Runtime::canReuseStaticSubtree(
         ancestorFrameChanged ||
         ancestorDisabled ||
         element.subtreeNeedsUpdate ||
+        event.action != PointerAction::Move ||
+        !event.buttons.empty() ||
         !focusedId_.empty()) {
         return false;
     }
@@ -637,7 +639,7 @@ inline runtime::PaintBoundsInstance Runtime::updateElementTree(
     const bool frameTargetChanged = updateFrameTarget(element);
     updateExplicitDirtyKey(element, dpiScale, inheritedTransform);
     if (disabledTree) {
-        instances_.interaction(element.id).state.update({}, event, false, false);
+        instances_.interaction(element.id).state.update({}, event, false, {}, 0.0, false);
     } else {
         updateInteraction(element, event, dpiScale, hoverTargetId, inheritedTransform);
     }
@@ -1082,8 +1084,10 @@ inline void Runtime::updateShaderToy(
     instance.primitive->setResolutionScale(element.shaderToyResolutionScale);
     instance.primitive->setTimeScale(element.shaderToyTimeScale);
     instance.primitive->setPaused(element.shaderToyPaused);
-    instance.primitive->update(deltaSeconds, localPointer, event.down,
-                               event.pressedThisFrame, event.releasedThisFrame,
+    instance.primitive->update(deltaSeconds, localPointer,
+                               event.isDown(PointerButton::Left),
+                               event.isPress(PointerButton::Left),
+                               event.isRelease(PointerButton::Left),
                                updateFrameToken_, pointerInside);
 
     const bool active = instance.primitive->isAnimating() || instance.frame.isActive() ||

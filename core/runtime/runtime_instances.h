@@ -125,6 +125,10 @@ struct ShaderToyInstance {
 
 struct InteractionInstance {
     InteractionState state;
+    bool contextActive = false;
+    bool contextDragged = false;
+    double contextStartX = 0.0;
+    double contextStartY = 0.0;
     bool seen = false;
 };
 

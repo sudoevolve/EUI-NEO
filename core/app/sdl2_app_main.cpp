@@ -148,7 +148,8 @@ void updateFrameInterval(SDL_Window* window, WindowState& state) {
 Uint32 windowIdForEvent(const SDL_Event& event) {
     switch (event.type) {
     case SDL_WINDOWEVENT: return event.window.windowID;
-    case SDL_KEYDOWN: return event.key.windowID;
+    case SDL_KEYDOWN:
+    case SDL_KEYUP: return event.key.windowID;
     case SDL_TEXTINPUT: return event.text.windowID;
     case SDL_TEXTEDITING: return event.edit.windowID;
     case SDL_MOUSEWHEEL: return event.wheel.windowID;
@@ -159,26 +160,110 @@ Uint32 windowIdForEvent(const SDL_Event& event) {
     }
 }
 
-bool mapKey(SDL_Keycode key, core::InputKey& mapped) {
+core::InputKey mapKey(SDL_Keycode key) {
+    if (key >= SDLK_0 && key <= SDLK_9) {
+        return static_cast<core::InputKey>(
+            static_cast<int>(core::InputKey::Digit0) + key - SDLK_0);
+    }
+    if (key >= SDLK_a && key <= SDLK_z) {
+        return static_cast<core::InputKey>(
+            static_cast<int>(core::InputKey::A) + key - SDLK_a);
+    }
+    if (key >= SDLK_F1 && key <= SDLK_F24) {
+        return static_cast<core::InputKey>(
+            static_cast<int>(core::InputKey::F1) + key - SDLK_F1);
+    }
     switch (key) {
-    case SDLK_BACKSPACE: mapped = core::InputKey::Backspace; return true;
-    case SDLK_DELETE: mapped = core::InputKey::Delete; return true;
-    case SDLK_RETURN:
-    case SDLK_KP_ENTER: mapped = core::InputKey::Enter; return true;
-    case SDLK_LEFT: mapped = core::InputKey::Left; return true;
-    case SDLK_RIGHT: mapped = core::InputKey::Right; return true;
-    case SDLK_UP: mapped = core::InputKey::Up; return true;
-    case SDLK_DOWN: mapped = core::InputKey::Down; return true;
-    case SDLK_HOME: mapped = core::InputKey::Home; return true;
-    case SDLK_END: mapped = core::InputKey::End; return true;
-    case SDLK_ESCAPE: mapped = core::InputKey::Escape; return true;
-    case SDLK_a: mapped = core::InputKey::A; return true;
-    case SDLK_c: mapped = core::InputKey::C; return true;
-    case SDLK_v: mapped = core::InputKey::V; return true;
-    case SDLK_x: mapped = core::InputKey::X; return true;
-    case SDLK_y: mapped = core::InputKey::Y; return true;
-    case SDLK_z: mapped = core::InputKey::Z; return true;
-    default: return false;
+    case SDLK_BACKSPACE: return core::InputKey::Backspace;
+    case SDLK_TAB: return core::InputKey::Tab;
+    case SDLK_RETURN: return core::InputKey::Enter;
+    case SDLK_ESCAPE: return core::InputKey::Escape;
+    case SDLK_SPACE: return core::InputKey::Space;
+    case SDLK_INSERT: return core::InputKey::Insert;
+    case SDLK_DELETE: return core::InputKey::Delete;
+    case SDLK_HOME: return core::InputKey::Home;
+    case SDLK_END: return core::InputKey::End;
+    case SDLK_PAGEUP: return core::InputKey::PageUp;
+    case SDLK_PAGEDOWN: return core::InputKey::PageDown;
+    case SDLK_LEFT: return core::InputKey::Left;
+    case SDLK_RIGHT: return core::InputKey::Right;
+    case SDLK_UP: return core::InputKey::Up;
+    case SDLK_DOWN: return core::InputKey::Down;
+    case SDLK_PRINTSCREEN: return core::InputKey::PrintScreen;
+    case SDLK_SCROLLLOCK: return core::InputKey::ScrollLock;
+    case SDLK_PAUSE: return core::InputKey::Pause;
+    case SDLK_CAPSLOCK: return core::InputKey::CapsLock;
+    case SDLK_NUMLOCKCLEAR: return core::InputKey::NumLock;
+    case SDLK_LSHIFT: return core::InputKey::LeftShift;
+    case SDLK_RSHIFT: return core::InputKey::RightShift;
+    case SDLK_LCTRL: return core::InputKey::LeftControl;
+    case SDLK_RCTRL: return core::InputKey::RightControl;
+    case SDLK_LALT: return core::InputKey::LeftAlt;
+    case SDLK_RALT: return core::InputKey::RightAlt;
+    case SDLK_LGUI: return core::InputKey::LeftSuper;
+    case SDLK_RGUI: return core::InputKey::RightSuper;
+    case SDLK_MENU: return core::InputKey::Menu;
+    case SDLK_QUOTE: return core::InputKey::Apostrophe;
+    case SDLK_COMMA: return core::InputKey::Comma;
+    case SDLK_MINUS: return core::InputKey::Minus;
+    case SDLK_PERIOD: return core::InputKey::Period;
+    case SDLK_SLASH: return core::InputKey::Slash;
+    case SDLK_SEMICOLON: return core::InputKey::Semicolon;
+    case SDLK_EQUALS: return core::InputKey::Equal;
+    case SDLK_LEFTBRACKET: return core::InputKey::LeftBracket;
+    case SDLK_BACKSLASH: return core::InputKey::Backslash;
+    case SDLK_RIGHTBRACKET: return core::InputKey::RightBracket;
+    case SDLK_BACKQUOTE: return core::InputKey::GraveAccent;
+    case SDLK_KP_0: return core::InputKey::Numpad0;
+    case SDLK_KP_1: return core::InputKey::Numpad1;
+    case SDLK_KP_2: return core::InputKey::Numpad2;
+    case SDLK_KP_3: return core::InputKey::Numpad3;
+    case SDLK_KP_4: return core::InputKey::Numpad4;
+    case SDLK_KP_5: return core::InputKey::Numpad5;
+    case SDLK_KP_6: return core::InputKey::Numpad6;
+    case SDLK_KP_7: return core::InputKey::Numpad7;
+    case SDLK_KP_8: return core::InputKey::Numpad8;
+    case SDLK_KP_9: return core::InputKey::Numpad9;
+    case SDLK_KP_DECIMAL: return core::InputKey::NumpadDecimal;
+    case SDLK_KP_DIVIDE: return core::InputKey::NumpadDivide;
+    case SDLK_KP_MULTIPLY: return core::InputKey::NumpadMultiply;
+    case SDLK_KP_MINUS: return core::InputKey::NumpadSubtract;
+    case SDLK_KP_PLUS: return core::InputKey::NumpadAdd;
+    case SDLK_KP_ENTER: return core::InputKey::NumpadEnter;
+    case SDLK_KP_EQUALS: return core::InputKey::NumpadEqual;
+    default: return core::InputKey::Unknown;
+    }
+}
+
+core::KeyModifiers keyModifiers(SDL_Keymod state) {
+    core::KeyModifiers modifiers;
+    modifiers.control = (state & KMOD_CTRL) != 0;
+    modifiers.shift = (state & KMOD_SHIFT) != 0;
+    modifiers.alt = (state & KMOD_ALT) != 0;
+    modifiers.super = (state & KMOD_GUI) != 0;
+    modifiers.capsLock = (state & KMOD_CAPS) != 0;
+    modifiers.numLock = (state & KMOD_NUM) != 0;
+    return modifiers;
+}
+
+core::PointerButtons pointerButtons(Uint32 state) {
+    core::PointerButtons buttons;
+    buttons.set(core::PointerButton::Left, (state & SDL_BUTTON_LMASK) != 0);
+    buttons.set(core::PointerButton::Middle, (state & SDL_BUTTON_MMASK) != 0);
+    buttons.set(core::PointerButton::Right, (state & SDL_BUTTON_RMASK) != 0);
+    buttons.set(core::PointerButton::X1, (state & SDL_BUTTON_X1MASK) != 0);
+    buttons.set(core::PointerButton::X2, (state & SDL_BUTTON_X2MASK) != 0);
+    return buttons;
+}
+
+core::PointerButton pointerButton(Uint8 button) {
+    switch (button) {
+    case SDL_BUTTON_LEFT: return core::PointerButton::Left;
+    case SDL_BUTTON_MIDDLE: return core::PointerButton::Middle;
+    case SDL_BUTTON_RIGHT: return core::PointerButton::Right;
+    case SDL_BUTTON_X1: return core::PointerButton::X1;
+    case SDL_BUTTON_X2: return core::PointerButton::X2;
+    default: return core::PointerButton::None;
     }
 }
 
@@ -192,18 +277,22 @@ bool processInputEvent(SDL_Window* window,
         core::queuePointerMotion(window,
                                  event.motion.x,
                                  event.motion.y,
-                                 (event.motion.state & SDL_BUTTON_LMASK) != 0,
-                                 (event.motion.state & SDL_BUTTON_RMASK) != 0);
+                                 pointerButtons(event.motion.state),
+                                 core::detail::currentModifiers(window));
         repaintRequested = inputEnabled;
         return true;
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
-        if (event.button.button == SDL_BUTTON_LEFT || event.button.button == SDL_BUTTON_RIGHT) {
+        if (const core::PointerButton button = pointerButton(event.button.button);
+            button != core::PointerButton::None) {
             core::queuePointerButton(window,
                                      event.button.x,
                                      event.button.y,
-                                     event.button.button == SDL_BUTTON_RIGHT ? 1 : 0,
-                                     event.type == SDL_MOUSEBUTTONDOWN);
+                                     button,
+                                     event.type == SDL_MOUSEBUTTONDOWN
+                                          ? core::PointerAction::Press
+                                          : core::PointerAction::Release,
+                                     core::detail::currentModifiers(window));
         }
         repaintRequested = inputEnabled;
         return true;
@@ -225,14 +314,18 @@ bool processInputEvent(SDL_Window* window,
             repaintRequested = true;
         }
         return true;
-    case SDL_KEYDOWN: {
-        core::InputKey key;
-        if (inputEnabled && mapKey(event.key.keysym.sym, key)) {
-            const bool shortcut = (event.key.keysym.mod & (KMOD_CTRL | KMOD_GUI)) != 0;
-            const bool shift = (event.key.keysym.mod & KMOD_SHIFT) != 0;
-            const core::KeyAction action =
-                event.key.repeat != 0 ? core::KeyAction::Repeat : core::KeyAction::Press;
-            core::queueKeyInput(window, {key, action, {shortcut, shift}});
+    case SDL_KEYDOWN:
+    case SDL_KEYUP: {
+        if (inputEnabled) {
+            const core::KeyAction action = event.type == SDL_KEYUP
+                ? core::KeyAction::Release
+                : (event.key.repeat != 0 ? core::KeyAction::Repeat : core::KeyAction::Press);
+            core::queueKeyInput(window, {
+                mapKey(event.key.keysym.sym),
+                action,
+                keyModifiers(static_cast<SDL_Keymod>(event.key.keysym.mod)),
+                static_cast<int>(event.key.keysym.scancode)
+            });
             repaintRequested = true;
         }
         return true;
@@ -243,15 +336,20 @@ bool processInputEvent(SDL_Window* window,
             repaintRequested = inputEnabled;
             return true;
         }
+        if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+            core::detail::inputQueue(window).modifiers = keyModifiers(SDL_GetModState());
+            return false;
+        }
         if (event.window.event == SDL_WINDOWEVENT_LEAVE) {
             core::queuePointerPresence(window, false);
             repaintRequested = inputEnabled;
             return true;
         }
-        if (event.window.event == SDL_WINDOWEVENT_HIDDEN ||
+        if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ||
+            event.window.event == SDL_WINDOWEVENT_HIDDEN ||
             event.window.event == SDL_WINDOWEVENT_MINIMIZED ||
             event.window.event == SDL_WINDOWEVENT_CLOSE) {
-            core::clearPointerInput(window);
+            core::cancelInput(window);
         }
         return false;
     default:

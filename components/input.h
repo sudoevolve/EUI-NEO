@@ -193,18 +193,24 @@ public:
                             layout.maxVerticalScroll);
                     });
                 }
-                hit.onTextInput([&state, allowMultiline, onChange, onEnter, width, inset, fontSize, fontFamily, textHeight](const core::KeyboardEvent& event) {
-                        state.followCaret = true;
-                        bool changed = false;
-                        const std::string nextComposition = event.composing ? InputModel::filteredText(event.compositionText, allowMultiline) : std::string{};
-                        if (state.compositionText != nextComposition) {
-                            state.compositionText = nextComposition;
-                            ++state.compositionRevision;
+                hit.onKeyEvent([&state, allowMultiline, onChange, onEnter, width, inset, fontSize, fontFamily, textHeight](const core::KeyEvent& event) {
+                        if (!event.isDown()) {
+                            return false;
                         }
 
-                        const bool undo = event.hasUnshiftedShortcut(core::InputKey::Z);
-                        const bool redo = event.hasShortcut(core::InputKey::Y) ||
-                                          event.hasShiftedShortcut(core::InputKey::Z);
+                        state.followCaret = true;
+                        bool changed = false;
+                        bool handled = true;
+                        const bool shortcut = event.modifiers.shortcut();
+                        if (!state.compositionText.empty() &&
+                            (event.key == core::InputKey::Backspace ||
+                             event.key == core::InputKey::Delete)) {
+                            return true;
+                        }
+                        const bool undo = shortcut && !event.modifiers.shift && event.key == core::InputKey::Z;
+                        const bool redo = shortcut &&
+                            (event.key == core::InputKey::Y ||
+                             (event.modifiers.shift && event.key == core::InputKey::Z));
                         if (undo || redo) {
                             if (!state.compositionText.empty()) {
                                 state.compositionText.clear();
@@ -231,52 +237,45 @@ public:
                             if (changed && onChange) {
                                 onChange(state.text);
                             }
-                            return;
+                            return true;
                         }
 
-                        if (event.hasShortcut(core::InputKey::A)) {
+                        if (shortcut && event.key == core::InputKey::A) {
                             state.selectionStart = 0;
                             state.selectionEnd = static_cast<int>(state.text.size());
                             state.cursor = state.selectionEnd;
-                        }
-                        if (event.hasShortcut(core::InputKey::C)) {
+                        } else if (shortcut && event.key == core::InputKey::C) {
                             InputModel::copySelection(state);
-                        }
-                        if (event.hasShortcut(core::InputKey::X) && InputModel::hasTextSelection(state)) {
-                            InputModel::copySelection(state);
-                            InputModel::pushUndoState(state);
-                            InputModel::eraseSelection(state);
-                            changed = true;
-                        }
-                        if (const core::KeyEvent* key = event.findKey(core::InputKey::Left)) {
-                            InputModel::moveCursor(state, -1, key->modifiers.shift, fontFamily, fontSize, allowMultiline, std::max(0.0f, width - inset * 2.0f));
-                        }
-                        if (const core::KeyEvent* key = event.findKey(core::InputKey::Right)) {
-                            InputModel::moveCursor(state, 1, key->modifiers.shift, fontFamily, fontSize, allowMultiline, std::max(0.0f, width - inset * 2.0f));
-                        }
-                        if (const core::KeyEvent* key = event.findKey(core::InputKey::Up);
-                            key != nullptr && allowMultiline) {
-                            InputModel::moveCursorVertical(state, -1, key->modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f), textHeight);
-                        }
-                        if (const core::KeyEvent* key = event.findKey(core::InputKey::Down);
-                            key != nullptr && allowMultiline) {
-                            InputModel::moveCursorVertical(state, 1, key->modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f), textHeight);
-                        }
-                        if (const core::KeyEvent* key = event.findKey(core::InputKey::Home)) {
-                            if (allowMultiline) {
-                                InputModel::moveCursorToLineEdge(state, false, key->modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f));
-                            } else {
-                                InputModel::moveCursorTo(state, 0, key->modifiers.shift);
+                        } else if (shortcut && event.key == core::InputKey::X) {
+                            if (InputModel::hasTextSelection(state)) {
+                                InputModel::copySelection(state);
+                                InputModel::pushUndoState(state);
+                                InputModel::eraseSelection(state);
+                                changed = true;
                             }
-                        }
-                        if (const core::KeyEvent* key = event.findKey(core::InputKey::End)) {
+                        } else if (shortcut && event.key == core::InputKey::V) {
+                            // Clipboard text is delivered separately through onTextInput.
+                        } else if (event.key == core::InputKey::Left) {
+                            InputModel::moveCursor(state, -1, event.modifiers.shift, fontFamily, fontSize, allowMultiline, std::max(0.0f, width - inset * 2.0f));
+                        } else if (event.key == core::InputKey::Right) {
+                            InputModel::moveCursor(state, 1, event.modifiers.shift, fontFamily, fontSize, allowMultiline, std::max(0.0f, width - inset * 2.0f));
+                        } else if (event.key == core::InputKey::Up && allowMultiline) {
+                            InputModel::moveCursorVertical(state, -1, event.modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f), textHeight);
+                        } else if (event.key == core::InputKey::Down && allowMultiline) {
+                            InputModel::moveCursorVertical(state, 1, event.modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f), textHeight);
+                        } else if (event.key == core::InputKey::Home) {
                             if (allowMultiline) {
-                                InputModel::moveCursorToLineEdge(state, true, key->modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f));
+                                InputModel::moveCursorToLineEdge(state, false, event.modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f));
                             } else {
-                                InputModel::moveCursorTo(state, static_cast<int>(state.text.size()), key->modifiers.shift);
+                                InputModel::moveCursorTo(state, 0, event.modifiers.shift);
                             }
-                        }
-                        if (event.hasKey(core::InputKey::Delete)) {
+                        } else if (event.key == core::InputKey::End) {
+                            if (allowMultiline) {
+                                InputModel::moveCursorToLineEdge(state, true, event.modifiers.shift, fontFamily, fontSize, std::max(0.0f, width - inset * 2.0f));
+                            } else {
+                                InputModel::moveCursorTo(state, static_cast<int>(state.text.size()), event.modifiers.shift);
+                            }
+                        } else if (event.key == core::InputKey::Delete) {
                             if (InputModel::hasTextSelection(state)) {
                                 InputModel::pushUndoState(state);
                                 InputModel::eraseSelection(state);
@@ -288,8 +287,7 @@ public:
                                 ++state.textRevision;
                                 changed = true;
                             }
-                        }
-                        if (event.hasKey(core::InputKey::Backspace)) {
+                        } else if (event.key == core::InputKey::Backspace) {
                             if (InputModel::hasTextSelection(state)) {
                                 InputModel::pushUndoState(state);
                                 InputModel::eraseSelection(state);
@@ -303,26 +301,7 @@ public:
                                 InputModel::clearSelection(state);
                                 changed = true;
                             }
-                        }
-                        if (!event.text.empty()) {
-                            if (!state.compositionText.empty()) {
-                                state.compositionText.clear();
-                                ++state.compositionRevision;
-                            }
-                            InputModel::pushUndoState(state);
-                            InputModel::insertAtCursor(state, InputModel::filteredText(event.text, allowMultiline));
-                            changed = true;
-                        }
-                        if (!event.pasteText.empty()) {
-                            if (!state.compositionText.empty()) {
-                                state.compositionText.clear();
-                                ++state.compositionRevision;
-                            }
-                            InputModel::pushUndoState(state);
-                            InputModel::insertAtCursor(state, InputModel::filteredText(event.pasteText, allowMultiline));
-                            changed = true;
-                        }
-                        if (event.hasKey(core::InputKey::Enter)) {
+                        } else if (event.key == core::InputKey::Enter) {
                             if (allowMultiline) {
                                 InputModel::pushUndoState(state);
                                 InputModel::insertAtCursor(state, "\n");
@@ -330,10 +309,49 @@ public:
                             } else if (onEnter) {
                                 onEnter();
                             }
+                        } else if (event.key == core::InputKey::Escape) {
+                            if (onEnter) {
+                                onEnter();
+                            }
+                        } else {
+                            handled = false;
                         }
-                        if (event.hasKey(core::InputKey::Escape) && onEnter) {
-                            onEnter();
+                        if (allowMultiline) {
+                            state.horizontalScroll = 0.0f;
+                        } else {
+                            InputModel::syncScroll(state, std::max(0.0f, width - inset * 2.0f), fontFamily, fontSize);
                         }
+                        if (changed && onChange) {
+                            onChange(state.text);
+                        }
+                        return handled;
+                    })
+                    .onTextInput([&state, allowMultiline, onChange, width, inset, fontSize, fontFamily](const core::TextInputEvent& event) {
+                        state.followCaret = true;
+                        bool changed = false;
+                        const std::string nextComposition = event.composing
+                            ? InputModel::filteredText(event.compositionText, allowMultiline)
+                            : std::string{};
+                        if (state.compositionText != nextComposition) {
+                            state.compositionText = nextComposition;
+                            ++state.compositionRevision;
+                        }
+
+                        const auto insertText = [&](const std::string& text) {
+                            if (text.empty()) {
+                                return;
+                            }
+                            if (!state.compositionText.empty()) {
+                                state.compositionText.clear();
+                                ++state.compositionRevision;
+                            }
+                            InputModel::pushUndoState(state);
+                            InputModel::insertAtCursor(state, InputModel::filteredText(text, allowMultiline));
+                            changed = true;
+                        };
+                        insertText(event.text);
+                        insertText(event.pasteText);
+
                         if (allowMultiline) {
                             state.horizontalScroll = 0.0f;
                         } else {

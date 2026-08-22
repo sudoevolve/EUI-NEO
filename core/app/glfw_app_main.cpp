@@ -176,6 +176,7 @@ void hideWindowToTray(GLFWwindow* window, WindowState& windowState, core::render
 
     core::render::ScopedRenderBackend scopedRenderBackend(renderBackend);
     app::releaseGraphicsResources();
+    core::cancelInput(window);
     glfwHideWindow(window);
     windowState.hiddenToTray = true;
     windowState.hideToTrayRequested = false;
@@ -220,6 +221,9 @@ void installWindowCallbacks(GLFWwindow* window, WindowState& windowState) {
         if (!state) {
             return;
         }
+        if (focused != GLFW_TRUE) {
+            core::cancelInput(currentWindow);
+        }
         state->paintRequested = true;
         if (focused && state->modalChildWindow != nullptr && !glfwWindowShouldClose(state->modalChildWindow)) {
             glfwFocusWindow(state->modalChildWindow);
@@ -231,7 +235,9 @@ void installWindowCallbacks(GLFWwindow* window, WindowState& windowState) {
             return;
         }
         state->iconified = iconified == GLFW_TRUE;
-        if (!state->iconified) {
+        if (state->iconified) {
+            core::cancelInput(currentWindow);
+        } else {
             state->paintRequested = true;
         }
     });
@@ -468,7 +474,9 @@ int main() {
             return;
         }
         state->iconified = iconified == GLFW_TRUE;
-        if (!iconified) {
+        if (iconified) {
+            core::cancelInput(currentWindow);
+        } else {
             state->paintRequested = true;
             app::detail::requestFullPaint();
         }

@@ -20,7 +20,6 @@ double timeSeconds();
 void postEmptyEvent();
 
 void getCursorPosition(Handle window, double& x, double& y);
-bool isMouseButtonDown(Handle window, int button);
 std::string clipboardText(Handle window);
 void setClipboardText(const std::string& text);
 

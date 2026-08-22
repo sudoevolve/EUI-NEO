@@ -19,6 +19,7 @@ struct DslWindowRequest {
     int width = 640;
     int height = 420;
     bool modal = false;
+    std::function<void(const eui::KeyEvent&)> onKeyEvent;
     DslWindowCompose compose;
 };
 

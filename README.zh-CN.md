@@ -5,7 +5,6 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sudoevolve/EUI-NEO/actions/workflows/release.yml"><img alt="Release Build" src="https://github.com/sudoevolve/EUI-NEO/actions/workflows/release.yml/badge.svg"></a>
   <a href="https://github.com/sudoevolve/EUI-NEO/releases"><img alt="Release" src="https://img.shields.io/github/v/release/sudoevolve/EUI-NEO?include_prereleases&sort=semver"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue"></a>
   <img alt="C++17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white">
@@ -19,6 +18,8 @@
   <a href="README.md">English</a>
   ·
   <a href="https://sudoevolve.github.io/EUI-NEO/">官网</a>
+  ·
+  <a href="https://atomgit.com/2302_80112087/EUI-NEO">AtomGit镜像</a>
 </p>
 
 EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 GLFW/SDL2 窗口后端和 OpenGL/Vulkan 渲染后端。

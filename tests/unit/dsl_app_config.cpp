@@ -11,6 +11,7 @@ int main() {
     std::string iconFont = "fonts/icons.ttf";
     std::string trayTitle = "Owned tray title";
     std::string trayIcon = "icons/tray.png";
+    int keyEvents = 0;
 
     app::DslAppConfig config = app::DslAppConfig{}
         .title(title)
@@ -19,7 +20,8 @@ int main() {
         .iconPath(iconPath)
         .fonts(textFont, iconFont)
         .trayTitle(trayTitle)
-        .trayIcon(trayIcon);
+        .trayIcon(trayIcon)
+        .onKeyEvent([&](const eui::KeyEvent&) { ++keyEvents; });
 
     assert(config.uiScaleValue == 1.25f);
 
@@ -38,6 +40,15 @@ int main() {
     assert(config.iconFontFileValue == "fonts/icons.ttf");
     assert(config.trayTitleValue == "Owned tray title");
     assert(config.trayIconPathValue == "icons/tray.png");
+    assert(static_cast<bool>(config.keyEventHandler));
+    config.keyEventHandler({});
+    assert(keyEvents == 1);
+
+    app::DslWindowConfig windowConfig;
+    windowConfig.onKeyEvent([&](const eui::KeyEvent&) { ++keyEvents; });
+    assert(static_cast<bool>(windowConfig.keyEventHandler));
+    windowConfig.keyEventHandler({});
+    assert(keyEvents == 2);
 
     config.title(std::string("Temporary title"));
     config.pageId(std::string("temporary_page"));

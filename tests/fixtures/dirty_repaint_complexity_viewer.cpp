@@ -30,13 +30,19 @@ void switchLevel(int delta) {
     app::requestUpdate();
 }
 
-void handleKeys(const core::KeyboardEvent& event) {
-    if (event.hasKey(core::InputKey::Left)) {
+bool handleKey(const core::KeyEvent& event) {
+    if (!event.isDown()) {
+        return false;
+    }
+    if (event.key == core::InputKey::Left) {
         switchLevel(-1);
+        return true;
     }
-    if (event.hasKey(core::InputKey::Right)) {
+    if (event.key == core::InputKey::Right) {
         switchLevel(1);
+        return true;
     }
+    return false;
 }
 
 std::string levelName(int level) {
@@ -150,7 +156,7 @@ void drawBaseButton(eui::Ui& ui, float x, float y, float width, float height) {
                 .shadow(20.0f, 0.0f, 8.0f, rgba(0.0f, 0.0f, 0.0f, 0.25f))
                 .transition(0.12f, eui::Ease::OutCubic)
                 .focusable(true)
-                .onTextInput(handleKeys)
+                .onKeyEvent(handleKey)
                 .build();
 
             ui.text("base.button.label")
@@ -189,7 +195,7 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
     ui.stack("keyboard.focus")
         .size(screen.width, screen.height)
         .focusable(true)
-        .onTextInput(handleKeys)
+        .onKeyEvent(handleKey)
         .content([&] {
             ui.rect("background")
                 .size(screen.width, screen.height)

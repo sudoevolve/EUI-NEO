@@ -13,6 +13,7 @@ public:
     bool initialize(core::window::Handle window, DslWindowRequest request) {
         request_ = std::move(request);
         paintRequested_ = true;
+        runtime_.setKeyEventHandler(request_.onKeyEvent);
         return runtime_.initialize(window);
     }
 

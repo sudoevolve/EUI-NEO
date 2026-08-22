@@ -53,22 +53,23 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
     if (updateFrameToken_ == 0) {
         ++updateFrameToken_;
     }
-    PointerEvent event = readPointerEvent(window, pointerScale);
-    const auto inputEvents = consumeInputEvents(window);
-    KeyboardEvent keyboardEvent = inputEvents.first;
-    ScrollEvent scrollEvent = inputEvents.second;
     if (!inputEnabled) {
-        event.x = -1000000.0;
-        event.y = -1000000.0;
-        event.deltaX = 0.0;
-        event.deltaY = 0.0;
-        event.down = false;
-        event.pressedThisFrame = false;
-        event.releasedThisFrame = true;
-        event.rightDown = false;
-        event.rightPressedThisFrame = false;
-        event.rightReleasedThisFrame = false;
-        keyboardEvent = {};
+        cancelInput(window);
+    }
+    std::vector<PointerEvent> pointerEvents = consumePointerEvents(window, pointerScale);
+    std::vector<KeyEvent> keyEvents = consumeKeyEvents(window);
+    TextInputEvent textInputEvent = consumeTextInput(window);
+    ScrollEvent scrollEvent = consumeScrollInput(window);
+    if (!inputEnabled) {
+        for (PointerEvent& event : pointerEvents) {
+            event.x = -1000000.0;
+            event.y = -1000000.0;
+            event.deltaX = 0.0;
+            event.deltaY = 0.0;
+            event.modifiers = {};
+        }
+        keyEvents.clear();
+        textInputEvent = {};
         scrollEvent = {};
     }
     animating_ = false;
@@ -85,21 +86,27 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
 
     syncScrollStateBindings();
     if (scrollEvent.active()) {
-        updateScroll(scrollEvent, hitTestScrollable(event, dpiScale));
+        updateScroll(scrollEvent, hitTestScrollable(pointerEvents.back(), dpiScale));
         hoverTargetCacheValid_ = false;
     }
     updateScrollMotion(deltaSeconds);
 
-    if (event.pressedThisFrame) {
-        setFocusedId(hitTestFocusable(event, dpiScale));
+    for (std::size_t index = 0; index < pointerEvents.size(); ++index) {
+        const PointerEvent& event = pointerEvents[index];
+        if (event.isPress(PointerButton::Left)) {
+            setFocusedId(hitTestFocusable(event, dpiScale));
+        }
+        const std::string hoverTargetId = resolveHoverTarget(event, dpiScale, inputEnabled);
+        const float eventDeltaSeconds = index + 1 == pointerEvents.size() ? deltaSeconds : 0.0f;
+        updateElementTree(event, eventDeltaSeconds, dpiScale, hoverTargetId);
     }
-
-    const std::string hoverTargetId = resolveHoverTarget(event, dpiScale, inputEnabled);
-    updateElementTree(event, deltaSeconds, dpiScale, hoverTargetId);
     updateDependentVisualDirtyRegions(dpiScale);
 
-    if (keyboardEvent.hasInput()) {
-        updateTextInput(keyboardEvent);
+    if (!keyEvents.empty()) {
+        updateKeyInput(keyEvents);
+    }
+    if (textInputEvent.hasInput()) {
+        updateTextInput(textInputEvent);
     }
     instances_.releaseUnseenTimers();
     updateImeCursorRect(window, dpiScale);

@@ -99,12 +99,8 @@ inline bool Runtime::canReuseHoverTarget(const PointerEvent& event, float dpiSca
         hoverTargetCacheEvent_.y != event.y ||
         event.deltaX != 0.0 ||
         event.deltaY != 0.0 ||
-        hoverTargetCacheEvent_.down != event.down ||
-        hoverTargetCacheEvent_.rightDown != event.rightDown ||
-        event.pressedThisFrame ||
-        event.releasedThisFrame ||
-        event.rightPressedThisFrame ||
-        event.rightReleasedThisFrame) {
+        hoverTargetCacheEvent_.buttons != event.buttons ||
+        event.action != PointerAction::Move) {
         return false;
     }
 
@@ -276,7 +272,7 @@ inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& t
     }
 }
 
-inline void Runtime::updateTextInput(const KeyboardEvent& event) {
+inline void Runtime::updateTextInput(const TextInputEvent& event) {
     if (focusedId_.empty()) {
         return;
     }
@@ -289,6 +285,30 @@ inline void Runtime::updateTextInput(const KeyboardEvent& event) {
     if (const Element* element = ui_.find(focusedId_)) {
         if (element->onTextInput && !element->disabled) {
             element->onTextInput(event);
+            composeRequested_ = true;
+            paintRequested_ = true;
+        }
+    }
+}
+
+inline void Runtime::updateKeyInput(const std::vector<KeyEvent>& events) {
+    const Element* focused = focusedId_.empty() ? nullptr : ui_.find(focusedId_);
+    if (focused != nullptr && (focused->disabled || isElementInDisabledTree(focusedId_))) {
+        setFocusedId({});
+        focused = nullptr;
+    }
+
+    for (const KeyEvent& key : events) {
+        bool handled = false;
+        if (focused != nullptr && focused->onKeyEvent) {
+            handled = focused->onKeyEvent(key);
+            if (handled) {
+                composeRequested_ = true;
+                paintRequested_ = true;
+            }
+        }
+        if (!handled && keyEventHandler_) {
+            keyEventHandler_(key);
             composeRequested_ = true;
             paintRequested_ = true;
         }
@@ -358,7 +378,8 @@ inline void Runtime::updateInteraction(
     const Rect interactionBounds = applyTransformMatrix(
         bounds,
         hitMatrixForElement(element, dpiScale, bounds, renderTransform));
-    instance.state.update(interactionBounds, event, topmostHover, enabled);
+    instance.state.update(interactionBounds, event, topmostHover,
+                          element.acceptedButtons, element.dragThreshold, enabled);
 
     if (enabled && wasHover != instance.state.hover && element.onHoverChanged) {
         element.onHoverChanged(instance.state.hover);
@@ -389,7 +410,21 @@ inline void Runtime::updateInteraction(
         }
     }
 
-    if (enabled && topmostHover && event.rightPressedThisFrame && element.onContextMenu) {
+    if (enabled && topmostHover && event.isPress(PointerButton::Right) && element.onContextMenu) {
+        instance.contextActive = true;
+        instance.contextDragged = false;
+        instance.contextStartX = event.x;
+        instance.contextStartY = event.y;
+    }
+    if (instance.contextActive && event.isDown(PointerButton::Right) &&
+        (std::fabs(event.x - instance.contextStartX) > element.dragThreshold ||
+         std::fabs(event.y - instance.contextStartY) > element.dragThreshold)) {
+        instance.contextDragged = true;
+    }
+    const bool contextEnded = instance.contextActive && event.button == PointerButton::Right &&
+        (event.action == PointerAction::Release || event.action == PointerAction::Cancel);
+    if (enabled && topmostHover && contextEnded && event.action == PointerAction::Release &&
+        !instance.contextDragged && element.onContextMenu) {
         PointerEvent logicalEvent = event;
         logicalEvent.x /= dpiScale;
         logicalEvent.y /= dpiScale;
@@ -404,6 +439,10 @@ inline void Runtime::updateInteraction(
         element.onContextMenu(logicalEvent, logicalBounds);
         composeRequested_ = true;
         paintRequested_ = true;
+    }
+    if (contextEnded) {
+        instance.contextActive = false;
+        instance.contextDragged = false;
     }
 
     if (enabled && instance.state.pressStarted && !element.scrollDragSourceId.empty()) {
@@ -464,7 +503,10 @@ inline void Runtime::updateInteraction(
             event.deltaX,
             event.deltaY,
             instance.state.dragDeltaX,
-            instance.state.dragDeltaY
+            instance.state.dragDeltaY,
+            instance.state.activeButton,
+            event.buttons,
+            event.modifiers
         });
         composeRequested_ = true;
         paintRequested_ = true;
