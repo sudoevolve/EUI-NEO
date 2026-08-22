@@ -113,6 +113,8 @@ private:
     unsigned int cacheTexture_ = 0;
     int cacheWidth_ = 0;
     int cacheHeight_ = 0;
+    int cacheCapacityWidth_ = 0;
+    int cacheCapacityHeight_ = 0;
     bool cacheRecreated_ = false;
     int framebufferWidth_ = 0;
     int framebufferHeight_ = 0;

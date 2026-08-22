@@ -146,9 +146,9 @@ assets/       Runtime assets: fonts, PNG, SVG, and icons
 components/   Reusable UI components built on top of the DSL
 core/         DSL, Runtime, primitives, text, image, network, and platform code
 docs/         Implementation notes and API documentation
-examples/     Standalone gallery and example application sources
+examples/     Short, single-screen API demonstrations
 modules/      Optional feature modules such as keyboard and serial
-apps/         User application sources; flat .cpp files or app folders
+apps/         Longer or multi-page applications; each app lives in its own folder
 include/      Public include path: eui_neo.h and eui/* facade headers
 tests/        Probe sources, fixture apps, and local benchmark notes
 3rd/          Vendored third-party build sources and single-file dependencies

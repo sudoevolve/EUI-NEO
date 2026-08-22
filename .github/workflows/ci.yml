@@ -115,7 +115,7 @@ jobs:
           xmake f -m release -y
           --window_backend=${{ matrix.window }}
           --render_backend=${{ matrix.render }}
-          --user_apps=n
+          --user_apps=y
 
       - name: build library and applications
         run: |

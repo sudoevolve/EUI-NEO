@@ -24,8 +24,12 @@ struct ImageTextureResource {
 struct LayerTextureResource {
     GLuint texture = 0;
     GLuint framebuffer = 0;
+    // width/height are allocation capacity; content dimensions track the
+    // active viewport inside that texture.
     int width = 0;
     int height = 0;
+    int contentWidth = 0;
+    int contentHeight = 0;
 };
 
 GLuint textureIdFromHandle(RenderBackend::TextureHandle handle) {
@@ -54,15 +58,29 @@ bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height)
     if (resource == nullptr || width <= 0 || height <= 0) {
         return false;
     }
-    if (resource->texture != 0 && resource->framebuffer != 0 &&
-        resource->width == width && resource->height == height) {
+    const bool hasStorage = resource->texture != 0 && resource->framebuffer != 0;
+    if (hasStorage && resource->width >= width && resource->height >= height) {
+        resource->contentWidth = width;
+        resource->contentHeight = height;
         return true;
     }
-
+    const int allocationWidth = !hasStorage || width > resource->width
+        ? std::max(width, resource->width + std::max(1, resource->width / 2))
+        : resource->width;
+    const int allocationHeight = !hasStorage || height > resource->height
+        ? std::max(height, resource->height + std::max(1, resource->height / 2))
+        : resource->height;
     GLint previousFramebuffer = 0;
     GLint previousTexture = 0;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFramebuffer);
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &previousTexture);
+    // A retained layer can be sampled by the backbuffer draw submitted in the
+    // previous frame. OpenGL defers deletion while that work is in flight,
+    // which makes rapid layer resizes accumulate every old allocation. The
+    // layer handle remains cached; synchronize only when replacing its storage.
+    if (resource->texture != 0 || resource->framebuffer != 0) {
+        glFinish();
+    }
     if (resource->texture != 0) {
         glDeleteTextures(1, &resource->texture);
         resource->texture = 0;
@@ -84,7 +102,9 @@ bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+                 allocationWidth, allocationHeight,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
     glGenFramebuffers(1, &resource->framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, resource->framebuffer);
@@ -106,8 +126,10 @@ bool OpenGLRenderBackend::resizeLayer(LayerHandle handle, int width, int height)
         resetStateCache();
         return false;
     }
-    resource->width = width;
-    resource->height = height;
+    resource->width = allocationWidth;
+    resource->height = allocationHeight;
+    resource->contentWidth = width;
+    resource->contentHeight = height;
     return true;
 }
 
@@ -116,6 +138,9 @@ void OpenGLRenderBackend::destroyLayer(LayerHandle handle) {
     auto* resource = static_cast<LayerTextureResource*>(handle);
     if (resource == nullptr) {
         return;
+    }
+    if (resource->texture != 0 || resource->framebuffer != 0) {
+        glFinish();
     }
     if (resource->texture != 0) {
         glDeleteTextures(1, &resource->texture);
@@ -285,6 +310,24 @@ void OpenGLRenderBackend::drawLayerTexture(TextureHandle handle,
         return;
     }
 
+    const auto* resource = static_cast<const LayerTextureResource*>(handle);
+    const float uScale = resource->width > 0
+        ? static_cast<float>(resource->contentWidth) / static_cast<float>(resource->width)
+        : 1.0f;
+    const float vScale = resource->height > 0
+        ? static_cast<float>(resource->contentHeight) / static_cast<float>(resource->height)
+        : 1.0f;
+    float adjustedVertices[42];
+    const float* uploadVertices = vertices;
+    if (vertexFloatCount == 42 && (uScale < 1.0f || vScale < 1.0f)) {
+        std::copy(vertices, vertices + 42, adjustedVertices);
+        for (std::size_t offset = 0; offset < 42; offset += 7) {
+            adjustedVertices[offset + 5] *= uScale;
+            adjustedVertices[offset + 6] *= vScale;
+        }
+        uploadVertices = adjustedVertices;
+    }
+
     setPremultipliedAlphaBlend();
 
     useProgram(imageShaderProgram_);
@@ -298,7 +341,7 @@ void OpenGLRenderBackend::drawLayerTexture(TextureHandle handle,
 
     bindVertexArray(imageVao_);
     bindArrayBuffer(imageVbo_);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(vertexFloatCount * sizeof(float)), vertices);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(vertexFloatCount * sizeof(float)), uploadVertices);
     activeTextureUnit(0);
     bindTexture2D(texture);
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertexFloatCount / 7));

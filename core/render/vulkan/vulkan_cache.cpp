@@ -31,60 +31,77 @@ bool VulkanRenderBackend::ensureRenderCache(int width, int height) {
     width = std::max(1, width);
     height = std::max(1, height);
     const VkExtent2D extent{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
-    if (renderCacheImage_ != VK_NULL_HANDLE &&
-        renderCacheView_ != VK_NULL_HANDLE &&
-        renderCacheFramebuffer_ != VK_NULL_HANDLE &&
-        renderCacheExtent_.width == extent.width &&
-        renderCacheExtent_.height == extent.height) {
-        return true;
-    }
-
-    destroyRenderCacheResources();
-
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent = {extent.width, extent.height, 1};
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = swapchainFormat_;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                      VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                      VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                      VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    if (vkCreateImage(device_, &imageInfo, nullptr, &renderCacheImage_) != VK_SUCCESS) {
+    const bool imageMatches = renderCacheImage_ != VK_NULL_HANDLE &&
+                              renderCacheView_ != VK_NULL_HANDLE &&
+                              renderCacheCapacity_.width >= extent.width &&
+                              renderCacheCapacity_.height >= extent.height;
+    if (imageMatches) {
+        if (renderCacheFramebuffer_ != VK_NULL_HANDLE &&
+            renderCacheExtent_.width == extent.width &&
+            renderCacheExtent_.height == extent.height) {
+            return true;
+        }
+        if (renderCacheFramebuffer_ != VK_NULL_HANDLE) {
+            vkDestroyFramebuffer(device_, renderCacheFramebuffer_, nullptr);
+            renderCacheFramebuffer_ = VK_NULL_HANDLE;
+        }
+    } else {
+        const VkExtent2D previousCapacity = renderCacheCapacity_;
         destroyRenderCacheResources();
-        return false;
-    }
+        const VkExtent2D allocationExtent{
+            std::max(extent.width,
+                     previousCapacity.width + std::max<std::uint32_t>(1, previousCapacity.width / 2)),
+            std::max(extent.height,
+                     previousCapacity.height + std::max<std::uint32_t>(1, previousCapacity.height / 2))
+        };
 
-    VkMemoryRequirements memoryRequirements{};
-    vkGetImageMemoryRequirements(device_, renderCacheImage_, &memoryRequirements);
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memoryRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    if (allocInfo.memoryTypeIndex == std::numeric_limits<std::uint32_t>::max() ||
-        vkAllocateMemory(device_, &allocInfo, nullptr, &renderCacheMemory_) != VK_SUCCESS ||
-        vkBindImageMemory(device_, renderCacheImage_, renderCacheMemory_, 0) != VK_SUCCESS) {
-        destroyRenderCacheResources();
-        return false;
-    }
+        VkImageCreateInfo imageInfo{};
+        imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        imageInfo.imageType = VK_IMAGE_TYPE_2D;
+        imageInfo.extent = {allocationExtent.width, allocationExtent.height, 1};
+        imageInfo.mipLevels = 1;
+        imageInfo.arrayLayers = 1;
+        imageInfo.format = swapchainFormat_;
+        imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                          VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                          VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                          VK_IMAGE_USAGE_SAMPLED_BIT;
+        imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        if (vkCreateImage(device_, &imageInfo, nullptr, &renderCacheImage_) != VK_SUCCESS) {
+            destroyRenderCacheResources();
+            return false;
+        }
 
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = renderCacheImage_;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = swapchainFormat_;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.layerCount = 1;
-    if (vkCreateImageView(device_, &viewInfo, nullptr, &renderCacheView_) != VK_SUCCESS) {
-        destroyRenderCacheResources();
-        return false;
+        VkMemoryRequirements memoryRequirements{};
+        vkGetImageMemoryRequirements(device_, renderCacheImage_, &memoryRequirements);
+        VkMemoryAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memoryRequirements.size;
+        allocInfo.memoryTypeIndex = findMemoryType(memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        if (allocInfo.memoryTypeIndex == std::numeric_limits<std::uint32_t>::max() ||
+            vkAllocateMemory(device_, &allocInfo, nullptr, &renderCacheMemory_) != VK_SUCCESS ||
+            vkBindImageMemory(device_, renderCacheImage_, renderCacheMemory_, 0) != VK_SUCCESS) {
+            destroyRenderCacheResources();
+            return false;
+        }
+
+        VkImageViewCreateInfo viewInfo{};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = renderCacheImage_;
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = swapchainFormat_;
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        viewInfo.subresourceRange.levelCount = 1;
+        viewInfo.subresourceRange.layerCount = 1;
+        if (vkCreateImageView(device_, &viewInfo, nullptr, &renderCacheView_) != VK_SUCCESS) {
+            destroyRenderCacheResources();
+            return false;
+        }
+        renderCacheCapacity_ = allocationExtent;
+        renderCacheLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     }
 
     VkImageView attachments[] = {renderCacheView_};
@@ -102,7 +119,6 @@ bool VulkanRenderBackend::ensureRenderCache(int width, int height) {
     }
 
     renderCacheExtent_ = extent;
-    renderCacheLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     renderCacheRecreated_ = true;
     invalidateRenderCacheSync();
     return true;
@@ -616,6 +632,7 @@ void VulkanRenderBackend::destroyRenderCacheResources() {
         renderCacheFramebuffer_ = VK_NULL_HANDLE;
         renderCacheLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
         renderCacheExtent_ = {};
+        renderCacheCapacity_ = {};
         renderTarget_ = RenderTarget::Swapchain;
         renderingToCache_ = false;
         activeLayer_ = nullptr;
@@ -641,6 +658,7 @@ void VulkanRenderBackend::destroyRenderCacheResources() {
     }
     renderCacheLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     renderCacheExtent_ = {};
+    renderCacheCapacity_ = {};
     renderTarget_ = RenderTarget::Swapchain;
     renderingToCache_ = false;
     activeLayer_ = nullptr;

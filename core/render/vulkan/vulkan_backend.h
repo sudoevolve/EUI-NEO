@@ -305,6 +305,7 @@ private:
     VkFramebuffer renderCacheFramebuffer_ = VK_NULL_HANDLE;
     VkImageLayout renderCacheLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     VkExtent2D renderCacheExtent_{};
+    VkExtent2D renderCacheCapacity_{};
     bool renderCacheRecreated_ = false;
     bool renderingToCache_ = false;
     std::uint64_t renderCacheGeneration_ = 0;

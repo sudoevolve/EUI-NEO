@@ -2,6 +2,12 @@
 
 namespace core::dsl {
 
+// A resize event can arrive many frames before the user releases the mouse.
+// Keep the existing retained texture for that interval and rebuild only after
+// the layer geometry has settled; content-only invalidations still use the
+// shorter threshold passed by the caller.
+constexpr int kRetainedLayerResizeStableFrames = 16;
+
 class RuntimeRenderer {
 public:
     RuntimeRenderer(Ui& ui, runtime::InstanceStore& instances)
@@ -792,23 +798,43 @@ inline bool RuntimeRenderer::renderRetainedElements(
         return false;
     }
 
+    const bool sameGeometry = layer.handle != nullptr &&
+                              closeEnough(layer.bounds, layerBounds) &&
+                              layer.width == layerWidth &&
+                              layer.height == layerHeight;
     const bool sameLayer = layer.valid &&
-                           layer.handle != nullptr &&
-                           layer.signature == signature &&
-                           closeEnough(layer.bounds, layerBounds) &&
-                           layer.width == layerWidth &&
-                           layer.height == layerHeight;
+                           sameGeometry &&
+                           layer.signature == signature;
     if (!sameLayer) {
+        const bool geometryResize = layer.handle != nullptr && !sameGeometry;
+        const int requiredStableFrames = geometryResize
+            ? kRetainedLayerResizeStableFrames
+            : stableFrameThreshold;
+        const bool pendingMatches =
+            layer.pendingSignature == signature &&
+            closeEnough(layer.pendingBounds, layerBounds) &&
+            layer.pendingWidth == layerWidth &&
+            layer.pendingHeight == layerHeight;
+        if (pendingMatches) {
+            layer.pendingStableFrames = std::min(layer.pendingStableFrames + 1, requiredStableFrames);
+        } else {
+            layer.pendingSignature = signature;
+            layer.pendingBounds = layerBounds;
+            layer.pendingWidth = layerWidth;
+            layer.pendingHeight = layerHeight;
+            layer.pendingStableFrames = 1;
+        }
+        ++core::render::currentRenderFrameStats().retainedLayerMisses;
+        if (layer.pendingStableFrames < requiredStableFrames) {
+            return false;
+        }
+
         layer.valid = false;
         layer.signature = signature;
         layer.bounds = layerBounds;
         layer.width = layerWidth;
         layer.height = layerHeight;
-        layer.stableFrames = std::min(layer.stableFrames + 1, stableFrameThreshold);
-        ++core::render::currentRenderFrameStats().retainedLayerMisses;
-        if (layer.stableFrames < stableFrameThreshold) {
-            return false;
-        }
+        layer.pendingStableFrames = 0;
         if (layer.handle == nullptr) {
             layer.handle = renderBackend.createLayer(layerWidth, layerHeight);
         } else if (!renderBackend.resizeLayer(layer.handle, layerWidth, layerHeight)) {
@@ -844,6 +870,7 @@ inline bool RuntimeRenderer::renderRetainedElements(
         ++core::render::currentRenderFrameStats().retainedLayerRebuilds;
         return false;
     } else {
+        layer.pendingStableFrames = 0;
         ++core::render::currentRenderFrameStats().retainedLayerHits;
     }
 

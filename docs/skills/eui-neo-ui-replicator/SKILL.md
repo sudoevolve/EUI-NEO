@@ -18,7 +18,7 @@ Before writing code, inspect these local sources when available:
 - `README.md` or `README.zh-CN.md` for app setup and public entry points.
 - `docs/DSL.md` for DSL element capabilities.
 - `docs/*.md` with searches for `Row`, `Column`, `Stack`, `Flow`, `SizeValue`, `ignoreLayout`, and component names for layout and component behavior.
-- `examples/gallery.cpp` and `examples/pages/*.h` only as references for idiomatic page composition.
+- `apps/gallery/app.cpp` and `apps/gallery/pages/*.h` only as references for idiomatic multi-page composition.
 - `components/components.h` for the exported component list.
 - `components/workshop/SKILL.md` when porting an effect-heavy or CSS-like custom component.
 

@@ -84,9 +84,15 @@ jobs:
           $arch = "${{ runner.arch }}".ToLowerInvariant()
           $out = "dist/EUI-NEO-$label-windows-$arch-runtime.zip"
           $binDir = "build/Release"
-          $runtimeApps = Get-ChildItem examples -Filter *.cpp -File |
-            Sort-Object Name |
-            ForEach-Object { $_.BaseName }
+          $runtimeApps = @(
+            Get-ChildItem examples -Filter *.cpp -File |
+              ForEach-Object { $_.BaseName }
+            Get-ChildItem apps -Filter *.cpp -File |
+              ForEach-Object { $_.BaseName }
+            Get-ChildItem apps -Directory |
+              Where-Object { Test-Path (Join-Path $_.FullName 'app.cpp') } |
+              ForEach-Object { $_.Name }
+          ) | Sort-Object -Unique
 
           $items = @()
           $missing = @()
@@ -98,8 +104,8 @@ jobs:
               $missing += $app
             }
           }
-          if ($missing.Count -gt 0) { throw "Missing example runtime outputs: $($missing -join ', ')" }
-          if ($items.Count -eq 0) { throw "No example runtime outputs found in $binDir." }
+          if ($missing.Count -gt 0) { throw "Missing runtime application outputs: $($missing -join ', ')" }
+          if ($items.Count -eq 0) { throw "No runtime application outputs found in $binDir." }
           $items += Get-ChildItem $binDir -Filter *.dll -File -ErrorAction SilentlyContinue
           if (Test-Path "$binDir/assets") { $items += Get-Item "$binDir/assets" }
 
@@ -128,8 +134,13 @@ jobs:
           shopt -s nullglob
           runtime_apps=()
           missing=()
-          for src in examples/*.cpp; do
+          for src in examples/*.cpp apps/*.cpp; do
+            [ -f "$src" ] || continue
             runtime_apps+=("$(basename "$src" .cpp)")
+          done
+          for src in apps/*/app.cpp; do
+            [ -f "$src" ] || continue
+            runtime_apps+=("$(basename "$(dirname "$src")")")
           done
           for app in "${runtime_apps[@]}"; do
             if [ -x "build/$app" ]; then
@@ -139,11 +150,11 @@ jobs:
             fi
           done
           if [ "${#missing[@]}" -gt 0 ]; then
-            printf 'Missing example runtime outputs: %s\n' "${missing[*]}" >&2
+            printf 'Missing runtime application outputs: %s\n' "${missing[*]}" >&2
             exit 1
           fi
           if [ "${#files[@]}" -eq 0 ]; then
-            echo "No example runtime outputs found in build." >&2
+            echo "No runtime application outputs found in build." >&2
             exit 1
           fi
           while IFS= read -r lib; do

@@ -42,7 +42,6 @@ inline void Runtime::compose(const std::string& pageId, float logicalWidth, floa
     if (logicalWidth_ != logicalWidth || logicalHeight_ != logicalHeight) {
         paintRequested_ = true;
         fullPaintRequested_ = true;
-        pruneInstancesRequested_ = true;
     }
     fullTreeUpdateRequested_ = true;
     logicalWidth_ = logicalWidth;

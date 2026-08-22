@@ -142,9 +142,9 @@ assets/       字体、PNG、SVG 和图标等运行资源
 components/   基于 DSL 封装的通用组件
 core/         DSL、Runtime、图元、文本、图片、网络和平台能力
 docs/         项目实现文档
-examples/     独立 gallery 和示例应用源码
+examples/     短小、单页面的 API 演示
 modules/      键盘、串口等可选功能模块
-apps/         用户应用源码；支持单文件 .cpp 或目录式 app.cpp
+apps/         代码较长或多页面应用；每个应用使用独立目录和 app.cpp
 include/      公共 include 路径：eui_neo.h 和 eui/* facade 头文件
 tests/        probe 源码、fixture 应用和本地 benchmark 记录
 3rd/          内置第三方构建源码和单文件依赖

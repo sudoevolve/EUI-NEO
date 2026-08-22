@@ -13,8 +13,8 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
 else()
     set(EUI_NEO_TOP_LEVEL_DEFAULT OFF)
 endif()
-option(EUI_BUILD_APPS "Build EUI-NEO bundled example applications" ${EUI_NEO_TOP_LEVEL_DEFAULT})
-option(EUI_BUILD_USER_APPS "Build user applications from apps/." ${EUI_NEO_TOP_LEVEL_DEFAULT})
+option(EUI_BUILD_APPS "Build short bundled API examples from examples/." ${EUI_NEO_TOP_LEVEL_DEFAULT})
+option(EUI_BUILD_USER_APPS "Build longer or multi-page applications from apps/." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
@@ -112,6 +112,7 @@ function(eui_apply_compile_options target_name)
     if(MSVC)
         target_compile_options(${target_name} PRIVATE
             /utf-8
+            /wd4530
             $<$<NOT:$<CONFIG:Debug>>:/O1>
             $<$<NOT:$<CONFIG:Debug>>:/GS->
             $<$<NOT:$<CONFIG:Debug>>:/sdl->
@@ -453,8 +454,54 @@ function(eui_neo_configure_app target_name)
     eui_neo_copy_runtime_dependencies(${target_name})
 endfunction()
 
+function(eui_neo_configure_named_app target_name)
+    if(target_name STREQUAL "shadertoy")
+        set(shadertoy_demo_spirv
+            "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag.spv")
+        set(shadertoy_demo_source
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shadertoy/demo.frag")
+        set(shadertoy_presets_dir
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shadertoy")
+        target_compile_definitions(${target_name} PRIVATE
+            EUI_SHADERTOY_DEMO_SOURCE="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag"
+            EUI_SHADERTOY_DEMO_SPIRV="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag.spv"
+            EUI_SHADERTOY_PRESETS_DIR="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}")
+        if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
+            eui_compile_shadertoy(${target_name}
+                SOURCE "${shadertoy_demo_source}"
+                OUTPUT "${shadertoy_demo_spirv}")
+            if(EXISTS "${shadertoy_presets_dir}")
+                file(GLOB preset_configs CONFIGURE_DEPENDS
+                     "${shadertoy_presets_dir}/*/config.json")
+                foreach(preset_config IN LISTS preset_configs)
+                    eui_compile_shadertoy_config(${target_name}
+                        CONFIG "${preset_config}"
+                        ASSET_ROOT "${shadertoy_presets_dir}"
+                        OUTPUT_ROOT "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}")
+                endforeach()
+            endif()
+        endif()
+    elseif(target_name STREQUAL "gallery")
+        set(gallery_shadertoy_spirv
+            "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/gallery_demo.frag.spv")
+        target_compile_definitions(${target_name} PRIVATE
+            EUI_GALLERY_SHADERTOY_SOURCE="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag"
+            EUI_GALLERY_SHADERTOY_NOISE="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/blackhole/color_noise.png"
+            EUI_GALLERY_SHADERTOY_SPIRV="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/gallery_demo.frag.spv")
+        if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
+            eui_compile_shadertoy(${target_name}
+                SOURCE "assets/shaders/shadertoy/demo.frag"
+                OUTPUT "${gallery_shadertoy_spirv}")
+        endif()
+    elseif(target_name STREQUAL "keyboard")
+        target_link_libraries(${target_name} PRIVATE eui::module_keyboard)
+    elseif(target_name STREQUAL "serial_tool")
+        target_link_libraries(${target_name} PRIVATE eui::module_serial)
+    endif()
+endfunction()
+
 # -----------------------------------------------------------------------------
-# Bundled apps and internal tests
+# Bundled examples and internal tests
 # -----------------------------------------------------------------------------
 
 if(EUI_BUILD_APPS)
@@ -471,51 +518,7 @@ if(EUI_BUILD_APPS)
         endif()
         add_executable(${app_name} "${app_source}")
         eui_neo_configure_app(${app_name})
-        if(app_name STREQUAL "shadertoy")
-            set(shadertoy_demo_spirv
-                "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag.spv")
-            set(shadertoy_demo_source
-                "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shadertoy/demo.frag")
-            set(shadertoy_presets_dir
-                "${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders/shadertoy")
-            target_compile_definitions(shadertoy PRIVATE
-                EUI_SHADERTOY_DEMO_SOURCE="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag"
-                EUI_SHADERTOY_DEMO_SPIRV="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag.spv"
-                EUI_SHADERTOY_PRESETS_DIR="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}")
-            if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
-                eui_compile_shadertoy(shadertoy
-                    SOURCE "${shadertoy_demo_source}"
-                    OUTPUT "${shadertoy_demo_spirv}")
-                if(EXISTS "${shadertoy_presets_dir}")
-                    file(GLOB preset_configs CONFIGURE_DEPENDS
-                         "${shadertoy_presets_dir}/*/config.json")
-                    foreach(preset_config IN LISTS preset_configs)
-                        eui_compile_shadertoy_config(shadertoy
-                            CONFIG "${preset_config}"
-                            ASSET_ROOT "${shadertoy_presets_dir}"
-                            OUTPUT_ROOT "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}")
-                    endforeach()
-                endif()
-            endif()
-        endif()
-        if(app_name STREQUAL "gallery")
-            set(gallery_shadertoy_spirv
-                "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/gallery_demo.frag.spv")
-            target_compile_definitions(gallery PRIVATE
-                EUI_GALLERY_SHADERTOY_SOURCE="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag"
-                EUI_GALLERY_SHADERTOY_NOISE="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/blackhole/color_noise.png"
-                EUI_GALLERY_SHADERTOY_SPIRV="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/gallery_demo.frag.spv")
-            if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
-                eui_compile_shadertoy(gallery
-                    SOURCE "assets/shaders/shadertoy/demo.frag"
-                    OUTPUT "${gallery_shadertoy_spirv}")
-            endif()
-        endif()
-        if(app_name STREQUAL "keyboard")
-            target_link_libraries(${app_name} PRIVATE eui::module_keyboard)
-        elseif(app_name STREQUAL "serial_tool")
-            target_link_libraries(${app_name} PRIVATE eui::module_serial)
-        endif()
+        eui_neo_configure_named_app(${app_name})
     endforeach()
 endif()
 
@@ -526,8 +529,13 @@ if(EUI_BUILD_USER_APPS)
         if(TARGET ${app_name})
             message(FATAL_ERROR "Duplicate EUI app target name '${app_name}'. Rename one app source or folder.")
         endif()
+        if(app_name STREQUAL "serial_tool" AND NOT TARGET eui::module_serial)
+            message(STATUS "Skipping serial_tool app because the serial module is not available.")
+            continue()
+        endif()
         add_executable(${app_name} "${app_source}")
         eui_neo_configure_app(${app_name})
+        eui_neo_configure_named_app(${app_name})
     endforeach()
 
     file(GLOB USER_APP_ENTRY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/apps/*/app.cpp")
@@ -539,9 +547,18 @@ if(EUI_BUILD_USER_APPS)
         endif()
         file(GLOB_RECURSE app_local_sources CONFIGURE_DEPENDS "${app_dir}/*.cpp")
         list(SORT app_local_sources)
+        if(app_name STREQUAL "keyboard" AND NOT TARGET eui::module_keyboard)
+            message(STATUS "Skipping keyboard app because the keyboard module is not available.")
+            continue()
+        endif()
+        if(app_name STREQUAL "serial_tool" AND NOT TARGET eui::module_serial)
+            message(STATUS "Skipping serial_tool app because the serial module is not available.")
+            continue()
+        endif()
         add_executable(${app_name} ${app_local_sources})
         target_include_directories(${app_name} PRIVATE "${app_dir}")
         eui_neo_configure_app(${app_name})
+        eui_neo_configure_named_app(${app_name})
         eui_neo_copy_app_assets(${app_name} "${app_dir}/assets")
     endforeach()
 endif()

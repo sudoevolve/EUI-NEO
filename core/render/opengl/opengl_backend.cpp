@@ -282,12 +282,29 @@ bool OpenGLRenderBackend::ensureRenderCache(int width, int height) {
         return true;
     }
 
+    if (cacheFramebuffer_ != 0 && cacheTexture_ != 0 &&
+        cacheCapacityWidth_ >= width && cacheCapacityHeight_ >= height) {
+        cacheWidth_ = width;
+        cacheHeight_ = height;
+        cacheRecreated_ = true;
+        invalidateRenderCacheSync();
+        return true;
+    }
+
+    const int previousCapacityWidth = cacheCapacityWidth_;
+    const int previousCapacityHeight = cacheCapacityHeight_;
+    const int allocationWidth = std::max(width,
+        previousCapacityWidth + std::max(1, previousCapacityWidth / 2));
+    const int allocationHeight = std::max(height,
+        previousCapacityHeight + std::max(1, previousCapacityHeight / 2));
     releaseRenderCache();
 
     glGenFramebuffers(1, &cacheFramebuffer_);
     glGenTextures(1, &cacheTexture_);
     glBindTexture(GL_TEXTURE_2D, cacheTexture_);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                 allocationWidth, allocationHeight,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -307,6 +324,8 @@ bool OpenGLRenderBackend::ensureRenderCache(int width, int height) {
 
     cacheWidth_ = width;
     cacheHeight_ = height;
+    cacheCapacityWidth_ = allocationWidth;
+    cacheCapacityHeight_ = allocationHeight;
     cacheRecreated_ = true;
     invalidateRenderCacheSync();
     return true;
@@ -318,6 +337,11 @@ bool OpenGLRenderBackend::renderCacheWasRecreated() const {
 
 void OpenGLRenderBackend::releaseRenderCache() {
     makeCurrent();
+    if (cacheTexture_ != 0 || cacheFramebuffer_ != 0) {
+        // Complete the last use before releasing storage so resize does not
+        // leave deferred allocations in the driver.
+        glFinish();
+    }
     if (cacheTexture_ != 0) {
         glDeleteTextures(1, &cacheTexture_);
         cacheTexture_ = 0;
@@ -328,6 +352,8 @@ void OpenGLRenderBackend::releaseRenderCache() {
     }
     cacheWidth_ = 0;
     cacheHeight_ = 0;
+    cacheCapacityWidth_ = 0;
+    cacheCapacityHeight_ = 0;
     invalidateRenderCacheSync();
     resetStateCache();
 }

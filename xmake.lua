@@ -37,13 +37,13 @@ option_end()
 option("apps")
     set_default(true)
     set_showmenu(true)
-    set_description("Build bundled EUI-NEO example applications.")
+    set_description("Build short bundled API examples from examples/.")
 option_end()
 
 option("user_apps")
     set_default(true)
     set_showmenu(true)
-    set_description("Build user applications from apps/.")
+    set_description("Build longer or multi-page applications from apps/.")
 option_end()
 
 option("modules")
@@ -76,6 +76,7 @@ function eui_apply_compile_options(target)
     end
     if target:is_plat("windows") and not target:is_plat("mingw") then
         target:add("cxflags", "/utf-8")
+        target:add("cxflags", "/wd4530")
         if not is_mode("debug") then
             target:add("cxflags", "/O1", "/GS-", "/sdl-", "/wd4819")
         end
@@ -510,8 +511,36 @@ function eui_build_shadertoy_assets(target)
     end
 end
 
+function eui_configure_named_app(name)
+    if name == "serial_tool" and build_modules and os.exists("modules/serial/serial.h") then
+        add_deps("eui_module_serial")
+    end
+    if name == "shadertoy" then
+        add_defines(
+            "EUI_SHADERTOY_DEMO_SOURCE=\"assets/shaders/shadertoy/demo.frag\"",
+            "EUI_SHADERTOY_DEMO_SPIRV=\"assets/shaders/shadertoy/demo.frag.spv\"",
+            "EUI_SHADERTOY_PRESETS_DIR=\"assets/shaders/shadertoy\""
+        )
+        if render_backend == "vulkan" then
+            add_deps("eui_shadertoy_wrap")
+            after_build(eui_build_shadertoy_assets)
+        end
+    end
+    if name == "gallery" then
+        add_defines(
+            "EUI_GALLERY_SHADERTOY_SOURCE=\"assets/shaders/shadertoy/demo.frag\"",
+            "EUI_GALLERY_SHADERTOY_NOISE=\"assets/shaders/shadertoy/blackhole/color_noise.png\"",
+            "EUI_GALLERY_SHADERTOY_SPIRV=\"assets/shaders/shadertoy/gallery_demo.frag.spv\""
+        )
+        if render_backend == "vulkan" then
+            add_deps("eui_shadertoy_wrap")
+            after_build(eui_build_shadertoy_assets)
+        end
+    end
+end
+
 -- =============================================================================
--- Bundled example applications (examples/*.cpp)
+-- Short bundled API examples (examples/*.cpp)
 -- =============================================================================
 
 if build_apps then
@@ -527,32 +556,7 @@ if build_apps then
             add_files(file)
             add_rules("eui.app")
             add_includedirs("include", ".")
-            if name == "serial_tool" and build_modules and os.exists("modules/serial/serial.h") then
-                add_deps("eui_module_serial")
-            end
-            -- Shadertoy preset asset paths
-            if name == "shadertoy" then
-                add_defines(
-                    "EUI_SHADERTOY_DEMO_SOURCE=\"assets/shaders/shadertoy/demo.frag\"",
-                    "EUI_SHADERTOY_DEMO_SPIRV=\"assets/shaders/shadertoy/demo.frag.spv\"",
-                    "EUI_SHADERTOY_PRESETS_DIR=\"assets/shaders/shadertoy\""
-                )
-                if render_backend == "vulkan" then
-                    add_deps("eui_shadertoy_wrap")
-                    after_build(eui_build_shadertoy_assets)
-                end
-            end
-            if name == "gallery" then
-                add_defines(
-                    "EUI_GALLERY_SHADERTOY_SOURCE=\"assets/shaders/shadertoy/demo.frag\"",
-                    "EUI_GALLERY_SHADERTOY_NOISE=\"assets/shaders/shadertoy/blackhole/color_noise.png\"",
-                    "EUI_GALLERY_SHADERTOY_SPIRV=\"assets/shaders/shadertoy/gallery_demo.frag.spv\""
-                )
-                if render_backend == "vulkan" then
-                    add_deps("eui_shadertoy_wrap")
-                    after_build(eui_build_shadertoy_assets)
-                end
-            end
+            eui_configure_named_app(name)
         target_end()
         ::continue::
     end
@@ -572,19 +576,29 @@ end
 if build_user then
     for _, file in ipairs(os.files("apps/*.cpp")) do
         local name = path.basename(file)
+        if name == "serial_tool" and not (build_modules and os.exists("modules/serial/serial.h")) then
+            print("Skipping serial_tool app (module not available).")
+            goto continue_flat_user_app
+        end
         target(name)
             set_kind("binary")
             set_group("apps")
             add_files(file)
             add_rules("eui.app")
             add_includedirs("include", ".")
+            eui_configure_named_app(name)
         target_end()
+        ::continue_flat_user_app::
     end
 
     for _, dir in ipairs(os.dirs("apps/*")) do
         local appfile = path.join(dir, "app.cpp")
         if os.exists(appfile) then
             local name = path.basename(dir)
+            if name == "serial_tool" and not (build_modules and os.exists("modules/serial/serial.h")) then
+                print("Skipping serial_tool app (module not available).")
+                goto continue_user_app
+            end
             target(name)
                 set_kind("binary")
                 set_group("apps")
@@ -592,8 +606,10 @@ if build_user then
                 add_rules("eui.app")
                 add_includedirs("include", ".", dir)
                 set_values("eui_app_assets", path.absolute(path.join(dir, "assets"), os.projectdir()))
+                eui_configure_named_app(name)
                 after_build(eui_copy_user_app_assets)
             target_end()
+            ::continue_user_app::
         end
     end
 end
