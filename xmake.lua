@@ -345,6 +345,11 @@ target("eui_neo")
     elseif window_backend == "sdl2" then
         add_packages("libsdl2", {public = true})
     end
+    if is_plat("linux") then
+        -- window_backend.cpp's dragWindow() speaks _NET_WM_MOVERESIZE directly,
+        -- which needs libX11. Neither GLFW nor SDL2 forwards X11 to the app.
+        add_syslinks("X11", {public = true})
+    end
     add_packages("libcurl", {public = true, optional = true})
     if not is_plat("windows", "mingw") and has_package("libcurl") then
         add_defines("EUI_HAS_CURL=1", {public = true})

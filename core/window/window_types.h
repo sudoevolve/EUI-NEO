@@ -16,6 +16,17 @@ enum class RenderApi {
     Vulkan
 };
 
+enum class ResizeEdge {
+    TopLeft,
+    Top,
+    TopRight,
+    Right,
+    BottomRight,
+    Bottom,
+    BottomLeft,
+    Left
+};
+
 struct WindowCreateRequest {
     int width = 0;
     int height = 0;
@@ -23,6 +34,7 @@ struct WindowCreateRequest {
     bool resizable = true;
     bool highDpi = true;
     bool modal = false;
+    bool decorated = true;
     Handle parent = nullptr;
     RenderApi renderApi = RenderApi::OpenGL;
 };

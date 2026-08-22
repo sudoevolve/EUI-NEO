@@ -604,6 +604,7 @@ int main() {
     windowRequest.height = app::initialWindowHeight();
     windowRequest.title = app::windowTitle();
     windowRequest.renderApi = core::render::windowRenderApi();
+    windowRequest.decorated = !app::frameless();
     SDL_Window* window = static_cast<SDL_Window*>(core::window::createWindow(windowRequest));
     if (window == nullptr) {
         SDL_Quit();

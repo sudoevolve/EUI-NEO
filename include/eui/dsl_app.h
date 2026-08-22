@@ -28,6 +28,7 @@ struct DslAppConfig {
     bool trayEnabledValue = false;
     std::string trayTitleValue;
     std::string trayIconPathValue;
+bool framelessValue = false;
     std::function<void(const eui::KeyEvent&)> keyEventHandler;
 
     DslAppConfig& title(std::string value) { titleValue = std::move(value); return *this; }
@@ -68,6 +69,10 @@ struct DslAppConfig {
     }
     DslAppConfig& trayIcon(std::string value) {
         trayIconPathValue = std::move(value);
+        return *this;
+    }
+DslAppConfig& frameless(bool value = true) {
+        framelessValue = value;
         return *this;
     }
     DslAppConfig& onKeyEvent(std::function<void(const eui::KeyEvent&)> handler) {

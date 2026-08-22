@@ -33,4 +33,17 @@ void installInputCallbacks(Handle window);
 void uninstallInputCallbacks(Handle window);
 bool queryImeComposition(Handle window, std::string& text, bool& composing);
 
+// Window controls used by a custom (frameless) title bar. All are no-ops on a
+// null handle. minimize/maximize/restore/close are cross-platform in both
+// backends; dragWindow/startWindowResize need a per-platform bridge (see the
+// .cpp) and return false when the platform can't synthesize the move/resize
+// (e.g. Wayland).
+void minimizeWindow(Handle window);
+void maximizeWindow(Handle window);
+void restoreWindow(Handle window);
+bool isWindowMaximized(Handle window);
+void requestWindowClose(Handle window);
+bool dragWindow(Handle window);
+bool startWindowResize(Handle window, ResizeEdge edge);
+
 } // namespace core::window
