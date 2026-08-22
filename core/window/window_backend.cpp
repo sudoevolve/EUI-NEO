@@ -930,6 +930,7 @@ bool startWindowResize(Handle window, ResizeEdge edge) {
     };
     ReleaseCapture();
     SendMessageW(hwnd, WM_NCLBUTTONDOWN, hitTests[static_cast<int>(edge)], 0);
+    ReleaseCapture(); // Release capture after resize loop so next drag starts clean
     return true;
 #elif defined(__linux__) && !defined(__ANDROID__)
     Display* display = glfwGetX11Display();

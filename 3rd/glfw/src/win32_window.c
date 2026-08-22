@@ -55,7 +55,16 @@ static DWORD getWindowStyle(const _GLFWwindow* window)
                 style |= WS_MAXIMIZEBOX | WS_THICKFRAME;
         }
         else
+        {
             style |= WS_POPUP;
+
+            // WS_THICKFRAME is required for the system to accept
+            // WM_NCLBUTTONDOWN with HT resize values (HTTOP, HTBOTTOM, etc.)
+            // and enter the modal resize loop.  Without it, the resize
+            // messages from startWindowResize() are silently ignored.
+            if (window->resizable)
+                style |= WS_THICKFRAME;
+        }
     }
 
     return style;
@@ -1010,6 +1019,20 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
             if (window->win32.frameAction)
                 break;
 
+            // After a system move/resize loop (initiated via WM_NCLBUTTONDOWN
+            // with HTCAPTION / HTxxx from dragWindow / startWindowResize), the
+            // system consumes the mouse button release internally without
+            // sending WM_LBUTTONUP to the client-area handler.  This leaves
+            // GLFW's internal mouse button state stuck at GLFW_PRESS, which
+            // causes the EUI framework's polling-based input (hasPendingPointerInput
+            // + readPointerEvent) to miss subsequent clicks because it sees no
+            // state change.  Release any pressed buttons here.
+            for (int i = 0;  i <= GLFW_MOUSE_BUTTON_LAST;  i++)
+            {
+                if (window->mouseButtons[i] == GLFW_PRESS)
+                    _glfwInputMouseClick(window, i, GLFW_RELEASE, 0);
+            }
+
             // HACK: Disable the cursor once the user is done moving or
             //       resizing the window or using the menu
             if (window->cursorMode == GLFW_CURSOR_DISABLED)
@@ -1151,10 +1174,21 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         }
 
         case WM_NCACTIVATE:
+        {
+            // Let DefWindowProc handle activation state tracking so that
+            // taskbar clicks and titlebar drag (WM_NCLBUTTONDOWN / HTCAPTION)
+            // work correctly on undecorated (WS_POPUP) windows.
+            // Returning TRUE here would prevent the Shell from updating its
+            // window state cache, causing a 1-2-3 toggle failure pattern
+            // on taskbar clicks and making dragWindow() intermittently fail.
+            break;
+        }
+
         case WM_NCPAINT:
         {
             // Prevent title bar from being drawn after restoring a minimized
-            // undecorated window
+            // undecorated window. Safe to return TRUE here because the
+            // non-client area has no title bar to paint.
             if (!window->decorated)
                 return TRUE;
 
