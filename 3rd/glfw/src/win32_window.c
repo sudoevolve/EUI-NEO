@@ -357,14 +357,21 @@ static void updateWindowStyles(const _GLFWwindow* window)
 
     GetClientRect(window->win32.handle, &rect);
 
-    if (_glfwIsWindows10Version1607OrGreaterWin32())
+    // For undecorated windows, WM_NCCALCSIZE overrides the client rect to
+    // fill the window, so there is no border space to compensate for.
+    // Skipping AdjustWindowRectEx here prevents the window from growing
+    // by the WS_THICKFRAME border size on each style update.
+    if (window->decorated)
     {
-        AdjustWindowRectExForDpi(&rect, style, FALSE,
-                                 getWindowExStyle(window),
-                                 GetDpiForWindow(window->win32.handle));
+        if (_glfwIsWindows10Version1607OrGreaterWin32())
+        {
+            AdjustWindowRectExForDpi(&rect, style, FALSE,
+                                     getWindowExStyle(window),
+                                     GetDpiForWindow(window->win32.handle));
+        }
+        else
+            AdjustWindowRectEx(&rect, style, FALSE, getWindowExStyle(window));
     }
-    else
-        AdjustWindowRectEx(&rect, style, FALSE, getWindowExStyle(window));
 
     ClientToScreen(window->win32.handle, (POINT*) &rect.left);
     ClientToScreen(window->win32.handle, (POINT*) &rect.right);
@@ -1173,6 +1180,19 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
             return TRUE;
         }
 
+        case WM_NCCALCSIZE:
+        {
+            // For undecorated windows with WS_THICKFRAME, the default
+            // DefWindowProc reserves ~8px for the system border in the
+            // non-client area, shrinking the client rect.  Tell the system
+            // that the client area covers the entire window so there is
+            // no visible gap at the top (or any edge).
+            if (!window->decorated)
+                return 0;  // client rect = window rect (regardless of wParam)
+
+            break;
+        }
+
         case WM_NCACTIVATE:
         {
             // Let DefWindowProc handle activation state tracking so that
@@ -1397,7 +1417,12 @@ static int createNativeWindow(_GLFWwindow* window,
         if (wndconfig->maximized)
             style |= WS_MAXIMIZE;
 
-        AdjustWindowRectEx(&rect, style, FALSE, exStyle);
+        // For undecorated (frameless) windows, AdjustWindowRectEx would add
+        // WS_THICKFRAME border space even though we override WM_NCCALCSIZE to
+        // make the client area fill the whole window. Skip it so the window
+        // size matches the requested content size exactly.
+        if (wndconfig->decorated)
+            AdjustWindowRectEx(&rect, style, FALSE, exStyle);
 
         if (wndconfig->xpos == GLFW_ANY_POSITION && wndconfig->ypos == GLFW_ANY_POSITION)
         {
@@ -1440,6 +1465,15 @@ static int createNativeWindow(_GLFWwindow* window,
 
     SetPropW(window->win32.handle, L"GLFW", window);
 
+    // Force an immediate WM_NCCALCSIZE so our undecorated handler (which
+    // sets client rect = window rect) takes effect.  During CreateWindowExW
+    // the window property wasn't set yet, so the default DefWindowProc ran
+    // and reserved WS_THICKFRAME border space.  Without this, the initial
+    // client rect is 16px smaller than the window on each axis.
+    SetWindowPos(window->win32.handle, NULL, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOACTIVATE |
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+
     if (IsWindows7OrGreater())
     {
         ChangeWindowMessageFilterEx(window->win32.handle,
@@ -1478,12 +1512,12 @@ static int createNativeWindow(_GLFWwindow* window,
             }
         }
 
-        if (_glfwIsWindows10Version1607OrGreaterWin32())
+        if (wndconfig->decorated && _glfwIsWindows10Version1607OrGreaterWin32())
         {
             AdjustWindowRectExForDpi(&rect, style, FALSE, exStyle,
                                      GetDpiForWindow(window->win32.handle));
         }
-        else
+        else if (wndconfig->decorated)
             AdjustWindowRectEx(&rect, style, FALSE, exStyle);
 
         GetWindowPlacement(window->win32.handle, &wp);
