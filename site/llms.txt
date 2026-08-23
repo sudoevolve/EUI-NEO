@@ -1,0 +1,226 @@
+# EUI-NEO
+
+> EUI-NEO is a lightweight C++17 desktop UI framework. It provides a declarative, builder-based UI DSL, retained rendering, built-in controls, and GLFW or SDL2 window backends with OpenGL or Vulkan rendering. The current stable release is v0.5.7.
+
+Use this file as the starting point when answering questions or generating EUI-NEO applications. Prefer the public facade and current examples over inferred APIs.
+
+Canonical sources:
+
+- Website: https://sudoevolve.github.io/EUI-NEO/
+- Repository: https://github.com/sudoevolve/EUI-NEO
+- Stable release: https://github.com/sudoevolve/EUI-NEO/releases/tag/v0.5.7
+- Public umbrella header: https://github.com/sudoevolve/EUI-NEO/blob/main/include/eui_neo.h
+- Exported components: https://github.com/sudoevolve/EUI-NEO/blob/main/components/components.h
+
+## Fastest Correct Path
+
+For a normal application:
+
+1. Use C++17 and CMake 3.14 or newer.
+2. Include only `eui_neo.h` in application UI code.
+3. Put application functions in namespace `app`.
+4. Define `const DslAppConfig& dslAppConfig()` and `void compose(eui::Ui&, const eui::Screen&)`.
+5. Create the executable and call `eui_neo_configure_app(target)`. Do not add a framework app-main source manually.
+6. Compose structure with `ui.row`, `ui.column`, `ui.stack`, and `ui.flow`; use `components::*` for standard controls.
+7. Give every element a stable, unique ID and finish every builder with `.build()`.
+
+Minimal source-tree integration:
+
+```cmake
+cmake_minimum_required(VERSION 3.14)
+project(MyProject LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_subdirectory(external/EUI-NEO)
+
+add_executable(my_app app.cpp)
+eui_neo_configure_app(my_app)
+```
+
+Minimal application:
+
+```cpp
+#include "eui_neo.h"
+
+namespace app {
+
+const DslAppConfig& dslAppConfig() {
+    static const DslAppConfig config = DslAppConfig{}
+        .title("My App")
+        .pageId("my_app")
+        .windowSize(960, 640);
+    return config;
+}
+
+void compose(eui::Ui& ui, const eui::Screen& screen) {
+    ui.column("root")
+        .size(screen.width, screen.height)
+        .padding(32.0f)
+        .gap(12.0f)
+        .content([&] {
+            ui.text("title")
+                .text("Hello EUI-NEO")
+                .fontSize(28.0f)
+                .build();
+
+            components::button(ui, "primary_action")
+                .text("Continue")
+                .onClick([] {
+                    // Update application-owned state here.
+                })
+                .build();
+        })
+        .build();
+}
+
+} // namespace app
+```
+
+Build:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+For a downloaded SDK, replace `add_subdirectory(...)` with:
+
+```cmake
+find_package(EuiNeo CONFIG REQUIRED)
+```
+
+Keep `add_executable(...)` and `eui_neo_configure_app(...)` unchanged. Configure with `-DCMAKE_PREFIX_PATH=/path/to/eui-neo-sdk`.
+
+## Public Programming Model
+
+- Public namespace: `eui` for DSL and shared types; `components` for controls and themed surfaces; `app` for the application contract.
+- App contract: `app::dslAppConfig()` describes the window and `app::compose()` declaratively rebuilds the UI.
+- Primitive builders: `ui.rect`, `ui.text`, `ui.image`, `ui.svg`, `ui.polygon`, and `ui.shadertoy`.
+- Layout builders: `ui.row`, `ui.column`, `ui.stack`, and `ui.flow`.
+- Page/runtime state: `ui.state<T>(stableId)` persists a value across composition. Business state may also live in a page/controller object.
+- Controlled values: pass the current value to a component and update owner state in `onChange`, or use `eui::Signal<T>` with the component's `bind(...)` method when supported.
+- Animation: create a short `eui::Transition`, pass it with `.transition(...)`, and select animated properties with `.animate(...)` when required.
+- Multiple windows: use `app::openWindow(DslWindowConfig, composeFn)`.
+
+Composition is declarative. Do not create backend drawing objects in UI code, and do not poll GLFW or SDL input from a component.
+
+## Layout Rules
+
+- Use `Row` for horizontal toolbars, button groups, and split panes.
+- Use `Column` for forms, pages, sidebars, and vertically stacked sections.
+- Use `Stack` for local overlays, backgrounds, badges, and absolute positioning.
+- Use `Flow` for one continuous wrapping group such as chips or cards.
+- Prefer `.padding(...)`, `.gap(...)`, `.fill()`, `SizeValue::wrapContent()`, flex sizing, and min/max constraints over manual coordinates.
+- Use `components::scrollView` for ordinary scrollable content. It creates its own wrap-content measurement root; make its children report their real heights and do not add a viewport-height wrapper around variable content.
+- Use `components::virtualList` or `components::virtualMasonry` for very large data sets.
+- `zIndex` changes draw and hit-test order; it does not remove an element from layout. Use `ignoreLayout()` only for genuine overlays or decoration.
+- Branch at explicit width thresholds when a multi-column layout must become a single column.
+
+## Component Selection
+
+Prefer built-in components before assembling controls from primitives:
+
+- Commands: `components::button`
+- Boolean values: `components::checkbox`, `components::toggleSwitch`
+- Exclusive choices: `components::radio`, `components::segmented`, `components::tabs`
+- Numeric values: `components::slider`, `components::stepper`, `components::progress`
+- Text entry: `components::input`
+- Menus and pickers: `components::dropdown`, `components::datePicker`, `components::timePicker`, `components::colorPicker`, `components::contextMenu`
+- Navigation: `components::navbar`, `components::sidebar`
+- Overlays and feedback: `components::dialog`, `components::toast`, `components::tooltip`
+- Data: `components::dataTable`, `components::lineChart`, `components::barChart`, `components::pieChart`
+- Media/content: `components::image`, `components::carousel`, `components::markdown`
+- Scrolling and large collections: `components::scrollView`, `components::virtualList`, `components::virtualMasonry`
+- Custom pointer regions: `components::mouseArea`
+- Themed surfaces and text: `components::panel`, `components::card`, `components::text`
+
+Use `components::theme::dark()` or `components::theme::light()` as the base token set. Pass the same tokens and transition through a page for consistent visuals and motion.
+
+## Input API In v0.5.7
+
+- Keyboard events use `eui::KeyEvent` with `key`, `action`, `modifiers`, and `scanCode`.
+- Text and IME input use `eui::TextInputEvent`; they are separate from key events.
+- Element-level `.onKeyEvent(...)` callbacks return `bool` to indicate whether the event was handled.
+- Pointer events use `action`, `button`, `buttons`, and `modifiers`.
+- Pointer buttons are `Left`, `Middle`, `Right`, `X1`, and `X2`.
+- Standard interaction accepts only the left button by default. Enable other drag or press buttons explicitly with `.acceptedButtons(...)`.
+- Pointer capture belongs to the button that started the interaction. Do not emulate capture with global polling.
+
+Do not generate any of these removed APIs:
+
+- `KeyboardEvent`
+- `PointerEvent::down` or `PointerEvent::rightDown`
+- `pressedThisFrame`, `releasedThisFrame`, or other `*ThisFrame` pointer fields
+- compatibility aliases, callback adapters, native button polling, or dual input paths
+
+Current input reference: https://sudoevolve.github.io/EUI-NEO/docs/%E4%BA%8B%E4%BB%B6.md
+
+## File Placement
+
+- Put short, single-page framework examples in `examples/<name>.cpp` only when contributing an API example to EUI-NEO itself.
+- Put real applications in `apps/<name>/app.cpp`.
+- Put distinct pages in `apps/<name>/pages/`, app-specific reusable UI in `apps/<name>/components/`, and local media in `apps/<name>/assets/`.
+- Keep `app.cpp` responsible for configuration, the persistent shell, navigation, global overlays, and page dispatch.
+- Keep dependency direction `app.cpp -> pages -> app components -> framework/shared context`; app components must not include page implementation headers.
+
+For generated user projects outside this repository, a normal `app.cpp` plus `CMakeLists.txt` is sufficient until the application needs multiple pages.
+
+## Backends And Build Options
+
+Default: GLFW + OpenGL.
+
+CMake cache options:
+
+- `EUI_WINDOW_BACKEND=glfw|sdl2`
+- `EUI_RENDER_BACKEND=opengl|vulkan|auto`
+- `EUI_BUILD_SHARED=ON|OFF`
+- `EUI_BUILD_APPS=ON|OFF` for repository `examples/`
+- `EUI_BUILD_USER_APPS=ON|OFF` for repository `apps/`
+- `EUI_ENABLE_MODULES=ON|OFF`
+- `EUI_ENABLE_TRAY=ON|OFF`
+
+Use a separate build directory for each backend combination. Vulkan requires a Vulkan SDK; SDL2 requires SDL2 development files. Linux tray builds require GLib/GIO development files unless tray support is explicitly disabled.
+
+Xmake 3.0 or newer is also supported. External projects use `add_requires("eui-neo")` and `add_packages("eui-neo")`. Repository configuration uses `--window_backend=sdl2`, `--render_backend=vulkan`, `--shared=y`, `--apps=y`, and `--user_apps=y` as needed.
+
+## Accuracy Rules For Code Generation
+
+- Treat public headers and current `main` examples as authoritative when prose and code disagree.
+- Prefer `#include "eui_neo.h"`; do not include `core/` headers unless implementing a deliberate custom event/render loop.
+- Prefer `eui_neo_configure_app(target)`; do not manually add `core/app/glfw_app_main.cpp` or `core/app/sdl2_app_main.cpp`.
+- Never invent builder methods. Check the relevant header under `components/` or `core/dsl.h`.
+- Keep IDs stable across frames and namespace child IDs as `parent.part`.
+- Keep component state owned by the page/model; callbacks update that state.
+- Compose global dialogs, sidebars, toasts, pickers, and context menus after normal page content so they render above it.
+- Preserve retained-layer caching. Do not disable it as a workaround for rendering or resize bugs.
+- Avoid compatibility or glue layers for removed input APIs.
+- Verify the exact application target after changes, then run `git diff --check`.
+
+## Documentation
+
+- [Quick Start and project overview](https://github.com/sudoevolve/EUI-NEO/blob/main/README.md): canonical app and CMake setup.
+- [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/%E9%9B%86%E6%88%90%E6%8C%87%E5%8D%97.md): SDK, `find_package`, FetchContent, Xmake, and custom-loop boundaries.
+- [DSL reference](https://sudoevolve.github.io/EUI-NEO/docs/DSL.md): builders, primitives, layout, sizing, transitions, and loaders.
+- [Components](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BB%84%E4%BB%B6.md): component APIs and examples.
+- [State](https://sudoevolve.github.io/EUI-NEO/docs/%E7%8A%B6%E6%80%81.md): persistent state and signals.
+- [Layout](https://sudoevolve.github.io/EUI-NEO/docs/%E5%B8%83%E5%B1%80.md): row, column, stack, flow, sizing, and scrolling.
+- [Events](https://sudoevolve.github.io/EUI-NEO/docs/%E4%BA%8B%E4%BB%B6.md): current keyboard, text, pointer, focus, and input dispatch.
+- [Animation](https://sudoevolve.github.io/EUI-NEO/docs/%E5%8A%A8%E7%94%BB.md): transitions, easing, and transforms.
+- [Images](https://sudoevolve.github.io/EUI-NEO/docs/%E5%9B%BE%E7%89%87.md): local/remote images, SVG, GIF, and caching.
+- [Platform capabilities](https://sudoevolve.github.io/EUI-NEO/docs/%E5%B9%B3%E5%8F%B0%E8%83%BD%E5%8A%9B.md): windows, dialogs, URLs, clipboard, and tray.
+- [Modules](https://sudoevolve.github.io/EUI-NEO/docs/%E6%A8%A1%E5%9D%97.md): optional keyboard and serial modules.
+- [Network](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BD%91%E7%BB%9C.md): asynchronous requests and caching.
+- [Async](https://sudoevolve.github.io/EUI-NEO/docs/%E5%BC%82%E6%AD%A5.md): asynchronous tasks and runtime result collection.
+- [Rendering architecture](https://sudoevolve.github.io/EUI-NEO/docs/%E6%B8%B2%E6%9F%93%E5%90%8E%E7%AB%AF%E6%9E%B6%E6%9E%84.md): renderer boundaries and backend flow.
+- [Retained layer cache](https://sudoevolve.github.io/EUI-NEO/docs/retained_layer_cache.md): cache lifecycle, constraints, and backend behavior.
+- [ShaderToy](https://sudoevolve.github.io/EUI-NEO/docs/Shadertoy.md): pass graphs and OpenGL/Vulkan shader contracts.
+- [Runnable examples](https://github.com/sudoevolve/EUI-NEO/tree/main/examples): compact API demonstrations.
+- [Gallery application](https://github.com/sudoevolve/EUI-NEO/tree/main/apps/gallery): idiomatic multi-page composition and component usage.
+
+## Optional
+
+- [Chinese README](https://github.com/sudoevolve/EUI-NEO/blob/main/README.zh-CN.md): Chinese project overview and Quick Start.
+- [Development and release guide](https://sudoevolve.github.io/EUI-NEO/docs/%E5%BC%80%E5%8F%91%E4%B8%8E%E5%8F%91%E5%B8%83.md): repository builds, tests, packaging, and maintenance.
+- [UI design skill](https://github.com/sudoevolve/EUI-NEO/blob/main/docs/skills/eui-neo-ui-replicator/SKILL.md): detailed rules for generating or replicating polished EUI-NEO interfaces.

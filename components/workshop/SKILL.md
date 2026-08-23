@@ -115,7 +115,8 @@ After adding or changing a workshop component:
 
 ```sh
 git diff --check
-cmake --build build-vk --target gallery --parallel
+cmake -S . -B build-vulkan -DEUI_RENDER_BACKEND=vulkan -DEUI_BUILD_USER_APPS=ON
+cmake --build build-vulkan --config Release --target gallery --parallel
 ```
 
 If shader behavior changes, also update both:

@@ -16,6 +16,7 @@ When the user provides only a product idea, vague requirements, or a desired sty
 Before writing code, inspect these local sources when available:
 
 - `README.md` or `README.zh-CN.md` for app setup and public entry points.
+- `site/llms.txt` for the current public API, removed input APIs, build options, and documentation index.
 - `docs/DSL.md` for DSL element capabilities.
 - `docs/*.md` with searches for `Row`, `Column`, `Stack`, `Flow`, `SizeValue`, `ignoreLayout`, and component names for layout and component behavior.
 - `apps/gallery/app.cpp` and `apps/gallery/pages/*.h` only as references for idiomatic multi-page composition.
@@ -105,9 +106,9 @@ Use `Stack` for overlays, absolute local coordinates, backgrounds behind content
 
 Use `Flow` for chips, tags, filter buttons, compact action groups, and any horizontal content that should wrap.
 
-Use `components::scrollView` for scrollable measured content. Use `components::virtualList` for very large fixed-height lists where composing every row would be wasteful. Use low-level `components::scroll` only when manually binding a runtime scroll state is necessary.
+Use `components::scrollView` for scrollable measured content. Use `components::virtualList` for very large fixed-height lists and `components::virtualMasonry` for large variable-height grids where composing every item would be wasteful. Use low-level `components::scroll` only when manually binding a runtime scroll state is necessary.
 
-Inside `scrollView`, make the scroll content root measure its real content height. Prefer `.height(SizeValue::wrapContent())` on the content root; do not lock it to the viewport height unless the content is intentionally non-scrollable.
+`scrollView` creates and measures its own wrap-content root. Make every child report its real height, and do not add a viewport-height wrapper around variable content unless that child is intentionally fixed-height; otherwise the measured scroll range will be wrong.
 
 Keep one logical wrapping grid in one `Flow`. Do not split one continuous card grid into multiple sibling flows, because each flow wraps independently and will restart from a new line.
 
@@ -149,14 +150,28 @@ Use these built-ins first:
 - Numeric input: `components::slider`, `components::stepper`, `components::progress`
 - Text entry: `components::input`
 - Menus and pickers: `components::dropdown`, `components::datePicker`, `components::timePicker`, `components::colorPicker`, `components::contextMenu`
-- Overlays and feedback: `components::dialog`, `components::sidebar`, `components::toast`, `components::tooltip`
+- Navigation: `components::navbar`, `components::sidebar`
+- Overlays and feedback: `components::dialog`, `components::toast`, `components::tooltip`
 - Data and media: `components::dataTable`, `components::carousel`, `components::lineChart`, `components::barChart`, `components::pieChart`, `components::markdown`
+- Scrolling and large collections: `components::scrollView`, `components::virtualList`, `components::virtualMasonry`
 - Hit regions: `components::mouseArea`
 - Surfaces and typography: `components::card`, `components::panel`, `components::text`, `components::image`
 
-For controlled components, keep business state in the page or owning model. Pass current values into the component and update them through `onChange`, `onOpenChange`, `onDismiss`, or `Signal<T>::bind(...)`.
+For controlled components, keep business state in the page or owning model. Pass current values into the component and update them through `onChange`, `onOpenChange`, or `onDismiss`. When a builder supports signals, call the builder method `.bind(signal)`, `.bindOpen(signal)`, or `.bindVisible(signal)`; `eui::Signal<T>` itself has no `bind` method.
 
-Place global overlays near the end of root composition so they sit above normal content. Pass `screen(width, height)` to modal, picker, toast, and context menu components.
+Place global overlays near the end of root composition so they sit above normal content. Call `.screen(screen.width, screen.height)` on dialogs, date/time/color pickers, toasts, and context menus so they can constrain overlays to the window.
+
+## Current Input Contract
+
+Use the v0.5.7 event model:
+
+- Key callbacks receive `eui::KeyEvent` with `key`, `action`, `modifiers`, and `scanCode`.
+- Text and IME callbacks receive `eui::TextInputEvent`; never combine text input with key events.
+- Element `.onKeyEvent(...)` callbacks return `bool` to report whether they handled the event.
+- Pointer callbacks use `action`, `button`, `buttons`, and `modifiers`.
+- Middle, right, X1, and X2 interactions must be enabled explicitly with `.acceptedButtons(...)`; left is the default.
+
+Never generate removed `KeyboardEvent`, `PointerEvent::down`, `rightDown`, `pressedThisFrame`, `releasedThisFrame`, other `*ThisFrame` fields, compatibility aliases, native button polling, or dual input paths. Do not disable retained-layer caching to work around rendering or resize behavior.
 
 ## Primitive Translation
 
@@ -393,13 +408,14 @@ After implementing a replica:
 
 ```powershell
 git diff --check
-cmake --build build --target <app_target> --parallel
+cmake -S . -B build -DEUI_BUILD_USER_APPS=ON
+cmake --build build --config Release --target <app_target> --parallel
 ```
 
-Use `gallery` or other `examples/*` targets only when the task explicitly modified built-in examples:
+The configure step is required when an existing cache previously disabled `EUI_BUILD_USER_APPS`. Use `gallery` only when the task explicitly modified the built-in gallery or shared framework/component behavior. Build an `examples/<name>.cpp` target only when that example was explicitly changed:
 
 ```powershell
-cmake --build build --target gallery --parallel
+cmake --build build --config Release --target gallery --parallel
 ```
 
 If Vulkan-specific rendering, shaders, or retained cache behavior is touched, also verify the Vulkan build directory or target used by the repository.

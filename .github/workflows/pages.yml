@@ -45,6 +45,7 @@ jobs:
           touch _site/.nojekyll
           perl -0pi -e 's#\.\./docs/#./docs/#g; s#\.\./assets/#./assets/#g' _site/index.html _site/app.js
           test -f _site/index.html
+          test -f _site/llms.txt
           test -f _site/docs/集成指南.md
           test -f _site/assets/icon.svg
 
