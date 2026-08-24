@@ -1424,19 +1424,32 @@ static int createNativeWindow(_GLFWwindow* window,
         if (wndconfig->decorated)
             AdjustWindowRectEx(&rect, style, FALSE, exStyle);
 
+        frameWidth  = rect.right - rect.left;
+        frameHeight = rect.bottom - rect.top;
+
         if (wndconfig->xpos == GLFW_ANY_POSITION && wndconfig->ypos == GLFW_ANY_POSITION)
         {
-            frameX = CW_USEDEFAULT;
-            frameY = CW_USEDEFAULT;
+            // WS_POPUP windows ignore CW_USEDEFAULT and appear at (0,0).
+            // Center on the primary monitor's work area instead.
+            if (!wndconfig->decorated)
+            {
+                MONITORINFO mi = { sizeof(mi) };
+                const HMONITOR mh = MonitorFromPoint((POINT){0, 0}, MONITOR_DEFAULTTOPRIMARY);
+                GetMonitorInfoW(mh, &mi);
+                frameX = mi.rcWork.left + (mi.rcWork.right - mi.rcWork.left - frameWidth) / 2;
+                frameY = mi.rcWork.top + (mi.rcWork.bottom - mi.rcWork.top - frameHeight) / 2;
+            }
+            else
+            {
+                frameX = CW_USEDEFAULT;
+                frameY = CW_USEDEFAULT;
+            }
         }
         else
         {
             frameX = wndconfig->xpos + rect.left;
             frameY = wndconfig->ypos + rect.top;
         }
-
-        frameWidth  = rect.right - rect.left;
-        frameHeight = rect.bottom - rect.top;
     }
 
     wideTitle = _glfwCreateWideStringFromUTF8Win32(wndconfig->title);
@@ -1470,9 +1483,18 @@ static int createNativeWindow(_GLFWwindow* window,
     // the window property wasn't set yet, so the default DefWindowProc ran
     // and reserved WS_THICKFRAME border space.  Without this, the initial
     // client rect is 16px smaller than the window on each axis.
-    SetWindowPos(window->win32.handle, NULL, 0, 0, 0, 0,
-                 SWP_FRAMECHANGED | SWP_NOACTIVATE |
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+    //
+    // Preserve the current window position: passing x=0,y=0 with SWP_NOMOVE
+    // still resets WS_POPUP windows to the top-left on some Windows versions.
+    {
+        RECT current = {0};
+        GetWindowRect(window->win32.handle, &current);
+        SetWindowPos(window->win32.handle, NULL,
+                     current.left, current.top,
+                     current.right - current.left,
+                     current.bottom - current.top,
+                     SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOZORDER);
+    }
 
     if (IsWindows7OrGreater())
     {
