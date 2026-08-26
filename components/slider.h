@@ -18,11 +18,17 @@ struct SliderStyle {
         track = core::mixColor(tokens.surfaceHover, tokens.surfaceActive, tokens.dark ? 0.24f : 0.18f);
         fill = tokens.primary;
         knob = tokens.text;
+        hoverKnob = theme::buttonHover(tokens, knob);
+        focusRing = theme::focusRing(tokens);
+        disabledKnob = tokens.interaction.disabledContent;
     }
 
     core::Color track;
     core::Color fill;
     core::Color knob;
+    core::Color hoverKnob;
+    core::Border focusRing;
+    core::Color disabledKnob;
 };
 
 class SliderBuilder {
@@ -49,6 +55,7 @@ public:
         return *this;
     }
     SliderBuilder& onChange(std::function<void(float)> callback) { onChange_ = std::move(callback); return *this; }
+    SliderBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
 
     void build() {
         const float trackHeight = std::max(metrics_.spacing.tiny - metrics_.spacing.hairline,
@@ -56,6 +63,13 @@ public:
         const float trackY = (height_ - trackHeight) * 0.5f;
         const float knobSize = std::max(metrics_.typography.label, height_ * 0.72f);
         const std::function<void(float)> onChange = onChange_;
+        const bool focused = ui_.isFocused(id_ + ".hit");
+        const auto state = theme::controlState(disabled_, false, false, focused);
+        const core::Color knobColor = state == theme::ControlState::Disabled
+            ? style_.disabledKnob
+            : (state == theme::ControlState::Focused ? style_.hoverKnob : style_.knob);
+        const core::Border knobBorder = state == theme::ControlState::Focused
+            ? style_.focusRing : core::Border{};
 
         ui_.stack(id_)
             .size(width_, height_)
@@ -81,8 +95,9 @@ public:
                 ui_.rect(id_ + ".knob")
                     .y((height_ - knobSize) * 0.5f)
                     .size(knobSize, knobSize)
-                    .color(style_.knob)
+                    .color(knobColor)
                     .radius(knobSize * 0.5f)
+                    .border(knobBorder)
                     .shadow(12.0f, 0.0f, 4.0f, theme::withAlpha(style_.fill, 0.20f))
                     .transition(transition_)
                     .animate(core::AnimProperty::Color | core::AnimProperty::Shadow)
@@ -95,8 +110,10 @@ public:
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f))
                     .zIndex(10)
-                    .interactive()
                     .sliderInputFrom(id_)
+                    .interactive(!disabled_)
+                    .disabled(disabled_)
+                    .focusable(!disabled_)
                     .build();
             })
             .build();
@@ -112,6 +129,7 @@ private:
     float width_ = 300.0f;
     float height_ = 32.0f;
     float value_ = 0.0f;
+    bool disabled_ = false;
 };
 
 inline SliderBuilder slider(core::dsl::Ui& ui, const std::string& id) {

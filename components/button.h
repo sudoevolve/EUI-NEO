@@ -22,6 +22,8 @@ struct ButtonStyle {
         icon = text;
         border = theme::buttonBorder(tokens, primary);
         shadow = theme::buttonShadow(tokens);
+        focusRing = theme::focusRing(tokens);
+        disabled = tokens.interaction.disabledFill;
         radius = tokens.metrics.radius.overlay;
     }
 
@@ -32,6 +34,8 @@ struct ButtonStyle {
     core::Color icon;
     core::Border border;
     core::Shadow shadow;
+    core::Border focusRing;
+    core::Color disabled;
     float radius = 16.0f;
     float opacity = 1.0f;
     float pressScale = 0.965f;
@@ -105,7 +109,13 @@ public:
         const float labelWidth = hasIcon && hasText
             ? std::max(0.0f, w - iconWidth - gap - metrics_.spacing.section * 2.0f * scale_)
             : w;
+        const bool focused = ui_.isFocused(id_ + ".bg");
         core::Border border = style_.border;
+        if (disabled_) {
+            border = {0.0f, style_.disabled};
+        } else if (focused) {
+            border = style_.focusRing;
+        }
         border.width *= scale_;
 
         core::Shadow shadow = style_.shadow;
@@ -115,6 +125,10 @@ public:
         shadow.spread *= scale_;
         core::Color textColor = style_.text;
         core::Color iconColor = style_.icon;
+        if (disabled_) {
+            textColor = style_.disabled;
+            iconColor = style_.disabled;
+        }
         textColor.a *= style_.opacity;
         iconColor.a *= style_.opacity;
         const std::function<void()> onPress = onPress_;
@@ -140,6 +154,7 @@ public:
                     .translate(translateX_, translateY_)
                     .transition(transition_)
                     .disabled(disabled_)
+                    .focusable(!disabled_)
                     .preserveFocusOnPress(preserveFocusOnPress_)
                     .onClick(onClick_)
                     .onContextMenu(onContextMenu_);

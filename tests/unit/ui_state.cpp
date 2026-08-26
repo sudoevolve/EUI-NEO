@@ -138,6 +138,37 @@ bool textSizeMeasurementMatchesLineLayout() {
     return true;
 }
 
+bool controlStatePriorityIsStable() {
+    using components::theme::ControlState;
+    using components::theme::controlState;
+    if (controlState(false, false, false, false) != ControlState::Normal ||
+        controlState(false, false, true, false) != ControlState::Hovered ||
+        controlState(false, false, false, true) != ControlState::Focused ||
+        controlState(false, true, true, true) != ControlState::Pressed ||
+        controlState(true, true, true, true) != ControlState::Disabled) {
+        std::cerr << "control state priority is inconsistent\n";
+        return false;
+    }
+    return true;
+}
+
+bool interactionTokensAreComplete() {
+    const auto light = components::theme::light();
+    const auto dark = components::theme::dark();
+    const auto valid = [](const components::theme::ThemeColorTokens& tokens) {
+        return tokens.interaction.focusRingWidth > 0.0f &&
+               tokens.interaction.focusRingOffset >= 0.0f &&
+               tokens.interaction.disabledOpacity >= 0.0f &&
+               tokens.interaction.disabledOpacity <= 1.0f &&
+               tokens.interaction.focusRing.a > 0.0f;
+    };
+    if (!valid(light) || !valid(dark)) {
+        std::cerr << "theme interaction tokens are incomplete\n";
+        return false;
+    }
+    return true;
+}
+
 bool componentDefaultsMatchGallery() {
     core::dsl::Ui ui;
     ui.begin("component.defaults");
@@ -156,17 +187,10 @@ bool componentDefaultsMatchGallery() {
     ui.layout(1000.0f, 800.0f);
 
     const std::pair<const char*, float> expected[] = {
-        {"button", 54.0f},
-        {"input", 44.0f},
-        {"dropdown.field", 44.0f},
-        {"checkbox", 30.0f},
-        {"radio", 30.0f},
-        {"switch", 32.0f},
-        {"progress", 14.0f},
-        {"slider", 32.0f},
-        {"segmented", 38.0f},
-        {"tabs", 42.0f},
-        {"stepper", 40.0f},
+        {"button", 54.0f}, {"input", 44.0f}, {"dropdown.field", 44.0f},
+        {"checkbox", 30.0f}, {"radio", 30.0f}, {"switch", 32.0f},
+        {"progress", 14.0f}, {"slider", 32.0f}, {"segmented", 38.0f},
+        {"tabs", 42.0f}, {"stepper", 40.0f},
     };
     for (const auto& entry : expected) {
         const core::dsl::Element* element = ui.find(entry.first);
@@ -210,5 +234,7 @@ int main() {
     ok = textWrapContentUsesIntrinsicSize() && ok;
     ok = textSizeMeasurementMatchesLineLayout() && ok;
     ok = componentDefaultsMatchGallery() && ok;
+    ok = controlStatePriorityIsStable() && ok;
+    ok = interactionTokensAreComplete() && ok;
     return ok ? 0 : 1;
 }

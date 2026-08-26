@@ -85,6 +85,28 @@ struct ThemeMetricTokens {
     ControlSizeTokens control;
 };
 
+enum class ControlState {
+    Normal,
+    Hovered,
+    Pressed,
+    Focused,
+    Disabled
+};
+
+// Visual tokens shared by interactive controls. Checked, selected, expanded,
+// loading, and error remain orthogonal component states and are not folded into
+// this mutually exclusive base state.
+struct InteractionTokens {
+    core::Color hoverBorder;
+    core::Color pressedOverlay;
+    core::Color focusRing;
+    core::Color disabledFill;
+    core::Color disabledContent;
+    float focusRingWidth = 2.0f;
+    float focusRingOffset = 2.0f;
+    float disabledOpacity = 0.50f;
+};
+
 struct ThemeColorTokens {
     core::Color background;
     core::Color primary;
@@ -95,6 +117,7 @@ struct ThemeColorTokens {
     core::Color border;
     bool dark = false;
     ThemeMetricTokens metrics;
+    InteractionTokens interaction;
 };
 
 struct PageVisualTokens {
@@ -153,7 +176,7 @@ inline core::Color withOpacity(core::Color value, float opacity) {
 }
 
 inline ThemeColorTokens light() {
-    return {
+    ThemeColorTokens result{
         color(0.95f, 0.95f, 0.97f),
         defaultPrimary(),
         color(1.00f, 1.00f, 1.00f),
@@ -163,10 +186,21 @@ inline ThemeColorTokens light() {
         color(0.80f, 0.80f, 0.80f),
         false
     };
+    result.interaction = {
+        withAlpha(result.primary, 0.85f),
+        withAlpha(result.surfaceActive, 0.35f),
+        withAlpha(result.primary, 1.0f),
+        withAlpha(result.surfaceActive, 0.55f),
+        withAlpha(result.text, 0.45f),
+        2.0f,
+        2.0f,
+        0.50f
+    };
+    return result;
 }
 
 inline ThemeColorTokens dark() {
-    return {
+    ThemeColorTokens result{
         color(0.10f, 0.10f, 0.12f),
         defaultPrimary(),
         color(0.15f, 0.15f, 0.18f),
@@ -176,6 +210,56 @@ inline ThemeColorTokens dark() {
         color(0.30f, 0.30f, 0.30f),
         true
     };
+    result.interaction = {
+        withAlpha(result.primary, 0.95f),
+        color(0.0f, 0.0f, 0.0f, 0.34f),
+        color(0.40f, 0.70f, 1.0f, 1.0f),
+        color(0.0f, 0.0f, 0.0f, 0.30f),
+        withAlpha(result.text, 0.45f),
+        2.0f,
+        2.0f,
+        0.50f
+    };
+    return result;
+}
+
+inline ControlState controlState(bool disabled, bool pressed, bool hovered, bool focused) {
+    if (disabled) {
+        return ControlState::Disabled;
+    }
+    if (pressed) {
+        return ControlState::Pressed;
+    }
+    if (focused) {
+        return ControlState::Focused;
+    }
+    if (hovered) {
+        return ControlState::Hovered;
+    }
+    return ControlState::Normal;
+}
+
+inline core::Color controlFill(const ThemeColorTokens& tokens,
+                               core::Color normal,
+                               core::Color hover,
+                               core::Color pressed,
+                               ControlState state) {
+    switch (state) {
+    case ControlState::Disabled:
+        return core::mixColor(normal, tokens.interaction.disabledFill, 0.65f);
+    case ControlState::Pressed:
+        return pressed;
+    case ControlState::Focused:
+    case ControlState::Hovered:
+        return hover;
+    case ControlState::Normal:
+    default:
+        return normal;
+    }
+}
+
+inline core::Border focusRing(const ThemeColorTokens& tokens) {
+    return {tokens.interaction.focusRingWidth, tokens.interaction.focusRing};
 }
 
 inline PageVisualTokens pageVisuals(const ThemeColorTokens& tokens) {
