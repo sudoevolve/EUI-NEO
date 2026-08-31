@@ -1,12 +1,18 @@
 #pragma once
 
 #include "eui/types.h"
+#include "core/render/image_stream.h"
 
 #include <string>
 
 namespace eui {
 
 using ImageFit = core::ImageFit;
+using ImagePixelFormat = core::render::ImagePixelFormat;
+using ImageColorSpace = core::render::ImageColorSpace;
+using ImageColorRange = core::render::ImageColorRange;
+using ImageFrame = core::render::ImageFrame;
+using ImageStream = core::render::ImageStream;
 
 namespace image {
 

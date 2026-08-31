@@ -6,6 +6,7 @@
 #include "core/animation.h"
 #include "core/input/input_types.h"
 #include "core/render/render_types.h"
+#include "core/render/image_stream.h"
 #include "core/render/text.h"
 #include "core/render/text_types.h"
 
@@ -137,6 +138,7 @@ struct Element {
     float lineHeight = 0.0f;
 
     std::string imageSource;
+    std::shared_ptr<core::render::ImageStream> imageStream;
     std::string svgSource;
     bool imageFlipVertically = false;
     ImageFit imageFit = ImageFit::Cover;
@@ -1208,6 +1210,14 @@ public:
 
     ImageBuilder& source(const std::string& value) {
         element_->imageSource = value;
+        element_->imageStream.reset();
+        return *this;
+    }
+
+    ImageBuilder& stream(const std::shared_ptr<core::render::ImageStream>& value) {
+        element_->imageStream = value;
+        element_->imageSource.clear();
+        element_->svgSource.clear();
         return *this;
     }
 
@@ -1699,7 +1709,8 @@ private:
                !element.sliderKnobSourceId.empty() ||
                !element.dirtyKey.empty() ||
                element.kind == ElementKind::Shadertoy ||
-               (element.kind == ElementKind::Image && !element.imageSource.empty()) ||
+               (element.kind == ElementKind::Image &&
+                (!element.imageSource.empty() || element.imageStream != nullptr)) ||
                element.kind == ElementKind::Svg;
     }
 
@@ -1745,7 +1756,8 @@ private:
                !element.sliderKnobSourceId.empty() ||
                !element.dirtyKey.empty() ||
                element.kind == ElementKind::Shadertoy ||
-               (element.kind == ElementKind::Image && !element.imageSource.empty()) ||
+               (element.kind == ElementKind::Image &&
+                (!element.imageSource.empty() || element.imageStream != nullptr)) ||
                element.kind == ElementKind::Svg;
     }
 

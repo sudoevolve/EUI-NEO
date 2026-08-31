@@ -216,6 +216,7 @@ set(CORE_SOURCES
     core/platform/performance_stats.cpp
     core/platform/platform.cpp
     core/render/image.cpp
+    core/render/image_stream.cpp
     core/render/image_facade.cpp
     core/render/image_source.cpp
     core/render/primitive.cpp

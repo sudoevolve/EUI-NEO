@@ -166,6 +166,7 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 - [Render Backend Architecture And Pipeline](docs/渲染后端架构.md)
 - [Retained Layer Cache](docs/retained_layer_cache.md)
 - [Images](docs/图片.md)
+- [动态纹理与图像流](docs/dynamic_texture.md)
 - [Network](docs/网络.md)
 - [Platform Capabilities](docs/平台能力.md)
 - [Integration Guide](docs/集成指南.md)

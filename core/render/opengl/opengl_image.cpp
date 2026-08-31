@@ -13,16 +13,31 @@ namespace {
 
 struct TextureResourceHeader {
     GLuint texture = 0;
+    unsigned int kind = 0;
 };
 
 struct ImageTextureResource {
     GLuint texture = 0;
+    unsigned int kind = 0;
     int width = 0;
     int height = 0;
 };
 
+struct YuvTextureResource {
+    GLuint texture = 0;
+    unsigned int kind = 1;
+    GLuint textureU = 0;
+    GLuint textureV = 0;
+    int width = 0;
+    int height = 0;
+    ImagePixelFormat format = ImagePixelFormat::NV12;
+    ImageColorSpace colorSpace = ImageColorSpace::BT709;
+    ImageColorRange colorRange = ImageColorRange::Limited;
+};
+
 struct LayerTextureResource {
     GLuint texture = 0;
+    unsigned int kind = 2;
     GLuint framebuffer = 0;
     // width/height are allocation capacity; content dimensions track the
     // active viewport inside that texture.
@@ -35,6 +50,81 @@ struct LayerTextureResource {
 GLuint textureIdFromHandle(RenderBackend::TextureHandle handle) {
     auto* resource = static_cast<TextureResourceHeader*>(handle);
     return resource != nullptr ? resource->texture : 0;
+}
+
+bool uploadPlane(GLuint& texture,
+                 GLint internalFormat,
+                 GLenum format,
+                 GLenum type,
+                 int width,
+                 int height,
+                 const std::uint8_t* pixels,
+                 std::uint32_t stride,
+                 int bytesPerPixel,
+                 bool recreateStorage) {
+    if (width <= 0 || height <= 0 || pixels == nullptr || stride < static_cast<std::uint32_t>(width * bytesPerPixel)) {
+        return false;
+    }
+    if (texture == 0) {
+        glGenTextures(1, &texture);
+        if (texture == 0) {
+            return false;
+        }
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, texture);
+    }
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(stride / static_cast<std::uint32_t>(bytesPerPixel)));
+    if (recreateStorage) {
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, pixels);
+    } else {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, format, type, pixels);
+    }
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    return true;
+}
+
+void deleteTexture(GLuint& texture) {
+    if (texture != 0) {
+        glDeleteTextures(1, &texture);
+        texture = 0;
+    }
+}
+
+void yuvUniforms(const YuvTextureResource& resource, float* matrix, float* offset) {
+    const bool limited = resource.colorRange == ImageColorRange::Limited;
+    const bool p010 = resource.format == ImagePixelFormat::P010;
+    const float normalization = p010 ? 65535.0f : 255.0f;
+    const float sampleScale = p010 ? 64.0f : 1.0f;
+    const float maxCode = p010 ? 1023.0f : 255.0f;
+    const float lumaRange = p010 ? 876.0f : 219.0f;
+    const float chromaRange = p010 ? 896.0f : 224.0f;
+    const float yScale = limited
+        ? normalization / (lumaRange * sampleScale)
+        : normalization / (maxCode * sampleScale);
+    const float chromaScale = limited
+        ? normalization / (chromaRange * sampleScale)
+        : normalization / (maxCode * sampleScale);
+    offset[0] = limited ? (p010 ? 4096.0f / normalization : 16.0f / 255.0f) : 0.0f;
+    offset[1] = p010 ? 32768.0f / normalization : 0.5f;
+    offset[2] = offset[1];
+    float rv = 1.5748f;
+    float gu = 0.187324f;
+    float gv = 0.468124f;
+    float bu = 1.8556f;
+    if (resource.colorSpace == ImageColorSpace::BT601) {
+        rv = 1.4020f; gu = 0.344136f; gv = 0.714136f; bu = 1.7720f;
+    } else if (resource.colorSpace == ImageColorSpace::BT2020) {
+        rv = 1.4746f; gu = 0.16455f; gv = 0.57135f; bu = 1.8814f;
+    }
+    matrix[0] = yScale; matrix[1] = 0.0f; matrix[2] = rv * chromaScale;
+    matrix[3] = yScale; matrix[4] = -gu * chromaScale; matrix[5] = -gv * chromaScale;
+    matrix[6] = yScale; matrix[7] = bu * chromaScale; matrix[8] = 0.0f;
 }
 
 } // namespace
@@ -242,17 +332,95 @@ bool OpenGLRenderBackend::updateTexture(TextureHandle handle, const unsigned cha
     return true;
 }
 
+OpenGLRenderBackend::TextureHandle OpenGLRenderBackend::createDynamicTexture(const ImageFrame& frame) {
+    if (frame.format != ImagePixelFormat::NV12 && frame.format != ImagePixelFormat::I420 &&
+        frame.format != ImagePixelFormat::P010) {
+        return nullptr;
+    }
+    auto* resource = new YuvTextureResource();
+    if (!updateDynamicTexture(resource, frame)) {
+        deleteTexture(resource->texture);
+        deleteTexture(resource->textureU);
+        deleteTexture(resource->textureV);
+        delete resource;
+        return nullptr;
+    }
+    return resource;
+}
+
+bool OpenGLRenderBackend::updateDynamicTexture(TextureHandle handle, const ImageFrame& frame) {
+    flushRoundedRectBatch();
+    auto* resource = static_cast<YuvTextureResource*>(handle);
+    if (resource == nullptr || resource->kind != 1 || !frame.valid() ||
+        (frame.format != ImagePixelFormat::NV12 && frame.format != ImagePixelFormat::I420 &&
+         frame.format != ImagePixelFormat::P010)) {
+        return false;
+    }
+    const int width = static_cast<int>(frame.width);
+    const int height = static_cast<int>(frame.height);
+    const int chromaWidth = static_cast<int>((frame.width + 1u) / 2u);
+    const int chromaHeight = static_cast<int>((frame.height + 1u) / 2u);
+    const bool isP010 = frame.format == ImagePixelFormat::P010;
+    const GLenum type = isP010 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_BYTE;
+    const GLint singleInternal = isP010 ? GL_R16 : GL_R8;
+    const GLint dualInternal = isP010 ? GL_RG16 : GL_RG8;
+    const int sampleBytes = isP010 ? 2 : 1;
+    const bool formatChanged = resource->width > 0 && resource->format != frame.format;
+    if (formatChanged) {
+        deleteTexture(resource->texture);
+        deleteTexture(resource->textureU);
+        deleteTexture(resource->textureV);
+    }
+    const bool storageChanged = formatChanged || resource->width != width || resource->height != height;
+
+    if (!uploadPlane(resource->texture, singleInternal, GL_RED, type, width, height,
+                     frame.pixels->data(), frame.stride, sampleBytes,
+                     storageChanged)) {
+        return false;
+    }
+    if (frame.format == ImagePixelFormat::I420) {
+        const bool chromaSizeChanged = storageChanged;
+        if (!uploadPlane(resource->textureU, GL_R8, GL_RED, GL_UNSIGNED_BYTE, chromaWidth, chromaHeight,
+                         frame.plane1->data(), frame.stride1, 1, chromaSizeChanged) ||
+            !uploadPlane(resource->textureV, GL_R8, GL_RED, GL_UNSIGNED_BYTE, chromaWidth, chromaHeight,
+                         frame.plane2->data(), frame.stride2, 1, chromaSizeChanged)) {
+            return false;
+        }
+    } else if (!uploadPlane(resource->textureU, dualInternal, GL_RG, type, chromaWidth, chromaHeight,
+                            frame.plane1->data(), frame.stride1, sampleBytes * 2,
+                            storageChanged)) {
+        return false;
+    }
+    if (frame.format != ImagePixelFormat::I420) {
+        deleteTexture(resource->textureV);
+    }
+    resource->width = width;
+    resource->height = height;
+    resource->format = frame.format;
+    resource->colorSpace = frame.colorSpace;
+    resource->colorRange = frame.colorRange;
+    glBindTexture(GL_TEXTURE_2D, 0);
+    resetStateCache();
+    return true;
+}
+
 void OpenGLRenderBackend::destroyTexture(TextureHandle handle) {
     flushRoundedRectBatch();
-    auto* resource = static_cast<ImageTextureResource*>(handle);
-    if (resource == nullptr) {
+    auto* header = static_cast<TextureResourceHeader*>(handle);
+    if (header == nullptr) {
         return;
     }
-    if (resource->texture != 0) {
-        glDeleteTextures(1, &resource->texture);
-        resource->texture = 0;
+    if (header->kind == 1) {
+        auto* resource = static_cast<YuvTextureResource*>(handle);
+        deleteTexture(resource->texture);
+        deleteTexture(resource->textureU);
+        deleteTexture(resource->textureV);
+        delete resource;
+    } else {
+        auto* resource = static_cast<ImageTextureResource*>(handle);
+        deleteTexture(resource->texture);
+        delete resource;
     }
-    delete resource;
     resetStateCache();
 }
 
@@ -285,6 +453,26 @@ void OpenGLRenderBackend::drawTexture(TextureHandle handle,
     glUniform1f(imageRadiusLocation_, radius);
     glUniform1f(imageBlurLocation_, blur);
     glUniform1i(imageTextureLocation_, 0);
+    const auto* header = static_cast<const TextureResourceHeader*>(handle);
+    const bool yuv = header != nullptr && header->kind == 1;
+    glUniform1i(imageYuvModeLocation_,
+                yuv && static_cast<const YuvTextureResource*>(handle)->format == ImagePixelFormat::I420
+                    ? 2
+                    : (yuv ? 1 : 0));
+    if (yuv) {
+        const auto* resource = static_cast<const YuvTextureResource*>(handle);
+        float matrix[9] = {};
+        float offset[3] = {};
+        yuvUniforms(*resource, matrix, offset);
+        glUniformMatrix3fv(imageYuvMatrixLocation_, 1, GL_TRUE, matrix);
+        glUniform3fv(imageYuvOffsetLocation_, 1, offset);
+        glUniform1i(imageTextureULocation_, 1);
+        glUniform1i(imageTextureVLocation_, 2);
+        activeTextureUnit(1);
+        bindTexture2D(resource->textureU);
+        activeTextureUnit(2);
+        bindTexture2D(resource->textureV != 0 ? resource->textureV : resource->textureU);
+    }
 
     bindVertexArray(imageVao_);
     bindArrayBuffer(imageVbo_);
@@ -338,6 +526,7 @@ void OpenGLRenderBackend::drawLayerTexture(TextureHandle handle,
     glUniform1f(imageRadiusLocation_, 0.0f);
     glUniform1f(imageBlurLocation_, 0.0f);
     glUniform1i(imageTextureLocation_, 0);
+    glUniform1i(imageYuvModeLocation_, 0);
 
     bindVertexArray(imageVao_);
     bindArrayBuffer(imageVbo_);
@@ -374,6 +563,11 @@ bool OpenGLRenderBackend::ensureImageResources() {
         "in vec2 vUV;\n"
         "out vec4 FragColor;\n"
         "uniform sampler2D uTexture;\n"
+        "uniform sampler2D uTextureU;\n"
+        "uniform sampler2D uTextureV;\n"
+        "uniform int uYuvMode;\n"
+        "uniform mat3 uYuvMatrix;\n"
+        "uniform vec3 uYuvOffset;\n"
         "uniform vec4 uTint;\n"
         "uniform vec4 uRect;\n"
         "uniform float uRadius;\n"
@@ -382,25 +576,32 @@ bool OpenGLRenderBackend::ensureImageResources() {
         "    vec2 cornerVector = abs(point) - halfSize + vec2(radius);\n"
         "    return length(max(cornerVector, 0.0)) + min(max(cornerVector.x, cornerVector.y), 0.0) - radius;\n"
         "}\n"
+        "vec4 sampleImage(vec2 uv) {\n"
+        "    vec4 sampled = texture(uTexture, uv);\n"
+        "    if (uYuvMode == 0) return sampled;\n"
+        "    vec2 chroma = texture(uTextureU, uv).rg;\n"
+        "    if (uYuvMode == 2) chroma = vec2(texture(uTextureU, uv).r, texture(uTextureV, uv).r);\n"
+        "    return vec4(uYuvMatrix * (vec3(sampled.r, chroma) - uYuvOffset), 1.0);\n"
+        "}\n"
         "void main() {\n"
         "    vec2 center = uRect.xy + uRect.zw * 0.5;\n"
         "    float distanceToEdge = roundedBoxDistance(vLocalPos - center, uRect.zw * 0.5, uRadius);\n"
         "    float edgeWidth = max(fwidth(distanceToEdge), 0.75);\n"
         "    float shapeAlpha = 1.0 - smoothstep(-edgeWidth, edgeWidth, distanceToEdge);\n"
         "    if (shapeAlpha <= 0.0) discard;\n"
-        "    vec4 sampled = texture(uTexture, vUV);\n"
+        "    vec4 sampled = sampleImage(vUV);\n"
         "    if (uBlur > 0.01) {\n"
         "        vec2 pixelStep = max(fwidth(vUV), 1.0 / vec2(textureSize(uTexture, 0)));\n"
         "        vec2 blurStep = pixelStep * uBlur * 0.5;\n"
         "        sampled *= 4.0;\n"
-        "        sampled += texture(uTexture, clamp(vUV + vec2( blurStep.x, 0.0), 0.0, 1.0)) * 2.0;\n"
-        "        sampled += texture(uTexture, clamp(vUV + vec2(-blurStep.x, 0.0), 0.0, 1.0)) * 2.0;\n"
-        "        sampled += texture(uTexture, clamp(vUV + vec2(0.0,  blurStep.y), 0.0, 1.0)) * 2.0;\n"
-        "        sampled += texture(uTexture, clamp(vUV + vec2(0.0, -blurStep.y), 0.0, 1.0)) * 2.0;\n"
-        "        sampled += texture(uTexture, clamp(vUV + blurStep, 0.0, 1.0));\n"
-        "        sampled += texture(uTexture, clamp(vUV - blurStep, 0.0, 1.0));\n"
-        "        sampled += texture(uTexture, clamp(vUV + vec2( blurStep.x, -blurStep.y), 0.0, 1.0));\n"
-        "        sampled += texture(uTexture, clamp(vUV + vec2(-blurStep.x,  blurStep.y), 0.0, 1.0));\n"
+        "        sampled += sampleImage(clamp(vUV + vec2( blurStep.x, 0.0), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += sampleImage(clamp(vUV + vec2(-blurStep.x, 0.0), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += sampleImage(clamp(vUV + vec2(0.0,  blurStep.y), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += sampleImage(clamp(vUV + vec2(0.0, -blurStep.y), 0.0, 1.0)) * 2.0;\n"
+        "        sampled += sampleImage(clamp(vUV + blurStep, 0.0, 1.0));\n"
+        "        sampled += sampleImage(clamp(vUV - blurStep, 0.0, 1.0));\n"
+        "        sampled += sampleImage(clamp(vUV + vec2( blurStep.x, -blurStep.y), 0.0, 1.0));\n"
+        "        sampled += sampleImage(clamp(vUV + vec2(-blurStep.x,  blurStep.y), 0.0, 1.0));\n"
         "        sampled /= 16.0;\n"
         "    }\n"
         "    FragColor = vec4(sampled.rgb * uTint.rgb, sampled.a * uTint.a * shapeAlpha);\n"
@@ -438,6 +639,11 @@ bool OpenGLRenderBackend::ensureImageResources() {
     imageRectLocation_ = glGetUniformLocation(imageShaderProgram_, "uRect");
     imageRadiusLocation_ = glGetUniformLocation(imageShaderProgram_, "uRadius");
     imageBlurLocation_ = glGetUniformLocation(imageShaderProgram_, "uBlur");
+    imageYuvModeLocation_ = glGetUniformLocation(imageShaderProgram_, "uYuvMode");
+    imageTextureULocation_ = glGetUniformLocation(imageShaderProgram_, "uTextureU");
+    imageTextureVLocation_ = glGetUniformLocation(imageShaderProgram_, "uTextureV");
+    imageYuvMatrixLocation_ = glGetUniformLocation(imageShaderProgram_, "uYuvMatrix");
+    imageYuvOffsetLocation_ = glGetUniformLocation(imageShaderProgram_, "uYuvOffset");
 
     glGenVertexArrays(1, &imageVao_);
     glGenBuffers(1, &imageVbo_);
@@ -491,6 +697,11 @@ void OpenGLRenderBackend::releaseImageResources() {
     imageRectLocation_ = -1;
     imageRadiusLocation_ = -1;
     imageBlurLocation_ = -1;
+    imageYuvModeLocation_ = -1;
+    imageTextureULocation_ = -1;
+    imageTextureVLocation_ = -1;
+    imageYuvMatrixLocation_ = -1;
+    imageYuvOffsetLocation_ = -1;
     resetStateCache();
 }
 

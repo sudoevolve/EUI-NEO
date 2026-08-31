@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -99,12 +100,51 @@ struct ImagePrimitive::Impl {
     bool initialize() { return true; }
     void destroy();
     void setSource(const std::string& source) {
+        if (stream_) {
+            releaseTexture();
+            stream_.reset();
+            dynamicFrame_.reset();
+            dynamicRgbaPixels_.clear();
+            dynamicDirty_ = false;
+            dynamicNativeTexture_ = false;
+        }
         source_ = source;
         svgKey_.clear();
         svgSource_.clear();
         textureUploadDeferred_ = false;
     }
+    void setStream(const std::shared_ptr<render::ImageStream>& stream) {
+        if (stream_ == stream) {
+            return;
+        }
+        releaseTexture();
+        stream_ = stream;
+        source_.clear();
+        svgKey_.clear();
+        svgSource_.clear();
+        loadedSource_.clear();
+        loadedSvgKey_.clear();
+        loadedSvgSource_.clear();
+        loadedStaticPath_.clear();
+        staticImage_.reset();
+        gifFrames_.reset();
+        dynamicFrame_.reset();
+        dynamicRgbaPixels_.clear();
+        dynamicDirty_ = false;
+        dynamicNativeTexture_ = false;
+        textureUploadDeferred_ = false;
+        staticContentLoaded_ = false;
+        pendingLoad_ = false;
+    }
     void setSvgSource(const std::string& key, const std::string& svg) {
+        if (stream_) {
+            releaseTexture();
+            stream_.reset();
+            dynamicFrame_.reset();
+            dynamicRgbaPixels_.clear();
+            dynamicDirty_ = false;
+            dynamicNativeTexture_ = false;
+        }
         source_.clear();
         svgKey_ = key;
         svgSource_ = svg;
@@ -127,7 +167,7 @@ struct ImagePrimitive::Impl {
 
     bool updateTexture();
     bool hasPendingLoad() const { return pendingLoad_; }
-    bool isAnimating() const { return gifFrameCount_ > 1; }
+    bool isAnimating() const { return gifFrameCount_ > 1 || stream_ != nullptr; }
     void render(int windowWidth, int windowHeight);
 
     static bool isSourceReady(const std::string& source) {
@@ -156,6 +196,11 @@ struct ImagePrimitive::Impl {
     void rebuildVertices(float* vertices) const;
 
     std::string source_;
+    std::shared_ptr<render::ImageStream> stream_;
+    std::optional<render::ImageFrame> dynamicFrame_;
+    std::vector<std::uint8_t> dynamicRgbaPixels_;
+    bool dynamicDirty_ = false;
+    bool dynamicNativeTexture_ = false;
     std::string svgKey_;
     std::string svgSource_;
     std::string loadedSource_;
@@ -179,6 +224,9 @@ struct ImagePrimitive::Impl {
     Vec2 coverViewportOffset_;
     render::RenderBackend::TextureHandle texture_ = nullptr;
     render::RenderBackend* textureBackend_ = nullptr;
+    int dynamicTextureWidth_ = 0;
+    int dynamicTextureHeight_ = 0;
+    render::ImagePixelFormat dynamicTextureFormat_ = render::ImagePixelFormat::RGBA8;
     int textureWidth_ = 0;
     int textureHeight_ = 0;
     bool textureDirty_ = false;
@@ -197,6 +245,11 @@ struct ImagePrimitive::Impl {
 
 void ImagePrimitive::Impl::destroy() {
     releaseTexture();
+    stream_.reset();
+    dynamicFrame_.reset();
+    dynamicRgbaPixels_.clear();
+    dynamicDirty_ = false;
+    dynamicNativeTexture_ = false;
     staticImage_.reset();
     gifFrames_.reset();
     desiredTextureCacheKey_.clear();
@@ -229,6 +282,19 @@ bool ImagePrimitive::Impl::ensureStaticPixels() {
 }
 
 bool ImagePrimitive::Impl::updateTexture() {
+    if (stream_) {
+        const std::optional<render::ImageFrame> frame = stream_->consumeLatest();
+        if (!frame) {
+            return false;
+        }
+        dynamicFrame_ = *frame;
+        textureWidth_ = static_cast<int>(frame->width);
+        textureHeight_ = static_cast<int>(frame->height);
+        dynamicDirty_ = true;
+        pendingLoad_ = false;
+        return true;
+    }
+
     bool changed = false;
     bool pending = false;
     if (!svgKey_.empty() || !svgSource_.empty()) {
@@ -398,10 +464,63 @@ void ImagePrimitive::Impl::render(int windowWidth, int windowHeight) {
         pixels = gifFrames_->pixels.data() + frameBytes * static_cast<std::size_t>(gifFrameIndex_);
     } else if (staticImage_) {
         pixels = staticImage_->pixels.get();
+    } else if (stream_ && dynamicFrame_ && !dynamicRgbaPixels_.empty()) {
+        pixels = dynamicRgbaPixels_.data();
     }
 
     const bool wantsCachedTexture = staticContentLoaded_ && !desiredTextureCacheKey_.empty();
-    if (wantsCachedTexture) {
+    if (stream_) {
+        if (!dynamicFrame_ || textureWidth_ <= 0 || textureHeight_ <= 0) {
+            return;
+        }
+        const bool textureLayoutChanged = texture_ != nullptr &&
+            (dynamicTextureWidth_ != static_cast<int>(dynamicFrame_->width) ||
+             dynamicTextureHeight_ != static_cast<int>(dynamicFrame_->height) ||
+             dynamicTextureFormat_ != dynamicFrame_->format);
+        if (textureLayoutChanged) {
+            releaseTexture();
+            dynamicNativeTexture_ = false;
+        }
+        if (texture_ == nullptr) {
+            texture_ = backend->createDynamicTexture(*dynamicFrame_);
+            dynamicNativeTexture_ = texture_ != nullptr;
+            if (texture_ == nullptr) {
+                if (!dynamicFrame_->convertToRgba8(dynamicRgbaPixels_)) {
+                    return;
+                }
+                pixels = dynamicRgbaPixels_.data();
+                texture_ = backend->createTexture(pixels, textureWidth_, textureHeight_);
+            }
+            textureBackend_ = texture_ != nullptr ? backend : nullptr;
+            dynamicTextureWidth_ = texture_ != nullptr ? textureWidth_ : 0;
+            dynamicTextureHeight_ = texture_ != nullptr ? textureHeight_ : 0;
+            dynamicTextureFormat_ = texture_ != nullptr
+                ? dynamicFrame_->format
+                : render::ImagePixelFormat::RGBA8;
+            dynamicDirty_ = texture_ == nullptr;
+        } else if (dynamicDirty_) {
+            bool updated = dynamicNativeTexture_
+                ? backend->updateDynamicTexture(texture_, *dynamicFrame_)
+                : (dynamicFrame_->convertToRgba8(dynamicRgbaPixels_) &&
+                   backend->updateTexture(texture_, dynamicRgbaPixels_.data(), textureWidth_, textureHeight_));
+            if (updated) {
+                dynamicDirty_ = false;
+            } else if (dynamicNativeTexture_) {
+                releaseTexture();
+                dynamicNativeTexture_ = false;
+                if (dynamicFrame_->convertToRgba8(dynamicRgbaPixels_)) {
+                    texture_ = backend->createTexture(dynamicRgbaPixels_.data(), textureWidth_, textureHeight_);
+                    textureBackend_ = texture_ != nullptr ? backend : nullptr;
+                    dynamicTextureWidth_ = texture_ != nullptr ? textureWidth_ : 0;
+                    dynamicTextureHeight_ = texture_ != nullptr ? textureHeight_ : 0;
+                    dynamicTextureFormat_ = texture_ != nullptr
+                        ? dynamicFrame_->format
+                        : render::ImagePixelFormat::RGBA8;
+                    dynamicDirty_ = texture_ == nullptr;
+                }
+            }
+        }
+    } else if (wantsCachedTexture) {
         const bool throttleUpload = render::image::isRemoteSource(loadedSource_);
         if (loadedTextureCacheKey_ != desiredTextureCacheKey_ || textureBackend_ != backend) {
             releaseTexture();
@@ -467,6 +586,9 @@ void ImagePrimitive::Impl::releaseTexture() {
         texture_ = nullptr;
     }
     textureBackend_ = nullptr;
+    dynamicTextureWidth_ = 0;
+    dynamicTextureHeight_ = 0;
+    dynamicTextureFormat_ = render::ImagePixelFormat::RGBA8;
     loadedTextureCacheKey_.clear();
     textureDirty_ = false;
 }
@@ -658,6 +780,7 @@ ImagePrimitive& ImagePrimitive::operator=(ImagePrimitive&&) noexcept = default;
 bool ImagePrimitive::initialize() { return impl_->initialize(); }
 void ImagePrimitive::destroy() { impl_->destroy(); }
 void ImagePrimitive::setSource(const std::string& source) { impl_->setSource(source); }
+void ImagePrimitive::setStream(const std::shared_ptr<render::ImageStream>& stream) { impl_->setStream(stream); }
 void ImagePrimitive::setSvgSource(const std::string& key, const std::string& svg) { impl_->setSvgSource(key, svg); }
 void ImagePrimitive::setFlipVertically(bool value) { impl_->setFlipVertically(value); }
 void ImagePrimitive::setBounds(float x, float y, float width, float height) { impl_->setBounds(x, y, width, height); }

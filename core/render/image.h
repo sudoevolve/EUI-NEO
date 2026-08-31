@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/render/render_types.h"
+#include "core/render/image_stream.h"
 
 #include <memory>
 #include <string>
@@ -21,6 +22,7 @@ public:
     void destroy();
 
     void setSource(const std::string& source);
+    void setStream(const std::shared_ptr<render::ImageStream>& stream);
     void setSvgSource(const std::string& key, const std::string& svg);
     void setFlipVertically(bool value);
     void setBounds(float x, float y, float width, float height);

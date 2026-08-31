@@ -2,6 +2,7 @@
 
 #include <core/render/shadertoy.h>
 
+#include "core/render/image_stream.h"
 #include "core/render/primitive_geometry.h"
 #include "core/render/render_surface.h"
 #include "core/window/window_types.h"
@@ -272,6 +273,17 @@ public:
         (void)pixels;
         (void)width;
         (void)height;
+        return false;
+    }
+    // Optional native multi-plane path for video-like ImageStream frames.
+    // Backends without an implementation continue through the RGBA fallback.
+    virtual TextureHandle createDynamicTexture(const ImageFrame& frame) {
+        (void)frame;
+        return nullptr;
+    }
+    virtual bool updateDynamicTexture(TextureHandle handle, const ImageFrame& frame) {
+        (void)handle;
+        (void)frame;
         return false;
     }
     virtual void destroyTexture(TextureHandle handle) {

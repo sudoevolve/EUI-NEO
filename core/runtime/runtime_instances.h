@@ -102,6 +102,7 @@ struct ImageInstance {
     AnimatedValue<float> opacity;
     AnimatedValue<Transform> transform;
     std::string source;
+    std::shared_ptr<render::ImageStream> stream;
     std::string svgSource;
     bool flipVertically = false;
     ImageFit fit = ImageFit::Cover;

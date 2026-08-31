@@ -48,6 +48,8 @@ public:
     void drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) override;
     TextureHandle createTexture(const unsigned char* pixels, int width, int height) override;
     bool updateTexture(TextureHandle handle, const unsigned char* pixels, int width, int height) override;
+    TextureHandle createDynamicTexture(const ImageFrame& frame) override;
+    bool updateDynamicTexture(TextureHandle handle, const ImageFrame& frame) override;
     void destroyTexture(TextureHandle handle) override;
     void drawTexture(TextureHandle handle,
                      const float* vertices,
@@ -144,6 +146,11 @@ private:
     int imageRectLocation_ = -1;
     int imageRadiusLocation_ = -1;
     int imageBlurLocation_ = -1;
+    int imageYuvModeLocation_ = -1;
+    int imageTextureULocation_ = -1;
+    int imageTextureVLocation_ = -1;
+    int imageYuvMatrixLocation_ = -1;
+    int imageYuvOffsetLocation_ = -1;
     bool programStateValid_ = false;
     bool vaoStateValid_ = false;
     bool arrayBufferStateValid_ = false;

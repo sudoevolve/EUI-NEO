@@ -987,15 +987,19 @@ inline void Runtime::updateImage(
     }
 
     const bool sourceChanged = instance.source != element.imageSource ||
+                               instance.stream != element.imageStream ||
                                instance.svgSource != element.svgSource ||
                                instance.flipVertically != element.imageFlipVertically ||
                                instance.fit != element.imageFit;
     if (sourceChanged) {
         instance.source = element.imageSource;
+        instance.stream = element.imageStream;
         instance.svgSource = element.svgSource;
         instance.flipVertically = element.imageFlipVertically;
         instance.fit = element.imageFit;
-        if (element.kind == ElementKind::Svg) {
+        if (instance.stream) {
+            instance.primitive->setStream(instance.stream);
+        } else if (element.kind == ElementKind::Svg) {
             instance.primitive->setSvgSource(element.id, instance.svgSource);
         } else {
             instance.primitive->setSource(instance.source);
