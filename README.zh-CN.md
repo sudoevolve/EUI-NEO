@@ -23,6 +23,7 @@
 </p>
 
 EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 GLFW/SDL2 窗口后端和 OpenGL/Vulkan 渲染后端。
+支持 `RGBA8`、`BGRA8`、`NV12`、`I420` 和 `P010` 动态图像流，可用于远程桌面、视频和摄像头预览。
 
 ## 预览
 
@@ -136,6 +137,28 @@ SDL2、Vulkan 和共享库选项见 [集成指南](docs/集成指南.md)。
 
 可选功能模块位于 `modules/`，详细说明见 [模块指南](docs/模块.md)。
 
+## 动态纹理
+
+`eui::ImageStream` 用于将采集器、网络或解码线程产生的 CPU 图像帧显示为图片元素。流采用
+有界最新帧队列，渲染端落后时会丢弃旧帧以保持低延迟；OpenGL 对 NV12、I420 和 P010 使用
+原生多平面纹理上传，其他后端自动回退到 RGBA8 转换。
+
+```cpp
+auto desktop = std::make_shared<eui::ImageStream>(2);
+
+void compose(eui::Ui& ui, const eui::Screen& screen) {
+    ui.image("remote.desktop")
+        .size(screen.width, screen.height)
+        .stream(desktop)
+        .fit(eui::ImageFit::Contain)
+        .build();
+}
+```
+
+采集或解码线程通过 `desktop->submit(frame)` 提交 `eui::ImageFrame`。完整的格式约束、
+缓冲区所有权、色彩空间、P010/HDR 边界、远程桌面接入和测试方法见
+[动态纹理与图像流](docs/dynamic_texture.md)。
+
 ## 目录结构
 
 ```text
@@ -164,6 +187,7 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 - [渲染后端架构与流程](docs/渲染后端架构.md)
 - [保留层缓存](docs/retained_layer_cache.md)
 - [图片](docs/图片.md)
+- [动态纹理与图像流](docs/dynamic_texture.md)
 - [网络](docs/网络.md)
 - [平台能力](docs/平台能力.md)
 - [集成指南](docs/集成指南.md)
