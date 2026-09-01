@@ -17,7 +17,61 @@ struct ImagePushConstants {
     float tint[4] = {};
     float rect[4] = {};
     float flags[4] = {};
+    float yuvMatrix0[4] = {};
+    float yuvMatrix1[4] = {};
+    float yuvMatrix2[4] = {};
+    float yuvOffset[4] = {};
 };
+
+bool isVideoFormat(ImagePixelFormat format) {
+    return format == ImagePixelFormat::NV12 ||
+           format == ImagePixelFormat::I420 ||
+           format == ImagePixelFormat::P010;
+}
+
+void writeYuvConversion(ImagePixelFormat format,
+                        ImageColorSpace colorSpace,
+                        ImageColorRange colorRange,
+                        ImagePushConstants& constants) {
+    const bool limited = colorRange == ImageColorRange::Limited;
+    const bool p010 = format == ImagePixelFormat::P010;
+    const float normalization = p010 ? 65535.0f : 255.0f;
+    const float sampleScale = p010 ? 64.0f : 1.0f;
+    const float maxCode = p010 ? 1023.0f : 255.0f;
+    const float lumaRange = p010 ? 876.0f : 219.0f;
+    const float chromaRange = p010 ? 896.0f : 224.0f;
+    const float yScale = limited
+        ? normalization / (lumaRange * sampleScale)
+        : normalization / (maxCode * sampleScale);
+    const float chromaScale = limited
+        ? normalization / (chromaRange * sampleScale)
+        : normalization / (maxCode * sampleScale);
+    float rv = 1.5748f;
+    float gu = 0.187324f;
+    float gv = 0.468124f;
+    float bu = 1.8556f;
+    if (colorSpace == ImageColorSpace::BT601) {
+        rv = 1.4020f;
+        gu = 0.344136f;
+        gv = 0.714136f;
+        bu = 1.7720f;
+    } else if (colorSpace == ImageColorSpace::BT2020) {
+        rv = 1.4746f;
+        gu = 0.16455f;
+        gv = 0.57135f;
+        bu = 1.8814f;
+    }
+    constants.yuvMatrix0[0] = yScale;
+    constants.yuvMatrix0[2] = rv * chromaScale;
+    constants.yuvMatrix1[0] = yScale;
+    constants.yuvMatrix1[1] = -gu * chromaScale;
+    constants.yuvMatrix1[2] = -gv * chromaScale;
+    constants.yuvMatrix2[0] = yScale;
+    constants.yuvMatrix2[1] = bu * chromaScale;
+    constants.yuvOffset[0] = limited ? (p010 ? 4096.0f / normalization : 16.0f / 255.0f) : 0.0f;
+    constants.yuvOffset[1] = p010 ? 32768.0f / normalization : 0.5f;
+    constants.yuvOffset[2] = constants.yuvOffset[1];
+}
 
 } // namespace
 
@@ -89,6 +143,148 @@ bool VulkanRenderBackend::updateTexture(TextureHandle handle, const unsigned cha
     return true;
 }
 
+VulkanRenderBackend::TextureHandle VulkanRenderBackend::createDynamicTexture(const ImageFrame& frame) {
+    if (!frameActive_ || !frame.valid() || !isVideoFormat(frame.format)) {
+        return nullptr;
+    }
+    auto* texture = new VideoTextureResource();
+    texture->kind = TextureKind::Video;
+    if (!updateDynamicTexture(texture, frame)) {
+        destroyVideoTextureResource(*texture);
+        delete texture;
+        return nullptr;
+    }
+    return texture;
+}
+
+bool VulkanRenderBackend::updateDynamicTexture(TextureHandle handle, const ImageFrame& frame) {
+    auto* texture = static_cast<TextureResource*>(handle);
+    if (texture == nullptr || texture->kind != TextureKind::Video || !frameActive_ ||
+        !frame.valid() || !isVideoFormat(frame.format)) {
+        return false;
+    }
+    if (renderPassActive_) {
+        endActiveRenderPass();
+    }
+
+    auto& video = *static_cast<VideoTextureResource*>(texture);
+    const int width = static_cast<int>(frame.width);
+    const int height = static_cast<int>(frame.height);
+    const int chromaWidth = static_cast<int>((frame.width + 1u) / 2u);
+    const int chromaHeight = static_cast<int>((frame.height + 1u) / 2u);
+    const bool p010 = frame.format == ImagePixelFormat::P010;
+    const VkFormat singleFormat = p010 ? VK_FORMAT_R16_UNORM : VK_FORMAT_R8_UNORM;
+    const VkFormat dualFormat = p010 ? VK_FORMAT_R16G16_UNORM : VK_FORMAT_R8G8_UNORM;
+    const int sampleBytes = p010 ? 2 : 1;
+    const bool layoutChanged = video.pixelFormat != frame.format ||
+        video.width != width || video.height != height;
+    if (layoutChanged) {
+        destroyVideoTextureResource(video);
+        video.kind = TextureKind::Video;
+    }
+    const bool planesSupported = frame.format == ImagePixelFormat::I420
+        ? supportsVideoFormat(VK_FORMAT_R8_UNORM)
+        : supportsVideoFormat(singleFormat) && supportsVideoFormat(dualFormat);
+    if (!planesSupported ||
+        !uploadTexturePlane(video, frame.pixels->data(), width, height, frame.stride,
+                            sampleBytes, singleFormat)) {
+        return false;
+    }
+    if (frame.format == ImagePixelFormat::I420) {
+        if (!uploadTexturePlane(video.plane1, frame.plane1->data(), chromaWidth, chromaHeight,
+                                frame.stride1, 1, VK_FORMAT_R8_UNORM) ||
+            !uploadTexturePlane(video.plane2, frame.plane2->data(), chromaWidth, chromaHeight,
+                                frame.stride2, 1, VK_FORMAT_R8_UNORM)) {
+            return false;
+        }
+    } else if (!uploadTexturePlane(video.plane1, frame.plane1->data(), chromaWidth, chromaHeight,
+                                   frame.stride1, sampleBytes * 2, dualFormat)) {
+        return false;
+    }
+    if (frame.format != ImagePixelFormat::I420) {
+        destroyTextureResource(video.plane2);
+    }
+    video.pixelFormat = frame.format;
+    video.colorSpace = frame.colorSpace;
+    video.colorRange = frame.colorRange;
+    video.width = width;
+    video.height = height;
+    ++video.generation;
+    beginLoadPass();
+    return true;
+}
+
+bool VulkanRenderBackend::supportsVideoFormat(VkFormat format) const {
+    if (physicalDevice_ == VK_NULL_HANDLE) {
+        return false;
+    }
+    VkFormatProperties properties{};
+    vkGetPhysicalDeviceFormatProperties(physicalDevice_, format, &properties);
+    const VkFormatFeatureFlags required = VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+                                          VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT |
+                                          VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+    return (properties.optimalTilingFeatures & required) == required;
+}
+
+bool VulkanRenderBackend::uploadTexturePlane(TextureResource& texture,
+                                             const std::uint8_t* pixels,
+                                             int width,
+                                             int height,
+                                             std::uint32_t stride,
+                                             int bytesPerPixel,
+                                             VkFormat format) {
+    if (pixels == nullptr || width <= 0 || height <= 0 || bytesPerPixel <= 0 || !frameActive_ ||
+        stride < static_cast<std::uint32_t>(width * bytesPerPixel)) {
+        return false;
+    }
+    if (texture.image == VK_NULL_HANDLE || texture.width != width || texture.height != height ||
+        texture.format != format) {
+        const TextureKind kind = texture.kind;
+        destroyTextureResource(texture);
+        texture.kind = kind;
+        if (!createTargetImage(texture, width, height, format,
+                               VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) ||
+            !ensureTextureSampler(texture)) {
+            destroyTextureResource(texture);
+            texture.kind = kind;
+            return false;
+        }
+    }
+
+    const VkDeviceSize uploadSize = static_cast<VkDeviceSize>(width) *
+                                    static_cast<VkDeviceSize>(height) * bytesPerPixel;
+    VkBuffer stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceSize stagingOffset = 0;
+    void* mapped = nullptr;
+    if (!allocateUploadRegion(uploadSize, stagingBuffer, stagingOffset, mapped)) {
+        return false;
+    }
+    auto* destination = static_cast<std::uint8_t*>(mapped);
+    const std::size_t rowBytes = static_cast<std::size_t>(width) * bytesPerPixel;
+    for (int row = 0; row < height; ++row) {
+        std::memcpy(destination + static_cast<std::size_t>(row) * rowBytes,
+                    pixels + static_cast<std::size_t>(row) * stride,
+                    rowBytes);
+    }
+
+    VkCommandBuffer commandBuffer = currentCommandBuffer();
+    transitionImageLayout(commandBuffer, texture.image, texture.layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    texture.layout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    VkBufferImageCopy copyRegion{};
+    copyRegion.bufferOffset = stagingOffset;
+    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.imageSubresource.layerCount = 1;
+    copyRegion.imageExtent = {static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height), 1};
+    vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, texture.image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    transitionImageLayout(commandBuffer, texture.image,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    texture.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    ++texture.generation;
+    return true;
+}
+
 void VulkanRenderBackend::destroyTexture(TextureHandle handle) {
     auto* texture = static_cast<TextureResource*>(handle);
     if (texture == nullptr) {
@@ -96,8 +292,14 @@ void VulkanRenderBackend::destroyTexture(TextureHandle handle) {
     }
     if (!frameActive_ && device_ != VK_NULL_HANDLE && inFlight_ != VK_NULL_HANDLE &&
         vkGetFenceStatus(device_, inFlight_) == VK_SUCCESS) {
-        destroyTextureResource(*texture);
-        delete texture;
+        if (texture->kind == TextureKind::Video) {
+            auto* video = static_cast<VideoTextureResource*>(texture);
+            destroyVideoTextureResource(*video);
+            delete video;
+        } else {
+            destroyTextureResource(*texture);
+            delete texture;
+        }
         return;
     }
     pendingTextureDeletes_.push_back(texture);
@@ -154,6 +356,11 @@ void VulkanRenderBackend::drawTexture(TextureHandle handle,
     constants.rect[3] = rect.height;
     constants.flags[0] = radius;
     constants.flags[1] = blur;
+    if (texture->kind == TextureKind::Video) {
+        const auto& video = *static_cast<const VideoTextureResource*>(texture);
+        constants.flags[2] = video.pixelFormat == ImagePixelFormat::I420 ? 2.0f : 1.0f;
+        writeYuvConversion(video.pixelFormat, video.colorSpace, video.colorRange, constants);
+    }
 
     const VkDeviceSize offset = static_cast<VkDeviceSize>(floatOffset * sizeof(float));
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, imagePipeline_);
@@ -345,16 +552,18 @@ bool VulkanRenderBackend::ensureImagePipeline(bool premultipliedAlpha) {
         return false;
     }
     if (imageDescriptorSetLayout_ == VK_NULL_HANDLE) {
-        VkDescriptorSetLayoutBinding binding{};
-        binding.binding = 0;
-        binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        binding.descriptorCount = 1;
-        binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        std::array<VkDescriptorSetLayoutBinding, 3> bindings{};
+        for (std::uint32_t index = 0; index < bindings.size(); ++index) {
+            bindings[index].binding = index;
+            bindings[index].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            bindings[index].descriptorCount = 1;
+            bindings[index].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+        }
 
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 1;
-        layoutInfo.pBindings = &binding;
+        layoutInfo.bindingCount = static_cast<std::uint32_t>(bindings.size());
+        layoutInfo.pBindings = bindings.data();
         if (vkCreateDescriptorSetLayout(device_, &layoutInfo, nullptr, &imageDescriptorSetLayout_) != VK_SUCCESS) {
             return false;
         }
@@ -514,7 +723,7 @@ bool VulkanRenderBackend::ensureImageDescriptor(TextureResource& texture) {
 
         VkDescriptorPoolSize poolSize{};
         poolSize.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSize.descriptorCount = nextCapacity;
+        poolSize.descriptorCount = nextCapacity * 3;
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -544,19 +753,33 @@ bool VulkanRenderBackend::ensureImageDescriptor(TextureResource& texture) {
         ++imageDescriptorPoolUsed_;
     }
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.sampler = texture.sampler;
-    imageInfo.imageView = texture.view;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet write{};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet = texture.descriptorSet;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.pImageInfo = &imageInfo;
-    vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
+    const TextureResource* plane1 = &texture;
+    const TextureResource* plane2 = &texture;
+    if (texture.kind == TextureKind::Video) {
+        const auto& video = *static_cast<const VideoTextureResource*>(&texture);
+        if (video.plane1.view == VK_NULL_HANDLE || video.plane1.sampler == VK_NULL_HANDLE ||
+            (video.pixelFormat == ImagePixelFormat::I420 &&
+             (video.plane2.view == VK_NULL_HANDLE || video.plane2.sampler == VK_NULL_HANDLE))) {
+            return false;
+        }
+        plane1 = &video.plane1;
+        plane2 = video.pixelFormat == ImagePixelFormat::I420 ? &video.plane2 : &video.plane1;
+    }
+    std::array<VkDescriptorImageInfo, 3> imageInfos{};
+    const std::array<const TextureResource*, 3> textures{&texture, plane1, plane2};
+    std::array<VkWriteDescriptorSet, 3> writes{};
+    for (std::uint32_t index = 0; index < writes.size(); ++index) {
+        imageInfos[index].sampler = textures[index]->sampler;
+        imageInfos[index].imageView = textures[index]->view;
+        imageInfos[index].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        writes[index].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[index].dstSet = texture.descriptorSet;
+        writes[index].dstBinding = index;
+        writes[index].descriptorCount = 1;
+        writes[index].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        writes[index].pImageInfo = &imageInfos[index];
+    }
+    vkUpdateDescriptorSets(device_, static_cast<std::uint32_t>(writes.size()), writes.data(), 0, nullptr);
     return true;
 }
 

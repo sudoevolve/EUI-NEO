@@ -5,12 +5,18 @@ layout(location = 1) in vec2 vUv;
 layout(location = 0) out vec4 outColor;
 
 layout(set = 0, binding = 0) uniform sampler2D uTexture;
+layout(set = 0, binding = 1) uniform sampler2D uTextureU;
+layout(set = 0, binding = 2) uniform sampler2D uTextureV;
 
 layout(push_constant) uniform PushConstants {
     vec4 windowSize;
     vec4 tint;
     vec4 rect;
     vec4 flags;
+    vec4 yuvMatrix0;
+    vec4 yuvMatrix1;
+    vec4 yuvMatrix2;
+    vec4 yuvOffset;
 } pc;
 
 float roundedBoxDistance(vec2 point, vec2 halfSize, float radius) {
@@ -27,6 +33,17 @@ void main() {
         discard;
     }
     vec4 sampled = texture(uTexture, vUv);
+    if (pc.flags.z > 0.5) {
+        vec2 chroma = texture(uTextureU, vUv).rg;
+        if (pc.flags.z > 1.5) {
+            chroma = vec2(texture(uTextureU, vUv).r, texture(uTextureV, vUv).r);
+        }
+        vec3 yuv = vec3(sampled.r, chroma) - pc.yuvOffset.xyz;
+        sampled = vec4(dot(pc.yuvMatrix0.xyz, yuv),
+                       dot(pc.yuvMatrix1.xyz, yuv),
+                       dot(pc.yuvMatrix2.xyz, yuv),
+                       1.0);
+    }
     if (pc.flags.y > 0.01) {
         vec2 pixelStep = max(fwidth(vUv), 1.0 / vec2(textureSize(uTexture, 0)));
         vec2 blurStep = pixelStep * pc.flags.y * 0.5;

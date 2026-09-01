@@ -40,16 +40,15 @@ int main() {
     assert(bgraFrame.convertToRgba8(converted));
     assert((converted == std::vector<std::uint8_t>{3, 2, 1, 255}));
 
-    const auto nv12Y = bytes({82});
-    const auto nv12UV = bytes({90, 240});
+    const auto nv12Y = bytes({128});
+    const auto nv12UV = bytes({128, 128});
     core::render::ImageFrame nv12{nv12Y, 1, 1, 1, core::render::ImagePixelFormat::NV12, 0,
                                   nv12UV, nullptr, 2, 0,
                                   core::render::ImageColorSpace::BT709,
                                   core::render::ImageColorRange::Full};
     assert(nv12.valid());
     assert(nv12.convertToRgba8(converted));
-    assert(converted.size() == 4);
-    assert(converted[3] == 255);
+    assert((converted == std::vector<std::uint8_t>{128, 128, 128, 255}));
 
     const auto i420Y = bytes({128});
     const auto i420U = bytes({128});
@@ -68,6 +67,6 @@ int main() {
                                   core::render::ImageColorSpace::BT2020,
                                   core::render::ImageColorRange::Full};
     assert(p010.convertToRgba8(converted));
-    assert(converted.size() == 4 && converted[3] == 255);
+    assert((converted == std::vector<std::uint8_t>{128, 128, 128, 255}));
     return 0;
 }

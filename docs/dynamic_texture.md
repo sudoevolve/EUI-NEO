@@ -85,12 +85,20 @@ P010 采用常见的高位对齐表示，每个 16 位样本的低 6 位为零�
 
 ## 后端行为与 HDR 边界
 
-OpenGL 后端对 `NV12`、`I420` 和 `P010` 使用原生多平面纹理上传，并在图片着色器中完成
-YUV 到 RGB 的转换。尺寸不变时复用纹理存储，仅更新内容。
+OpenGL 和 Vulkan 后端对 `NV12`、`I420` 和 `P010` 使用原生多平面纹理上传，并在图片
+着色器中完成 YUV 到 RGB 的转换。尺寸不变时复用纹理存储，仅更新内容。两端均支持
+BT.601、BT.709、BT.2020 以及 Full/Limited range；P010 使用 `R16/RG16` UNORM 平面并保持
+高位对齐的 10-bit 样本语义。
 
-不支持原生 YUV 动态纹理的后端会先在 CPU 转换为 RGBA8，再复用普通动态纹理，因此 API
-和显示结果保持一致，但 CPU 使用量与内存带宽会更高。`RGBA8` 和 `BGRA8` 也通过普通
-RGBA 动态纹理路径更新。
+不支持原生 YUV 动态纹理的后端，或 Vulkan 设备不具备所需 `R8/RG8/R16/RG16` 格式的
+采样与传输能力时，会先在 CPU 转换为 RGBA8，再复用普通动态纹理。因此 API 和显示结果
+保持一致，但 CPU 使用量与内存带宽会更高。`RGBA8` 和 `BGRA8` 也通过普通 RGBA 动态纹理
+路径更新。
+
+动态纹理后端只负责帧上传、GPU 色彩转换和绘制，不负责视频解码或应用主循环调度。播放器
+示例中的软件解码、帧复制、持续重绘和关闭交换间隔都会影响 GPU/CPU 占用；应用可以使用硬件
+解码、按新帧请求重绘并自行选择呈现策略。系统播放器通常还会使用专用视频呈现路径，因此
+不能仅凭窗口 GPU 百分比比较两者的纹理后端开销。
 
 `P010` 已支持 10-bit 输入、BT.2020 元数据和显示转换；但当前 EUI-NEO 的窗口帧缓冲与
 图片输出仍为 8-bit SDR。它不是完整的 HDR 呈现管线，不能保留 HDR 亮度范围，也没有
@@ -111,16 +119,18 @@ PQ/HLG 色调映射与显示器 HDR 元数据协商。
 
 ## 测试与示例
 
-动态纹理格式、校验、最新帧丢弃和 RGBA 回退转换由
-`tests/unit/image_stream.cpp` 覆盖。构建并运行测试：
+动态纹理格式、校验、最新帧丢弃和 CPU RGBA 回退转换由
+`tests/unit/image_stream.cpp` 覆盖；`tests/unit/image_stream_primitive.cpp` 覆盖图片元素的
+原生动态纹理创建、格式切换、更新失败与 RGBA 回退。构建并运行测试：
 
 ```powershell
 cmake -S . -B build-test -DEUI_BUILD_APPS=OFF -DEUI_BUILD_TEST_FIXTURES=ON
-cmake --build build-test --config Release --target image_stream --parallel 4
-ctest --test-dir build-test -C Release -R "^image_stream$" --output-on-failure
+cmake --build build-test --config Release --target image_stream image_stream_primitive --parallel 4
+ctest --test-dir build-test -C Release -R "^image_stream(_primitive)?$" --output-on-failure
 ```
 
-可运行 `dynamic_texture` 示例观察 NV12 画面持续移动：
+可运行 `dynamic_texture` 示例观察画面持续移动。示例每两秒依次提交 NV12、I420、P010，
+同时覆盖 BT.709 Limited、BT.601 Full、BT.2020 Limited：
 
 ```powershell
 cmake -S . -B build
@@ -129,3 +139,9 @@ cmake --build build --config Release --target dynamic_texture --parallel 4
 ```
 
 示例是动态流 API 的可视化验证，不是远程桌面传输协议的实现。
+
+## 可选视频播放示例
+
+仓库提供可选的 `ffmpeg_video_player`，用于验证 FFmpeg 解码后以 NV12 提交至 `ImageStream`
+的完整链路。它不属于核心库，也不增加核心库依赖；构建、运行及网络测试媒体说明见
+[FFmpeg 视频播放示例](../examples/ffmpeg_video_player.md)。

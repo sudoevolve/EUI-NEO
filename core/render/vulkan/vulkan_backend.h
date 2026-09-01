@@ -43,6 +43,8 @@ public:
     void drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) override;
     TextureHandle createTexture(const unsigned char* pixels, int width, int height) override;
     bool updateTexture(TextureHandle handle, const unsigned char* pixels, int width, int height) override;
+    TextureHandle createDynamicTexture(const ImageFrame& frame) override;
+    bool updateDynamicTexture(TextureHandle handle, const ImageFrame& frame) override;
     void destroyTexture(TextureHandle handle) override;
     void drawTexture(TextureHandle handle,
                      const float* vertices,
@@ -82,7 +84,13 @@ public:
 
 private:
     struct ShaderToyResource;
+    enum class TextureKind {
+        Rgba,
+        Video,
+    };
+
     struct TextureResource {
+        TextureKind kind = TextureKind::Rgba;
         VkImage image = VK_NULL_HANDLE;
         VkDeviceMemory memory = VK_NULL_HANDLE;
         VkImageView view = VK_NULL_HANDLE;
@@ -95,6 +103,14 @@ private:
         int height = 0;
         int channels = 0;
         std::uint64_t generation = 0;
+    };
+
+    struct VideoTextureResource final : TextureResource {
+        TextureResource plane1;
+        TextureResource plane2;
+        ImagePixelFormat pixelFormat = ImagePixelFormat::NV12;
+        ImageColorSpace colorSpace = ImageColorSpace::BT709;
+        ImageColorRange colorRange = ImageColorRange::Limited;
     };
 
     struct LayerResource {
@@ -189,6 +205,14 @@ private:
                                 const unsigned char* pixels,
                                 int width,
                                 int height);
+    bool uploadTexturePlane(TextureResource& texture,
+                            const std::uint8_t* pixels,
+                            int width,
+                            int height,
+                            std::uint32_t stride,
+                            int bytesPerPixel,
+                            VkFormat format);
+    bool supportsVideoFormat(VkFormat format) const;
     VkRect2D clampScissor(const core::Rect& rect, int windowWidth, int windowHeight) const;
     bool ensureRoundedRectPipeline();
     bool ensureRoundedRectBatchPipeline();
@@ -224,6 +248,7 @@ private:
     void destroyImagePipeline();
     void destroyImageResources();
     void destroyTextureResource(TextureResource& texture);
+    void destroyVideoTextureResource(VideoTextureResource& texture);
     void releasePendingTextureDeletes();
     void releasePendingUploads();
     void destroyShaderToyResource(ShaderToyResource& toy);

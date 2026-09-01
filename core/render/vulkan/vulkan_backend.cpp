@@ -1044,6 +1044,15 @@ void VulkanRenderBackend::destroyTextureResource(TextureResource& texture) {
     texture = {};
 }
 
+void VulkanRenderBackend::destroyVideoTextureResource(VideoTextureResource& texture) {
+    destroyTextureResource(texture.plane2);
+    destroyTextureResource(texture.plane1);
+    destroyTextureResource(static_cast<TextureResource&>(texture));
+    texture.pixelFormat = ImagePixelFormat::NV12;
+    texture.colorSpace = ImageColorSpace::BT709;
+    texture.colorRange = ImageColorRange::Limited;
+}
+
 bool VulkanRenderBackend::createTargetImage(TextureResource& texture,
                                             int width,
                                             int height,
@@ -1331,15 +1340,25 @@ void VulkanRenderBackend::destroyUploadBuffer() {
 void VulkanRenderBackend::releasePendingTextureDeletes() {
     if (device_ == VK_NULL_HANDLE) {
         for (TextureResource* texture : pendingTextureDeletes_) {
-            delete texture;
+            if (texture != nullptr && texture->kind == TextureKind::Video) {
+                delete static_cast<VideoTextureResource*>(texture);
+            } else {
+                delete texture;
+            }
         }
         pendingTextureDeletes_.clear();
         return;
     }
     for (TextureResource* texture : pendingTextureDeletes_) {
         if (texture != nullptr) {
-            destroyTextureResource(*texture);
-            delete texture;
+            if (texture->kind == TextureKind::Video) {
+                auto* video = static_cast<VideoTextureResource*>(texture);
+                destroyVideoTextureResource(*video);
+                delete video;
+            } else {
+                destroyTextureResource(*texture);
+                delete texture;
+            }
         }
     }
     pendingTextureDeletes_.clear();
