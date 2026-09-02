@@ -56,6 +56,7 @@ void VulkanRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
     if (!frameActive_ || blur <= 0.0f || windowWidth <= 0 || windowHeight <= 0 ||
         (!swapchainTransferSrcSupported_ && renderTarget_ == RenderTarget::Swapchain)) {
         backdropReady_ = false;
+        backdropCaptureValid_ = false;
         return;
     }
 
@@ -64,6 +65,7 @@ void VulkanRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
     const VkExtent2D sourceExtent = currentRenderExtent();
     if (sourceImage == VK_NULL_HANDLE || sourceExtent.width == 0 || sourceExtent.height == 0) {
         backdropReady_ = false;
+        backdropCaptureValid_ = false;
         return;
     }
 
@@ -78,10 +80,20 @@ void VulkanRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
     const auto captureWidth = static_cast<std::uint32_t>(std::max(1.0f, rightF - leftF));
     const auto captureHeight = static_cast<std::uint32_t>(std::max(1.0f, bottomF - topF));
 
-    if (!ensureRoundedRectPipeline() || !ensureBackdropResources(captureWidth, captureHeight)) {
-        backdropReady_ = false;
+    if (backdropCaptureUsable_ && backdropCaptureValid_ &&
+        backdropCaptureLeft_ == left && backdropCaptureTop_ == top &&
+        backdropCaptureWidth_ == captureWidth && backdropCaptureHeight_ == captureHeight) {
+        backdropReady_ = true;
         return;
     }
+
+    if (!ensureRoundedRectPipeline() || !ensureBackdropResources(captureWidth, captureHeight)) {
+        backdropReady_ = false;
+        backdropCaptureValid_ = false;
+        return;
+    }
+    // Never fall back to a capture from an older frame when this capture misses.
+    backdropCaptureValid_ = false;
     if (!frameRecorded_) {
         recordClearPass(clearColor_);
     }
@@ -125,7 +137,17 @@ void VulkanRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
         setCurrentRenderImageLayout(sourceLayout);
     }
     backdropReady_ = true;
+    backdropCaptureValid_ = true;
+    backdropCaptureLeft_ = left;
+    backdropCaptureTop_ = top;
+    backdropCaptureWidth_ = captureWidth;
+    backdropCaptureHeight_ = captureHeight;
     beginLoadPass();
+}
+
+void VulkanRenderBackend::invalidateBackdropCapture() {
+    backdropCaptureValid_ = false;
+    backdropCaptureUsable_ = false;
 }
 
 void VulkanRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command, int windowWidth, int windowHeight) {
@@ -213,6 +235,9 @@ void VulkanRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(command.vertices.size()), 1, 0, 0);
+    if (!needsBackdrop || command.shadowPass) {
+        invalidateBackdropCapture();
+    }
 }
 
 bool VulkanRenderBackend::appendRoundedRectBatch(const RoundedRectDrawCommand& command,
@@ -308,6 +333,7 @@ void VulkanRenderBackend::flushRoundedRectBatch() {
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(batchCount), 1, 0, 0);
+    invalidateBackdropCapture();
 }
 
 bool VulkanRenderBackend::ensureRoundedRectPipeline() {
@@ -890,6 +916,7 @@ void VulkanRenderBackend::destroyRoundedRectBatchResources() {
 }
 
 void VulkanRenderBackend::destroyBackdropResources() {
+    invalidateBackdropCapture();
     destroyBackdropDescriptorPool();
     if (device_ == VK_NULL_HANDLE) {
         backdropImage_ = VK_NULL_HANDLE;

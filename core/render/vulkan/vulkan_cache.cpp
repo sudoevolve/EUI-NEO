@@ -45,6 +45,7 @@ bool VulkanRenderBackend::ensureRenderCache(int width, int height) {
             vkDestroyFramebuffer(device_, renderCacheFramebuffer_, nullptr);
             renderCacheFramebuffer_ = VK_NULL_HANDLE;
         }
+        invalidateBackdropCapture();
     } else {
         const VkExtent2D previousCapacity = renderCacheCapacity_;
         destroyRenderCacheResources();
@@ -133,12 +134,28 @@ void VulkanRenderBackend::releaseRenderCache() {
         vkDeviceWaitIdle(device_);
     }
     destroyRenderCacheResources();
+    invalidateBackdropCapture();
     renderCacheRecreated_ = false;
 }
 
 void VulkanRenderBackend::beginRenderCacheFrame(int width,
                                                 int height,
                                                 const std::vector<core::Rect>& repaintRects) {
+    backdropCaptureUsable_ = backdropCaptureValid_ && !repaintRects.empty();
+    if (backdropCaptureUsable_) {
+        const core::Rect capture{
+            static_cast<float>(backdropCaptureLeft_),
+            static_cast<float>(backdropCaptureTop_),
+            static_cast<float>(backdropCaptureWidth_),
+            static_cast<float>(backdropCaptureHeight_)};
+        for (const core::Rect& dirty : repaintRects) {
+            if (capture.x < dirty.x + dirty.width && capture.x + capture.width > dirty.x &&
+                capture.y < dirty.y + dirty.height && capture.y + capture.height > dirty.y) {
+                backdropCaptureUsable_ = false;
+                break;
+            }
+        }
+    }
     if (!frameActive_ || renderCacheFramebuffer_ == VK_NULL_HANDLE) {
         return;
     }
@@ -625,6 +642,7 @@ void VulkanRenderBackend::destroyRenderCacheResolveResources() {
 }
 
 void VulkanRenderBackend::destroyRenderCacheResources() {
+    invalidateBackdropCapture();
     if (device_ == VK_NULL_HANDLE) {
         renderCacheImage_ = VK_NULL_HANDLE;
         renderCacheMemory_ = VK_NULL_HANDLE;

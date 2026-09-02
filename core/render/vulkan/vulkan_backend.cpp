@@ -330,6 +330,8 @@ void VulkanRenderBackend::beginFrame(const RenderSurface& surface) {
     }
     frameActive_ = true;
     frameRecorded_ = false;
+    // Reuse is enabled only after this frame's damage analysis proves safety.
+    backdropCaptureUsable_ = false;
     renderPassActive_ = false;
     renderTarget_ = RenderTarget::Swapchain;
     renderingToCache_ = false;

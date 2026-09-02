@@ -47,6 +47,8 @@ struct PrimitiveResources {
     int backdropHeight = 0;
     int backdropTextureWidth = 0;
     int backdropTextureHeight = 0;
+    bool backdropFramebufferAttached = false;
+    bool backdropFramebufferComplete = false;
 };
 
 struct RoundedRectBatchResources {
@@ -201,19 +203,23 @@ bool ensurePrimitiveResources() {
         "    float blurRadiusPx = uBlurAmount;\n"
         "    vec3 blurred = texture(uBackdrop, uv).rgb;\n"
         "    float repeats = mix(8.0, 24.0, clamp(blurRadiusPx / 36.0, 0.0, 1.0));\n"
-        "    const float tau = 6.28318530718;\n"
-        "    for (float i = 0.0; i < 24.0; i += 1.0) {\n"
-        "        if (i >= repeats) break;\n"
-        "        float angle = (i / repeats) * tau;\n"
-        "        vec2 dir = vec2(cos(angle), sin(angle));\n"
-        "        float radiusA = blurRadiusPx * (0.35 + 0.65 * rand(vec2(i, uv.x + uv.y)));\n"
+        "    float stepAngle = 6.28318530718 / repeats;\n"
+        "    vec2 stepDirection = vec2(cos(stepAngle), sin(stepAngle));\n"
+        "    vec2 halfStepDirection = vec2(cos(stepAngle * 0.5), sin(stepAngle * 0.5));\n"
+        "    vec2 dir = vec2(1.0, 0.0);\n"
+        "    for (int i = 0; i < 24; ++i) {\n"
+        "        float sampleIndex = float(i);\n"
+        "        if (sampleIndex >= repeats) break;\n"
+        "        float radiusA = blurRadiusPx * (0.35 + 0.65 * rand(vec2(sampleIndex, uv.x + uv.y)));\n"
         "        vec2 uvA = clamp(uv + dir * radiusA * pixelStep, pixelStep * 0.5, vec2(1.0) - pixelStep * 0.5);\n"
         "        blurred += texture(uBackdrop, uvA).rgb;\n"
-        "        float angleB = angle + (0.5 * tau / repeats);\n"
-        "        vec2 dirB = vec2(cos(angleB), sin(angleB));\n"
-        "        float radiusB = blurRadiusPx * (0.20 + 0.80 * rand(vec2(i + 2.0, uv.x + uv.y + 24.0)));\n"
+        "        vec2 dirB = vec2(dir.x * halfStepDirection.x - dir.y * halfStepDirection.y,\n"
+        "                          dir.x * halfStepDirection.y + dir.y * halfStepDirection.x);\n"
+        "        float radiusB = blurRadiusPx * (0.20 + 0.80 * rand(vec2(sampleIndex + 2.0, uv.x + uv.y + 24.0)));\n"
         "        vec2 uvB = clamp(uv + dirB * radiusB * pixelStep, pixelStep * 0.5, vec2(1.0) - pixelStep * 0.5);\n"
         "        blurred += texture(uBackdrop, uvB).rgb;\n"
+        "        dir = vec2(dir.x * stepDirection.x - dir.y * stepDirection.y,\n"
+        "                   dir.x * stepDirection.y + dir.y * stepDirection.x);\n"
         "    }\n"
         "    return blurred / (repeats * 2.0 + 1.0);\n"
         "}\n"
@@ -598,6 +604,13 @@ void ensureBackdropTexture(int width, int height) {
 
     if (resources.backdropTexture == 0) {
         glGenTextures(1, &resources.backdropTexture);
+        // The attachment is created below; validate it once after setup.
+        resources.backdropFramebufferAttached = false;
+        resources.backdropFramebufferComplete = false;
+    }
+    if (resources.backdropTextureWidth != width || resources.backdropTextureHeight != height) {
+        resources.backdropFramebufferAttached = false;
+        resources.backdropFramebufferComplete = false;
     }
     resources.backdropTextureWidth = width;
     resources.backdropTextureHeight = height;
@@ -631,6 +644,20 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
     const int textureWidth = std::max(1, static_cast<int>(std::ceil(static_cast<float>(captureWidth) * backdropScale)));
     const int textureHeight = std::max(1, static_cast<int>(std::ceil(static_cast<float>(captureHeight) * backdropScale)));
 
+    if (backdropCaptureUsable_ && backdropCaptureValid_ &&
+        backdropCaptureLeft_ == left && backdropCaptureTop_ == sourceY &&
+        backdropCaptureWidth_ == captureWidth && backdropCaptureHeight_ == captureHeight &&
+        backdropTextureWidth_ == textureWidth && backdropTextureHeight_ == textureHeight) {
+        PrimitiveResources& cachedResources = primitiveResources();
+        cachedResources.backdropX = left;
+        cachedResources.backdropY = sourceY;
+        cachedResources.backdropWidth = captureWidth;
+        cachedResources.backdropHeight = captureHeight;
+        return;
+    }
+
+    // Never fall back to a capture from an older frame when this capture misses.
+    backdropCaptureValid_ = false;
     ensureBackdropTexture(textureWidth, textureHeight);
     PrimitiveResources& resources = primitiveResources();
     resources.backdropX = left;
@@ -653,9 +680,16 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
     glBindTexture(GL_TEXTURE_2D, resources.backdropTexture);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, previousDrawFramebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resources.backdropFramebuffer);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resources.backdropTexture, 0);
+    if (!resources.backdropFramebufferAttached) {
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resources.backdropTexture, 0);
+        resources.backdropFramebufferAttached = true;
+    }
 
-    if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE) {
+    if (!resources.backdropFramebufferComplete) {
+        resources.backdropFramebufferComplete =
+            glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+    }
+    if (resources.backdropFramebufferComplete) {
         if (scissorEnabled) {
             glDisable(GL_SCISSOR_TEST);
         }
@@ -665,12 +699,24 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
         if (scissorEnabled) {
             glEnable(GL_SCISSOR_TEST);
         }
+        backdropCaptureValid_ = true;
+        backdropCaptureLeft_ = left;
+        backdropCaptureTop_ = sourceY;
+        backdropCaptureWidth_ = captureWidth;
+        backdropCaptureHeight_ = captureHeight;
+        backdropTextureWidth_ = textureWidth;
+        backdropTextureHeight_ = textureHeight;
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previousReadFramebuffer));
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(previousDrawFramebuffer));
     glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(previousTexture));
     resetStateCache();
+}
+
+void OpenGLRenderBackend::invalidateBackdropCapture() {
+    backdropCaptureValid_ = false;
+    backdropCaptureUsable_ = false;
 }
 
 void OpenGLRenderBackend::flushRoundedRectBatch() {
@@ -703,6 +749,7 @@ void OpenGLRenderBackend::flushRoundedRectBatch() {
                  0,
                  static_cast<GLsizei>(roundedRectBatchVertices_.size() /
                                       kRoundedRectBatchVertexFloatCount));
+    invalidateBackdropCapture();
     roundedRectBatchVertices_.clear();
     roundedRectBatchWindowWidth_ = 0;
     roundedRectBatchWindowHeight_ = 0;
@@ -832,6 +879,9 @@ void OpenGLRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
                  command.vertices.data(),
                  GL_DYNAMIC_DRAW);
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(command.vertices.size()));
+    if (command.backdropBlur <= 0.001f || command.shadowPass) {
+        invalidateBackdropCapture();
+    }
 }
 
 void OpenGLRenderBackend::drawPolygon(const PolygonDrawCommand& command, int windowWidth, int windowHeight) {
@@ -876,6 +926,7 @@ void OpenGLRenderBackend::drawPolygon(const PolygonDrawCommand& command, int win
                  command.vertices.data(),
                  GL_DYNAMIC_DRAW);
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(command.vertices.size()));
+    invalidateBackdropCapture();
 }
 
 void OpenGLRenderBackend::releasePrimitiveResources() {

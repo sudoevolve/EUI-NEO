@@ -384,6 +384,7 @@ void VulkanRenderBackend::drawTexture(TextureHandle handle,
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(vertexFloatCount / 7), 1, 0, 0);
+    invalidateBackdropCapture();
 }
 
 VulkanRenderBackend::LayerHandle VulkanRenderBackend::createLayer(int width, int height) {
@@ -545,6 +546,7 @@ void VulkanRenderBackend::drawLayerTexture(TextureHandle handle,
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(vertexFloatCount / 7), 1, 0, 0);
+    invalidateBackdropCapture();
 }
 
 bool VulkanRenderBackend::ensureImagePipeline(bool premultipliedAlpha) {

@@ -1189,6 +1189,7 @@ VulkanRenderBackend::TextureHandle VulkanRenderBackend::renderShaderToy(
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 toy->pipelineLayout, 0, 1, &pass.descriptorSet, 0, nullptr);
         vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+        invalidateBackdropCapture();
         vkCmdEndRenderPass(commandBuffer);
 
         transitionImageLayout(commandBuffer, target.image, target.layout,

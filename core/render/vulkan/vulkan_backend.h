@@ -224,6 +224,7 @@ private:
     bool ensurePolygonEdgeBuffer(std::size_t edgeCount);
     bool ensureBackdropResources(std::uint32_t width, std::uint32_t height);
     bool ensureBackdropDescriptor();
+    void invalidateBackdropCapture();
     void initializeBackdropImageIfNeeded();
     bool ensurePrimitiveVertexBuffer(std::size_t vertexCount);
     bool ensureTextPipeline();
@@ -312,6 +313,12 @@ private:
     VkSampler backdropSampler_ = VK_NULL_HANDLE;
     VkImageLayout backdropImageLayout_ = VK_IMAGE_LAYOUT_UNDEFINED;
     VkExtent2D backdropExtent_{};
+    bool backdropCaptureValid_ = false;
+    bool backdropCaptureUsable_ = false;
+    std::int32_t backdropCaptureLeft_ = 0;
+    std::int32_t backdropCaptureTop_ = 0;
+    std::uint32_t backdropCaptureWidth_ = 0;
+    std::uint32_t backdropCaptureHeight_ = 0;
     MappedBuffer primitiveVertices_;
     MappedBuffer roundedRectBatchVertices_;
     std::size_t roundedRectBatchStart_ = 0;

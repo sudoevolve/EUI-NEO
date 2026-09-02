@@ -248,6 +248,8 @@ void OpenGLRenderBackend::makeCurrent() {
 
 void OpenGLRenderBackend::beginFrame(const RenderSurface& surface) {
     makeCurrent();
+    // Reuse is enabled only after this frame's damage analysis proves safety.
+    backdropCaptureUsable_ = false;
     framebufferWidth_ = std::max(0, surface.framebufferWidth);
     framebufferHeight_ = std::max(0, surface.framebufferHeight);
     glViewport(0, 0, surface.framebufferWidth, surface.framebufferHeight);
@@ -287,6 +289,7 @@ bool OpenGLRenderBackend::ensureRenderCache(int width, int height) {
         cacheWidth_ = width;
         cacheHeight_ = height;
         cacheRecreated_ = true;
+        invalidateBackdropCapture();
         invalidateRenderCacheSync();
         return true;
     }
@@ -354,12 +357,28 @@ void OpenGLRenderBackend::releaseRenderCache() {
     cacheHeight_ = 0;
     cacheCapacityWidth_ = 0;
     cacheCapacityHeight_ = 0;
+    invalidateBackdropCapture();
     invalidateRenderCacheSync();
     resetStateCache();
 }
 
 void OpenGLRenderBackend::beginRenderCacheFrame(int width, int height, const std::vector<core::Rect>& repaintRects) {
     flushRoundedRectBatch();
+    backdropCaptureUsable_ = backdropCaptureValid_ && !repaintRects.empty();
+    if (backdropCaptureUsable_) {
+        const core::Rect capture{
+            static_cast<float>(backdropCaptureLeft_),
+            static_cast<float>(height - backdropCaptureTop_ - backdropCaptureHeight_),
+            static_cast<float>(backdropCaptureWidth_),
+            static_cast<float>(backdropCaptureHeight_)};
+        for (const core::Rect& dirty : repaintRects) {
+            if (capture.x < dirty.x + dirty.width && capture.x + capture.width > dirty.x &&
+                capture.y < dirty.y + dirty.height && capture.y + capture.height > dirty.y) {
+                backdropCaptureUsable_ = false;
+                break;
+            }
+        }
+    }
     cacheRenderArea_ = fullRenderRect(width, height);
     std::vector<core::Rect> renderRects = mergeRenderRects(clampRenderRects(repaintRects, width, height));
     if (!renderRects.empty()) {

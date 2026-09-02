@@ -63,6 +63,7 @@ void VulkanRenderBackend::flushTextBatch() {
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(batchCount / 5), 1, 0, 0);
+    invalidateBackdropCapture();
 }
 
 void VulkanRenderBackend::drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) {

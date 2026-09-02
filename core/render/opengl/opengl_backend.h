@@ -100,6 +100,7 @@ private:
     void setBlendEnabled(bool enabled);
     void setStandardAlphaBlend();
     void setPremultipliedAlphaBlend();
+    void invalidateBackdropCapture();
     std::vector<core::Rect> resolveRenderCacheBlitRects(int width,
                                                         int height,
                                                         RenderCacheBlitMode mode,
@@ -179,6 +180,14 @@ private:
     unsigned int currentArrayBuffer_ = 0;
     unsigned int currentTextureUnit_ = 0;
     unsigned int currentTexture2D_[8] = {};
+    bool backdropCaptureValid_ = false;
+    bool backdropCaptureUsable_ = false;
+    int backdropCaptureLeft_ = 0;
+    int backdropCaptureTop_ = 0;
+    int backdropCaptureWidth_ = 0;
+    int backdropCaptureHeight_ = 0;
+    int backdropTextureWidth_ = 0;
+    int backdropTextureHeight_ = 0;
 };
 
 } // namespace core::render::opengl

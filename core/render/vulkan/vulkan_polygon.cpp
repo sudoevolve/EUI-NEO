@@ -96,6 +96,7 @@ void VulkanRenderBackend::drawPolygon(const PolygonDrawCommand& command, int win
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(command.vertices.size()), 1, 0, 0);
+    invalidateBackdropCapture();
 }
 
 bool VulkanRenderBackend::ensurePolygonPipeline() {

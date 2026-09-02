@@ -480,6 +480,7 @@ void OpenGLRenderBackend::drawTexture(TextureHandle handle,
     activeTextureUnit(0);
     bindTexture2D(texture);
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertexFloatCount / 7));
+    invalidateBackdropCapture();
 }
 
 void OpenGLRenderBackend::drawLayerTexture(TextureHandle handle,
@@ -534,6 +535,7 @@ void OpenGLRenderBackend::drawLayerTexture(TextureHandle handle,
     activeTextureUnit(0);
     bindTexture2D(texture);
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertexFloatCount / 7));
+    invalidateBackdropCapture();
 }
 
 bool OpenGLRenderBackend::ensureImageResources() {

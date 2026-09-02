@@ -46,22 +46,26 @@ vec3 backdropBlur(vec2 uv, vec4 captureRect) {
     float blurRadiusPx = pc.flags2.y;
     vec3 blurred = sampleBackdrop(uv, captureRect);
     float repeats = mix(8.0, 24.0, clamp(blurRadiusPx / 36.0, 0.0, 1.0));
-    const float tau = 6.28318530718;
-    for (float i = 0.0; i < 24.0; i += 1.0) {
-        if (i >= repeats) {
+    float stepAngle = 6.28318530718 / repeats;
+    vec2 stepDirection = vec2(cos(stepAngle), sin(stepAngle));
+    vec2 halfStepDirection = vec2(cos(stepAngle * 0.5), sin(stepAngle * 0.5));
+    vec2 dir = vec2(1.0, 0.0);
+    for (int i = 0; i < 24; ++i) {
+        float sampleIndex = float(i);
+        if (sampleIndex >= repeats) {
             break;
         }
-        float angle = (i / repeats) * tau;
-        vec2 dir = vec2(cos(angle), sin(angle));
-        float radiusA = blurRadiusPx * (0.35 + 0.65 * rand(vec2(i, uv.x + uv.y)));
+        float radiusA = blurRadiusPx * (0.35 + 0.65 * rand(vec2(sampleIndex, uv.x + uv.y)));
         vec2 uvA = clamp(uv + dir * radiusA * pixelStep, pixelStep * 0.5, vec2(1.0) - pixelStep * 0.5);
         blurred += sampleBackdrop(uvA, captureRect);
 
-        float angleB = angle + (0.5 * tau / repeats);
-        vec2 dirB = vec2(cos(angleB), sin(angleB));
-        float radiusB = blurRadiusPx * (0.20 + 0.80 * rand(vec2(i + 2.0, uv.x + uv.y + 24.0)));
+        vec2 dirB = vec2(dir.x * halfStepDirection.x - dir.y * halfStepDirection.y,
+                          dir.x * halfStepDirection.y + dir.y * halfStepDirection.x);
+        float radiusB = blurRadiusPx * (0.20 + 0.80 * rand(vec2(sampleIndex + 2.0, uv.x + uv.y + 24.0)));
         vec2 uvB = clamp(uv + dirB * radiusB * pixelStep, pixelStep * 0.5, vec2(1.0) - pixelStep * 0.5);
         blurred += sampleBackdrop(uvB, captureRect);
+        dir = vec2(dir.x * stepDirection.x - dir.y * stepDirection.y,
+                   dir.x * stepDirection.y + dir.y * stepDirection.x);
     }
     return blurred / (repeats * 2.0 + 1.0);
 }
