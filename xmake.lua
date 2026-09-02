@@ -46,6 +46,12 @@ option("user_apps")
     set_description("Build longer or multi-page applications from apps/.")
 option_end()
 
+option("ffmpeg_video")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Build the optional FFmpeg video playback example.")
+option_end()
+
 option("modules")
     set_default(true)
     set_showmenu(true)
@@ -145,6 +151,7 @@ local window_backend = get_config("window_backend") or "glfw"
 local build_shared  = get_config("shared") and true or false
 local build_apps    = get_config("apps") and true or false
 local build_user    = get_config("user_apps") and true or false
+local build_ffmpeg  = get_config("ffmpeg_video") and true or false
 local build_modules = get_config("modules") and true or false
 local enable_markdown = get_config("markdown") and true or false
 local vk_low_latency  = get_config("vulkan_low_latency") and true or false
@@ -182,6 +189,9 @@ if render_backend == "vulkan" then
 end
 if not target_is_windows then
     add_requires("libcurl", {configs = {shared = false}})
+end
+if build_ffmpeg then
+    add_requires("ffmpeg")
 end
 
 local bridge_source_flags = {}
@@ -323,6 +333,10 @@ if window_backend == "glfw" then
             "3rd/glfw/src/window.c",
             "3rd/glfw/src/egl_context.c",
             "3rd/glfw/src/osmesa_context.c",
+            "3rd/glfw/src/null_init.c",
+            "3rd/glfw/src/null_monitor.c",
+            "3rd/glfw/src/null_window.c",
+            "3rd/glfw/src/null_joystick.c",
             {sourcekind = "cc"}
         )
         add_includedirs("3rd/glfw/include", {public = true})
@@ -740,12 +754,19 @@ if build_apps then
             print("Skipping keyboard example (module not available).")
             goto continue
         end
+        if name == "ffmpeg_video_player" and not build_ffmpeg then
+            print("Skipping ffmpeg_video_player; enable --ffmpeg_video=y to build it.")
+            goto continue
+        end
         target(name)
             set_kind("binary")
             set_group("examples")
             add_files(file)
             add_rules("eui.app")
             add_includedirs("include", ".")
+            if name == "ffmpeg_video_player" then
+                add_packages("ffmpeg")
+            end
             eui_configure_named_app(name)
         target_end()
         ::continue::
