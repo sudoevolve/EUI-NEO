@@ -1,6 +1,6 @@
 # EUI-NEO
 
-> EUI-NEO is a lightweight C++17 desktop UI framework. It provides a declarative, builder-based UI DSL, retained rendering, built-in controls, and GLFW or SDL2 window backends with OpenGL or Vulkan rendering. The current stable release is v0.5.7.
+> EUI-NEO is a lightweight C++17 desktop UI framework. It provides a declarative, builder-based UI DSL, retained rendering, built-in controls, and GLFW or SDL2 window backends with OpenGL or Vulkan rendering. The current stable release is v0.5.8.
 
 Use this file as the starting point when answering questions or generating EUI-NEO applications. Prefer the public facade and current examples over inferred APIs.
 
@@ -8,7 +8,7 @@ Canonical sources:
 
 - Website: https://sudoevolve.github.io/EUI-NEO/
 - Repository: https://github.com/sudoevolve/EUI-NEO
-- Stable release: https://github.com/sudoevolve/EUI-NEO/releases/tag/v0.5.7
+- Stable release: https://github.com/sudoevolve/EUI-NEO/releases/tag/v0.5.8
 - Public umbrella header: https://github.com/sudoevolve/EUI-NEO/blob/main/include/eui_neo.h
 - Exported components: https://github.com/sudoevolve/EUI-NEO/blob/main/components/components.h
 
@@ -138,7 +138,7 @@ Prefer built-in components before assembling controls from primitives:
 
 Use `components::theme::dark()` or `components::theme::light()` as the base token set. Pass the same tokens and transition through a page for consistent visuals and motion.
 
-## Input API In v0.5.7
+## Input API In v0.5.8
 
 - Keyboard events use `eui::KeyEvent` with `key`, `action`, `modifiers`, and `scanCode`.
 - Text and IME input use `eui::TextInputEvent`; they are separate from key events.
