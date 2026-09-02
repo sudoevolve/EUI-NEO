@@ -186,6 +186,19 @@ const docs = [
   },
   {
     category: "rendering",
+    href: "../docs/dynamic_texture.md",
+    zh: {
+      title: "动态纹理与图像流",
+      desc: "RGBA8/BGRA8、NV12、I420、P010 动态帧提交，以及 OpenGL/Vulkan 后端行为。"
+    },
+    en: {
+      title: "Dynamic Textures And Image Streams",
+      desc: "Dynamic frame submission for RGBA8/BGRA8, NV12, I420, and P010 across OpenGL/Vulkan."
+    },
+    tags: "dynamic texture image stream rgba8 bgra8 nv12 i420 p010 yuv video remote desktop opengl vulkan"
+  },
+  {
+    category: "rendering",
     href: "../docs/retained_layer_cache.md",
     zh: {
       title: "保留层缓存",
