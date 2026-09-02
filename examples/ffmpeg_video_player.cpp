@@ -1,4 +1,5 @@
 #include "eui_neo.h"
+#include "core/platform/platform.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -94,6 +95,13 @@ public:
         av_dict_set(&options, "timeout", "15000000", 0);
         av_dict_set(&options, "user_agent", "EUI-NEO ffmpeg_video_player", 0);
         AVIOInterruptCB interrupt{&FfmpegDecoder::interruptCallback, this};
+        format_ = avformat_alloc_context();
+        if (format_ == nullptr) {
+            av_dict_free(&options);
+            error_ = "无法分配 FFmpeg 输入上下文";
+            return false;
+        }
+        format_->interrupt_callback = interrupt;
         beginNetworkOperation();
         const int openResult = avformat_open_input(&format_, source.c_str(), nullptr, &options);
         endNetworkOperation();
@@ -102,7 +110,6 @@ public:
             error_ = networkError("无法打开视频源", openResult);
             return false;
         }
-        format_->interrupt_callback = interrupt;
         beginNetworkOperation();
         const int streamInfoResult = avformat_find_stream_info(format_, nullptr);
         endNetworkOperation();
@@ -366,8 +373,11 @@ private:
     }
 
     void setStatus(std::string value) {
-        std::lock_guard lock(statusMutex_);
-        status_ = std::move(value);
+        {
+            std::lock_guard lock(statusMutex_);
+            status_ = std::move(value);
+        }
+        core::platform::requestUiUpdate();
     }
 
     void decodeLoop(const std::string& source) {
