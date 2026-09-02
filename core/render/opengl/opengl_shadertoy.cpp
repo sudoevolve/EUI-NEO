@@ -21,6 +21,10 @@ constexpr std::uint64_t kInvalidFrameToken = std::numeric_limits<std::uint64_t>:
 
 struct ShaderToyTextureHeader {
     GLuint texture = 0;
+    // drawTexture() accepts every OpenGL texture handle through the shared
+    // { texture, kind } prefix. Keep the Shadertoy output ABI compatible so
+    // it is never mistaken for a YUV dynamic texture.
+    unsigned int kind = 0;
 };
 
 struct ShaderToyImage {
