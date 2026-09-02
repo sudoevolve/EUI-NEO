@@ -24,17 +24,17 @@ cmake --build build-video --config Release --target ffmpeg_video_player --parall
 
 ## 运行
 
-未设置 `EUI_VIDEO_PATH` 时，示例会播放一个约 2.8 MB、时长约 5 秒的公开 MP4 测试地址：
+未设置 `EUI_VIDEO_PATH` 时，示例会播放一个约 5.3 MB、支持 FFmpeg 直接读取的公开 MP4 测试地址：
 
 ```text
-https://samplelib.com/lib/preview/mp4/sample-5s.mp4
+https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4
 ```
 
 该 URL 只用于示例启动后的网络读取，不属于框架资源，不会复制到构建产物或安装目录。生产应用
 应显式指定自有的本地文件路径或媒体 URL。PowerShell 示例：
 
 ```powershell
-$env:EUI_VIDEO_PATH = "https://samplelib.com/lib/preview/mp4/sample-5s.mp4"
+$env:EUI_VIDEO_PATH = "https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4"
 .\build-video\Release\ffmpeg_video_player.exe
 ```
 

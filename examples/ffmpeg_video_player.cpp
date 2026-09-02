@@ -94,6 +94,10 @@ public:
         av_dict_set(&options, "rw_timeout", "15000000", 0);
         av_dict_set(&options, "timeout", "15000000", 0);
         av_dict_set(&options, "user_agent", "EUI-NEO ffmpeg_video_player", 0);
+        // Let FFmpeg reconnect transient network failures while preserving seeking for loop playback.
+        av_dict_set(&options, "reconnect", "1", 0);
+        av_dict_set(&options, "reconnect_streamed", "1", 0);
+        av_dict_set(&options, "reconnect_on_network_error", "1", 0);
         AVIOInterruptCB interrupt{&FfmpegDecoder::interruptCallback, this};
         format_ = avformat_alloc_context();
         if (format_ == nullptr) {
@@ -398,11 +402,14 @@ private:
                 setStatus("播放失败: " + decoder.error());
                 break;
             }
-            stream_->submit({frame.y, frame.width, frame.height, frame.yStride,
-                             eui::ImagePixelFormat::NV12, sequence++,
-                             frame.uv, nullptr, frame.uvStride, 0,
-                             frame.colorSpace,
-                             frame.colorRange});
+            if (!stream_->submit({frame.y, frame.width, frame.height, frame.yStride,
+                                  eui::ImagePixelFormat::NV12, sequence++,
+                                  frame.uv, nullptr, frame.uvStride, 0,
+                                  frame.colorSpace,
+                                  frame.colorRange})) {
+                setStatus("提交 NV12 帧失败");
+                break;
+            }
 
             nextDeadline += std::chrono::duration_cast<std::chrono::steady_clock::duration>(interval);
             const auto now = std::chrono::steady_clock::now();
@@ -447,7 +454,7 @@ std::string videoPath() {
         return path;
     }
 #endif
-    return "https://samplelib.com/lib/preview/mp4/sample-5s.mp4";
+    return "https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4";
 }
 
 } // namespace
