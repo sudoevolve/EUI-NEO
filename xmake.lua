@@ -148,6 +148,14 @@ local build_user    = get_config("user_apps") and true or false
 local build_modules = get_config("modules") and true or false
 local enable_markdown = get_config("markdown") and true or false
 local vk_low_latency  = get_config("vulkan_low_latency") and true or false
+local configured_platform = get_config("plat")
+local target_is_windows = is_plat("windows") or is_plat("mingw")
+    or configured_platform == "windows" or configured_platform == "mingw"
+    or (not configured_platform and os.host() == "windows")
+local target_is_linux = is_plat("linux") or configured_platform == "linux"
+    or (not configured_platform and os.host() == "linux")
+local target_is_macos = is_plat("macosx") or configured_platform == "macosx"
+    or (not configured_platform and os.host() == "macosx")
 
 print("EUI render backend: requested=%s, resolved=%s", get_config("render_backend") or "opengl", render_backend)
 print("EUI window backend: %s", window_backend)
@@ -163,19 +171,16 @@ end
 -- External dependencies (resolved through xrepo)
 -- =============================================================================
 
-add_requires("freetype", {configs = {png = true, zlib = true, bzip2 = false, harfbuzz = false, brotli = false}})
-add_requires("libpng", "zlib")
-
-if window_backend == "glfw" then
-    add_requires("glfw", {configs = {shared = false}})
-end
+-- FreeType, libpng, zlib, GLFW and glad are built from the sources bundled
+-- in 3rd/.  Keeping this list limited to dependencies not shipped by EUI-NEO
+-- prevents xrepo from building an unrelated host toolchain for the defaults.
 if window_backend == "sdl2" then
     add_requires("libsdl2", {configs = {shared = false}})
 end
 if render_backend == "vulkan" then
     add_requires("vulkansdk", {system = true})
 end
-if not is_plat("windows", "mingw") then
+if not target_is_windows then
     add_requires("libcurl", {configs = {shared = false}})
 end
 
@@ -185,8 +190,197 @@ if is_plat("macosx") then
     table.insert(bridge_source_flags, "objective-c")
 end
 -- =============================================================================
--- Vendored single-file third-party libraries (built directly from 3rd/)
+-- Vendored third-party libraries (built directly from 3rd/)
 -- =============================================================================
+
+target("eui_zlib")
+    set_kind("static")
+    add_files(
+        "3rd/zlib-1.3.1/adler32.c",
+        "3rd/zlib-1.3.1/compress.c",
+        "3rd/zlib-1.3.1/crc32.c",
+        "3rd/zlib-1.3.1/deflate.c",
+        "3rd/zlib-1.3.1/gzclose.c",
+        "3rd/zlib-1.3.1/gzlib.c",
+        "3rd/zlib-1.3.1/gzread.c",
+        "3rd/zlib-1.3.1/gzwrite.c",
+        "3rd/zlib-1.3.1/inflate.c",
+        "3rd/zlib-1.3.1/infback.c",
+        "3rd/zlib-1.3.1/inffast.c",
+        "3rd/zlib-1.3.1/inftrees.c",
+        "3rd/zlib-1.3.1/trees.c",
+        "3rd/zlib-1.3.1/uncompr.c",
+        "3rd/zlib-1.3.1/zutil.c",
+        {sourcekind = "cc"}
+    )
+    add_includedirs("3rd/zlib-1.3.1", {public = true})
+    if not target_is_windows then
+        add_defines("HAVE_UNISTD_H")
+    else
+        add_defines("_CRT_SECURE_NO_WARNINGS")
+    end
+target_end()
+
+target("eui_libpng")
+    set_kind("static")
+    add_files(
+        "3rd/libpng-1.6.43/png.c",
+        "3rd/libpng-1.6.43/pngerror.c",
+        "3rd/libpng-1.6.43/pngget.c",
+        "3rd/libpng-1.6.43/pngmem.c",
+        "3rd/libpng-1.6.43/pngpread.c",
+        "3rd/libpng-1.6.43/pngread.c",
+        "3rd/libpng-1.6.43/pngrio.c",
+        "3rd/libpng-1.6.43/pngrtran.c",
+        "3rd/libpng-1.6.43/pngrutil.c",
+        "3rd/libpng-1.6.43/pngset.c",
+        "3rd/libpng-1.6.43/pngtrans.c",
+        "3rd/libpng-1.6.43/pngwio.c",
+        "3rd/libpng-1.6.43/pngwrite.c",
+        "3rd/libpng-1.6.43/pngwtran.c",
+        "3rd/libpng-1.6.43/pngwutil.c",
+        {sourcekind = "cc"}
+    )
+    add_includedirs("3rd/libpng-1.6.43", "3rd/libpng-1.6.43/scripts", {public = true})
+    add_deps("eui_zlib", {public = true})
+    on_load(function(target)
+        local generated_header = path.join(target:autogendir(), "pnglibconf.h")
+        os.mkdir(path.directory(generated_header))
+        os.cp("3rd/libpng-1.6.43/scripts/pnglibconf.h.prebuilt", generated_header)
+        target:add("includedirs", target:autogendir(), {public = true})
+    end)
+target_end()
+
+target("eui_freetype")
+    set_kind("static")
+    add_files(
+        "3rd/freetype/src/autofit/autofit.c",
+        "3rd/freetype/src/base/ftbase.c",
+        "3rd/freetype/src/base/ftbbox.c",
+        "3rd/freetype/src/base/ftbdf.c",
+        "3rd/freetype/src/base/ftbitmap.c",
+        "3rd/freetype/src/base/ftcid.c",
+        "3rd/freetype/src/base/ftfstype.c",
+        "3rd/freetype/src/base/ftgasp.c",
+        "3rd/freetype/src/base/ftglyph.c",
+        "3rd/freetype/src/base/ftgxval.c",
+        "3rd/freetype/src/base/ftinit.c",
+        "3rd/freetype/src/base/ftmm.c",
+        "3rd/freetype/src/base/ftotval.c",
+        "3rd/freetype/src/base/ftpatent.c",
+        "3rd/freetype/src/base/ftpfr.c",
+        "3rd/freetype/src/base/ftstroke.c",
+        "3rd/freetype/src/base/ftsynth.c",
+        "3rd/freetype/src/base/fttype1.c",
+        "3rd/freetype/src/base/ftwinfnt.c",
+        "3rd/freetype/src/bdf/bdf.c",
+        "3rd/freetype/src/bzip2/ftbzip2.c",
+        "3rd/freetype/src/cache/ftcache.c",
+        "3rd/freetype/src/cff/cff.c",
+        "3rd/freetype/src/cid/type1cid.c",
+        "3rd/freetype/src/gzip/ftgzip.c",
+        "3rd/freetype/src/lzw/ftlzw.c",
+        "3rd/freetype/src/pcf/pcf.c",
+        "3rd/freetype/src/pfr/pfr.c",
+        "3rd/freetype/src/psaux/psaux.c",
+        "3rd/freetype/src/pshinter/pshinter.c",
+        "3rd/freetype/src/psnames/psnames.c",
+        "3rd/freetype/src/raster/raster.c",
+        "3rd/freetype/src/sdf/sdf.c",
+        "3rd/freetype/src/sfnt/sfnt.c",
+        "3rd/freetype/src/smooth/smooth.c",
+        "3rd/freetype/src/svg/svg.c",
+        "3rd/freetype/src/truetype/truetype.c",
+        "3rd/freetype/src/type1/type1.c",
+        "3rd/freetype/src/type42/type42.c",
+        "3rd/freetype/src/winfonts/winfnt.c",
+        {sourcekind = "cc"}
+    )
+    if target_is_windows then
+        add_files("3rd/freetype/builds/windows/ftsystem.c", "3rd/freetype/builds/windows/ftdebug.c", {sourcekind = "cc"})
+    elseif target_is_linux or target_is_macos then
+        add_files("3rd/freetype/builds/unix/ftsystem.c", {sourcekind = "cc"})
+        add_files("3rd/freetype/src/base/ftdebug.c", {sourcekind = "cc"})
+    else
+        add_files("3rd/freetype/src/base/ftsystem.c", "3rd/freetype/src/base/ftdebug.c", {sourcekind = "cc"})
+    end
+    add_includedirs("3rd/freetype/include", {public = true})
+    add_includedirs("3rd/libpng-1.6.43", "3rd/libpng-1.6.43/scripts")
+    add_defines("FT2_BUILD_LIBRARY", "FT_CONFIG_OPTION_USE_PNG")
+    add_deps("eui_libpng", {public = true})
+target_end()
+
+if window_backend == "glfw" then
+    target("eui_glfw")
+        set_kind("static")
+        add_files(
+            "3rd/glfw/src/context.c",
+            "3rd/glfw/src/init.c",
+            "3rd/glfw/src/input.c",
+            "3rd/glfw/src/monitor.c",
+            "3rd/glfw/src/platform.c",
+            "3rd/glfw/src/vulkan.c",
+            "3rd/glfw/src/window.c",
+            "3rd/glfw/src/egl_context.c",
+            "3rd/glfw/src/osmesa_context.c",
+            {sourcekind = "cc"}
+        )
+        add_includedirs("3rd/glfw/include", {public = true})
+        add_includedirs("3rd/glfw/src")
+        if target_is_windows then
+            add_files(
+                "3rd/glfw/src/win32_module.c",
+                "3rd/glfw/src/win32_time.c",
+                "3rd/glfw/src/win32_thread.c",
+                "3rd/glfw/src/win32_init.c",
+                "3rd/glfw/src/win32_joystick.c",
+                "3rd/glfw/src/win32_monitor.c",
+                "3rd/glfw/src/win32_window.c",
+                "3rd/glfw/src/wgl_context.c",
+                {sourcekind = "cc"}
+            )
+            add_defines("_GLFW_WIN32", "UNICODE", "_UNICODE")
+            add_syslinks("gdi32", {public = true})
+            if is_plat("mingw") or configured_platform == "mingw" then
+                add_defines("WINVER=0x0501")
+                add_includedirs("3rd/glfw/deps/mingw")
+            end
+        elseif target_is_macos then
+            add_files(
+                "3rd/glfw/src/posix_module.c",
+                "3rd/glfw/src/posix_time.c",
+                "3rd/glfw/src/posix_thread.c",
+                {sourcekind = "cc"}
+            )
+            add_files(
+                "3rd/glfw/src/cocoa_init.m",
+                "3rd/glfw/src/cocoa_joystick.m",
+                "3rd/glfw/src/cocoa_monitor.m",
+                "3rd/glfw/src/cocoa_window.m",
+                "3rd/glfw/src/nsgl_context.m",
+                {sourcekind = "objc"}
+            )
+            add_defines("_GLFW_COCOA")
+            add_frameworks("Cocoa", "IOKit", "CoreFoundation", {public = true})
+        elseif target_is_linux then
+            add_files(
+                "3rd/glfw/src/posix_module.c",
+                "3rd/glfw/src/posix_time.c",
+                "3rd/glfw/src/posix_thread.c",
+                "3rd/glfw/src/posix_poll.c",
+                "3rd/glfw/src/linux_joystick.c",
+                "3rd/glfw/src/x11_init.c",
+                "3rd/glfw/src/x11_monitor.c",
+                "3rd/glfw/src/x11_window.c",
+                "3rd/glfw/src/xkb_unicode.c",
+                "3rd/glfw/src/glx_context.c",
+                {sourcekind = "cc"}
+            )
+            add_defines("_GLFW_X11", "_DEFAULT_SOURCE")
+            add_syslinks("X11", "Xrandr", "Xinerama", "Xi", "Xcursor", "Xext", "dl", "m", {public = true})
+        end
+    target_end()
+end
 
 if render_backend == "opengl" then
     target("eui_glad")
@@ -328,7 +522,7 @@ target("eui_neo")
         add_deps("eui_md4c")
     end
 
-    add_packages("freetype", "libpng", "zlib", {public = true})
+    add_deps("eui_freetype", {public = true})
     if render_backend == "opengl" then
         add_deps("eui_glad")
         if is_plat("windows") then
@@ -342,16 +536,16 @@ target("eui_neo")
         add_packages("vulkansdk", {public = true})
     end
     if window_backend == "glfw" then
-        add_packages("glfw", {public = true})
+        add_deps("eui_glfw", {public = true})
     elseif window_backend == "sdl2" then
         add_packages("libsdl2", {public = true})
     end
     add_packages("libcurl", {public = true, optional = true})
-    if not is_plat("windows", "mingw") and has_package("libcurl") then
+    if not target_is_windows and has_package("libcurl") then
         add_defines("EUI_HAS_CURL=1", {public = true})
     end
 
-    if not is_plat("windows", "mingw") then
+    if not target_is_windows then
         add_syslinks("pthread", {public = true})
     end
 
