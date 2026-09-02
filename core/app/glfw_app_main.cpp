@@ -402,7 +402,7 @@ GLFWwindow* findModalChildWindow(app::DslWindowManager<ManagedWindow>& windows) 
     return managed != nullptr ? managed->window : nullptr;
 }
 
-int main() {
+int eui_app_run() {
     core::platform::repairCurrentWorkingDirectory();
     core::render::initializeRenderBackendLoader();
     if (!glfwInit()) {
@@ -591,3 +591,9 @@ int main() {
     glfwTerminate();
     return 0;
 }
+
+#ifndef EUI_APP_RUNNER_LIBRARY
+int main() {
+    return eui_app_run();
+}
+#endif

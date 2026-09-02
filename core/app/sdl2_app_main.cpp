@@ -583,7 +583,7 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool update
 
 } // namespace
 
-int main() {
+int eui_app_run() {
     core::platform::repairCurrentWorkingDirectory();
     SDL_SetMainReady();
 #if defined(__linux__) && !defined(__ANDROID__)
@@ -762,3 +762,9 @@ int main() {
     SDL_Quit();
     return 0;
 }
+
+#ifndef EUI_APP_RUNNER_LIBRARY
+int main() {
+    return eui_app_run();
+}
+#endif
