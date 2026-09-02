@@ -315,8 +315,12 @@ void VulkanRenderBackend::drawTexture(TextureHandle handle,
                                       int windowWidth,
                                       int windowHeight) {
     auto* texture = static_cast<TextureResource*>(handle);
-    if (!frameActive_ || texture == nullptr || texture->view == VK_NULL_HANDLE || vertices == nullptr ||
+    if (!frameActive_ || texture == nullptr || vertices == nullptr ||
         vertexFloatCount < 42 || tint.a <= 0.001f || windowWidth <= 0 || windowHeight <= 0) {
+        return;
+    }
+    if (texture->kind == TextureKind::Rgba &&
+        (texture->view == VK_NULL_HANDLE || texture->sampler == VK_NULL_HANDLE)) {
         return;
     }
     flushRoundedRectBatch();
@@ -712,7 +716,7 @@ bool VulkanRenderBackend::ensureImagePipeline(bool premultipliedAlpha) {
 }
 
 bool VulkanRenderBackend::ensureImageDescriptor(TextureResource& texture) {
-    if (imageDescriptorSetLayout_ == VK_NULL_HANDLE || texture.view == VK_NULL_HANDLE || texture.sampler == VK_NULL_HANDLE) {
+    if (imageDescriptorSetLayout_ == VK_NULL_HANDLE) {
         return false;
     }
     if (imageDescriptorPool_ == VK_NULL_HANDLE || imageDescriptorPoolUsed_ >= imageDescriptorPoolCapacity_) {
@@ -764,6 +768,8 @@ bool VulkanRenderBackend::ensureImageDescriptor(TextureResource& texture) {
         }
         plane1 = &video.plane1;
         plane2 = video.pixelFormat == ImagePixelFormat::I420 ? &video.plane2 : &video.plane1;
+    } else if (texture.view == VK_NULL_HANDLE || texture.sampler == VK_NULL_HANDLE) {
+        return false;
     }
     std::array<VkDescriptorImageInfo, 3> imageInfos{};
     const std::array<const TextureResource*, 3> textures{&texture, plane1, plane2};
