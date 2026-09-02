@@ -3,6 +3,7 @@
 #include "core/render/render_types.h"
 #include "core/render/image_stream.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -38,6 +39,8 @@ public:
     bool updateTexture();
     bool hasPendingLoad() const;
     bool isAnimating() const;
+    bool isRetainedLayerReady() const;
+    std::uint64_t contentVersion() const;
     void render(int windowWidth, int windowHeight);
 
     static bool isSourceReady(const std::string& source);

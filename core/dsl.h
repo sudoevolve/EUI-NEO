@@ -1756,9 +1756,7 @@ private:
                !element.sliderKnobSourceId.empty() ||
                !element.dirtyKey.empty() ||
                element.kind == ElementKind::Shadertoy ||
-               (element.kind == ElementKind::Image &&
-                (!element.imageSource.empty() || element.imageStream != nullptr)) ||
-               element.kind == ElementKind::Svg;
+               (element.kind == ElementKind::Image && element.imageStream != nullptr);
     }
 
     std::string pageId_;

@@ -42,6 +42,7 @@ inline std::vector<Rect> resolveDirtyRects(const std::vector<runtime::LogicalDir
                                            float dpiScale) {
     constexpr std::size_t kMaxDirtyRects = 8;
     constexpr float kMaxDirtyAreaRatio = 0.65f;
+    constexpr float kDirtyRectCommandOverheadPixels = 4096.0f;
     std::vector<Rect> rects;
     for (const runtime::LogicalDirtyRect& dirty : dirtyRects) {
         Rect rect = toPixelRect(Rect{dirty.x, dirty.y, dirty.width, dirty.height}, dpiScale);
@@ -93,8 +94,16 @@ inline std::vector<Rect> resolveDirtyRects(const std::vector<runtime::LogicalDir
         hasMergedRect = true;
     }
 
-    if (rects.size() > kMaxDirtyRects ||
-        (windowArea > 0.0f && dirtyArea > windowArea * kMaxDirtyAreaRatio)) {
+    const float mergedArea = hasMergedRect ? rectArea(mergedRect) : 0.0f;
+    const float mergeWaste = std::max(0.0f, mergedArea - dirtyArea);
+    // A scissor/clear pass has a fixed CPU and GPU cost. Collapse fragmented
+    // damage when the extra pixels are cheaper than recording another pass,
+    // while retaining separate regions when their bounding box is expensive.
+    const float estimatedPassOverhead =
+        kDirtyRectCommandOverheadPixels * static_cast<float>(std::max<std::size_t>(1, rects.size()));
+    const bool areaDominates = windowArea > 0.0f && dirtyArea > windowArea * kMaxDirtyAreaRatio;
+    const bool mergeIsCheaper = mergeWaste <= estimatedPassOverhead;
+    if (rects.size() > kMaxDirtyRects || areaDominates || mergeIsCheaper) {
         rects.clear();
         if (hasMergedRect) {
             rects.push_back(mergedRect);

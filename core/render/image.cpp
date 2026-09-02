@@ -168,6 +168,15 @@ struct ImagePrimitive::Impl {
     bool updateTexture();
     bool hasPendingLoad() const { return pendingLoad_; }
     bool isAnimating() const { return gifFrameCount_ > 1 || stream_ != nullptr; }
+    bool isRetainedLayerReady() const {
+        return stream_ == nullptr &&
+               gifFrameCount_ <= 1 &&
+               !pendingLoad_ &&
+               staticContentLoaded_ &&
+               texture_ != nullptr &&
+               !textureUploadDeferred_;
+    }
+    std::uint64_t contentVersion() const { return contentVersion_; }
     void render(int windowWidth, int windowHeight);
 
     static bool isSourceReady(const std::string& source) {
@@ -232,6 +241,7 @@ struct ImagePrimitive::Impl {
     bool textureDirty_ = false;
     bool textureUploadDeferred_ = false;
     bool staticContentLoaded_ = false;
+    std::uint64_t contentVersion_ = 0;
     std::string desiredTextureCacheKey_;
     std::string loadedTextureCacheKey_;
     std::shared_ptr<const render::image::StaticImageData> staticImage_;
@@ -321,6 +331,7 @@ bool ImagePrimitive::Impl::updateTexture() {
         gifFrameCount_ = 0;
         staticImage_ = std::move(image);
         staticContentLoaded_ = true;
+        ++contentVersion_;
         textureWidth_ = staticImage_->width;
         textureHeight_ = staticImage_->height;
         loadedSource_.clear();
@@ -434,6 +445,7 @@ bool ImagePrimitive::Impl::updateTexture() {
     gifFrameCount_ = 0;
     staticImage_ = std::move(image);
     staticContentLoaded_ = true;
+    ++contentVersion_;
     textureWidth_ = staticImage_->width;
     textureHeight_ = staticImage_->height;
     loadedSource_ = source_;
@@ -797,6 +809,8 @@ void ImagePrimitive::setCoverViewport(bool enabled, const Vec2& canvasSize, cons
 bool ImagePrimitive::updateTexture() { return impl_->updateTexture(); }
 bool ImagePrimitive::hasPendingLoad() const { return impl_->hasPendingLoad(); }
 bool ImagePrimitive::isAnimating() const { return impl_->isAnimating(); }
+bool ImagePrimitive::isRetainedLayerReady() const { return impl_->isRetainedLayerReady(); }
+std::uint64_t ImagePrimitive::contentVersion() const { return impl_->contentVersion(); }
 void ImagePrimitive::render(int windowWidth, int windowHeight) { impl_->render(windowWidth, windowHeight); }
 bool ImagePrimitive::isSourceReady(const std::string& source) { return Impl::isSourceReady(source); }
 bool ImagePrimitive::hasSourceFailed(const std::string& source) { return Impl::hasSourceFailed(source); }

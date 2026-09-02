@@ -674,6 +674,7 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
 }
 
 void OpenGLRenderBackend::flushRoundedRectBatch() {
+    flushTextBatch();
     if (roundedRectBatchVertices_.empty()) {
         return;
     }
@@ -712,6 +713,8 @@ void OpenGLRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
         !roundedRectHasVisibleContent(command)) {
         return;
     }
+
+    flushTextBatch();
 
     if (command.backdropBlur <= 0.001f) {
         if (!roundedRectBatchVertices_.empty() &&

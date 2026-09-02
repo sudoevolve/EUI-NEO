@@ -19,57 +19,33 @@ struct TextPushConstants {
 
 } // namespace
 
-void VulkanRenderBackend::drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) {
-    if (!frameActive_ || command.vertices == nullptr || command.vertexFloatCount == 0 ||
-        windowWidth <= 0 || windowHeight <= 0 || command.color.a <= 0.001f) {
+void VulkanRenderBackend::flushTextBatch() {
+    if (textBatchCount_ == 0) {
         return;
     }
 
-    flushRoundedRectBatch();
-    if (!ensureTextPipeline()) {
-        return;
-    }
-    if (!frameRecorded_) {
-        recordClearPass(clearColor_);
-    }
+    const std::size_t batchStart = textBatchStart_;
+    const std::size_t batchCount = textBatchCount_;
+    const int windowWidth = textBatchWindowWidth_;
+    const int windowHeight = textBatchWindowHeight_;
+    textBatchStart_ = 0;
+    textBatchCount_ = 0;
+    textBatchWindowWidth_ = 0;
+    textBatchWindowHeight_ = 0;
 
-    const bool uploadNeeded = textAtlasNeedsUpload(command.grayAtlas) || textAtlasNeedsUpload(command.colorAtlas);
-    if (uploadNeeded && renderPassActive_) {
-        endActiveRenderPass();
-    }
-
-    if (!ensureTextAtlas(command.grayAtlas)) {
-        if (!renderPassActive_) {
-            beginLoadPass();
-        }
-        return;
-    }
-    if (command.colorAtlas.pixels != nullptr && command.colorAtlas.width > 0 && command.colorAtlas.height > 0) {
-        ensureTextAtlas(command.colorAtlas);
-    }
-    if (uploadNeeded && !renderPassActive_) {
-        beginLoadPass();
-    }
-    if (!renderPassActive_ || !ensureTextDescriptor() || !ensureTextVertexBuffer(command.vertexFloatCount)) {
-        return;
-    }
-
-    const std::size_t floatOffset = textVertices_.used;
-    auto* mappedTextVertices = static_cast<float*>(textVertices_.mapped);
-    std::memcpy(mappedTextVertices + floatOffset, command.vertices, command.vertexFloatCount * sizeof(float));
-    textVertices_.used += command.vertexFloatCount;
-
-    VkCommandBuffer commandBuffer = currentCommandBuffer();
-    if (!applyDrawViewportAndScissor(windowWidth, windowHeight)) {
+    if (!frameActive_ || !renderPassActive_ || textPipeline_ == VK_NULL_HANDLE ||
+        textVertices_.buffer == VK_NULL_HANDLE || !textDescriptorSet_ ||
+        !applyDrawViewportAndScissor(windowWidth, windowHeight)) {
         return;
     }
 
     TextPushConstants constants{};
     constants.windowSize[0] = static_cast<float>(windowWidth);
     constants.windowSize[1] = static_cast<float>(windowHeight);
-    writeColor(constants.color, command.color);
+    writeColor(constants.color, textBatchColor_);
 
-    const VkDeviceSize offset = static_cast<VkDeviceSize>(floatOffset * sizeof(float));
+    const VkDeviceSize offset = static_cast<VkDeviceSize>(batchStart * sizeof(float));
+    VkCommandBuffer commandBuffer = currentCommandBuffer();
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, textPipeline_);
     vkCmdBindDescriptorSets(commandBuffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -86,7 +62,89 @@ void VulkanRenderBackend::drawText(const TextDrawCommand& command, int windowWid
                        0,
                        sizeof(constants),
                        &constants);
-    vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(command.vertexFloatCount / 5), 1, 0, 0);
+    vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(batchCount / 5), 1, 0, 0);
+}
+
+void VulkanRenderBackend::drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) {
+    if (!frameActive_ || command.vertices == nullptr || command.vertexFloatCount == 0 ||
+        windowWidth <= 0 || windowHeight <= 0 || command.color.a <= 0.001f) {
+        return;
+    }
+
+    if (roundedRectBatchCount_ > 0) {
+        flushRoundedRectBatch();
+    }
+    if (!ensureTextPipeline()) {
+        return;
+    }
+    if (!frameRecorded_) {
+        recordClearPass(clearColor_);
+    }
+
+    const bool batchChanged = textBatchCount_ > 0 &&
+        (textBatchWindowWidth_ != windowWidth ||
+         textBatchWindowHeight_ != windowHeight ||
+         textBatchGrayGeneration_ != command.grayAtlas.generation ||
+         textBatchColorGeneration_ != command.colorAtlas.generation ||
+         textBatchColor_.r != command.color.r ||
+         textBatchColor_.g != command.color.g ||
+         textBatchColor_.b != command.color.b ||
+         textBatchColor_.a != command.color.a);
+    if (batchChanged) {
+        flushTextBatch();
+    }
+
+    const bool uploadNeeded = textAtlasNeedsUpload(command.grayAtlas) || textAtlasNeedsUpload(command.colorAtlas);
+    if (uploadNeeded && textBatchCount_ > 0) {
+        flushTextBatch();
+    }
+    if (uploadNeeded && renderPassActive_) {
+        endActiveRenderPass();
+    }
+
+    if (!ensureTextAtlas(command.grayAtlas)) {
+        if (!renderPassActive_) {
+            beginLoadPass();
+        }
+        return;
+    }
+    if (command.colorAtlas.pixels != nullptr && command.colorAtlas.width > 0 && command.colorAtlas.height > 0) {
+        ensureTextAtlas(command.colorAtlas);
+    }
+    if (uploadNeeded && !renderPassActive_) {
+        beginLoadPass();
+    }
+    if (!renderPassActive_ || !ensureTextDescriptor()) {
+        return;
+    }
+    if (!ensureTextVertexBuffer(command.vertexFloatCount)) {
+        if (textBatchCount_ == 0) {
+            return;
+        }
+        flushTextBatch();
+        if (!renderPassActive_ || !ensureTextVertexBuffer(command.vertexFloatCount)) {
+            return;
+        }
+    }
+
+    if (textBatchCount_ == 0) {
+        textBatchStart_ = textVertices_.used;
+        textBatchWindowWidth_ = windowWidth;
+        textBatchWindowHeight_ = windowHeight;
+        textBatchGrayGeneration_ = command.grayAtlas.generation;
+        textBatchColorGeneration_ = command.colorAtlas.generation;
+        textBatchColor_ = command.color;
+    }
+    const std::size_t floatOffset = textVertices_.used;
+    auto* mappedTextVertices = static_cast<float*>(textVertices_.mapped);
+    std::memcpy(mappedTextVertices + floatOffset, command.vertices, command.vertexFloatCount * sizeof(float));
+    textVertices_.used += command.vertexFloatCount;
+
+    if (!applyDrawViewportAndScissor(windowWidth, windowHeight)) {
+        return;
+    }
+
+    textBatchCount_ += command.vertexFloatCount;
 }
 
 bool VulkanRenderBackend::ensureTextPipeline() {

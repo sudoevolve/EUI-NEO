@@ -83,6 +83,7 @@ public:
 
 private:
     void flushRoundedRectBatch();
+    void flushTextBatch();
     void releaseShaderToys();
     void releasePrimitiveResources();
     void releasePolygonResources();
@@ -136,6 +137,12 @@ private:
     std::vector<float> roundedRectBatchVertices_;
     int roundedRectBatchWindowWidth_ = 0;
     int roundedRectBatchWindowHeight_ = 0;
+    std::vector<float> textBatchVertices_;
+    int textBatchWindowWidth_ = 0;
+    int textBatchWindowHeight_ = 0;
+    std::uint64_t textBatchGrayGeneration_ = 0;
+    std::uint64_t textBatchColorGeneration_ = 0;
+    core::Color textBatchColor_{};
     std::size_t currentBackbuffer_ = 0;
     unsigned int imageVao_ = 0;
     unsigned int imageVbo_ = 0;

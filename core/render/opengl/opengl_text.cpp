@@ -12,6 +12,8 @@ namespace core::render::opengl {
 
 namespace {
 
+constexpr std::size_t kTextBatchMaxFloats = 262144;
+
 struct TextAtlasTexture {
     GLuint texture = 0;
     int width = 0;
@@ -206,11 +208,56 @@ bool ensureAtlasTexture(TextAtlasTexture& texture, const TextAtlasPageData& page
 
 } // namespace
 
+void OpenGLRenderBackend::flushTextBatch() {
+    if (textBatchVertices_.empty()) {
+        return;
+    }
+
+    TextRenderResources& resources = textResources();
+    if (textBatchWindowWidth_ <= 0 || textBatchWindowHeight_ <= 0 ||
+        !ensureTextRenderResources(resources) ||
+        resources.gray.texture == 0) {
+        textBatchVertices_.clear();
+        textBatchWindowWidth_ = 0;
+        textBatchWindowHeight_ = 0;
+        return;
+    }
+
+    setStandardAlphaBlend();
+    useProgram(resources.shaderProgram);
+    glUniform2f(resources.windowSizeLocation,
+                static_cast<float>(textBatchWindowWidth_),
+                static_cast<float>(textBatchWindowHeight_));
+    glUniform4f(resources.colorLocation,
+                textBatchColor_.r, textBatchColor_.g,
+                textBatchColor_.b, textBatchColor_.a);
+    glUniform1i(resources.grayTextureLocation, 0);
+    glUniform1i(resources.colorTextureLocation, 1);
+    activeTextureUnit(0);
+    bindTexture2D(resources.gray.texture);
+    activeTextureUnit(1);
+    bindTexture2D(resources.color.texture != 0 ? resources.color.texture : resources.gray.texture);
+    activeTextureUnit(0);
+    bindVertexArray(resources.vao);
+    bindArrayBuffer(resources.vbo);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(textBatchVertices_.size() * sizeof(float)),
+                 textBatchVertices_.data(),
+                 GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0,
+                 static_cast<GLsizei>(textBatchVertices_.size() / 5));
+    textBatchVertices_.clear();
+    textBatchWindowWidth_ = 0;
+    textBatchWindowHeight_ = 0;
+}
+
 void OpenGLRenderBackend::drawText(const TextDrawCommand& command, int windowWidth, int windowHeight) {
     if (command.vertices == nullptr || command.vertexFloatCount == 0 || windowWidth <= 0 || windowHeight <= 0) {
         return;
     }
-    flushRoundedRectBatch();
+    if (!roundedRectBatchVertices_.empty()) {
+        flushRoundedRectBatch();
+    }
 
     TextRenderResources& resources = textResources();
     const bool hadResources = resources.shaderProgram != 0 && resources.vao != 0 && resources.vbo != 0;
@@ -234,6 +281,9 @@ void OpenGLRenderBackend::drawText(const TextDrawCommand& command, int windowWid
          resources.color.height != command.colorAtlas.height ||
          resources.color.channels != command.colorAtlas.channels ||
          resources.color.generation != command.colorAtlas.generation);
+    if ((grayAtlasUpload || colorAtlasUpload) && !textBatchVertices_.empty()) {
+        flushTextBatch();
+    }
     if (!ensureTextRenderResources(resources) ||
         !ensureAtlasTexture(resources.gray, command.grayAtlas)) {
         return;
@@ -245,27 +295,33 @@ void OpenGLRenderBackend::drawText(const TextDrawCommand& command, int windowWid
         resetStateCache();
     }
 
-    setStandardAlphaBlend();
-
-    useProgram(resources.shaderProgram);
-    glUniform2f(resources.windowSizeLocation, static_cast<float>(windowWidth), static_cast<float>(windowHeight));
-    glUniform4f(resources.colorLocation, command.color.r, command.color.g, command.color.b, command.color.a);
-    glUniform1i(resources.grayTextureLocation, 0);
-    glUniform1i(resources.colorTextureLocation, 1);
-
-    activeTextureUnit(0);
-    bindTexture2D(resources.gray.texture);
-    activeTextureUnit(1);
-    bindTexture2D(resources.color.texture != 0 ? resources.color.texture : resources.gray.texture);
-    activeTextureUnit(0);
-
-    bindVertexArray(resources.vao);
-    bindArrayBuffer(resources.vbo);
-    glBufferData(GL_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(command.vertexFloatCount * sizeof(float)),
-                 command.vertices,
-                 GL_DYNAMIC_DRAW);
-    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(command.vertexFloatCount / 5));
+    const bool colorChanged = textBatchVertices_.empty() == false &&
+        (textBatchColor_.r != command.color.r ||
+         textBatchColor_.g != command.color.g ||
+         textBatchColor_.b != command.color.b ||
+         textBatchColor_.a != command.color.a);
+    const bool atlasChanged = !textBatchVertices_.empty() &&
+        (textBatchGrayGeneration_ != command.grayAtlas.generation ||
+         textBatchColorGeneration_ != command.colorAtlas.generation);
+    const bool targetChanged = !textBatchVertices_.empty() &&
+        (textBatchWindowWidth_ != windowWidth || textBatchWindowHeight_ != windowHeight);
+    if (colorChanged || atlasChanged || targetChanged) {
+        flushTextBatch();
+    }
+    if (textBatchVertices_.size() + command.vertexFloatCount > kTextBatchMaxFloats &&
+        !textBatchVertices_.empty()) {
+        flushTextBatch();
+    }
+    if (textBatchVertices_.empty()) {
+        textBatchWindowWidth_ = windowWidth;
+        textBatchWindowHeight_ = windowHeight;
+        textBatchGrayGeneration_ = command.grayAtlas.generation;
+        textBatchColorGeneration_ = command.colorAtlas.generation;
+        textBatchColor_ = command.color;
+    }
+    textBatchVertices_.insert(textBatchVertices_.end(),
+                              command.vertices,
+                              command.vertices + command.vertexFloatCount);
 }
 
 void OpenGLRenderBackend::releaseTextResources() {

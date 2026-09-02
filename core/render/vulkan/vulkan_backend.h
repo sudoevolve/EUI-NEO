@@ -219,6 +219,7 @@ private:
     bool ensureRoundedRectBatchVertexBuffer(std::size_t vertexCount);
     bool appendRoundedRectBatch(const RoundedRectDrawCommand& command, int windowWidth, int windowHeight);
     void flushRoundedRectBatch();
+    void flushTextBatch();
     bool ensurePolygonPipeline();
     bool ensurePolygonEdgeBuffer(std::size_t edgeCount);
     bool ensureBackdropResources(std::uint32_t width, std::uint32_t height);
@@ -353,6 +354,13 @@ private:
     TextureResource textColorAtlas_;
     bool textDescriptorDirty_ = true;
     MappedBuffer textVertices_;
+    std::size_t textBatchStart_ = 0;
+    std::size_t textBatchCount_ = 0;
+    int textBatchWindowWidth_ = 0;
+    int textBatchWindowHeight_ = 0;
+    std::uint64_t textBatchGrayGeneration_ = 0;
+    std::uint64_t textBatchColorGeneration_ = 0;
+    core::Color textBatchColor_{};
     VkDescriptorSetLayout imageDescriptorSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorPool imageDescriptorPool_ = VK_NULL_HANDLE;
     std::vector<VkDescriptorPool> imageDescriptorPools_;

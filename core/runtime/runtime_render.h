@@ -62,6 +62,8 @@ private:
                                           bool hasScissor,
                                           const Rect& scissorRect) const;
 
+    bool hasUnreadyRetainedImage(const Element& element) const;
+
     bool isRetainedSiblingCandidate(const Element& element) const;
 
     bool renderRetainedSiblingRun(core::render::RenderBackend& renderBackend,
@@ -483,13 +485,35 @@ inline bool RuntimeRenderer::isRetainedLayerCandidate(
         element.subtreeBlocksRetainedLayer) {
         return false;
     }
+    if (hasUnreadyRetainedImage(element)) {
+        return false;
+    }
     return true;
+}
+
+inline bool RuntimeRenderer::hasUnreadyRetainedImage(const Element& element) const {
+    if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
+        const auto image = instances_.images.find(element.id);
+        if (image != instances_.images.end() &&
+            !image->second.primitive->isRetainedLayerReady()) {
+            return true;
+        }
+    }
+    for (const Element* child : element.orderedChildren) {
+        if (child != nullptr && hasUnreadyRetainedImage(*child)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 inline bool RuntimeRenderer::isRetainedSiblingCandidate(const Element& element) const {
     if (element.subtreeHasDependentVisuals ||
         element.subtreeHasBackdropBlur ||
         element.subtreeBlocksRetainedLayer) {
+        return false;
+    }
+    if (hasUnreadyRetainedImage(element)) {
         return false;
     }
     const auto bounds = instances_.paintBounds.find(element.id);
@@ -720,6 +744,12 @@ inline std::uint64_t RuntimeRenderer::retainedElementPaintSignature(const Elemen
     mixString(element.fontFamily);
     mixString(element.imageSource);
     mixString(element.svgSource);
+    if (element.kind == ElementKind::Image || element.kind == ElementKind::Svg) {
+        const auto image = instances_.images.find(element.id);
+        if (image != instances_.images.end()) {
+            seed = mix(seed, image->second.primitive->contentVersion());
+        }
+    }
     mixString(element.dirtyKey);
     return seed;
 }

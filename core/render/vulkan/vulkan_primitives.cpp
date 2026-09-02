@@ -132,6 +132,7 @@ void VulkanRenderBackend::drawRoundedRect(const RoundedRectDrawCommand& command,
     if (!frameActive_ || windowWidth <= 0 || windowHeight <= 0 || !roundedRectHasVisibleContent(command)) {
         return;
     }
+    flushTextBatch();
     const bool needsBackdrop = !command.shadowPass && command.backdropBlur > 0.001f;
     if (!frameRecorded_) {
         recordClearPass(clearColor_);
@@ -273,6 +274,7 @@ bool VulkanRenderBackend::appendRoundedRectBatch(const RoundedRectDrawCommand& c
 }
 
 void VulkanRenderBackend::flushRoundedRectBatch() {
+    flushTextBatch();
     if (roundedRectBatchCount_ == 0) {
         return;
     }

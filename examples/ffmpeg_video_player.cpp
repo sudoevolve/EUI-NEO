@@ -13,6 +13,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -305,8 +306,8 @@ private:
         const std::uint32_t frameHeight = static_cast<std::uint32_t>(height);
         const std::uint32_t chromaHeight = (frameHeight + 1u) / 2u;
         const std::uint32_t uvStride = ((frameWidth + 1u) / 2u) * 2u;
-        auto y = std::make_shared<std::vector<std::uint8_t>>();
-        auto uv = std::make_shared<std::vector<std::uint8_t>>();
+        auto y = acquirePlaneBuffer(false);
+        auto uv = acquirePlaneBuffer(true);
         if (!copyPlane(*y, frameWidth, source->data[0], source->linesize[0], frameWidth, frameHeight) ||
             !copyPlane(*uv, uvStride, source->data[1], source->linesize[1], uvStride, chromaHeight)) {
             error_ = "NV12 平面数据不完整";
@@ -315,6 +316,21 @@ private:
         destination = {y, uv, frameWidth, frameHeight, frameWidth, uvStride,
                        colorSpaceFor(*decoded_), colorRangeFor(*decoded_)};
         return true;
+    }
+
+    std::shared_ptr<std::vector<std::uint8_t>> acquirePlaneBuffer(bool chroma) {
+        auto& buffers = chroma ? uvBuffers_ : yBuffers_;
+        for (std::size_t attempt = 0; attempt < buffers.size(); ++attempt) {
+            const std::size_t index = (bufferCursor_ + attempt) % buffers.size();
+            if (!buffers[index] || buffers[index].use_count() == 1) {
+                if (!buffers[index]) {
+                    buffers[index] = std::make_shared<std::vector<std::uint8_t>>();
+                }
+                bufferCursor_ = (index + 1) % buffers.size();
+                return buffers[index];
+            }
+        }
+        return std::make_shared<std::vector<std::uint8_t>>();
     }
 
     void close() {
@@ -339,6 +355,9 @@ private:
     double frameRate_ = 30.0;
     std::chrono::steady_clock::time_point networkDeadline_;
     std::string error_;
+    std::array<std::shared_ptr<std::vector<std::uint8_t>>, 3> yBuffers_;
+    std::array<std::shared_ptr<std::vector<std::uint8_t>>, 3> uvBuffers_;
+    std::size_t bufferCursor_ = 0;
 };
 
 class VideoPlayer {

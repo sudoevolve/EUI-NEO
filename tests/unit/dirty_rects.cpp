@@ -31,11 +31,22 @@ bool overlappingRectsMerge() {
     return expectRectCount("overlapping rects", resolved, 1);
 }
 
+bool nearbySmallRectsUseOnePass() {
+    const std::vector<core::dsl::runtime::LogicalDirtyRect> dirtyRects{
+        {0.0f, 0.0f, 20.0f, 20.0f},
+        {30.0f, 0.0f, 20.0f, 20.0f},
+        {60.0f, 0.0f, 20.0f, 20.0f}
+    };
+    const std::vector<core::Rect> resolved = core::dsl::resolveDirtyRects(dirtyRects, 800, 600, 1.0f);
+    return expectRectCount("nearby small rects", resolved, 1);
+}
+
 } // namespace
 
 int main() {
     bool ok = true;
     ok = distantRectsStaySeparate() && ok;
     ok = overlappingRectsMerge() && ok;
+    ok = nearbySmallRectsUseOnePass() && ok;
     return ok ? 0 : 1;
 }
