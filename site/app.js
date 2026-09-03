@@ -50,6 +50,7 @@ const copy = {
     "start.cmake": "配置目标",
     "start.app": "实现应用",
     "start.build": "构建运行",
+    "start.xmake": "Xmake 开箱即用",
     "start.readme": "Quick Start",
     "start.guide": "安装与进阶接入",
     "filter.all": "全部"
@@ -105,6 +106,7 @@ const copy = {
     "start.cmake": "Configure target",
     "start.app": "Implement app",
     "start.build": "Build and run",
+    "start.xmake": "Turnkey Xmake",
     "start.readme": "Quick Start",
     "start.guide": "Install and integrate",
     "filter.all": "All"
