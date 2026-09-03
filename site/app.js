@@ -45,8 +45,8 @@ const copy = {
     "components.title": "为工具型界面准备的组件层",
     "components.lede": "按钮、输入、弹层、选择器、图表、Markdown 和数据表都只组合 DSL 树，不穿透后端 primitive。",
     "start.eyebrow": "Quick Start",
-    "start.title": "把 EUI-NEO 接入你的 CMake 项目",
-    "start.lede": "只需一个应用源文件；框架负责入口、链接选项和运行资源。",
+    "start.title": "选择你的构建方式",
+    "start.lede": "CMake 和 Xmake 提供同等的开箱即用应用入口；选择一种方式开始。",
     "start.cmake": "配置目标",
     "start.app": "实现应用",
     "start.build": "构建运行",
@@ -103,8 +103,8 @@ const copy = {
     "components.title": "A component layer for tool-grade interfaces",
     "components.lede": "Buttons, inputs, popups, pickers, charts, Markdown, and data tables compose DSL trees without touching backend primitives.",
     "start.eyebrow": "Quick Start",
-    "start.title": "Add EUI-NEO to your CMake project",
-    "start.lede": "One application source file; the framework supplies the entry point, link settings, and runtime assets.",
+    "start.title": "Choose your build workflow",
+    "start.lede": "CMake and Xmake provide the same turnkey application entry point; choose one to get started.",
     "start.cmake": "Configure target",
     "start.app": "Implement app",
     "start.build": "Build and run",
@@ -852,6 +852,22 @@ document.querySelectorAll(".flow-item").forEach((node, index) => {
 });
 document.querySelectorAll(".start-step").forEach((node, index) => {
   observeReveal(node, "code", index);
+});
+
+document.querySelectorAll("[data-start-tab]").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const selected = tab.dataset.startTab;
+    document.querySelectorAll("[data-start-tab]").forEach((item) => {
+      const active = item === tab;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.querySelectorAll("[data-start-panel]").forEach((panel) => {
+      const active = panel.dataset.startPanel === selected;
+      panel.classList.toggle("active", active);
+      panel.hidden = !active;
+    });
+  });
 });
 
 searchInput.addEventListener("input", renderDocs);

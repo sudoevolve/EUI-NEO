@@ -917,6 +917,34 @@ section {
   gap: 14px;
 }
 
+.start-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 22px;
+}
+
+.start-tab {
+  min-height: 40px;
+  padding: 8px 18px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 760;
+}
+
+.start-tab.active {
+  color: #fff;
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.start-panel[hidden] {
+  display: none;
+}
+
 .start-step {
   min-width: 0;
 }

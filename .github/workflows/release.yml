@@ -87,6 +87,7 @@ jobs:
           $binDir = "build/Release"
           $runtimeApps = @(
             Get-ChildItem examples -Filter *.cpp -File |
+              Where-Object { $_.BaseName -ne 'ffmpeg_video_player' } |
               ForEach-Object { $_.BaseName }
             Get-ChildItem apps -Filter *.cpp -File |
               ForEach-Object { $_.BaseName }
@@ -137,6 +138,7 @@ jobs:
           missing=()
           for src in examples/*.cpp apps/*.cpp; do
             [ -f "$src" ] || continue
+            [ "$(basename "$src" .cpp)" = "ffmpeg_video_player" ] && continue
             runtime_apps+=("$(basename "$src" .cpp)")
           done
           for src in apps/*/app.cpp; do
