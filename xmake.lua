@@ -433,6 +433,46 @@ if window_backend == "glfw" then
             )
             add_defines("_GLFW_X11", "_DEFAULT_SOURCE")
             add_syslinks("X11", "Xrandr", "Xinerama", "Xi", "Xcursor", "Xext", "dl", "m", "rt", {public = true})
+            on_load(function (target)
+                import("lib.detect.find_tool")
+                import("package.manager.find_package")
+
+                local scanner = find_tool("wayland-scanner")
+                local wl_client = find_package("pkgconfig::wayland-client")
+                local xkb = find_package("pkgconfig::xkbcommon")
+
+                if scanner and wl_client and xkb then
+                    local gen_dir = path.join(target:autogendir(), "wayland_protocols")
+                    os.mkdir(gen_dir)
+                    local protocols = {
+                        "wayland", "viewporter", "xdg-shell", "idle-inhibit-unstable-v1",
+                        "pointer-constraints-unstable-v1", "relative-pointer-unstable-v1",
+                        "fractional-scale-v1", "xdg-activation-v1", "xdg-decoration-unstable-v1"
+                    }
+                    for _, proto in ipairs(protocols) do
+                        local xml = path.join(os.projectdir(), "3rd/glfw/deps/wayland", proto .. ".xml")
+                        local header = path.join(gen_dir, proto .. "-client-protocol.h")
+                        local code = path.join(gen_dir, proto .. "-client-protocol-code.h")
+                        if not os.exists(header) or os.mtime(xml) > os.mtime(header) then
+                            os.execv(scanner.program, {"client-header", xml, header})
+                        end
+                        if not os.exists(code) or os.mtime(xml) > os.mtime(code) then
+                            os.execv(scanner.program, {"private-code", xml, code})
+                        end
+                    end
+                    target:add("includedirs", gen_dir)
+                    target:add("defines", "_GLFW_WAYLAND")
+                    target:add("files",
+                        "3rd/glfw/src/wl_init.c",
+                        "3rd/glfw/src/wl_monitor.c",
+                        "3rd/glfw/src/wl_window.c",
+                        {sourcekind = "cc"}
+                    )
+                    if wl_client.includedirs then target:add("includedirs", wl_client.includedirs) end
+                    if xkb.includedirs then target:add("includedirs", xkb.includedirs) end
+                    target:add("syslinks", "wayland-client", "wayland-cursor", "wayland-egl", "xkbcommon", {public = true})
+                end
+            end)
         end
     target_end()
 end
