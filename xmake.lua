@@ -432,7 +432,7 @@ if window_backend == "glfw" then
                 {sourcekind = "cc"}
             )
             add_defines("_GLFW_X11", "_DEFAULT_SOURCE")
-            add_syslinks("X11", "Xrandr", "Xinerama", "Xi", "Xcursor", "Xext", "dl", "m", {public = true})
+            add_syslinks("X11", "Xrandr", "Xinerama", "Xi", "Xcursor", "Xext", "dl", "m", "rt", {public = true})
         end
     target_end()
 end
