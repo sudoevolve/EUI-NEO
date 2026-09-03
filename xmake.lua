@@ -311,6 +311,7 @@ target("eui_freetype")
     elseif target_is_linux or target_is_macos then
         add_files("3rd/freetype/builds/unix/ftsystem.c", {sourcekind = "cc"})
         add_files("3rd/freetype/src/base/ftdebug.c", {sourcekind = "cc"})
+        add_defines("HAVE_UNISTD_H", "HAVE_FCNTL_H")
     else
         add_files("3rd/freetype/src/base/ftsystem.c", "3rd/freetype/src/base/ftdebug.c", {sourcekind = "cc"})
     end
