@@ -163,7 +163,7 @@ Place global overlays near the end of root composition so they sit above normal 
 
 ## Current Input Contract
 
-Use the v0.5.7 event model:
+Use the v0.5.8 event model:
 
 - Key callbacks receive `eui::KeyEvent` with `key`, `action`, `modifiers`, and `scanCode`.
 - Text and IME callbacks receive `eui::TextInputEvent`; never combine text input with key events.

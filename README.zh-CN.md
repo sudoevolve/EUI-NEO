@@ -26,10 +26,10 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 
 ## 预览
 
-|  |  |
-| --- | --- |
-| ![preview 1](docs/pic/1.jpg) | ![preview 2](docs/pic/2.jpg) |
-| ![preview 3](docs/pic/3.jpg) | ![preview 4](docs/pic/4.jpg) |
+|                               |                               |
+| ----------------------------- | ----------------------------- |
+| ![preview 1](docs/pic/1.jpg)  | ![preview 2](docs/pic/2.jpg)  |
+| ![preview 3](docs/pic/3.jpg)  | ![preview 4](docs/pic/4.jpg)  |
 | ![示例 1](docs/pic/示例1.jpg) | ![示例 2](docs/pic/示例2.jpg) |
 
 ## 快速开始
@@ -104,21 +104,24 @@ add_executable(my_app app.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-安装、`FetchContent`、SDL2/Vulkan 选择和自定义主循环见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
+安装、`FetchContent`、SDL2/Vulkan 选择和 Xmake 选项见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
 
 ### Xmake
 
-Xmake 3.0+ 支持源码构建和 xrepo 接入：
+Xmake 2.9+ 支持源码构建和 xrepo 接入：
 
 ```lua
 set_languages("cxx17")
-add_requires("eui-neo")
+add_requires("eui-neo", {configs = {app_runner = true}})
 
-target("my_app")
+target("hello")
     set_kind("binary")
-    add_files("main.cpp", "app.cpp")
+    add_files("main.cpp")
     add_packages("eui-neo")
 ```
+
+启用 `app_runner` 后，EUI-NEO 会提供窗口、输入、渲染和应用主循环，
+`main.cpp` 只需实现 `app::dslAppConfig()` 和 `app::compose(...)`。
 
 直接构建仓库示例：
 
@@ -164,7 +167,6 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 - [渲染后端架构与流程](docs/渲染后端架构.md)
 - [保留层缓存](docs/retained_layer_cache.md)
 - [图片](docs/图片.md)
-- [动态纹理与图像流](docs/dynamic_texture.md)
 - [网络](docs/网络.md)
 - [平台能力](docs/平台能力.md)
 - [集成指南](docs/集成指南.md)

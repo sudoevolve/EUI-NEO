@@ -102,25 +102,26 @@ add_executable(my_app app.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, SDL2/Vulkan selection, and custom main loops. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
+See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, SDL2/Vulkan selection, and Xmake options. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
 
 ### Xmake
 
-Xmake 3.0+ is supported for source builds and xrepo library consumers:
+Xmake 2.9+ is supported for source builds and xrepo library consumers:
 
 ```lua
 set_languages("cxx17")
-add_requires("eui-neo")
+add_requires("eui-neo", {configs = {app_runner = true}})
 
-target("my_app")
+target("hello")
     set_kind("binary")
-    add_files("main.cpp", "app.cpp")
+    add_files("main.cpp")
     add_packages("eui-neo")
 ```
 
-The xrepo package provides the `eui_neo` library; `main.cpp` owns the window
-loop and application entry point. When building this repository directly,
-the `eui.app` rule adds the selected platform entry point and deploys assets.
+With `app_runner = true`, EUI-NEO supplies the window, input, rendering, and
+application loop. `main.cpp` only implements `app::dslAppConfig()` and
+`app::compose(...)`. When building this repository directly, the `eui.app`
+rule adds the selected platform entry point and deploys assets.
 
 Build a repository example:
 
@@ -166,7 +167,6 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 - [Render Backend Architecture And Pipeline](docs/渲染后端架构.md)
 - [Retained Layer Cache](docs/retained_layer_cache.md)
 - [Images](docs/图片.md)
-- [动态纹理与图像流](docs/dynamic_texture.md)
 - [Network](docs/网络.md)
 - [Platform Capabilities](docs/平台能力.md)
 - [Integration Guide](docs/集成指南.md)
