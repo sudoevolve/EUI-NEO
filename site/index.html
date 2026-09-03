@@ -202,7 +202,7 @@ cmake --build build --parallel
           </article>
           <article class="start-step">
             <span>04</span>
-            <h3 data-i18n="start.xmake">Xmake 开箱即用</h3>
+            <h3 data-i18n="start.xmakeConfig">编写 xmake.lua</h3>
             <pre><code>-- xmake.lua
 set_languages("cxx17")
 add_requires("eui-neo", {configs = {app_runner = true}})
@@ -211,15 +211,38 @@ target("hello")
     add_files("main.cpp")
     add_packages("eui-neo")
 target_end()
-
--- main.cpp
+</code></pre>
+          </article>
+          <article class="start-step">
+            <span>05</span>
+            <h3 data-i18n="start.xmakeApp">编写 main.cpp</h3>
+            <pre><code>// main.cpp
 #include "eui_neo.h"
+
 namespace app {
-const DslAppConfig& dslAppConfig();
-void compose(eui::Ui&, const eui::Screen&);
+const DslAppConfig& dslAppConfig() {
+    static const DslAppConfig config = DslAppConfig{}
+        .title("Hello EUI-NEO")
+        .pageId("hello")
+        .windowSize(960, 640);
+    return config;
 }
 
-xmake
+void compose(eui::Ui& ui, const eui::Screen& screen) {
+    ui.column("root").size(screen.width, screen.height)
+        .padding(32.0f).content([&] {
+            ui.text("title").text("Hello EUI-NEO")
+                .fontSize(28.0f).build();
+        }).build();
+}
+}
+</code></pre>
+          </article>
+          <article class="start-step">
+            <span>06</span>
+            <h3 data-i18n="start.xmakeBuild">构建并运行</h3>
+            <pre><code>xmake
+
 xmake run</code></pre>
           </article>
         </div>
