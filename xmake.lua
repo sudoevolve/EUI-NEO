@@ -253,6 +253,14 @@ target("eui_libpng")
     )
     add_includedirs("3rd/libpng-1.6.43", "3rd/libpng-1.6.43/scripts", {public = true})
     add_deps("eui_zlib", {public = true})
+    if is_arch("arm64", "aarch64") then
+        add_files(
+            "3rd/libpng-1.6.43/arm/arm_init.c",
+            "3rd/libpng-1.6.43/arm/filter_neon_intrinsics.c",
+            "3rd/libpng-1.6.43/arm/palette_neon_intrinsics.c",
+            {sourcekind = "cc"}
+        )
+    end
     on_load(function(target)
         local generated_header = path.join(target:autogendir(), "pnglibconf.h")
         os.mkdir(path.directory(generated_header))
@@ -373,7 +381,7 @@ if window_backend == "glfw" then
                 "3rd/glfw/src/cocoa_monitor.m",
                 "3rd/glfw/src/cocoa_window.m",
                 "3rd/glfw/src/nsgl_context.m",
-                {sourcekind = "objc"}
+                {sourcekind = "mm"}
             )
             add_defines("_GLFW_COCOA")
             add_frameworks("Cocoa", "IOKit", "CoreFoundation", {public = true})
