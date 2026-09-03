@@ -137,6 +137,37 @@ end
 -- Resolve backends
 -- =============================================================================
 
+function eui_discover_macos_vulkan_sdk()
+    if not is_plat("macosx") then
+        return
+    end
+    if (os.getenv("VULKAN_SDK") or "") ~= "" or (os.getenv("VK_SDK_PATH") or "") ~= "" then
+        return
+    end
+
+    import("lib.detect.find_tool")
+    local brew = find_tool("brew")
+    if not brew then
+        return
+    end
+    local prefix = try {function()
+        return os.iorunv(brew.program, {"--prefix"}):trim()
+    end}
+    if not prefix or prefix == "" then
+        return
+    end
+
+    local header = path.join(prefix, "include", "vulkan", "vulkan.h")
+    local library = path.join(prefix, "lib", "libvulkan.dylib")
+    if os.isfile(header) and os.isfile(library) then
+        os.setenv("VULKAN_SDK", prefix)
+        os.setenv("VK_SDK_PATH", prefix)
+        print("Vulkan SDK: using Homebrew prefix %s", prefix)
+    end
+end
+
+eui_discover_macos_vulkan_sdk()
+
 local render_backend = get_config("render_backend") or "opengl"
 if render_backend == "auto" then
     if find_package("vulkan") then
