@@ -384,6 +384,7 @@ if window_backend == "glfw" then
                 {sourcekind = "mm"}
             )
             add_defines("_GLFW_COCOA")
+            add_mflags("-fno-objc-arc")
             add_frameworks("Cocoa", "IOKit", "CoreFoundation", {public = true})
         elseif target_is_linux then
             add_files(
