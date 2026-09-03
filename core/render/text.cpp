@@ -326,6 +326,8 @@ std::string resolveSystemUiFontPath() {
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         // Fedora / RHEL family (static packages)
         "/usr/share/fonts/google-noto-sans/NotoSans-Regular.ttf",
+        "/usr/share/fonts/google-noto-sans-fonts/NotoSans-Regular.ttf",
+        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/google-noto-sans-cjk/NotoSansCJK-Regular.ttc",
         // Fedora 38+ variable-font packages
         "/usr/share/fonts/google-noto-vf/NotoSans[wght].ttf",
@@ -365,6 +367,7 @@ std::string resolveSystemIconFontPath() {
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
         // Fedora / RHEL family (static packages)
         "/usr/share/fonts/google-noto-sans-symbols2/NotoSansSymbols2-Regular.ttf",
+        "/usr/share/fonts/google-noto-sans-symbols-fonts/NotoSansSymbols-Regular.ttf",
         "/usr/share/fonts/google-noto-sans-symbols/NotoSansSymbols-Regular.ttf",
         "/usr/share/fonts/dejavu/DejaVuSans.ttf",
         // Fedora 38+ variable-font packages
@@ -425,6 +428,7 @@ std::string resolveSystemMonospaceFontPath() {
         "/usr/share/fonts/TTF/Hack-Regular.ttf",
         // Fedora / RHEL family (static packages)
         "/usr/share/fonts/google-noto-sans-mono/NotoSansMono-Regular.ttf",
+        "/usr/share/fonts/google-noto-sans-mono-fonts/NotoSansMono-Regular.ttf",
         // Fedora 38+ variable-font packages
         "/usr/share/fonts/google-noto-vf/NotoSansMono[wght].ttf",
         "/usr/share/fonts/dejavu/DejaVuSansMono.ttf",
