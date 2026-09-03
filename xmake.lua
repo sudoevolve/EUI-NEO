@@ -371,7 +371,7 @@ if window_backend == "glfw" then
         elseif target_is_macos then
             add_files(
                 "3rd/glfw/src/posix_module.c",
-                "3rd/glfw/src/posix_time.c",
+                "3rd/glfw/src/cocoa_time.c",
                 "3rd/glfw/src/posix_thread.c",
                 {sourcekind = "cc"}
             )
