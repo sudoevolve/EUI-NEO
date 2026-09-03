@@ -71,9 +71,9 @@ option("vulkan_low_latency")
 option_end()
 
 option("tray")
-    set_default(true)
+    set_default(false)
     set_showmenu(true)
-    set_description("Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; disable to build without tray support.")
+    set_description("Enable the system tray backend. On Linux, this requires glib/gio or GTK3 + libappindicator.")
 option_end()
 
 function eui_apply_compile_options(target)
