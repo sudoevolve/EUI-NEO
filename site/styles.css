@@ -926,19 +926,32 @@ section {
 .start-tab {
   min-height: 40px;
   padding: 8px 18px;
-  color: var(--muted);
-  border: 1px solid var(--line);
+  color: var(--faint);
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--line));
   border-radius: var(--radius);
-  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
   cursor: pointer;
   font: inherit;
   font-weight: 760;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.start-tab:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--line));
+  background: color-mix(in srgb, var(--primary) 12%, var(--panel));
 }
 
 .start-tab.active {
   color: #fff;
-  border-color: var(--ink);
-  background: var(--ink);
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 28%, transparent);
+}
+
+.start-tab:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 3px;
 }
 
 .start-panel[hidden] {
