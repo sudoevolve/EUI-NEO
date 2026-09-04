@@ -63,6 +63,9 @@ void VulkanRenderBackend::flushTextBatch() {
                        sizeof(constants),
                        &constants);
     vkCmdDraw(commandBuffer, static_cast<std::uint32_t>(batchCount / 5), 1, 0, 0);
+    auto& stats = core::render::currentRenderFrameStats();
+    ++stats.textBatchFlushes;
+    stats.textBatchVertices += static_cast<std::uint64_t>(batchCount / 5);
     invalidateBackdropCapture();
 }
 

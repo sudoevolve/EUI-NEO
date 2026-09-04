@@ -1,6 +1,6 @@
 # EUI-NEO
 
-> EUI-NEO is a lightweight C++17 desktop UI framework. It provides a declarative, builder-based UI DSL, retained rendering, built-in controls, and GLFW or SDL2 window backends with OpenGL or Vulkan rendering. The current stable release is v0.5.8.
+> EUI-NEO is a lightweight C++17 desktop UI framework. It provides a declarative, builder-based UI DSL, retained rendering, built-in controls, and GLFW or SDL2 window backends with OpenGL or Vulkan rendering. The current stable release is v0.5.9.
 
 Use this file as the starting point when answering questions or generating EUI-NEO applications. Prefer the public facade and current examples over inferred APIs.
 
@@ -8,7 +8,7 @@ Canonical sources:
 
 - Website: https://sudoevolve.github.io/EUI-NEO/
 - Repository: https://github.com/sudoevolve/EUI-NEO
-- Stable release: https://github.com/sudoevolve/EUI-NEO/releases/tag/v0.5.8
+- Stable release: https://github.com/sudoevolve/EUI-NEO/releases/tag/v0.5.9
 - Public umbrella header: https://github.com/sudoevolve/EUI-NEO/blob/main/include/eui_neo.h
 - Exported components: https://github.com/sudoevolve/EUI-NEO/blob/main/components/components.h
 
@@ -33,9 +33,9 @@ project(MyProject LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(external/EUI-NEO)
+add_subdirectory(3rd/EUI-NEO)
 
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
@@ -138,7 +138,7 @@ Prefer built-in components before assembling controls from primitives:
 
 Use `components::theme::dark()` or `components::theme::light()` as the base token set. Pass the same tokens and transition through a page for consistent visuals and motion.
 
-## Input API In v0.5.8
+## Input API In v0.5.9
 
 - Keyboard events use `eui::KeyEvent` with `key`, `action`, `modifiers`, and `scanCode`.
 - Text and IME input use `eui::TextInputEvent`; they are separate from key events.
@@ -165,7 +165,7 @@ Current input reference: https://sudoevolve.github.io/EUI-NEO/docs/%E4%BA%8B%E4%
 - Keep `app.cpp` responsible for configuration, the persistent shell, navigation, global overlays, and page dispatch.
 - Keep dependency direction `app.cpp -> pages -> app components -> framework/shared context`; app components must not include page implementation headers.
 
-For generated user projects outside this repository, a normal `app.cpp` plus `CMakeLists.txt` is sufficient until the application needs multiple pages.
+For generated user projects outside this repository, a normal `main.cpp` plus `CMakeLists.txt` is sufficient until the application needs multiple pages.
 
 ## Backends And Build Options
 
@@ -183,8 +183,6 @@ CMake cache options:
 
 Use a separate build directory for each backend combination. Vulkan requires a Vulkan SDK; SDL2 requires SDL2 development files. Linux tray builds require GLib/GIO development files unless tray support is explicitly disabled.
 
-Xmake 2.9 or newer is also supported. External projects should enable `app_runner = true` in `add_requires("eui-neo", {configs = {...}})` and then use `add_packages("eui-neo")`. Repository configuration uses `--window_backend=sdl2`, `--render_backend=vulkan`, `--shared=y`, `--apps=y`, and `--user_apps=y` as needed. The optional FFmpeg example is enabled with `--ffmpeg_video=y`.
-
 ## Accuracy Rules For Code Generation
 
 - Treat public headers and current `main` examples as authoritative when prose and code disagree.
@@ -201,7 +199,7 @@ Xmake 2.9 or newer is also supported. External projects should enable `app_runne
 ## Documentation
 
 - [Quick Start and project overview](https://github.com/sudoevolve/EUI-NEO/blob/main/README.md): canonical app and CMake setup.
-- [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/%E9%9B%86%E6%88%90%E6%8C%87%E5%8D%97.md): SDK, `find_package`, FetchContent, Xmake, and custom-loop boundaries.
+- [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/%E9%9B%86%E6%88%90%E6%8C%87%E5%8D%97.md): SDK, `find_package`, FetchContent, and application entry-point boundaries.
 - [DSL reference](https://sudoevolve.github.io/EUI-NEO/docs/DSL.md): builders, primitives, layout, sizing, transitions, and loaders.
 - [Components](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BB%84%E4%BB%B6.md): component APIs and examples.
 - [State](https://sudoevolve.github.io/EUI-NEO/docs/%E7%8A%B6%E6%80%81.md): persistent state and signals.
@@ -214,7 +212,7 @@ Xmake 2.9 or newer is also supported. External projects should enable `app_runne
 - [Network](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BD%91%E7%BB%9C.md): asynchronous requests and caching.
 - [Async](https://sudoevolve.github.io/EUI-NEO/docs/%E5%BC%82%E6%AD%A5.md): asynchronous tasks and runtime result collection.
 - [Rendering architecture](https://sudoevolve.github.io/EUI-NEO/docs/%E6%B8%B2%E6%9F%93%E5%90%8E%E7%AB%AF%E6%9E%B6%E6%9E%84.md): renderer boundaries and backend flow.
-- [Dynamic textures and image streams](https://sudoevolve.github.io/EUI-NEO/docs/dynamic_texture.md): RGBA8/BGRA8, NV12, I420, P010 frame submission and OpenGL/Vulkan behavior.
+- [Dynamic textures and image streams](https://sudoevolve.github.io/EUI-NEO/docs/%E5%8A%A8%E6%80%81%E7%BA%B9%E7%90%86.md): RGBA8/BGRA8, NV12, I420, P010 frame submission and OpenGL/Vulkan behavior.
 - [Retained layer cache](https://sudoevolve.github.io/EUI-NEO/docs/retained_layer_cache.md): cache lifecycle, constraints, and backend behavior.
 - [ShaderToy](https://sudoevolve.github.io/EUI-NEO/docs/Shadertoy.md): pass graphs and OpenGL/Vulkan shader contracts.
 - [Runnable examples](https://github.com/sudoevolve/EUI-NEO/tree/main/examples): compact API demonstrations.

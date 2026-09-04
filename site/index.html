@@ -171,81 +171,37 @@
         <div class="section-heading">
           <span class="section-index">05 / BUILD</span>
           <p class="eyebrow" data-i18n="start.eyebrow">Quick Start</p>
-          <h2 data-i18n="start.title">选择你的构建方式</h2>
-          <p data-i18n="start.lede">CMake 和 Xmake 提供同等的开箱即用应用入口；选择一种方式开始。</p>
+          <h2 data-i18n="start.title">把 EUI-NEO 接入你的 CMake 项目</h2>
+          <p data-i18n="start.lede">只需一个应用源文件；框架负责入口、链接选项和运行资源。</p>
         </div>
-        <div class="start-tabs" role="tablist">
-          <button class="start-tab active" type="button" role="tab" aria-selected="true" data-start-tab="cmake">CMake</button>
-          <button class="start-tab" type="button" role="tab" aria-selected="false" data-start-tab="xmake">Xmake</button>
-        </div>
-        <div class="start-panel active" data-start-panel="cmake">
-          <div class="start-steps">
-            <article class="start-step">
-              <span>01</span>
-              <h3 data-i18n="start.cmake">配置目标</h3>
-              <pre><code>add_subdirectory(external/EUI-NEO)
+        <div class="start-steps">
+          <article class="start-step">
+            <span>01</span>
+            <h3 data-i18n="start.cmake">配置目标</h3>
+            <pre><code>add_subdirectory(3rd/EUI-NEO)
 
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)</code></pre>
-            </article>
-            <article class="start-step">
-              <span>02</span>
-              <h3 data-i18n="start.app">实现应用</h3>
-              <pre><code>#include "eui_neo.h"
+          </article>
+          <article class="start-step">
+            <span>02</span>
+            <h3 data-i18n="start.app">实现应用</h3>
+            <pre><code>#include "eui_neo.h"
 
 namespace app {
 const DslAppConfig& dslAppConfig();
 void compose(eui::Ui&, const eui::Screen&);
 }</code></pre>
-            </article>
-            <article class="start-step">
-              <span>03</span>
-              <h3 data-i18n="start.build">构建运行</h3>
-              <pre><code>cmake -S . -B build
-cmake --build build --parallel
-./build/my_app</code></pre>
-            </article>
-          </div>
-        </div>
-        <div class="start-panel" data-start-panel="xmake" hidden>
-          <div class="start-steps">
-            <article class="start-step">
-              <span>01</span>
-              <h3 data-i18n="start.xmakeConfig">编写 xmake.lua</h3>
-              <pre><code>set_languages("cxx17")
+          </article>
+          <article class="start-step">
+            <span>03</span>
+            <h3 data-i18n="start.build">构建运行</h3>
+            <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
 
-add_requires("eui-neo", {configs = {app_runner = true}})
-
-target("hello")
-    set_kind("binary")
-    add_files("main.cpp")
-    add_packages("eui-neo")
-target_end()</code></pre>
-            </article>
-            <article class="start-step">
-              <span>02</span>
-              <h3 data-i18n="start.xmakeApp">编写 main.cpp</h3>
-              <pre><code>#include "eui_neo.h"
-
-namespace app {
-const DslAppConfig& dslAppConfig() {
-    static const DslAppConfig config = DslAppConfig{}
-        .title("Hello EUI-NEO").pageId("hello").windowSize(960, 640);
-    return config;
-}
-
-void compose(eui::Ui& ui, const eui::Screen& screen) {
-    ui.text("title").text("Hello EUI-NEO").fontSize(28.0f).build();
-}
-}</code></pre>
-            </article>
-            <article class="start-step">
-              <span>03</span>
-              <h3 data-i18n="start.xmakeBuild">构建并运行</h3>
-              <pre><code>xmake
-xmake run</code></pre>
-            </article>
-          </div>
+# Windows: .\\build\\Release\\my_app.exe
+# Linux/macOS: ./build/my_app</code></pre>
+          </article>
         </div>
         <div class="start-links">
           <a class="primary-action" id="quickStartLink" href="../README.zh-CN.md#快速开始" data-i18n="start.readme">Quick Start</a>

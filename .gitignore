@@ -6,7 +6,6 @@
 /build-check
 .DS_Store
 /docs/releases/*
-!/docs/releases/v0.5.8.md
 /tmp/
 /temp/
 /.github/skills/
@@ -17,4 +16,3 @@
 /Android/app/build/
 /Android/build/
 /Android/local.properties
-/.xmake/

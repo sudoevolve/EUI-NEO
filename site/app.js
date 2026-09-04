@@ -192,7 +192,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/dynamic_texture.md",
+    href: "../docs/动态纹理.md",
     zh: {
       title: "动态纹理与图像流",
       desc: "RGBA8/BGRA8、NV12、I420、P010 动态帧提交，以及 OpenGL/Vulkan 后端行为。"
@@ -299,11 +299,11 @@ const docs = [
     href: "../docs/集成指南.md",
     zh: {
       title: "集成指南",
-      desc: "Quick Start、安装 SDK、FetchContent 和 Xmake 选项。"
+      desc: "Quick Start、安装 SDK 和 FetchContent。"
     },
     en: {
       title: "Integration Guide",
-      desc: "Quick Start, SDK installation, FetchContent, and Xmake options."
+      desc: "Quick Start, SDK installation, and FetchContent."
     },
     tags: "integration cmake sdk install find_package fetchcontent app"
   },

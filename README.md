@@ -38,7 +38,7 @@ Requirements:
 - A C++17 compiler: MSVC 19.29+ (Visual Studio 2019 16.11+), GCC/MinGW-w64 12+, or Clang 14+
 - OpenGL development files for the default renderer
 
-Add EUI-NEO under `external/EUI-NEO`, then create:
+Add EUI-NEO under `3rd/EUI-NEO`, then create:
 
 ```cmake
 cmake_minimum_required(VERSION 3.14)
@@ -47,13 +47,13 @@ project(MyProject LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(external/EUI-NEO)
+add_subdirectory(3rd/EUI-NEO)
 
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-`app.cpp`:
+`main.cpp`:
 
 ```cpp
 #include "eui_neo.h"
@@ -88,7 +88,18 @@ Build:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+cmake --build build --config Release --parallel
+```
+
+On Windows with the Visual Studio generator, run:
+
+```powershell
+.\build\Release\my_app.exe
+```
+
+On Linux or macOS, run:
+
+```sh
 ./build/my_app
 ```
 
@@ -98,46 +109,15 @@ The release SDK supports the same target setup:
 
 ```cmake
 find_package(EuiNeo CONFIG REQUIRED)
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, SDL2/Vulkan selection, and Xmake options. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
-
-### Xmake
-
-Xmake 2.9+ is supported for source builds and xrepo library consumers:
-
-```lua
-set_languages("cxx17")
-add_requires("eui-neo", {configs = {app_runner = true}})
-
-target("hello")
-    set_kind("binary")
-    add_files("main.cpp")
-    add_packages("eui-neo")
-```
-
-With `app_runner = true`, EUI-NEO supplies the window, input, rendering, and
-application loop. `main.cpp` only implements `app::dslAppConfig()` and
-`app::compose(...)`. When building this repository directly, the `eui.app`
-rule adds the selected platform entry point and deploys assets.
-
-Build a repository example:
-
-```powershell
-xmake f -m debug -y --apps=y --user_apps=y
-xmake build gallery
-xmake f -m release -y --apps=y --user_apps=y
-xmake build gallery
-```
-
-On Windows, the executable is `.xmake/build/windows/x64/<debug|release>/gallery.exe`.
-See the [Integration Guide](docs/集成指南.md) for backend options and other targets.
+See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, and SDL2/Vulkan selection. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
 
 ## Optional Modules
 
-Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/modules.md).
+Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/模块.md).
 
 ## Project Layout
 
@@ -158,7 +138,7 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 
 - [DSL Design And Current Implementation](docs/DSL.md)
 - [Components](docs/组件.md)
-- [Modules](docs/modules.md)
+- [Modules](docs/模块.md)
 - [State Model](docs/状态.md)
 - [Layout](docs/布局.md)
 - [Events](docs/事件.md)

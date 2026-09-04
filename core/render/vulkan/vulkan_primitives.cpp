@@ -84,6 +84,7 @@ void VulkanRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
         backdropCaptureLeft_ == left && backdropCaptureTop_ == top &&
         backdropCaptureWidth_ == captureWidth && backdropCaptureHeight_ == captureHeight) {
         backdropReady_ = true;
+        ++core::render::currentRenderFrameStats().backdropCaptureReuses;
         return;
     }
 
@@ -142,6 +143,7 @@ void VulkanRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
     backdropCaptureTop_ = top;
     backdropCaptureWidth_ = captureWidth;
     backdropCaptureHeight_ = captureHeight;
+    ++core::render::currentRenderFrameStats().backdropCaptures;
     beginLoadPass();
 }
 

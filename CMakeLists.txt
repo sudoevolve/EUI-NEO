@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(EUI-NEO VERSION 0.5.8)
+project(EUI-NEO VERSION 0.5.9)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -135,6 +135,8 @@ function(eui_apply_compile_options target_name)
 endfunction()
 
 function(eui_apply_app_link_options target_name)
+    get_property(_eui_build_shared GLOBAL PROPERTY EUI_NEO_BUILD_SHARED)
+    get_property(_eui_mingw_static_link_options GLOBAL PROPERTY EUI_NEO_MINGW_STATIC_LINK_OPTIONS)
     if(MSVC)
         set_target_properties(${target_name} PROPERTIES VS_GLOBAL_VcpkgXUseBuiltInApplocalDeps true)
         target_link_options(${target_name} PRIVATE
@@ -150,8 +152,8 @@ function(eui_apply_app_link_options target_name)
             $<$<NOT:$<CONFIG:Debug>>:-s>
             -mwindows
         )
-        if(NOT EUI_BUILD_SHARED)
-            target_link_options(${target_name} PRIVATE ${EUI_MINGW_STATIC_LINK_OPTIONS})
+        if(NOT _eui_build_shared)
+            target_link_options(${target_name} PRIVATE ${_eui_mingw_static_link_options})
         endif()
     elseif(APPLE)
         target_link_options(${target_name} PRIVATE $<$<NOT:$<CONFIG:Debug>>:-Wl,-dead_strip>)
@@ -328,6 +330,11 @@ else()
     set(EUI_APP_MAIN_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/core/app/glfw_app_main.cpp")
 endif()
 
+# App helpers can be called by a parent project after add_subdirectory(). Keep
+# the generated entry source in a global property because normal CMake
+# variables from this directory are not visible in the parent's call scope.
+set_property(GLOBAL PROPERTY EUI_NEO_APP_MAIN_SOURCE "${EUI_APP_MAIN_SOURCE}")
+
 target_link_libraries(eui_neo PUBLIC Freetype::Freetype)
 
 # -----------------------------------------------------------------------------
@@ -390,6 +397,7 @@ if(WIN32)
     file(WRITE "${APP_ICON_RC}" "IDI_APP_ICON ICON \"${APP_ICON_ICO_ESCAPED}\"\n")
     set(APP_ICON_RESOURCE "${APP_ICON_RC}")
 endif()
+set_property(GLOBAL PROPERTY EUI_NEO_APP_ICON_RESOURCE "${APP_ICON_RESOURCE}")
 
 set(EUI_SHARED_ASSET_TARGET)
 if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR AND EXISTS "${EUI_APP_ASSETS_DIR}")
@@ -403,16 +411,23 @@ if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR AND EXISTS "${EUI_APP_ASSETS_DIR
     )
     set(EUI_SHARED_ASSET_TARGET eui_neo_runtime_assets)
 endif()
+set_property(GLOBAL PROPERTY EUI_NEO_APP_ASSETS_DIR "${EUI_APP_ASSETS_DIR}")
+set_property(GLOBAL PROPERTY EUI_NEO_SHARED_ASSET_TARGET "${EUI_SHARED_ASSET_TARGET}")
+set_property(GLOBAL PROPERTY EUI_NEO_BUILD_SHARED "${EUI_BUILD_SHARED}")
+set_property(GLOBAL PROPERTY EUI_NEO_WINDOW_BACKEND "${EUI_WINDOW_BACKEND}")
+set_property(GLOBAL PROPERTY EUI_NEO_MINGW_STATIC_LINK_OPTIONS "${EUI_MINGW_STATIC_LINK_OPTIONS}")
 
 function(eui_neo_copy_assets target_name)
-    if(EUI_SHARED_ASSET_TARGET)
-        add_dependencies(${target_name} ${EUI_SHARED_ASSET_TARGET})
-    elseif(EXISTS "${EUI_APP_ASSETS_DIR}")
+    get_property(_eui_shared_asset_target GLOBAL PROPERTY EUI_NEO_SHARED_ASSET_TARGET)
+    get_property(_eui_app_assets_dir GLOBAL PROPERTY EUI_NEO_APP_ASSETS_DIR)
+    if(_eui_shared_asset_target)
+        add_dependencies(${target_name} ${_eui_shared_asset_target})
+    elseif(EXISTS "${_eui_app_assets_dir}")
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory
                 "$<TARGET_FILE_DIR:${target_name}>/assets"
             COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${EUI_APP_ASSETS_DIR}"
+                "${_eui_app_assets_dir}"
                 "$<TARGET_FILE_DIR:${target_name}>/assets"
             VERBATIM
         )
@@ -420,7 +435,9 @@ function(eui_neo_copy_assets target_name)
 endfunction()
 
 function(eui_neo_copy_runtime_dependencies target_name)
-    if(EUI_BUILD_SHARED AND EUI_WINDOW_BACKEND STREQUAL "glfw")
+    get_property(_eui_build_shared GLOBAL PROPERTY EUI_NEO_BUILD_SHARED)
+    get_property(_eui_window_backend GLOBAL PROPERTY EUI_NEO_WINDOW_BACKEND)
+    if(_eui_build_shared AND _eui_window_backend STREQUAL "glfw")
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 $<TARGET_FILE:glfw>
@@ -439,7 +456,14 @@ function(eui_neo_copy_app_assets target_name asset_dir)
 endfunction()
 
 function(eui_neo_configure_app target_name)
-    target_sources(${target_name} PRIVATE "${EUI_APP_MAIN_SOURCE}" ${APP_ICON_RESOURCE})
+    get_property(_eui_app_main_source GLOBAL PROPERTY EUI_NEO_APP_MAIN_SOURCE)
+    get_property(_eui_app_icon_resource GLOBAL PROPERTY EUI_NEO_APP_ICON_RESOURCE)
+    if(NOT _eui_app_main_source)
+        message(FATAL_ERROR
+            "EUI app entry source is unavailable. Ensure EUI-NEO is configured "
+            "before calling eui_neo_configure_app().")
+    endif()
+    target_sources(${target_name} PRIVATE "${_eui_app_main_source}" ${_eui_app_icon_resource})
     target_link_libraries(${target_name} PRIVATE eui::neo)
     eui_apply_compile_options(${target_name})
     eui_apply_app_link_options(${target_name})
@@ -804,6 +828,8 @@ set(EUI_NEO_ENABLE_MARKDOWN @EUI_ENABLE_MARKDOWN@)
 set(EUI_NEO_ENABLE_MODULES @EUI_ENABLE_MODULES@)
 set(EUI_APP_MAIN_SOURCE "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/eui-neo/app/app_main.cpp")
 set(EUI_APP_ASSETS_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/eui-neo/assets")
+set_property(GLOBAL PROPERTY EUI_NEO_APP_MAIN_SOURCE "${EUI_APP_MAIN_SOURCE}")
+set_property(GLOBAL PROPERTY EUI_NEO_APP_ASSETS_DIR "${EUI_APP_ASSETS_DIR}")
 
 find_dependency(Threads)
 
@@ -831,12 +857,13 @@ endif()
 include("${CMAKE_CURRENT_LIST_DIR}/EuiNeoTargets.cmake")
 
 function(eui_neo_copy_assets target_name)
-    if(EXISTS "${EUI_APP_ASSETS_DIR}")
+    get_property(_eui_app_assets_dir GLOBAL PROPERTY EUI_NEO_APP_ASSETS_DIR)
+    if(EXISTS "${_eui_app_assets_dir}")
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory
                 "$<TARGET_FILE_DIR:${target_name}>/assets"
             COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${EUI_APP_ASSETS_DIR}"
+                "${_eui_app_assets_dir}"
                 "$<TARGET_FILE_DIR:${target_name}>/assets"
             VERBATIM
         )
@@ -844,7 +871,13 @@ function(eui_neo_copy_assets target_name)
 endfunction()
 
 function(eui_neo_configure_app target_name)
-    target_sources(${target_name} PRIVATE "${EUI_APP_MAIN_SOURCE}")
+    get_property(_eui_app_main_source GLOBAL PROPERTY EUI_NEO_APP_MAIN_SOURCE)
+    if(NOT _eui_app_main_source)
+        message(FATAL_ERROR
+            "EUI app entry source is unavailable. Ensure EuiNeo is found "
+            "before calling eui_neo_configure_app().")
+    endif()
+    target_sources(${target_name} PRIVATE "${_eui_app_main_source}")
     target_link_libraries(${target_name} PRIVATE eui::neo)
     if(MSVC)
         target_compile_options(${target_name} PRIVATE /utf-8)

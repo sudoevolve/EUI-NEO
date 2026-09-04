@@ -207,11 +207,32 @@ void failedNativeUpdateFallsBackToRgba() {
     assert(backend.destroys == 2);
 }
 
+void staticImagesBecomeRetainedReadyOnlyAfterUpload() {
+    DynamicTextureBackend backend;
+    core::render::ScopedRenderBackend scopedBackend(backend);
+    core::ImagePrimitive image;
+    image.initialize();
+    image.setSvgSource("retained-ready", "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2\" height=\"2\"><rect width=\"2\" height=\"2\" fill=\"#ffffff\"/></svg>");
+    image.setBounds(0.0f, 0.0f, 2.0f, 2.0f);
+
+    assert(!image.isRetainedLayerReady());
+    assert(image.updateTexture());
+    assert(!image.isRetainedLayerReady());
+    image.render(2, 2);
+    assert(image.isRetainedLayerReady());
+
+    auto stream = std::make_shared<core::render::ImageStream>();
+    image.setStream(stream);
+    assert(!image.isRetainedLayerReady());
+    image.destroy();
+}
+
 } // namespace
 
 int main() {
     nativeDynamicTexturesRecreateForFormatChanges();
     unsupportedNativeTexturesUseRgbaFallback();
     failedNativeUpdateFallsBackToRgba();
+    staticImagesBecomeRetainedReadyOnlyAfterUpload();
     return 0;
 }

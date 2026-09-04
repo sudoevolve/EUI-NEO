@@ -40,7 +40,7 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 - 支持 C++17 的编译器：MSVC 19.29+（Visual Studio 2019 16.11+）、GCC/MinGW-w64 12+ 或 Clang 14+
 - 默认渲染器所需的 OpenGL 开发文件
 
-把 EUI-NEO 放到 `external/EUI-NEO`，然后创建：
+把 EUI-NEO 放到 `3rd/EUI-NEO`，然后创建：
 
 ```cmake
 cmake_minimum_required(VERSION 3.14)
@@ -49,13 +49,13 @@ project(MyProject LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(external/EUI-NEO)
+add_subdirectory(3rd/EUI-NEO)
 
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-`app.cpp`：
+`main.cpp`：
 
 ```cpp
 #include "eui_neo.h"
@@ -90,7 +90,18 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+cmake --build build --config Release --parallel
+```
+
+Windows 使用 Visual Studio 生成器时运行：
+
+```powershell
+.\build\Release\my_app.exe
+```
+
+Linux 或 macOS 运行：
+
+```sh
 ./build/my_app
 ```
 
@@ -100,40 +111,11 @@ Release SDK 使用同一套目标配置：
 
 ```cmake
 find_package(EuiNeo CONFIG REQUIRED)
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-安装、`FetchContent`、SDL2/Vulkan 选择和 Xmake 选项见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
-
-### Xmake
-
-Xmake 2.9+ 支持源码构建和 xrepo 接入：
-
-```lua
-set_languages("cxx17")
-add_requires("eui-neo", {configs = {app_runner = true}})
-
-target("hello")
-    set_kind("binary")
-    add_files("main.cpp")
-    add_packages("eui-neo")
-```
-
-启用 `app_runner` 后，EUI-NEO 会提供窗口、输入、渲染和应用主循环，
-`main.cpp` 只需实现 `app::dslAppConfig()` 和 `app::compose(...)`。
-
-直接构建仓库示例：
-
-```powershell
-xmake f -m debug -y --apps=y --user_apps=y
-xmake build gallery
-xmake f -m release -y --apps=y --user_apps=y
-xmake build gallery
-```
-
-Windows 产物在 `.xmake/build/windows/x64/<debug|release>/gallery.exe`。
-SDL2、Vulkan 和共享库选项见 [集成指南](docs/集成指南.md)。
+安装、`FetchContent` 和 SDL2/Vulkan 选择见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
 
 ## 可选模块
 
