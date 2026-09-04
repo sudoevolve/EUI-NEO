@@ -194,7 +194,12 @@ jobs:
           $tag = "${{ github.ref_name }}"
           gh release view $tag | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title $tag --notes ""
+            $notes = "docs/releases/$tag.md"
+            if (Test-Path $notes) {
+              gh release create $tag --title "EUI-NEO $tag" --notes-file $notes
+            } else {
+              gh release create $tag --title "EUI-NEO $tag" --notes ""
+            }
             if ($LASTEXITCODE -ne 0) {
               gh release view $tag | Out-Null
               if ($LASTEXITCODE -ne 0) { throw "Failed to create or find release $tag." }
@@ -211,7 +216,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${GITHUB_REF_NAME}"
-          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --notes "" || gh release view "$tag" >/dev/null
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            if [ -f "docs/releases/$tag.md" ]; then
+              gh release create "$tag" --title "EUI-NEO $tag" --notes-file "docs/releases/$tag.md" || gh release view "$tag" >/dev/null
+            else
+              gh release create "$tag" --title "EUI-NEO $tag" --notes "" || gh release view "$tag" >/dev/null
+            fi
+          fi
           find dist -maxdepth 1 -type f -name '*.tar.gz' -print0 | while IFS= read -r -d '' asset; do
             gh release upload "$tag" "$asset" --clobber
           done
