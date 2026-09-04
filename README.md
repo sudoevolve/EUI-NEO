@@ -117,7 +117,7 @@ See the [Integration Guide](docs/集成指南.md) for installation, `FetchConten
 
 ## Optional Modules
 
-Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/modules.md).
+Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/模块.md).
 
 ## Project Layout
 
@@ -138,7 +138,7 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 
 - [DSL Design And Current Implementation](docs/DSL.md)
 - [Components](docs/组件.md)
-- [Modules](docs/modules.md)
+- [Modules](docs/模块.md)
 - [State Model](docs/状态.md)
 - [Layout](docs/布局.md)
 - [Events](docs/事件.md)

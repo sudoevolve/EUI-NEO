@@ -186,7 +186,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/dynamic_texture.md",
+    href: "../docs/动态纹理.md",
     zh: {
       title: "动态纹理与图像流",
       desc: "RGBA8/BGRA8、NV12、I420、P010 动态帧提交，以及 OpenGL/Vulkan 后端行为。"
