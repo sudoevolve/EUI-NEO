@@ -19,6 +19,9 @@ foreach(_eui_candidate IN LISTS _eui_third_party_entries)
         list(APPEND EUI_THIRD_PARTY_SOURCE_DIRS "${_eui_candidate}")
     endif()
 endforeach()
+if(EXISTS "${EUI_THIRD_PARTY_DIR}/miniaudio.h")
+    list(APPEND EUI_THIRD_PARTY_SOURCE_DIRS "${EUI_THIRD_PARTY_DIR}")
+endif()
 unset(_eui_candidate)
 unset(_eui_third_party_entries)
 
@@ -206,6 +209,23 @@ function(eui_silence_third_party_warnings target_name)
         target_compile_options(${target_name} PRIVATE $<$<NOT:$<CONFIG:Debug>>:-w>)
     endif()
 endfunction()
+
+set(EUI_MINIAUDIO_DIR "")
+if(EUI_ENABLE_AUDIO)
+    eui_find_bundled_dependency(EUI_MINIAUDIO_DIR miniaudio miniaudio.h)
+    if(NOT EUI_MINIAUDIO_DIR)
+        eui_fetch_dependency(
+            EUI_MINIAUDIO_DIR
+            miniaudio
+            "https://github.com/mackron/miniaudio/archive/refs/tags/0.11.21.zip")
+    endif()
+    if(NOT EXISTS "${EUI_MINIAUDIO_DIR}/miniaudio.h")
+        message(FATAL_ERROR
+            "miniaudio.h was not found after dependency setup. "
+            "Provide 3rd/miniaudio.h or disable EUI_ENABLE_AUDIO.")
+    endif()
+    message(STATUS "Using miniaudio: ${EUI_MINIAUDIO_DIR}/miniaudio.h")
+endif()
 
 if(EUI_WINDOW_BACKEND STREQUAL "glfw")
     eui_set_third_party_option(GLFW_BUILD_EXAMPLES OFF "Build the GLFW example programs")

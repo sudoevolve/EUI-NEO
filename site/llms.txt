@@ -207,6 +207,7 @@ Use a separate build directory for each backend combination. Vulkan requires a V
 - [Events](https://sudoevolve.github.io/EUI-NEO/docs/%E4%BA%8B%E4%BB%B6.md): current keyboard, text, pointer, focus, and input dispatch.
 - [Animation](https://sudoevolve.github.io/EUI-NEO/docs/%E5%8A%A8%E7%94%BB.md): transitions, easing, and transforms.
 - [Images](https://sudoevolve.github.io/EUI-NEO/docs/%E5%9B%BE%E7%89%87.md): local/remote images, SVG, GIF, and caching.
+- [Audio](https://sudoevolve.github.io/EUI-NEO/docs/audio.md): miniaudio-backed playback, `eui::audio::Player`, resource paths, errors, and music-synchronized animation.
 - [Platform capabilities](https://sudoevolve.github.io/EUI-NEO/docs/%E5%B9%B3%E5%8F%B0%E8%83%BD%E5%8A%9B.md): windows, dialogs, URLs, clipboard, and tray.
 - [Modules](https://sudoevolve.github.io/EUI-NEO/docs/%E6%A8%A1%E5%9D%97.md): optional keyboard and serial modules.
 - [Network](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BD%91%E7%BB%9C.md): asynchronous requests and caching.

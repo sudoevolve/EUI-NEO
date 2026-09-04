@@ -293,6 +293,19 @@ const docs = [
     tags: "image svg gif texture cache remote"
   },
   {
+    category: "core",
+    href: "../docs/audio.md",
+    zh: {
+      title: "音频",
+      desc: "miniaudio 播放器、资源路径、错误处理和配乐卡点同步。"
+    },
+    en: {
+      title: "Audio",
+      desc: "miniaudio playback, resource paths, errors, and music-synchronized animation."
+    },
+    tags: "audio miniaudio player music beat sync position duration mp3 wav flac ogg"
+  },
+  {
     category: "platform",
     href: "../docs/平台能力.md",
     zh: {

@@ -2,6 +2,7 @@
 
 #include "eui/dsl_app.h"
 #include "eui/dsl.h"
+#include "eui/audio.h"
 #include "eui/image.h"
 #include "eui/json.h"
 #include "eui/network.h"

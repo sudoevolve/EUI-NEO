@@ -161,6 +161,8 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 
 ## License
 
+音频播放 API 参见 [音频文档](docs/audio.md)。
+
 EUI-NEO's original source code is licensed under the Apache License 2.0. Third-party code under `3rd/`, optional build-time dependencies fetched by CMake, and bundled fonts or icon fonts under `assets/` follow their respective upstream licenses and copyright notices.
 
 ## Contributors
