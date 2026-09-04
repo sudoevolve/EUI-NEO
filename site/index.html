@@ -180,10 +180,27 @@
             <h3 data-i18n="start.cmake">CMakeLists.txt</h3>
             <div class="code-block">
               <button class="code-copy" type="button" data-i18n="start.copy">复制</button>
-              <pre><code>include(FetchContent)
+            <pre><code>cmake_minimum_required(VERSION 3.14)
+project(my_app LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(FetchContent)
+
+set(eui_neo_repository "https://github.com/sudoevolve/EUI-NEO.git")
+execute_process(
+  COMMAND git ls-remote ${eui_neo_repository} HEAD
+  RESULT_VARIABLE eui_neo_github_status
+  OUTPUT_QUIET ERROR_QUIET
+  TIMEOUT 8
+)
+if(NOT eui_neo_github_status EQUAL 0)
+  set(eui_neo_repository "https://atomgit.com/sudoevolve/EUI-NEO.git")
+endif()
 
 FetchContent_Declare(eui_neo
-  GIT_REPOSITORY https://github.com/sudoevolve/EUI-NEO.git
+  GIT_REPOSITORY ${eui_neo_repository}
   GIT_TAG main
   GIT_SHALLOW TRUE
 )

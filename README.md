@@ -40,6 +40,12 @@ Requirements:
 
 Add EUI-NEO under `3rd/EUI-NEO`, then create:
 
+If the GitHub clone fails, use the AtomGit mirror as a fallback:
+
+```sh
+git clone https://atomgit.com/sudoevolve/EUI-NEO.git 3rd/EUI-NEO
+```
+
 ```cmake
 cmake_minimum_required(VERSION 3.14)
 project(MyProject LANGUAGES C CXX)

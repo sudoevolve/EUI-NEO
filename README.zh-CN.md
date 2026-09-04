@@ -19,7 +19,7 @@
   ·
   <a href="https://sudoevolve.github.io/EUI-NEO/">官网</a>
   ·
-  <a href="https://atomgit.com/2302_80112087/EUI-NEO">AtomGit镜像</a>
+  <a href="https://atomgit.com/sudoevolve/EUI-NEO">AtomGit镜像</a>
 </p>
 
 EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 GLFW/SDL2 窗口后端和 OpenGL/Vulkan 渲染后端。
@@ -41,6 +41,12 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 - 默认渲染器所需的 OpenGL 开发文件
 
 把 EUI-NEO 放到 `3rd/EUI-NEO`，然后创建：
+
+如果 GitHub 拉取失败，再使用 AtomGit 国内镜像：
+
+```sh
+git clone https://atomgit.com/sudoevolve/EUI-NEO.git 3rd/EUI-NEO
+```
 
 ```cmake
 cmake_minimum_required(VERSION 3.14)

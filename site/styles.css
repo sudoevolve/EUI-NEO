@@ -1021,6 +1021,12 @@ section {
   background: color-mix(in srgb, var(--primary) 22%, #11151d);
 }
 
+:root[data-theme="light"] .code-copy {
+  color: #dfe8f7;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(17, 21, 29, 0.86);
+}
+
 .start-links {
   display: flex;
   flex-wrap: wrap;
