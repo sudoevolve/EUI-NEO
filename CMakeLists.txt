@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(EUI-NEO VERSION 0.5.8)
+project(EUI-NEO VERSION 0.5.9)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
