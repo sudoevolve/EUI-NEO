@@ -46,7 +46,7 @@ const copy = {
     "components.lede": "按钮、输入、弹层、选择器、图表、Markdown 和数据表都只组合 DSL 树，不穿透后端 primitive。",
     "start.eyebrow": "Quick Start",
     "start.title": "选择你的构建方式",
-    "start.lede": "CMake 和 Xmake 提供同等的开箱即用应用入口；选择一种方式开始。",
+    "start.lede": "只需一个应用源文件；框架负责入口、链接选项和运行资源。",
     "start.cmake": "配置目标",
     "start.app": "实现应用",
     "start.build": "构建运行",
@@ -104,7 +104,7 @@ const copy = {
     "components.lede": "Buttons, inputs, popups, pickers, charts, Markdown, and data tables compose DSL trees without touching backend primitives.",
     "start.eyebrow": "Quick Start",
     "start.title": "Choose your build workflow",
-    "start.lede": "CMake and Xmake provide the same turnkey application entry point; choose one to get started.",
+    "start.lede": "Create one application source file; the framework provides the entry point, link options, and runtime assets.",
     "start.cmake": "Configure target",
     "start.app": "Implement app",
     "start.build": "Build and run",
@@ -701,11 +701,10 @@ themeButton.addEventListener("click", () => {
 if (quickStartLink) {
   quickStartLink.addEventListener("click", (event) => {
     event.preventDefault();
-    const isChinese = currentLang === "zh";
     openReader({
       category: "workflow",
-      href: isChinese ? "../README.zh-CN.md" : "../README.md",
-      section: isChinese ? "快速开始" : "Quick Start",
+      href: "../docs/集成指南.md",
+      section: "选择接入方式",
       zh: { title: "Quick Start" },
       en: { title: "Quick Start" }
     });
