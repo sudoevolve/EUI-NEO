@@ -171,14 +171,21 @@
         <div class="section-heading">
           <span class="section-index">05 / BUILD</span>
           <p class="eyebrow" data-i18n="start.eyebrow">Quick Start</p>
-          <h2 data-i18n="start.title">把 EUI-NEO 接入你的 CMake 项目</h2>
-          <p data-i18n="start.lede">只需一个应用源文件；框架负责入口、链接选项和运行资源。</p>
+          <h2 data-i18n="start.title">使用 FetchContent 快速开始</h2>
+          <p data-i18n="start.lede">只需一个 CMakeLists.txt 和一个 main.cpp，CMake 会自动拉取 EUI-NEO。</p>
         </div>
         <div class="start-steps">
           <article class="start-step">
             <span>01</span>
-            <h3 data-i18n="start.cmake">配置目标</h3>
-            <pre><code>add_subdirectory(3rd/EUI-NEO)
+            <h3 data-i18n="start.cmake">声明 FetchContent 依赖</h3>
+            <pre><code>include(FetchContent)
+
+FetchContent_Declare(eui_neo
+  GIT_REPOSITORY https://github.com/sudoevolve/EUI-NEO.git
+  GIT_TAG v0.5.9
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(eui_neo)
 
 add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)</code></pre>
