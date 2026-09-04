@@ -183,8 +183,6 @@ CMake cache options:
 
 Use a separate build directory for each backend combination. Vulkan requires a Vulkan SDK; SDL2 requires SDL2 development files. Linux tray builds require GLib/GIO development files unless tray support is explicitly disabled.
 
-Xmake 2.9 or newer is also supported. External projects should enable `app_runner = true` in `add_requires("eui-neo", {configs = {...}})` and then use `add_packages("eui-neo")`. Repository configuration uses `--window_backend=sdl2`, `--render_backend=vulkan`, `--shared=y`, `--apps=y`, and `--user_apps=y` as needed. The optional FFmpeg example is enabled with `--ffmpeg_video=y`.
-
 ## Accuracy Rules For Code Generation
 
 - Treat public headers and current `main` examples as authoritative when prose and code disagree.
@@ -201,7 +199,7 @@ Xmake 2.9 or newer is also supported. External projects should enable `app_runne
 ## Documentation
 
 - [Quick Start and project overview](https://github.com/sudoevolve/EUI-NEO/blob/main/README.md): canonical app and CMake setup.
-- [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/%E9%9B%86%E6%88%90%E6%8C%87%E5%8D%97.md): SDK, `find_package`, FetchContent, Xmake, and custom-loop boundaries.
+- [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/%E9%9B%86%E6%88%90%E6%8C%87%E5%8D%97.md): SDK, `find_package`, FetchContent, and application entry-point boundaries.
 - [DSL reference](https://sudoevolve.github.io/EUI-NEO/docs/DSL.md): builders, primitives, layout, sizing, transitions, and loaders.
 - [Components](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BB%84%E4%BB%B6.md): component APIs and examples.
 - [State](https://sudoevolve.github.io/EUI-NEO/docs/%E7%8A%B6%E6%80%81.md): persistent state and signals.

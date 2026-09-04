@@ -162,7 +162,7 @@ endif()
 fragment、SPIR-V 和图片的相对路径都以该目录为基准。
 
 EUI Shadertoy 只有一种 JSON 配置契约，不使用版本字段。配置文件是唯一的 Pass 图描述，
-CMake 和 xmake 会从该文件自动发现所有 Pass，并在 Vulkan 构建中生成对应的 SPIR-V 文件。
+CMake 会从该文件自动发现所有 Pass，并在 Vulkan 构建中生成对应的 SPIR-V 文件。
 
 ```json
 {

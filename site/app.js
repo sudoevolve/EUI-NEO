@@ -293,11 +293,11 @@ const docs = [
     href: "../docs/集成指南.md",
     zh: {
       title: "集成指南",
-      desc: "Quick Start、安装 SDK、FetchContent 和 Xmake 选项。"
+      desc: "Quick Start、安装 SDK 和 FetchContent。"
     },
     en: {
       title: "Integration Guide",
-      desc: "Quick Start, SDK installation, FetchContent, and Xmake options."
+      desc: "Quick Start, SDK installation, and FetchContent."
     },
     tags: "integration cmake sdk install find_package fetchcontent app"
   },

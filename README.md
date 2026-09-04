@@ -102,38 +102,7 @@ add_executable(my_app app.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, SDL2/Vulkan selection, and Xmake options. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
-
-### Xmake
-
-Xmake 2.9+ is supported for source builds and xrepo library consumers:
-
-```lua
-set_languages("cxx17")
-add_requires("eui-neo", {configs = {app_runner = true}})
-
-target("hello")
-    set_kind("binary")
-    add_files("main.cpp")
-    add_packages("eui-neo")
-```
-
-With `app_runner = true`, EUI-NEO supplies the window, input, rendering, and
-application loop. `main.cpp` only implements `app::dslAppConfig()` and
-`app::compose(...)`. When building this repository directly, the `eui.app`
-rule adds the selected platform entry point and deploys assets.
-
-Build a repository example:
-
-```powershell
-xmake f -m debug -y --apps=y --user_apps=y
-xmake build gallery
-xmake f -m release -y --apps=y --user_apps=y
-xmake build gallery
-```
-
-On Windows, the executable is `.xmake/build/windows/x64/<debug|release>/gallery.exe`.
-See the [Integration Guide](docs/集成指南.md) for backend options and other targets.
+See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, and SDL2/Vulkan selection. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
 
 ## Optional Modules
 

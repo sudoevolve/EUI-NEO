@@ -104,36 +104,7 @@ add_executable(my_app app.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-安装、`FetchContent`、SDL2/Vulkan 选择和 Xmake 选项见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
-
-### Xmake
-
-Xmake 2.9+ 支持源码构建和 xrepo 接入：
-
-```lua
-set_languages("cxx17")
-add_requires("eui-neo", {configs = {app_runner = true}})
-
-target("hello")
-    set_kind("binary")
-    add_files("main.cpp")
-    add_packages("eui-neo")
-```
-
-启用 `app_runner` 后，EUI-NEO 会提供窗口、输入、渲染和应用主循环，
-`main.cpp` 只需实现 `app::dslAppConfig()` 和 `app::compose(...)`。
-
-直接构建仓库示例：
-
-```powershell
-xmake f -m debug -y --apps=y --user_apps=y
-xmake build gallery
-xmake f -m release -y --apps=y --user_apps=y
-xmake build gallery
-```
-
-Windows 产物在 `.xmake/build/windows/x64/<debug|release>/gallery.exe`。
-SDL2、Vulkan 和共享库选项见 [集成指南](docs/集成指南.md)。
+安装、`FetchContent` 和 SDL2/Vulkan 选择见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
 
 ## 可选模块
 
