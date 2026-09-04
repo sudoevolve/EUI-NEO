@@ -20,6 +20,7 @@ option(EUI_BUILD_FFMPEG_VIDEO_EXAMPLE "Build the optional FFmpeg video playback 
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ON)
+option(EUI_ENABLE_AUDIO "Enable miniaudio-backed audio playback support." ON)
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 option(EUI_ENABLE_TRAY "Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; turn this OFF to build without tray support." ON)
 
@@ -234,6 +235,10 @@ set(CORE_SOURCES
     core/window/window_input_backend.cpp
 )
 
+if(EUI_ENABLE_AUDIO)
+    list(APPEND CORE_SOURCES core/audio/audio.cpp)
+endif()
+
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
     list(APPEND CORE_SOURCES
         core/render/opengl/opengl_backend.cpp
@@ -269,6 +274,18 @@ target_include_directories(eui_neo
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/eui-neo>
 )
 target_include_directories(eui_neo PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rd/yyjson-0.12.0/src")
+if(EUI_ENABLE_AUDIO)
+    target_include_directories(eui_neo PRIVATE "${EUI_MINIAUDIO_DIR}")
+    target_compile_definitions(eui_neo PUBLIC EUI_ENABLE_AUDIO=1)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(eui_neo PUBLIC ${CMAKE_DL_LIBS} m)
+    elseif(APPLE)
+        target_link_libraries(eui_neo PUBLIC
+            "-framework CoreAudio"
+            "-framework AudioToolbox"
+            "-framework CoreFoundation")
+    endif()
+endif()
 target_link_libraries(eui_neo PUBLIC Threads::Threads)
 target_compile_features(eui_neo PUBLIC cxx_std_17)
 target_compile_definitions(eui_neo PRIVATE YYJSON_DISABLE_WRITER=1)
@@ -509,6 +526,17 @@ function(eui_neo_configure_named_app target_name)
             eui_compile_shadertoy(${target_name}
                 SOURCE "assets/shaders/shadertoy/demo.frag"
                 OUTPUT "${gallery_shadertoy_spirv}")
+        endif()
+    elseif(target_name STREQUAL "promo")
+        set(promo_shadertoy_spirv
+            "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/promo_demo.frag.spv")
+        target_compile_definitions(${target_name} PRIVATE
+            EUI_SHADERTOY_DEMO_SOURCE="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag"
+            EUI_SHADERTOY_DEMO_SPIRV="${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/promo_demo.frag.spv")
+        if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
+            eui_compile_shadertoy(${target_name}
+                SOURCE "assets/shaders/shadertoy/demo.frag"
+                OUTPUT "${promo_shadertoy_spirv}")
         endif()
     elseif(target_name STREQUAL "keyboard")
         target_link_libraries(${target_name} PRIVATE eui::module_keyboard)
@@ -826,6 +854,7 @@ set(EUI_NEO_BUILD_SHARED @EUI_BUILD_SHARED@)
 set(EUI_NEO_DEPS_MODE "@EUI_DEPS_MODE@")
 set(EUI_NEO_ENABLE_MARKDOWN @EUI_ENABLE_MARKDOWN@)
 set(EUI_NEO_ENABLE_MODULES @EUI_ENABLE_MODULES@)
+set(EUI_NEO_ENABLE_AUDIO @EUI_ENABLE_AUDIO@)
 set(EUI_APP_MAIN_SOURCE "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/eui-neo/app/app_main.cpp")
 set(EUI_APP_ASSETS_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/eui-neo/assets")
 set_property(GLOBAL PROPERTY EUI_NEO_APP_MAIN_SOURCE "${EUI_APP_MAIN_SOURCE}")
