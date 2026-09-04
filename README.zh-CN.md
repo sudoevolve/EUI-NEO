@@ -142,7 +142,7 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 3rd/          内置第三方构建源码和单文件依赖
 ```
 
-## Docs
+## 文档
 
 - [DSL 设计与当前实现](docs/DSL.md)
 - [组件](docs/组件.md)
@@ -155,6 +155,7 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 - [渲染后端架构与流程](docs/渲染后端架构.md)
 - [保留层缓存](docs/retained_layer_cache.md)
 - [图片](docs/图片.md)
+- [音频](docs/audio.md)
 - [网络](docs/网络.md)
 - [平台能力](docs/平台能力.md)
 - [集成指南](docs/集成指南.md)
