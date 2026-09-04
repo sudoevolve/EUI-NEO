@@ -389,7 +389,7 @@ opacity、transform、交互和 dirty rect API。`fill()` 是布局填充，frag
 裁剪后的 Shadertoy 区域内更新，区域内开始的拖动会捕获到释放。
 
 标准 uniform、自定义 uniform、JSON/schema、Vulkan 构建期 helper、feedback 和双后端
-兼容矩阵见 [Shadertoy 底层图元](Shadertoy.md)。Keyboard、Audio、Video、Sound、
+兼容矩阵见 [Shadertoy 底层图元](Shadertoy.md)。Keyboard、Video、Sound、
 Cubemap、Volume、动态纹理、可配置 sampler、每 Pass 格式/分辨率明确不属于当前范围，
 也不是待办扩展。可执行示例
 [`examples/shadertoy.cpp`](../examples/shadertoy.cpp) 展示 inline Demo 与 Blackhole、

@@ -1,28 +1,30 @@
 # 音频
 
-EUI-NEO 提供基于 miniaudio 的轻量音频播放封装。音频是可选功能，顶层构建默认开启。
+EUI-NEO 提供基于 miniaudio 的轻量音频播放，用于界面提示音、媒体时间轴、配乐同步和宣传片等场景。
 
-## 构建选项
+## 构建
 
 ```sh
-cmake -S . -B build -DEUI_ENABLE_AUDIO=ON
+cmake -S . -B build
 cmake --build build --parallel
 ```
 
-不需要音频时使用 `-DEUI_ENABLE_AUDIO=OFF`。项目内置的单头文件依赖位于 `3rd/miniaudio.h`，CMake 会优先查找该文件，再根据 `EUI_DEPS_MODE`（`auto`、`bundled` 或 `fetch`）处理依赖。
+项目内置的单头文件依赖位于 `3rd/miniaudio.h`。CMake 会优先使用仓库内版本，再根据 `EUI_DEPS_MODE`（`auto`、`bundled` 或 `fetch`）处理依赖。
 
 ## 公共 API
 
 ```cpp
 #include "eui/audio.h"
 
+#include <iostream>
+
 eui::audio::Player player;
 if (!player.load("assets/music/theme.mp3")) {
-    log(player.error());
+    std::cerr << player.error() << '\\n';
     return;
 }
 player.play();
-// player.pause();       // returns false and sets error() when unavailable
+// player.pause();       // unavailable时返回 false，并可通过 error() 获取原因
 // player.seek(12.5);
 // player.stop();        // stops and rewinds to zero
 // player.unload();

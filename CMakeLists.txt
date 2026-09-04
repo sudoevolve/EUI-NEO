@@ -20,7 +20,6 @@ option(EUI_BUILD_FFMPEG_VIDEO_EXAMPLE "Build the optional FFmpeg video playback 
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ON)
-option(EUI_ENABLE_AUDIO "Enable miniaudio-backed audio playback support." ON)
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 option(EUI_ENABLE_TRAY "Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; turn this OFF to build without tray support." ON)
 
@@ -235,9 +234,7 @@ set(CORE_SOURCES
     core/window/window_input_backend.cpp
 )
 
-if(EUI_ENABLE_AUDIO)
-    list(APPEND CORE_SOURCES core/audio/audio.cpp)
-endif()
+list(APPEND CORE_SOURCES core/audio/audio.cpp)
 
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl")
     list(APPEND CORE_SOURCES
@@ -274,17 +271,14 @@ target_include_directories(eui_neo
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/eui-neo>
 )
 target_include_directories(eui_neo PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rd/yyjson-0.12.0/src")
-if(EUI_ENABLE_AUDIO)
-    target_include_directories(eui_neo PRIVATE "${EUI_MINIAUDIO_DIR}")
-    target_compile_definitions(eui_neo PUBLIC EUI_ENABLE_AUDIO=1)
-    if(UNIX AND NOT APPLE)
-        target_link_libraries(eui_neo PUBLIC ${CMAKE_DL_LIBS} m)
-    elseif(APPLE)
-        target_link_libraries(eui_neo PUBLIC
-            "-framework CoreAudio"
-            "-framework AudioToolbox"
-            "-framework CoreFoundation")
-    endif()
+target_include_directories(eui_neo PRIVATE "${EUI_MINIAUDIO_DIR}")
+if(UNIX AND NOT APPLE)
+    target_link_libraries(eui_neo PUBLIC ${CMAKE_DL_LIBS} m)
+elseif(APPLE)
+    target_link_libraries(eui_neo PUBLIC
+        "-framework CoreAudio"
+        "-framework AudioToolbox"
+        "-framework CoreFoundation")
 endif()
 target_link_libraries(eui_neo PUBLIC Threads::Threads)
 target_compile_features(eui_neo PUBLIC cxx_std_17)
@@ -813,6 +807,7 @@ if(EUI_ENABLE_INSTALL)
         3rd/stb_image.h
         3rd/nanosvg.h
         3rd/nanosvgrast.h
+        "${EUI_MINIAUDIO_DIR}/miniaudio.h"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo/3rd
     )
     install(FILES "${TRAY_INCLUDE_DIR}/tray.h"

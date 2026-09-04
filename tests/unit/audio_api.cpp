@@ -4,7 +4,6 @@
 #include <utility>
 
 int main() {
-#if defined(EUI_ENABLE_AUDIO)
     eui::audio::Player player;
     assert(!player.loaded());
     assert(!player.playing());
@@ -18,6 +17,5 @@ int main() {
 
     eui::audio::Player moved = std::move(player);
     assert(!moved.loaded());
-#endif
     return 0;
 }
