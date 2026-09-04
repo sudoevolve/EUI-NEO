@@ -32,6 +32,10 @@ struct AppRunner {
     double accumulatedPolygonDraws = 0.0;
     double accumulatedTextPrepares = 0.0;
     double accumulatedTextDraws = 0.0;
+    double accumulatedTextBatchFlushes = 0.0;
+    double accumulatedTextBatchVertices = 0.0;
+    double accumulatedBackdropCaptures = 0.0;
+    double accumulatedBackdropCaptureReuses = 0.0;
     double accumulatedImageDraws = 0.0;
     double accumulatedRetainedLayerHits = 0.0;
     double accumulatedRetainedLayerMisses = 0.0;
@@ -154,6 +158,10 @@ struct AppRunner {
         accumulatedPolygonDraws += static_cast<double>(stats.polygonDraws);
         accumulatedTextPrepares += static_cast<double>(stats.textPrepares);
         accumulatedTextDraws += static_cast<double>(stats.textDraws);
+        accumulatedTextBatchFlushes += static_cast<double>(stats.textBatchFlushes);
+        accumulatedTextBatchVertices += static_cast<double>(stats.textBatchVertices);
+        accumulatedBackdropCaptures += static_cast<double>(stats.backdropCaptures);
+        accumulatedBackdropCaptureReuses += static_cast<double>(stats.backdropCaptureReuses);
         accumulatedImageDraws += static_cast<double>(stats.imageDraws);
         accumulatedRetainedLayerHits += static_cast<double>(stats.retainedLayerHits);
         accumulatedRetainedLayerMisses += static_cast<double>(stats.retainedLayerMisses);
@@ -214,6 +222,10 @@ struct AppRunner {
         const double averagePolygonDraws = accumulatedPolygonDraws / statsFrames;
         const double averageTextPrepares = accumulatedTextPrepares / statsFrames;
         const double averageTextDraws = accumulatedTextDraws / statsFrames;
+        const double averageTextBatchFlushes = accumulatedTextBatchFlushes / statsFrames;
+        const double averageTextBatchVertices = accumulatedTextBatchVertices / statsFrames;
+        const double averageBackdropCaptures = accumulatedBackdropCaptures / statsFrames;
+        const double averageBackdropCaptureReuses = accumulatedBackdropCaptureReuses / statsFrames;
         const double averageImageDraws = accumulatedImageDraws / statsFrames;
         const double averageRetainedLayerHits = accumulatedRetainedLayerHits / statsFrames;
         const double averageRetainedLayerMisses = accumulatedRetainedLayerMisses / statsFrames;
@@ -236,11 +248,11 @@ struct AppRunner {
         const double cachePercent = static_cast<double>(renderCacheFrames) * 100.0 / statsFrames;
         const double cacheRecreatedPercent = static_cast<double>(renderCacheRecreatedFrames) * 100.0 / statsFrames;
 
-        char renderStatsText[384];
+        char renderStatsText[512];
         if (measuredRenderStatsFrames > 0) {
             std::snprintf(renderStatsText,
                           sizeof(renderStatsText),
-                          " | Dirty %.1f/%.0f%% | Draw R%.0f P%.0f TP%.0f T%.0f I%.0f | Layer H%.0f M%.0f D%.0f Re%.0f | Pass %.1f C%.1f B%.1f/%.0f%% | Pipe RP%.1f/%.0f%% Cp%.1f Ba%.1f Sub%.1f Pr%.1f/%.0f%% Inc%.1f/%.1f Rs%.1f | Full %.0f%% Cache %.0f%% Re %.0f%%",
+                          " | Dirty %.1f/%.0f%% | Draw R%.0f P%.0f TP%.0f T%.0f I%.0f | Batch F%.1f V%.0f | Blur C%.1f R%.1f | Layer H%.0f M%.0f D%.0f Re%.0f | Pass %.1f C%.1f B%.1f/%.0f%% | Pipe RP%.1f/%.0f%% Cp%.1f Ba%.1f Sub%.1f Pr%.1f/%.0f%% Inc%.1f/%.1f Rs%.1f | Full %.0f%% Cache %.0f%% Re %.0f%%",
                           averageDirtyRects,
                           averageDirtyAreaPercent,
                           averageRectDraws,
@@ -248,6 +260,10 @@ struct AppRunner {
                           averageTextPrepares,
                           averageTextDraws,
                           averageImageDraws,
+                          averageTextBatchFlushes,
+                          averageTextBatchVertices,
+                          averageBackdropCaptures,
+                          averageBackdropCaptureReuses,
                           averageRetainedLayerHits,
                           averageRetainedLayerMisses,
                           averageRetainedLayerDraws,
@@ -321,6 +337,10 @@ struct AppRunner {
         accumulatedPolygonDraws = 0.0;
         accumulatedTextPrepares = 0.0;
         accumulatedTextDraws = 0.0;
+        accumulatedTextBatchFlushes = 0.0;
+        accumulatedTextBatchVertices = 0.0;
+        accumulatedBackdropCaptures = 0.0;
+        accumulatedBackdropCaptureReuses = 0.0;
         accumulatedImageDraws = 0.0;
         accumulatedRetainedLayerHits = 0.0;
         accumulatedRetainedLayerMisses = 0.0;

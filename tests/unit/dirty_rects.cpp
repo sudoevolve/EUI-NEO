@@ -41,6 +41,16 @@ bool nearbySmallRectsUseOnePass() {
     return expectRectCount("nearby small rects", resolved, 1);
 }
 
+bool widelySpacedRectsAvoidWastefulMerge() {
+    const std::vector<core::dsl::runtime::LogicalDirtyRect> dirtyRects{
+        {0.0f, 0.0f, 20.0f, 20.0f},
+        {300.0f, 0.0f, 20.0f, 20.0f},
+        {600.0f, 0.0f, 20.0f, 20.0f}
+    };
+    const std::vector<core::Rect> resolved = core::dsl::resolveDirtyRects(dirtyRects, 800, 600, 1.0f);
+    return expectRectCount("widely spaced rects", resolved, 3);
+}
+
 } // namespace
 
 int main() {
@@ -48,5 +58,6 @@ int main() {
     ok = distantRectsStaySeparate() && ok;
     ok = overlappingRectsMerge() && ok;
     ok = nearbySmallRectsUseOnePass() && ok;
+    ok = widelySpacedRectsAvoidWastefulMerge() && ok;
     return ok ? 0 : 1;
 }

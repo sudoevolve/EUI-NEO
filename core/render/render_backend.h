@@ -66,6 +66,10 @@ struct RenderFrameStats {
     int backendIncrementalPresents = 0;
     int backendIncrementalPresentSupported = 0;
     int backendResolveDraws = 0;
+    int textBatchFlushes = 0;
+    std::uint64_t textBatchVertices = 0;
+    int backdropCaptures = 0;
+    int backdropCaptureReuses = 0;
     int rectDraws = 0;
     int polygonDraws = 0;
     int textPrepares = 0;

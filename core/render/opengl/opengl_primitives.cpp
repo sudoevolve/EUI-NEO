@@ -653,6 +653,7 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
         cachedResources.backdropY = sourceY;
         cachedResources.backdropWidth = captureWidth;
         cachedResources.backdropHeight = captureHeight;
+        ++core::render::currentRenderFrameStats().backdropCaptureReuses;
         return;
     }
 
@@ -706,6 +707,7 @@ void OpenGLRenderBackend::prepareBackdropBlur(const core::Rect& bounds, float bl
         backdropCaptureHeight_ = captureHeight;
         backdropTextureWidth_ = textureWidth;
         backdropTextureHeight_ = textureHeight;
+        ++core::render::currentRenderFrameStats().backdropCaptures;
     }
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previousReadFramebuffer));

@@ -438,6 +438,7 @@ void VulkanRenderBackend::present() {
 
 void VulkanRenderBackend::clear(const core::Color& color) {
     flushRoundedRectBatch();
+    invalidateBackdropCapture();
     clearColor_ = color;
     if (!frameActive_) {
         return;

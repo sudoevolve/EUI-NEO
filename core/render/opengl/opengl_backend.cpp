@@ -519,6 +519,7 @@ void OpenGLRenderBackend::invalidateRenderCacheSync() {
 
 void OpenGLRenderBackend::clear(const core::Color& color) {
     flushRoundedRectBatch();
+    invalidateBackdropCapture();
     glClearColor(color.r, color.g, color.b, color.a);
     glClear(GL_COLOR_BUFFER_BIT);
 }

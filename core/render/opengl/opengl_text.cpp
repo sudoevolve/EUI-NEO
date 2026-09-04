@@ -246,6 +246,9 @@ void OpenGLRenderBackend::flushTextBatch() {
                  GL_DYNAMIC_DRAW);
     glDrawArrays(GL_TRIANGLES, 0,
                  static_cast<GLsizei>(textBatchVertices_.size() / 5));
+    auto& stats = core::render::currentRenderFrameStats();
+    ++stats.textBatchFlushes;
+    stats.textBatchVertices += static_cast<std::uint64_t>(textBatchVertices_.size() / 5);
     invalidateBackdropCapture();
     textBatchVertices_.clear();
     textBatchWindowWidth_ = 0;
