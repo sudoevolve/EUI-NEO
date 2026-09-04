@@ -915,9 +915,14 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
         state.finaleHold = 0.0f;
     }
 
-    ui.stack("promo.root").size(screen.width, screen.height).content([&] {
+    // `onFrame` makes Runtime continuously request compose/paint work.  Keep the
+    // idle landing page event-driven; only the actual film and its 3 s outro
+    // hold need a ticking frame source.
+    const bool holdingFinale = state.ended && state.finaleHold < 3.0f;
+    const bool needsAnimationFrame = state.started || holdingFinale;
+
+    auto root = ui.stack("promo.root").size(screen.width, screen.height).content([&] {
         ui.rect("promo.paper").size(screen.width, screen.height).color(kPaper).build();
-        const bool holdingFinale = state.ended && state.finaleHold < 3.0f;
         if (!state.started && !holdingFinale) {
             idle(ui, state, screen.width, screen.height);
             return;
@@ -945,14 +950,19 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
         if (platformOpacity > 0.001f) platforms(ui, screen.width, screen.height, t, platformOpacity);
         if (galleryOpacity > 0.001f) galleryStrip(ui, screen.width, screen.height, t, galleryOpacity);
         if (t >= 84.126f) finalScene(ui, screen.width, screen.height, t);
-    }).onFrame([&state](float deltaSeconds) {
-        const float target = state.workshopLiked ? 1.0f : 0.0f;
-        const float speed = state.workshopLiked ? 2.4f : 3.8f;
-        state.artworkReveal += (target - state.artworkReveal) * std::min(1.0f, std::max(0.0f, deltaSeconds) * speed);
-        if (state.ended && state.finaleHold < 3.0f) {
-            state.finaleHold = std::min(3.0f, state.finaleHold + std::max(0.0f, deltaSeconds));
-        }
-    }).build();
+    });
+
+    if (needsAnimationFrame) {
+        root.onFrame([&state](float deltaSeconds) {
+            const float target = state.workshopLiked ? 1.0f : 0.0f;
+            const float speed = state.workshopLiked ? 2.4f : 3.8f;
+            state.artworkReveal += (target - state.artworkReveal) * std::min(1.0f, std::max(0.0f, deltaSeconds) * speed);
+            if (state.ended && state.finaleHold < 3.0f) {
+                state.finaleHold = std::min(3.0f, state.finaleHold + std::max(0.0f, deltaSeconds));
+            }
+        });
+    }
+    root.build();
 }
 
 } // namespace app
