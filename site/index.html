@@ -178,9 +178,9 @@
           <article class="start-step">
             <span>01</span>
             <h3 data-i18n="start.cmake">配置目标</h3>
-            <pre><code>add_subdirectory(external/EUI-NEO)
+            <pre><code>add_subdirectory(3rd/EUI-NEO)
 
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)</code></pre>
           </article>
           <article class="start-step">
@@ -196,9 +196,11 @@ void compose(eui::Ui&, const eui::Screen&);
           <article class="start-step">
             <span>03</span>
             <h3 data-i18n="start.build">构建运行</h3>
-            <pre><code>cmake -S . -B build
-cmake --build build --parallel
-./build/my_app</code></pre>
+            <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel
+
+# Windows: .\\build\\Release\\my_app.exe
+# Linux/macOS: ./build/my_app</code></pre>
           </article>
         </div>
         <div class="start-links">

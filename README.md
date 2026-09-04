@@ -38,7 +38,7 @@ Requirements:
 - A C++17 compiler: MSVC 19.29+ (Visual Studio 2019 16.11+), GCC/MinGW-w64 12+, or Clang 14+
 - OpenGL development files for the default renderer
 
-Add EUI-NEO under `external/EUI-NEO`, then create:
+Add EUI-NEO under `3rd/EUI-NEO`, then create:
 
 ```cmake
 cmake_minimum_required(VERSION 3.14)
@@ -47,13 +47,13 @@ project(MyProject LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(external/EUI-NEO)
+add_subdirectory(3rd/EUI-NEO)
 
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-`app.cpp`:
+`main.cpp`:
 
 ```cpp
 #include "eui_neo.h"
@@ -88,7 +88,18 @@ Build:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+cmake --build build --config Release --parallel
+```
+
+On Windows with the Visual Studio generator, run:
+
+```powershell
+.\build\Release\my_app.exe
+```
+
+On Linux or macOS, run:
+
+```sh
 ./build/my_app
 ```
 
@@ -98,7 +109,7 @@ The release SDK supports the same target setup:
 
 ```cmake
 find_package(EuiNeo CONFIG REQUIRED)
-add_executable(my_app app.cpp)
+add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
