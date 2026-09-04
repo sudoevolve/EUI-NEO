@@ -22,13 +22,15 @@ if (!player.load("assets/music/theme.mp3")) {
     return;
 }
 player.play();
-// player.pause();
+// player.pause();       // returns false and sets error() when unavailable
 // player.seek(12.5);
-// player.stop();       // stops and rewinds to zero
+// player.stop();        // stops and rewinds to zero
 // player.unload();
 ```
 
 `Player` 只能移动不能复制，方法应在 UI 线程调用。播放器通过 miniaudio 引擎流式读取音频，支持当前构建启用的 MP3、WAV、FLAC、OGG 等格式。
+
+`play()`、`pause()`、`stop()` 和 `seek()` 均返回 `bool`；返回 `false` 时通过 `error()` 获取原因。`pause()` 会保留当前播放位置，`stop()` 会停止并回到开头。
 
 状态和时间接口：
 

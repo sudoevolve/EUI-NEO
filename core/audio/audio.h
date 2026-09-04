@@ -20,9 +20,9 @@ public:
     // Opens an audio file without starting it. MP3, WAV, FLAC, and OGG support
     // is provided by miniaudio's built-in decoders.
     bool load(const std::string& path);
-    void play();
-    void pause();
-    void stop();
+    bool play();
+    bool pause();
+    bool stop();
     bool seek(double seconds);
     void unload();
 

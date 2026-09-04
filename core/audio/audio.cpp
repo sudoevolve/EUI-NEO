@@ -67,37 +67,70 @@ bool Player::load(const std::string& path) {
     return true;
 }
 
-void Player::play() {
-    if (!impl_->soundReady) return;
+bool Player::play() {
+    if (!impl_->soundReady) {
+        impl_->error = "No audio file is loaded.";
+        return false;
+    }
     const ma_result result = ma_sound_start(&impl_->sound);
     if (result != MA_SUCCESS) {
         impl_->error = std::string("Unable to start audio playback: ") +
                        ma_result_description(result);
+        return false;
     }
+    impl_->error.clear();
+    return true;
 }
 
-void Player::pause() {
-    if (!impl_->soundReady) return;
+bool Player::pause() {
+    if (!impl_->soundReady) {
+        impl_->error = "No audio file is loaded.";
+        return false;
+    }
     const ma_result result = ma_sound_stop(&impl_->sound);
     if (result != MA_SUCCESS) {
         impl_->error = std::string("Unable to pause audio playback: ") +
                        ma_result_description(result);
+        return false;
     }
+    impl_->error.clear();
+    return true;
 }
 
-void Player::stop() {
-    if (!impl_->soundReady) return;
-    ma_sound_stop(&impl_->sound);
-    seek(0.0);
+bool Player::stop() {
+    if (!impl_->soundReady) {
+        impl_->error = "No audio file is loaded.";
+        return false;
+    }
+    const ma_result stopResult = ma_sound_stop(&impl_->sound);
+    if (stopResult != MA_SUCCESS) {
+        impl_->error = std::string("Unable to stop audio playback: ") +
+                       ma_result_description(stopResult);
+        return false;
+    }
+    const ma_result seekResult = ma_sound_seek_to_pcm_frame(&impl_->sound, 0);
+    if (seekResult != MA_SUCCESS) {
+        impl_->error = std::string("Unable to rewind audio playback: ") +
+                       ma_result_description(seekResult);
+        return false;
+    }
+    impl_->error.clear();
+    return true;
 }
 
 bool Player::seek(double seconds) {
-    if (!impl_->soundReady) return false;
+    if (!impl_->soundReady) {
+        impl_->error = "No audio file is loaded.";
+        return false;
+    }
     const double clamped = std::max(0.0, std::min(seconds, durationSeconds()));
     const ma_uint32 sampleRate = ma_engine_get_sample_rate(&impl_->engine);
     const ma_uint64 frame = static_cast<ma_uint64>(clamped * sampleRate);
     const ma_result result = ma_sound_seek_to_pcm_frame(&impl_->sound, frame);
-    if (result == MA_SUCCESS) return true;
+    if (result == MA_SUCCESS) {
+        impl_->error.clear();
+        return true;
+    }
     impl_->error = std::string("Unable to seek audio playback: ") +
                    ma_result_description(result);
     return false;

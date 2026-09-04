@@ -37,13 +37,11 @@ struct PromoState {
     bool started = false;
     bool ended = false;
     float finaleHold = 0.0f;
-    float posterPhase = 0.0f;
     bool sound = false;
     int segment = 0;
     float slider = 0.32f;
     std::string error;
     bool workshopLiked = false;
-    float artworkReveal = 0.0f;
 };
 
 std::string musicPath() {
@@ -850,7 +848,6 @@ void svgWorkshopStory(eui::Ui& ui, PromoState& state, float width, float height,
     const float reveal = smoothStep(59.05f, 60.15f, t);
     const float impact = smoothStep(58.92f, 59.34f, t) * (1.0f - smoothStep(59.34f, 59.82f, t));
     state.workshopLiked = autoHeart > 0.5f;
-    state.artworkReveal = reveal;
     label(ui, "svgstory.title", "交互，先于画面。",
           width * 0.08f, height * 0.08f, width * 0.84f, 86.0f, std::min(width * 0.075f, 92.0f), opacity * intro, kInk);
     label(ui, "svgstory.subtitle", "Workshop / SVG in motion",
@@ -892,7 +889,10 @@ void idle(eui::Ui& ui, PromoState& state, float width, float height) {
                 return;
             }
             state.audio.stop();
-            state.audio.play();
+            if (!state.audio.play()) {
+                state.error = state.audio.error();
+                return;
+            }
             state.error.clear();
             state.started = true;
             state.ended = false;
@@ -954,9 +954,6 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
 
     if (needsAnimationFrame) {
         root.onFrame([&state](float deltaSeconds) {
-            const float target = state.workshopLiked ? 1.0f : 0.0f;
-            const float speed = state.workshopLiked ? 2.4f : 3.8f;
-            state.artworkReveal += (target - state.artworkReveal) * std::min(1.0f, std::max(0.0f, deltaSeconds) * speed);
             if (state.ended && state.finaleHold < 3.0f) {
                 state.finaleHold = std::min(3.0f, state.finaleHold + std::max(0.0f, deltaSeconds));
             }
