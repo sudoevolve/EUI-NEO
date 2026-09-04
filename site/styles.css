@@ -914,7 +914,8 @@ section {
 .start-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  align-items: stretch;
+  gap: 18px;
 }
 
 .start-tabs {
@@ -960,6 +961,12 @@ section {
 
 .start-step {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(155deg, color-mix(in srgb, var(--panel) 90%, var(--primary) 10%), var(--panel));
 }
 
 .start-step > span {
@@ -974,8 +981,44 @@ section {
   margin-bottom: 12px;
 }
 
+.start-step .code-block {
+  flex: 1;
+  min-height: 0;
+}
+
 .start-step pre {
-  min-height: 180px;
+  height: 100%;
+  min-height: 360px;
+  max-height: 420px;
+  box-sizing: border-box;
+}
+
+.code-block {
+  position: relative;
+}
+
+.code-copy {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  min-height: 30px;
+  padding: 5px 10px;
+  color: var(--faint);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(17, 21, 29, 0.78);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.code-copy:hover,
+.code-copy:focus-visible {
+  color: #fff;
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 22%, #11151d);
 }
 
 .start-links {
@@ -1357,7 +1400,9 @@ code {
   }
 
   .start-step pre {
+    height: auto;
     min-height: 0;
+    max-height: none;
   }
 
   .hero-preview {

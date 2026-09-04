@@ -45,15 +45,14 @@ const copy = {
     "components.title": "为工具型界面准备的组件层",
     "components.lede": "按钮、输入、弹层、选择器、图表、Markdown 和数据表都只组合 DSL 树，不穿透后端 primitive。",
     "start.eyebrow": "Quick Start",
-    "start.title": "使用 FetchContent 快速开始",
+    "start.title": "快速开始",
     "start.lede": "只需一个 CMakeLists.txt 和一个 main.cpp，CMake 会自动拉取 EUI-NEO。",
-    "start.cmake": "声明 FetchContent 依赖",
-    "start.app": "实现应用",
-    "start.build": "构建运行",
-    "start.xmakeConfig": "编写 xmake.lua",
-    "start.xmakeApp": "编写 main.cpp",
-    "start.xmakeBuild": "构建并运行",
-    "start.readme": "Quick Start",
+    "start.cmake": "CMakeLists.txt",
+    "start.app": "main.cpp",
+    "start.build": "bash",
+    "start.copy": "复制",
+    "start.copied": "已复制",
+    "start.copyFailed": "复制失败",
     "start.guide": "安装与进阶接入",
     "filter.all": "全部"
   },
@@ -103,15 +102,14 @@ const copy = {
     "components.title": "A component layer for tool-grade interfaces",
     "components.lede": "Buttons, inputs, popups, pickers, charts, Markdown, and data tables compose DSL trees without touching backend primitives.",
     "start.eyebrow": "Quick Start",
-    "start.title": "Start with FetchContent",
+    "start.title": "Start",
     "start.lede": "Create one CMakeLists.txt and one main.cpp; CMake fetches EUI-NEO automatically.",
-    "start.cmake": "Declare the FetchContent dependency",
-    "start.app": "Implement app",
-    "start.build": "Build and run",
-    "start.xmakeConfig": "Write xmake.lua",
-    "start.xmakeApp": "Write main.cpp",
-    "start.xmakeBuild": "Build and run",
-    "start.readme": "Quick Start",
+    "start.cmake": "CMakeLists.txt",
+    "start.app": "main.cpp",
+    "start.build": "bash",
+    "start.copy": "Copy",
+    "start.copied": "Copied",
+    "start.copyFailed": "Copy failed",
     "start.guide": "Install and integrate",
     "filter.all": "All"
   }
@@ -176,6 +174,19 @@ const docs = [
       desc: "Runtime state, controlled components, Signal bindings, and lifecycle."
     },
     tags: "state signal controlled binding lifecycle"
+  },
+  {
+    category: "core",
+    href: "../docs/模块.md",
+    zh: {
+      title: "模块",
+      desc: "键盘、串口等可选功能模块的构建、使用和开发约束。"
+    },
+    en: {
+      title: "Modules",
+      desc: "Build, usage, and development rules for optional modules such as keyboard and serial."
+    },
+    tags: "modules keyboard serial optional feature"
   },
   {
     category: "rendering",
@@ -396,7 +407,6 @@ const readerTitle = document.querySelector("#readerTitle");
 const readerCategory = document.querySelector("#readerCategory");
 const readerBody = document.querySelector("#readerBody");
 const themeButton = document.querySelector("#themeButton");
-const quickStartLink = document.querySelector("#quickStartLink");
 const progressBar = document.querySelector("#progressBar");
 const stageSections = Array.from(document.querySelectorAll("main > section"));
 let tickingScroll = false;
@@ -698,23 +708,7 @@ themeButton.addEventListener("click", () => {
   setTheme(currentTheme === "dark" ? "light" : "dark");
 });
 
-if (quickStartLink) {
-  quickStartLink.addEventListener("click", (event) => {
-    event.preventDefault();
-    openReader({
-      category: "workflow",
-      href: "../docs/集成指南.md",
-      section: "方式一：FetchContent（推荐）",
-      zh: { title: "Quick Start" },
-      en: { title: "Quick Start" }
-    });
-  });
-}
-
 document.querySelectorAll(".start-links a").forEach((link) => {
-  if (link === quickStartLink) {
-    return;
-  }
   link.addEventListener("click", (event) => {
     const doc = findDocumentByHref(link.href);
     if (!doc) {
@@ -724,6 +718,46 @@ document.querySelectorAll(".start-links a").forEach((link) => {
     openReader(doc);
   });
 });
+
+document.querySelectorAll(".code-copy").forEach((button) => {
+  button.addEventListener("click", async () => {
+    const code = button.parentElement.querySelector("code");
+    if (!code) {
+      return;
+    }
+    try {
+      await copyText(code.textContent);
+      button.textContent = t("start.copied");
+      window.setTimeout(() => {
+        button.textContent = t("start.copy");
+      }, 1400);
+    } catch (error) {
+      button.textContent = t("start.copyFailed");
+      window.setTimeout(() => {
+        button.textContent = t("start.copy");
+      }, 1800);
+    }
+  });
+});
+
+async function copyText(value) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) {
+    throw new Error("Clipboard unavailable");
+  }
+}
 
 document.querySelectorAll("[data-close-reader]").forEach((node) => {
   node.addEventListener("click", closeReader);

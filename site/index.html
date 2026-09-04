@@ -171,47 +171,82 @@
         <div class="section-heading">
           <span class="section-index">05 / BUILD</span>
           <p class="eyebrow" data-i18n="start.eyebrow">Quick Start</p>
-          <h2 data-i18n="start.title">使用 FetchContent 快速开始</h2>
+          <h2 data-i18n="start.title">快速开始</h2>
           <p data-i18n="start.lede">只需一个 CMakeLists.txt 和一个 main.cpp，CMake 会自动拉取 EUI-NEO。</p>
         </div>
         <div class="start-steps">
           <article class="start-step">
             <span>01</span>
-            <h3 data-i18n="start.cmake">声明 FetchContent 依赖</h3>
-            <pre><code>include(FetchContent)
+            <h3 data-i18n="start.cmake">CMakeLists.txt</h3>
+            <div class="code-block">
+              <button class="code-copy" type="button" data-i18n="start.copy">复制</button>
+              <pre><code>include(FetchContent)
 
 FetchContent_Declare(eui_neo
   GIT_REPOSITORY https://github.com/sudoevolve/EUI-NEO.git
-  GIT_TAG v0.5.9
+  GIT_TAG main
   GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(eui_neo)
 
 add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)</code></pre>
+            </div>
           </article>
           <article class="start-step">
             <span>02</span>
-            <h3 data-i18n="start.app">实现应用</h3>
-            <pre><code>#include "eui_neo.h"
+            <h3 data-i18n="start.app">main.cpp</h3>
+            <div class="code-block">
+              <button class="code-copy" type="button" data-i18n="start.copy">复制</button>
+              <pre><code>#include "eui_neo.h"
+
+#include &lt;iostream&gt;
 
 namespace app {
-const DslAppConfig& dslAppConfig();
-void compose(eui::Ui&, const eui::Screen&);
+const DslAppConfig&amp; dslAppConfig() {
+    static const DslAppConfig config = DslAppConfig{}
+        .title("Hello EUI-NEO")
+        .windowSize(800, 520);
+    return config;
+}
+
+void compose(eui::Ui&amp; ui, const eui::Screen&amp; screen) {
+    ui.column("root")
+        .size(screen.width, screen.height)
+        .padding(32.0f)
+        .gap(18.0f)
+        .content([&amp;] {
+            ui.text("title")
+                .text("Hello, EUI-NEO!")
+                .fontSize(32.0f)
+                .build();
+
+            components::button(ui, "button")
+                .text("Click me")
+                .onClick([] {
+                    std::cout &lt;&lt; "Button clicked" &lt;&lt; std::endl;
+                })
+                .build();
+        })
+        .build();
+}
 }</code></pre>
+            </div>
           </article>
           <article class="start-step">
             <span>03</span>
-            <h3 data-i18n="start.build">构建运行</h3>
-            <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+            <h3 data-i18n="start.build">bash</h3>
+            <div class="code-block">
+              <button class="code-copy" type="button" data-i18n="start.copy">复制</button>
+              <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
 
 # Windows: .\\build\\Release\\my_app.exe
 # Linux/macOS: ./build/my_app</code></pre>
+            </div>
           </article>
         </div>
         <div class="start-links">
-          <a class="primary-action" id="quickStartLink" href="../docs/集成指南.md" data-i18n="start.readme">Quick Start</a>
           <a class="secondary-action" href="../docs/集成指南.md" data-i18n="start.guide">安装与进阶接入</a>
         </div>
       </section>
