@@ -7,6 +7,10 @@
 
 namespace app {
 
+// -----------------------------------------------------------------------------
+// Application configuration
+// -----------------------------------------------------------------------------
+
 const DslAppConfig& dslAppConfig() {
     static const DslAppConfig config = DslAppConfig{}
         .title("EUI-NEO — Built for Motion")
@@ -21,6 +25,10 @@ const DslAppConfig& dslAppConfig() {
 }
 
 namespace {
+
+// -----------------------------------------------------------------------------
+// Shared state, palette, and resource helpers
+// -----------------------------------------------------------------------------
 
 constexpr const char* kMusic = "assets/music/Les Gordon - IKB (Audio).mp3";
 constexpr float kEnd = 90.0f;
@@ -78,6 +86,10 @@ float appear(float t, float at, float duration = 0.52f) {
 float scene(float t, float first, float last, float edge = 0.55f) {
     return std::min(appear(t, first, edge), 1.0f - appear(t, last - edge, edge));
 }
+
+// -----------------------------------------------------------------------------
+// Theme and primitive drawing helpers
+// -----------------------------------------------------------------------------
 
 eui::Transition transition(float duration = 0.34f) {
     auto value = eui::Transition::make(duration, eui::Ease::OutCubic);
@@ -178,6 +190,10 @@ void bigWord(eui::Ui& ui, const std::string& id, const std::string& content,
         .scale(scale).translateZ(entrance * -180.0f).rotateY(entrance * -0.28f).perspective(900.0f)
         .transition(transition(0.46f)).build();
 }
+
+// -----------------------------------------------------------------------------
+// Storyboard scenes (ordered by playback time)
+// -----------------------------------------------------------------------------
 
 void opening(eui::Ui& ui, float width, float height, float t) {
     // Beat 1: UI. lands. Beat 3→4: the brand icon enters from the right.
@@ -388,35 +404,6 @@ void productControls(eui::Ui& ui, PromoState& state, float width, float height, 
         .text("Preview").fontSize(16.0f).theme(themeAt(0.34f)).transition(transition(0.72f)).build();
 }
 
-void motionScene(eui::Ui& ui, float width, float height, float t, float opacity) {
-    label(ui, "motion.title", "Moves with intent.", width * 0.08f, height * 0.10f, width * 0.84f, 100.0f,
-          std::min(width * 0.10f, 122.0f), opacity, kInk);
-    const float centerX = width * 0.50f;
-    const float cardW = std::min(width * 0.30f, 390.0f);
-    const float cardH = std::min(height * 0.38f, 300.0f);
-    const float cardY = height * 0.48f;
-    const float phase = clamp01((t - 29.025f) / 12.0f);
-    const float gap = cardW * 0.64f;
-    for (int index = 0; index < 3; ++index) {
-        const float relative = static_cast<float>(index - 1);
-        const float x = centerX - cardW * 0.5f + relative * gap + std::sin(t * 0.8f + index) * 12.0f;
-        const float rotation = relative * -0.34f + (index == 1 ? std::sin(t * 1.8f) * 0.12f : 0.0f);
-        ui.stack("motion.card." + std::to_string(index)).position(x, cardY).size(cardW, cardH)
-            .rotateY(rotation).translateZ((1.0f - std::abs(relative) * 0.45f) * 44.0f).perspective(900.0f)
-            .opacity(opacity * (index == 1 ? 1.0f : 0.76f)).transition(transition(0.42f)).content([&] {
-                whiteCard(ui, "motion.card.bg." + std::to_string(index), 0.0f, 0.0f, cardW, cardH, 1.0f);
-                ui.rect("motion.card.color." + std::to_string(index)).position(22.0f, 22.0f).size(cardW - 44.0f, 12.0f).radius(6.0f)
-                    .color(index == 0 ? kOrange : (index == 1 ? kBlue : kPurple)).build();
-                label(ui, "motion.card.head." + std::to_string(index), index == 1 ? "Animation" : "Transition",
-                      24.0f, 64.0f, cardW - 48.0f, 38.0f, 25.0f, 1.0f, kInk);
-                label(ui, "motion.card.body." + std::to_string(index), index == 1 ? "Frame · opacity · transform" : "One motion system",
-                      24.0f, 116.0f, cardW - 48.0f, 26.0f, 14.0f, 1.0f, kSubtle);
-                ui.rect("motion.card.dot." + std::to_string(index)).position(24.0f + phase * (cardW - 82.0f), cardH - 56.0f)
-                    .size(28.0f, 28.0f).radius(14.0f).color(index == 1 ? kBlue : kOrange).transition(transition(0.24f)).build();
-            }).build();
-    }
-}
-
 void advantagesScene(eui::Ui& ui, float width, float height, float t, float opacity) {
     const float local = std::max(0.0f, t - 29.025f);
     const float metricsIn = appear(t, 31.695f, 0.34f);
@@ -487,45 +474,6 @@ void advantagesScene(eui::Ui& ui, float width, float height, float t, float opac
     }).build();
     label(ui, "adv.ready", "丰富内置控件 · 主题已就绪", panelX + panelW - 350.0f, panelY + 238.0f, 316.0f, 22.0f, 14.0f,
           opacity * controlsIn, nightAmount > 0.5f ? eui::Color{0.72f, 0.84f, 1.0f, 1.0f} : kBlue, eui::HorizontalAlign::Right);
-}
-
-void dataScene(eui::Ui& ui, float width, float height, float t, float opacity) {
-    const auto theme = lightTheme();
-    const float inProgress = appear(t, 43.236f, 0.72f);
-    label(ui, "data.title", "One runtime.", width * 0.08f, height * 0.08f, width * 0.84f, 98.0f,
-          std::min(width * 0.10f, 122.0f), opacity, kInk, eui::HorizontalAlign::Left,
-          (1.0f - inProgress) * width * 0.12f, (1.0f - inProgress) * -24.0f,
-          (1.0f - inProgress) * -150.0f, (1.0f - inProgress) * 0.20f, 900.0f,
-          0.95f + inProgress * 0.05f);
-    const float cardW = std::min(width * 0.78f, 1050.0f);
-    const float x = (width - cardW) * 0.5f;
-    const float y = height * 0.31f;
-    const float wobble = std::sin(t * 0.7f) * 12.0f;
-    std::vector<float> signalValues;
-    for (int i = 0; i < 7; ++i) {
-        signalValues.push_back(clamp01(0.48f + 0.25f * std::sin(t * 1.7f + i * 0.82f) +
-                                       0.10f * std::sin(t * 3.1f + i * 1.7f)));
-    }
-    std::vector<float> stateValues;
-    for (int i = 0; i < 5; ++i) stateValues.push_back(clamp01(0.42f + 0.28f * std::sin(t * 1.15f + i * 0.9f)));
-    ui.stack("data.chart.one").position(x + wobble, y).size(cardW * 0.48f, 315.0f)
-        .translateZ((1.0f - inProgress) * -90.0f).rotateY((1.0f - inProgress) * 0.16f).perspective(900.0f)
-        .opacity(opacity).content([&] {
-        components::lineChart(ui, "data.line").size(cardW * 0.48f, 315.0f).title("Signals · LIVE")
-            .values(signalValues)
-            .labels({"01", "02", "03", "04", "05", "06", "07"}).theme(theme).transition(transition()).build();
-    }).build();
-    ui.stack("data.chart.two").position(x + cardW * 0.54f - wobble, y).size(cardW * 0.46f, 315.0f)
-        .translateZ((1.0f - inProgress) * -150.0f).rotateY((1.0f - inProgress) * -0.14f).perspective(900.0f)
-        .opacity(opacity).content([&] {
-        components::barChart(ui, "data.bar").size(cardW * 0.46f, 315.0f).title("States · 90 FPS")
-            .values(stateValues).labels({"UI", "State", "Frame", "Render", "Ship"})
-            .colors({kBlue, kPurple, kOrange, kGreen, kInk}).theme(theme).transition(transition()).build();
-    }).build();
-    smallPill(ui, "data.state", "state → target → transition", x, y + 338.0f, 224.0f, kInk, opacity);
-    label(ui, "data.metric", std::to_string(static_cast<int>(62 + 18 * std::sin(t * 1.4f))) + " ms",
-          x + cardW * 0.70f, y + 338.0f, cardW * 0.28f, 34.0f, 24.0f, opacity, kBlue,
-          eui::HorizontalAlign::Right);
 }
 
 void dataSceneEnhanced(eui::Ui& ui, float width, float height, float t, float opacity) {
@@ -674,34 +622,6 @@ void platforms(eui::Ui& ui, float width, float height, float t, float opacity) {
           opacity * appear(t, 66.374f), kSubtle, eui::HorizontalAlign::Center);
 }
 
-void galleryStripLegacy(eui::Ui& ui, float width, float height, float t, float opacity) {
-    label(ui, "gallery.title", t < 75.0f ? "Build." : (t < 78.0f ? "Move." : "Ship."),
-          width * 0.08f, height * 0.08f, width * 0.84f, 96.0f,
-          std::min(width * 0.11f, 132.0f), opacity, kInk);
-    const float w = std::min(width * 0.38f, 500.0f);
-    const float h = std::min(height * 0.46f, 340.0f);
-    const float elapsed = std::max(0.0f, t - 74.0f);
-    const float start = width * 0.5f - w * 0.5f - elapsed * 42.0f;
-    const char* names[] = {"Controls", "Layout", "Animation", "Data"};
-    const eui::Color accents[] = {kBlue, kOrange, kPurple, kGreen};
-    for (int index = 0; index < 4; ++index) {
-        const float x = start + index * w * 0.92f;
-        const float scale = index == 1 ? 1.0f : 0.92f;
-        const float depth = index == 1 ? 52.0f : -40.0f;
-        const float angle = (index - 1) * -0.12f + std::sin(t * 0.45f + index) * 0.025f;
-        ui.stack("gallery.card." + std::to_string(index)).position(x, height * 0.38f).size(w, h)
-            .scale(scale).translateZ(depth).rotateY(angle).perspective(920.0f)
-            .opacity(opacity * (index == 1 ? 1.0f : 0.68f)).transition(transition()).content([&] {
-                whiteCard(ui, "gallery.card.bg." + std::to_string(index), 0.0f, 0.0f, w, h, 1.0f);
-                ui.rect("gallery.card.accent." + std::to_string(index)).position(28.0f, 28.0f).size(74.0f, 12.0f).radius(6.0f).color(accents[index]).build();
-                label(ui, "gallery.card.title." + std::to_string(index), names[index], 28.0f, 68.0f, w - 56.0f, 42.0f, 28.0f);
-                ui.rect("gallery.card.line." + std::to_string(index)).position(28.0f, 130.0f).size(w - 56.0f, 10.0f).radius(5.0f).color({kInk.r, kInk.g, kInk.b, 0.10f}).build();
-                ui.rect("gallery.card.block." + std::to_string(index)).position(28.0f, 164.0f).size(w * 0.52f, h - 196.0f).radius(14.0f).color(accents[index]).build();
-                ui.rect("gallery.card.block2." + std::to_string(index)).position(w * 0.62f, 164.0f).size(w * 0.23f, h - 196.0f).radius(14.0f).color({kInk.r, kInk.g, kInk.b, 0.12f}).build();
-            }).build();
-    }
-}
-
 void galleryStrip(eui::Ui& ui, float width, float height, float t, float opacity) {
     const float local = std::max(0.0f, t - 74.0f);
     const float intro = smoothStep(0.0f, 0.62f, local);
@@ -797,47 +717,6 @@ void shaderScene(eui::Ui& ui, float width, float height, float t, float opacity)
         .radius(24.0f).opacity(opacity * inProgress).timeScale(1.0f).build();
     label(ui, "shader.caption", "SHADERTOY · OPENGL / VULKAN", width * 0.08f, height * 0.84f, width * 0.84f, 26.0f, 14.0f,
           opacity * inProgress, kSubtle, eui::HorizontalAlign::Center);
-}
-
-void showcaseScene(eui::Ui& ui, float width, float height, float t, float opacity) {
-    const auto theme = lightTheme();
-    label(ui, "showcase.title", "Made to be composed.", width * 0.07f, height * 0.06f, width * 0.86f, 86.0f,
-          std::min(width * 0.075f, 92.0f), opacity, kInk, eui::HorizontalAlign::Left,
-          std::sin(t * 0.5f) * 18.0f, std::cos(t * 0.5f) * 8.0f, 32.0f, 0.02f, 900.0f);
-    const float baseX = width * 0.09f;
-    const float cardW = std::min(width * 0.24f, 300.0f);
-    const float y = height * 0.34f;
-    ui.stack("showcase.neumorphic.anchor").position(baseX, y).size(cardW, 150.0f)
-        .translateZ(std::sin(t * 0.8f) * 18.0f).rotateY(std::sin(t * 0.65f) * 0.06f).perspective(900.0f).content([&] {
-            components::workshop::neumorphicButton(ui, "showcase.neo.button")
-                .size(cardW, 150.0f).text("Neumorphic").fontSize(17.0f).theme(theme)
-                .transition(transition()).onClick([] {}).build();
-        }).build();
-    ui.stack("showcase.svg.anchor").position(baseX + cardW + 34.0f, y).size(cardW, 150.0f)
-        .translateZ(std::sin(t * 0.8f + 1.0f) * 18.0f).rotateY(-std::sin(t * 0.65f + 1.0f) * 0.06f).perspective(900.0f).content([&] {
-            whiteCard(ui, "showcase.svg.card", 0.0f, 0.0f, cardW, 150.0f, 1.0f, 22.0f);
-            const float svgPulse = 1.0f + 0.08f * std::sin(t * 3.0f);
-            ui.rect("showcase.svg.glow").position(cardW * 0.20f, 12.0f).size(cardW * 0.60f, 92.0f)
-                .radius(18.0f).color({kBlue.r, kBlue.g, kBlue.b, 0.10f}).build();
-            ui.svg("showcase.svg.icon").position(cardW * 0.31f, 18.0f).size(cardW * 0.38f, 82.0f)
-                .source(R"svg(<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2 21 7v10l-9 5-9-5V7l9-5Z" fill="none" stroke="#0A61E8" stroke-width="1.6"/><path d="m8 12 2.5 2.5L16.5 8" fill="none" stroke="#0A61E8" stroke-width="1.6"/></svg>)svg")
-                .contain().scale(svgPulse).rotateY(std::sin(t * 1.8f) * 0.10f).translateZ(32.0f).perspective(700.0f).build();
-            label(ui, "showcase.svg.label", "SVG button", 0.0f, 104.0f, cardW, 28.0f, 17.0f, 1.0f, kInk, eui::HorizontalAlign::Center);
-            components::button(ui, "showcase.svg.action").position(cardW * 0.31f, 126.0f)
-                .size(cardW * 0.38f, 28.0f).text("Tap SVG").fontSize(12.0f).theme(theme)
-                .onClick([] {}).build();
-        }).build();
-    ui.stack("showcase.poster.anchor").position(baseX + (cardW + 34.0f) * 2.0f, y).size(cardW, 150.0f)
-        .translateZ(std::sin(t * 0.8f + 2.0f) * 18.0f).rotateY(std::sin(t * 0.65f + 2.0f) * 0.06f).perspective(900.0f).content([&] {
-            whiteCard(ui, "showcase.poster.card", 0.0f, 0.0f, cardW, 150.0f, 1.0f, 22.0f);
-            const char* posters[] = {"docs/pic/1.jpg", "docs/pic/2.jpg", "docs/pic/3.jpg", "docs/pic/4.jpg", "docs/pic/示例1.jpg", "docs/pic/示例2.jpg"};
-            for (int index = 0; index < 6; ++index) {
-                const float px = 16.0f + (index % 3) * (cardW * 0.31f);
-                const float py = 20.0f + (index / 3) * 55.0f;
-                ui.image("showcase.poster." + std::to_string(index)).position(px, py).size(cardW * 0.27f, 42.0f)
-                    .source(posters[index]).cover().opacity(0.92f).radius(8.0f).build();
-            }
-        }).build();
 }
 
 void svgWorkshopStory(eui::Ui& ui, PromoState& state, float width, float height, float t, float opacity) {
