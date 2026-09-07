@@ -100,17 +100,32 @@ public:
                   firstIndex,
                   itemCount_)
             : 0;
+        const std::int64_t itemCount = itemCount_;
+        const auto firstIndexForOffset = [rowHeight, overscanPixels, itemCount](float offset) {
+            const double totalHeight = static_cast<double>(itemCount) * static_cast<double>(rowHeight);
+            const double firstPixel = std::max(0.0, static_cast<double>(offset) - static_cast<double>(overscanPixels));
+            if (itemCount <= 0 || totalHeight <= 0.0) {
+                return static_cast<std::int64_t>(0);
+            }
+            return std::clamp<std::int64_t>(
+                static_cast<std::int64_t>(std::floor(firstPixel / static_cast<double>(rowHeight))),
+                0,
+                itemCount - 1);
+        };
         auto root = ui_.stack(id_)
             .size(viewportWidth, viewportHeight)
             .zIndex(zIndex_)
             .clip()
             .scrollState(id_, currentOffset, maxOffset, scrollStep)
-            .composeOnScrollOffsetChange()
-            .onScrollOffsetChanged([onChange](float value) {
+            .onScrollOffsetChanged([onChange, firstIndex, firstIndexForOffset](float value) {
                 if (onChange) {
                     onChange(value);
                 }
-                core::platform::requestUiUpdate();
+                // Runtime can move the content window every frame. Recompose
+                // only when the visible slot range changes.
+                if (firstIndexForOffset(value) != firstIndex) {
+                    core::platform::requestUiUpdate();
+                }
             });
         if (hasX_) {
             root.x(x_);
@@ -121,19 +136,18 @@ public:
         root.content([&] {
                 ui_.stack(id_ + ".window")
                     .size(contentWidth, viewportHeight)
+                    .scrollContentFrom(id_)
                     .dirtyKey(id_ + ".virtual")
                     .content([&] {
                         if (!row_) {
                             return;
                         }
-                        const double offset = static_cast<double>(currentOffset);
                         std::int64_t slot = 0;
                         for (std::int64_t index = firstIndex; index < lastIndex; ++index) {
                             const std::string rowId = id_ + ".slot." + std::to_string(slot);
                             const double absoluteY = static_cast<double>(index) * static_cast<double>(rowHeight);
-                            const float rowY = static_cast<float>(absoluteY - offset);
                             ui_.stack(rowId)
-                                .y(rowY)
+                                .y(static_cast<float>(absoluteY))
                                 .size(contentWidth, rowHeight)
                                 .content([&] {
                                     row_(ui_, rowId, index, contentWidth, rowHeight);

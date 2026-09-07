@@ -536,6 +536,8 @@ function(eui_neo_configure_named_app target_name)
         target_link_libraries(${target_name} PRIVATE eui::module_keyboard)
     elseif(target_name STREQUAL "serial_tool")
         target_link_libraries(${target_name} PRIVATE eui::module_serial)
+    elseif(target_name STREQUAL "vcd_viewer")
+        target_link_libraries(${target_name} PRIVATE ZLIB::ZLIB)
     endif()
 endfunction()
 

@@ -115,8 +115,12 @@ inline void syncOwnedSliderState(const Element& element, runtime::SliderStateIns
 
 inline float sliderValueFromPointer(const Element& owner, double pointerX, float dpiScale) {
     const Rect bounds = toPixelRect(owner.frame, dpiScale);
-    const float localX = static_cast<float>(pointerX - bounds.x);
-    return std::clamp(localX / std::max(1.0f, bounds.width), 0.0f, 1.0f);
+    const float knobSize = std::clamp(owner.sliderKnobSize * std::max(0.001f, dpiScale),
+                                      0.0f, bounds.width);
+    const float travel = std::max(1.0f, bounds.width - knobSize);
+    const float pointerCenter = static_cast<float>(pointerX - bounds.x);
+    const float knobStart = pointerCenter - knobSize * 0.5f;
+    return std::clamp(knobStart / travel, 0.0f, 1.0f);
 }
 
 inline Transform pointerRuntimeTransformForElement(const Element& element,

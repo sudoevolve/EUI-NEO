@@ -110,6 +110,29 @@ Use `components::scrollView` for scrollable measured content. Use `components::v
 
 `scrollView` creates and measures its own wrap-content root. Make every child report its real height, and do not add a viewport-height wrapper around variable content unless that child is intentionally fixed-height; otherwise the measured scroll range will be wrong.
 
+## Performance Rules For Interactive Data UI
+
+Classify a performance problem before changing code: distinguish page compose/layout cost, Runtime tree traversal cost, primitive submission cost, and backend/GPU cost. Use the Runtime render statistics (`Dirty`, `Draw`, and `Pass`) to identify whether the active cost is CPU traversal, excessive primitive count, or GPU repaint area. Do not assume low GPU utilization means a page is cheap: a large DSL tree can still consume CPU during input and state updates.
+
+`clip()` only limits visible pixels. It does not avoid composing, laying out, updating, or submitting its offscreen children. For a long fixed-height list, timeline, log, signal browser, or waveform table, use `components::virtualList`; it composes only the viewport plus overscan slots. Use `scrollView` only when the whole measured content is small enough to compose cheaply.
+
+The built-in `virtualList` should move its visible window through the Runtime scroll transform and request a compose only when the overscanned slot range changes. Recomputing every row position and rebuilding the complete page for every scroll pixel defeats virtualization.
+
+Do not implement a manual virtual list by retaining all rows in `scrollView`, copying its offset into page state, and calling `requestUpdate()` from every scroll callback. That turns wheel and thumb motion into full-page compose work. `virtualList` owns the required Runtime-to-compose handoff and reuses visible slots. Keep row business state keyed by the real item index or data key, not by the reusable slot id.
+
+For dense charts, traces, waveforms, and timelines, set a visual budget from the available pixel width. Downsample or aggregate changes that would become sub-pixel segments, and keep retained primitive count bounded per visible row. Do not build a complete waveform as one self-intersecting polygon: it is not a valid general line representation, and current OpenGL/Vulkan polygon paths cap an individual polygon at 128 edges. Draw independent convex segments or use the existing line-chart step-segment technique instead.
+
+When building custom controls, make input math and render math use the same geometry. A slider whose knob renders over `width - knobSize` pixels must map pointer input over that same travel range, with the pointer aligned to the knob center. Do not draw a page-local track behind `components::slider` unless it intentionally replaces the component track; duplicate tracks with different vertical alignment look like hover jitter or a jumping control.
+
+For high-frequency interactions, prefer Runtime bindings and state (`slider`, `scrollView`, `virtualList`, hover/pressed states, pointer transform bindings). Request a page compose only when business data or the visible declarative structure must change; do not request it merely to animate a control that Runtime already owns.
+
+Before declaring a performance fix complete, validate all of these:
+
+- Static page: CPU and GPU return to idle after input and transitions stop.
+- Scroll: visible slots remain bounded; CPU/GPU work does not scale with total item count.
+- Drag or slider: pointer-to-visual mapping is stable at both endpoints and does not trigger full-page compose per move.
+- Dense primitive view: changes remain readable at the current zoom while primitive count stays within the per-row budget.
+
 Keep one logical wrapping grid in one `Flow`. Do not split one continuous card grid into multiple sibling flows, because each flow wraps independently and will restart from a new line.
 
 Treat `Flow` as wrapping, not as a full responsive layout engine. Use explicit thresholds when structure changes: keep two-column `Row` layouts while both children fit, switch to single-column `Column` only when the width is truly too small.
