@@ -2,13 +2,6 @@
 
 EUI-NEO 提供基于 miniaudio 的轻量音频播放，用于界面提示音、媒体时间轴、配乐同步和宣传片等场景。
 
-## 构建
-
-```sh
-cmake -S . -B build
-cmake --build build --parallel
-```
-
 项目内置的单头文件依赖位于 `3rd/miniaudio.h`。CMake 会优先使用仓库内版本，再根据 `EUI_DEPS_MODE`（`auto`、`bundled` 或 `fetch`）处理依赖。
 
 ## 公共 API
