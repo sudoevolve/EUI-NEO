@@ -19,7 +19,7 @@ option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_BUILD_FFMPEG_VIDEO_EXAMPLE "Build the optional FFmpeg video playback example." OFF)
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
-option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ON)
+option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 option(EUI_ENABLE_TRAY "Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; turn this OFF to build without tray support." ON)
 

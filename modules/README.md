@@ -15,7 +15,10 @@ Module boundaries:
 
 CMake behavior:
 
-- `EUI_ENABLE_MODULES=ON` scans `modules/` by default.
+- `EUI_ENABLE_MODULES` is enabled by default for a direct top-level EUI-NEO
+  source build and disabled by default when EUI-NEO is added to another
+  project. This keeps consumer builds focused on the application's targets.
+- When enabled, CMake scans `modules/` by default.
 - A module is added only when its directory contains `CMakeLists.txt`.
 - Missing module directories are skipped without an error.
 - Present modules may start as header-only `INTERFACE` targets and grow into
