@@ -122,13 +122,13 @@ function(eui_apply_compile_options target_name)
     elseif(APPLE)
         target_compile_options(${target_name} PRIVATE
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-Os>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-exceptions>
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<NOT:$<STREQUAL:${target_name},vcd_viewer>>>:-fno-exceptions>
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-rtti>
         )
     else()
         target_compile_options(${target_name} PRIVATE
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-Os>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-exceptions>
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<NOT:$<STREQUAL:${target_name},vcd_viewer>>>:-fno-exceptions>
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-rtti>
         )
     endif()
