@@ -27,7 +27,7 @@ struct Document {
 };
 
 bool loadFile(const std::string& path, Document& document, std::string& error);
-std::string valueAt(const Signal& signal, std::uint64_t time);
+const std::string& valueAt(const Signal& signal, std::uint64_t time);
 bool containsInsensitive(const std::string& value, const std::string& query);
 
 } // namespace vcd

@@ -2,6 +2,7 @@
 #include "vcd_model.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -31,6 +32,9 @@ struct ViewerState {
     eui::Signal<float> pan{0.0f};
     float waveScroll = 0.0f;
     std::size_t selectedSignal = 0;
+    std::vector<std::size_t> visibleSignals;
+    std::string visibleSignalsSearch;
+    int visibleSignalsGeneration = -1;
     std::string status = "Open a VCD file to inspect its waveforms.";
     std::string error;
     int generation = 0;
@@ -82,56 +86,50 @@ eui::Color valueColor(const std::string& value) {
     return {0.96f, 0.62f, 0.30f, 1.0f};
 }
 
-void appendArc(std::vector<eui::Vec2>& points, const eui::Vec2& center, float radius,
-               float startAngle, float endAngle, float originX, float originY) {
-    constexpr int segments = 8;
-    for (int step = 0; step <= segments; ++step) {
-        const float t = static_cast<float>(step) / static_cast<float>(segments);
-        const float angle = startAngle + (endAngle - startAngle) * t;
-        points.push_back({
-            center.x + std::cos(angle) * radius - originX,
-            center.y + std::sin(angle) * radius - originY
-        });
+std::size_t utf8PrefixBoundary(const std::string& text, std::size_t offset) {
+    offset = std::min(offset, text.size());
+    while (offset > 0 && offset < text.size() &&
+           (static_cast<unsigned char>(text[offset]) & 0xC0u) == 0x80u) {
+        --offset;
     }
+    return offset;
 }
 
-std::vector<eui::Vec2> capsulePoints(const eui::Vec2& from, const eui::Vec2& to,
-                                     float radius, float originX, float originY) {
-    const float dx = to.x - from.x;
-    const float dy = to.y - from.y;
-    const float length = std::sqrt(dx * dx + dy * dy);
-    if (length <= 0.001f) {
-        std::vector<eui::Vec2> points;
-        appendArc(points, from, radius, 0.0f, 6.28318530718f, originX, originY);
-        return points;
+std::size_t utf8SuffixBoundary(const std::string& text, std::size_t offset) {
+    offset = std::min(offset, text.size());
+    while (offset < text.size() && (static_cast<unsigned char>(text[offset]) & 0xC0u) == 0x80u) {
+        ++offset;
+    }
+    return offset;
+}
+
+std::string displayLabelText(const std::string& text, float width, float fontSize) {
+    // 文本框只裁剪最终图像，TextPrimitive 仍会为全部字符生成顶点。
+    // VCD 总线值和变量名可能极长，因此必须在进入渲染器前限制显示文本。
+    const float estimatedGlyphWidth = std::max(1.0f, fontSize * 0.55f);
+    const std::size_t limit = static_cast<std::size_t>(std::clamp(
+        std::floor(width / estimatedGlyphWidth), 8.0f, 160.0f));
+    if (text.size() <= limit) {
+        return text;
     }
 
-    const float angle = std::atan2(dy, dx);
-    const float normalAngle = angle + 1.57079632679f;
-    std::vector<eui::Vec2> points;
-    points.reserve(18u);
-    appendArc(points, to, radius, normalAngle, normalAngle - 3.14159265359f, originX, originY);
-    appendArc(points, from, radius, normalAngle - 3.14159265359f,
-              normalAngle - 6.28318530718f, originX, originY);
-    return points;
+    const std::size_t visible = limit - 3;
+    const std::size_t prefixEnd = utf8PrefixBoundary(text, (visible + 1) / 2);
+    const std::size_t suffixStart = utf8SuffixBoundary(text, text.size() - visible / 2);
+    return text.substr(0, prefixEnd) + "..." + text.substr(suffixStart);
 }
 
 void drawWaveSegment(eui::Ui& ui, const std::string& id, const eui::Vec2& from,
                      const eui::Vec2& to, const eui::Color& color, float thickness) {
     const float dx = to.x - from.x;
     const float dy = to.y - from.y;
-    if (std::sqrt(dx * dx + dy * dy) <= 0.001f) {
-        return;
-    }
+    const bool visible = std::sqrt(dx * dx + dy * dy) > 0.001f;
     const float radius = thickness * 0.5f;
-    const float segmentX = std::min(from.x, to.x) - radius;
-    const float segmentY = std::min(from.y, to.y) - radius;
-    const float segmentWidth = std::fabs(dx) + thickness;
-    const float segmentHeight = std::fabs(dy) + thickness;
-    ui.polygon(id)
-        .x(segmentX).y(segmentY).size(segmentWidth, segmentHeight)
-        .points(capsulePoints(from, to, radius, segmentX, segmentY))
-        .color(color).build();
+    const float x = std::min(from.x, to.x) - radius;
+    const float y = std::min(from.y, to.y) - radius;
+    const float w = std::max(std::fabs(dx), thickness) + (std::fabs(dx) > 0.001f ? thickness : 0.0f);
+    const float h = std::max(std::fabs(dy), thickness) + (std::fabs(dy) > 0.001f ? thickness : 0.0f);
+    ui.rect(id).position(x, y).size(w, h).color(visible ? color : kTransparent).radius(radius).build();
 }
 
 void openVcd(ViewerState& state) {
@@ -166,9 +164,28 @@ void openVcd(ViewerState& state) {
     ++state.generation;
 }
 
+const std::vector<std::size_t>& visibleSignalsFor(ViewerState& state) {
+    const std::string& search = state.search.get();
+    if (state.visibleSignalsGeneration == state.generation &&
+        state.visibleSignalsSearch == search) {
+        return state.visibleSignals;
+    }
+
+    state.visibleSignals.clear();
+    state.visibleSignals.reserve(state.document.signals.size());
+    for (std::size_t index = 0; index < state.document.signals.size(); ++index) {
+        if (vcd::containsInsensitive(state.document.signals[index].name, search)) {
+            state.visibleSignals.push_back(index);
+        }
+    }
+    state.visibleSignalsSearch = search;
+    state.visibleSignalsGeneration = state.generation;
+    return state.visibleSignals;
+}
+
 void label(eui::Ui& ui, const std::string& id, const std::string& text,
            float x, float y, float width, float height, float size, const eui::Color& color) {
-    ui.text(id).position(x, y).size(width, height).text(text)
+    ui.text(id).position(x, y).size(width, height).text(displayLabelText(text, width, size))
         .fontSize(size).lineHeight(size * 1.3f).color(color).build();
 }
 
@@ -182,7 +199,7 @@ void drawWaveform(eui::Ui& ui, const vcd::Signal& signal, float width, float hei
         const double normalized = (static_cast<double>(time) - static_cast<double>(start)) / span;
         return static_cast<float>(std::clamp(normalized, 0.0, 1.0) * width);
     };
-    const std::string initial = vcd::valueAt(signal, start);
+    const std::string& initial = vcd::valueAt(signal, start);
 
     const auto levelY = [](const std::string& value, float high, float low, float unknown) {
         return highValue(value) ? high : (lowValue(value) ? low : unknown);
@@ -190,62 +207,77 @@ void drawWaveform(eui::Ui& ui, const vcd::Signal& signal, float width, float hei
     // The runtime walks every retained primitive on each interactive frame.
     // Keep the step waveform bounded by the available pixel width instead of
     // retaining thousands of sub-pixel segments from a dense VCD trace.
-    const std::size_t maxTransitions = static_cast<std::size_t>(
-        std::clamp(width * 0.75f, 24.0f, 64.0f));
-    std::vector<const vcd::ValueChange*> changes;
-    changes.reserve(std::min<std::size_t>(signal.changes.size(), maxTransitions));
-    for (const vcd::ValueChange& change : signal.changes) {
-        if (change.time < start) continue;
-        if (change.time > end) break;
-        changes.push_back(&change);
-    }
-    const std::size_t stride = changes.size() > maxTransitions
-        ? (changes.size() + maxTransitions - 1) / maxTransitions : 1;
-    std::vector<std::size_t> sampled;
-    sampled.reserve(maxTransitions + 1);
-    for (std::size_t index = 0; index < changes.size(); index += stride) {
-        sampled.push_back(index);
-    }
-    if (!changes.empty() && sampled.back() != changes.size() - 1) {
-        sampled.push_back(changes.size() - 1);
-    }
+    // A waveform row is repeated for every virtual-list slot. Twenty-four
+    // samples are enough at this row height, while keeping scroll-time tree
+    // traversal and primitive submission bounded.
+    constexpr std::size_t kMaxTransitions = 24;
+    const auto first = std::lower_bound(
+        signal.changes.begin(), signal.changes.end(), start,
+        [](const vcd::ValueChange& change, std::uint64_t time) { return change.time < time; });
+    const auto last = std::upper_bound(
+        first, signal.changes.end(), end,
+        [](std::uint64_t time, const vcd::ValueChange& change) { return time < change.time; });
+    const std::size_t changeCount = static_cast<std::size_t>(last - first);
+    const std::size_t sampleCount = std::min(changeCount, kMaxTransitions);
     float previousX = 0.0f;
     float previousY = levelY(initial, highY, lowY, unknownY);
-    std::string previousValue = initial;
+    const std::string* previousValue = &initial;
     std::size_t segment = 0;
-    for (const std::size_t index : sampled) {
-        const vcd::ValueChange& change = *changes[index];
-        const float x = xFor(change.time);
-        const float nextY = levelY(change.value, highY, lowY, unknownY);
-        const eui::Color color = valueColor(previousValue);
-        drawWaveSegment(ui, id + ".h." + std::to_string(segment),
-                        {previousX, previousY}, {x, previousY}, color, 3.0f);
-        drawWaveSegment(ui, id + ".v." + std::to_string(segment),
-                        {x, previousY}, {x, nextY}, valueColor(change.value), 3.0f);
-        previousX = x;
-        previousY = nextY;
-        previousValue = change.value;
+    for (std::size_t sample = 0; sample < kMaxTransitions; ++sample) {
+        if (sample < sampleCount) {
+            const std::size_t index = sampleCount <= 1
+                ? 0
+                : (changeCount - 1) * sample / (sampleCount - 1);
+            const vcd::ValueChange& change = first[index];
+            const float x = xFor(change.time);
+            const float nextY = levelY(change.value, highY, lowY, unknownY);
+            const eui::Color color = valueColor(*previousValue);
+            drawWaveSegment(ui, id + ".h." + std::to_string(segment),
+                            {previousX, previousY}, {x, previousY}, color, 3.0f);
+            drawWaveSegment(ui, id + ".v." + std::to_string(segment),
+                            {x, previousY}, {x, nextY}, valueColor(change.value), 3.0f);
+            previousX = x;
+            previousY = nextY;
+            previousValue = &change.value;
+        } else {
+            // Keep the declarative subtree shape invariant while slots are
+            // rebound to signals with fewer transitions.
+            drawWaveSegment(ui, id + ".h." + std::to_string(segment),
+                            {previousX, previousY}, {previousX, previousY}, kTransparent, 3.0f);
+            drawWaveSegment(ui, id + ".v." + std::to_string(segment),
+                            {previousX, previousY}, {previousX, previousY}, kTransparent, 3.0f);
+        }
         ++segment;
     }
     drawWaveSegment(ui, id + ".h.end", {previousX, previousY}, {width, previousY},
-                    valueColor(previousValue), 3.0f);
+                    valueColor(*previousValue), 3.0f);
 
+    struct ValueLabel {
+        std::string text;
+        float x = 0.0f;
+    };
+    std::array<ValueLabel, 6> valueLabels;
     if (signal.width > 1) {
         std::uint64_t lastLabelTime = start;
         int labels = 0;
-        for (const vcd::ValueChange& change : signal.changes) {
-            if (labels >= 6 || change.time < start || change.time > end || change.time - lastLabelTime < 1) {
+        for (auto it = first; it != last && labels < 6; ++it) {
+            const vcd::ValueChange& change = *it;
+            if (change.time - lastLabelTime < 1) {
                 continue;
             }
             const float x = xFor(change.time) + 4.0f;
             if (x < width - 42.0f) {
-                label(ui, id + ".value." + std::to_string(change.time), change.value,
-                      x, height * 0.5f - 10.0f, 54.0f, 20.0f, 11.0f,
-                      alpha(theme().text, 0.82f));
+                valueLabels[static_cast<std::size_t>(labels)] = {change.value, x};
             }
             lastLabelTime = change.time;
             ++labels;
         }
+    }
+    for (std::size_t labelIndex = 0; labelIndex < valueLabels.size(); ++labelIndex) {
+        const ValueLabel& valueLabel = valueLabels[labelIndex];
+        label(ui, id + ".value." + std::to_string(labelIndex), valueLabel.text,
+              valueLabel.x, height * 0.5f - 10.0f, 54.0f, 20.0f, 11.0f,
+              alpha(theme().text, 0.82f));
     }
 }
 
@@ -258,13 +290,7 @@ void composeTimeline(eui::Ui& ui, ViewerState& state, float width, float height)
     const std::uint64_t start = static_cast<std::uint64_t>(state.pan.get() * static_cast<float>(maxStart));
     const std::uint64_t end = std::min(total, start + window);
 
-    std::vector<std::size_t> visibleSignals;
-    visibleSignals.reserve(state.document.signals.size());
-    for (std::size_t index = 0; index < state.document.signals.size(); ++index) {
-        if (vcd::containsInsensitive(state.document.signals[index].name, state.search.get())) {
-            visibleSignals.push_back(index);
-        }
-    }
+    const std::vector<std::size_t>& visibleSignals = visibleSignalsFor(state);
 
     constexpr float rulerHeight = 44.0f;
     constexpr float rowHeight = 42.0f;
@@ -297,7 +323,7 @@ void composeTimeline(eui::Ui& ui, ViewerState& state, float width, float height)
             .theme(theme()).position(0.0f, rulerHeight).size(width, rowsHeight)
             .itemCount(static_cast<std::int64_t>(visibleSignals.size()))
             .rowHeight(rowHeight).offset(state.waveScroll).step(rowHeight * 2.0f)
-            .overscanViewports(1.0f)
+            .overscanViewports(0.25f)
             .onChange([&state](float value) { state.waveScroll = value; })
             .row([&](eui::Ui& rowUi, const std::string& rowId, std::int64_t rowIndex,
                      float contentWidth, float itemHeight) {
@@ -402,10 +428,8 @@ void composeViewer(eui::Ui& ui, const eui::Screen& screen) {
               20.0f, theme().text);
         components::input(ui, "signals.search").position(16.0f, toolbarHeight + 52.0f)
             .size(sidebarWidth - 32.0f, 36.0f).placeholder("Filter signals").bind(state.search).theme(theme()).build();
-        const std::size_t matchingSignals = std::count_if(
-            state.document.signals.begin(), state.document.signals.end(),
-            [&state](const vcd::Signal& signal) { return vcd::containsInsensitive(signal.name, state.search.get()); });
-        label(ui, "signals.count", std::to_string(matchingSignals) + " / " +
+        const std::vector<std::size_t>& visibleSignals = visibleSignalsFor(state);
+        label(ui, "signals.count", std::to_string(visibleSignals.size()) + " / " +
               std::to_string(state.document.signals.size()) + " signals", 18.0f,
               toolbarHeight + 104.0f, sidebarWidth - 36.0f, 20.0f, 12.0f, alpha(theme().text, 0.56f));
         if (!state.document.signals.empty() && state.selectedSignal < state.document.signals.size()) {

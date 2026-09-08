@@ -912,7 +912,12 @@ inline void Runtime::updateText(
         instance.verticalAlign != element.verticalAlign ||
         instance.lineHeight != element.lineHeight;
     if (contentChanged) {
-        instance.text = element.text;
+        if (instance.text.capacity() / 4u > element.text.size()) {
+            std::string compactText = element.text;
+            instance.text.swap(compactText);
+        } else {
+            instance.text = element.text;
+        }
         instance.contentDirtyKey = element.dirtyKey;
         instance.fontFamily = element.fontFamily;
         instance.fontSize = element.fontSize;

@@ -1122,6 +1122,7 @@ void TextPrimitive::Impl::destroy() {
     releaseSharedTextAtlas();
     fontInfoStorage_.reset();
     glyphs_.clear();
+    glyphs_.rehash(0);
     lines_.clear();
     vertices_.clear();
     measuredSize_ = {};
@@ -1142,7 +1143,29 @@ void TextPrimitive::Impl::setText(const std::string& text) {
     if (style_.text == text) {
         return;
     }
-    style_.text = text;
+    if (style_.text.capacity() / 4u > text.size()) {
+        std::string compactText = text;
+        style_.text.swap(compactText);
+    } else {
+        style_.text = text;
+    }
+    // 虚拟列表会复用 TextPrimitive。glyph cache 仅服务于当前内容；共享 atlas
+    // 仍保留栅格化结果，因此清理实例缓存不会重复分配 GPU atlas。
+    glyphs_.clear();
+    glyphs_.rehash(0);
+    if (lines_.capacity() > 256u) {
+        std::vector<Line>().swap(lines_);
+    }
+    // 长文本产生的顶点容量不能跟随 slot 永久保留；普通文本更新仍复用小缓存。
+    constexpr std::size_t kMinimumRetainedVertexFloats = 32u * 1024u;
+    const std::size_t desiredCapacity = std::max(
+        kMinimumRetainedVertexFloats,
+        text.size() <= std::numeric_limits<std::size_t>::max() / 48u
+            ? text.size() * 48u
+            : std::numeric_limits<std::size_t>::max());
+    if (vertices_.capacity() > desiredCapacity) {
+        std::vector<float>().swap(vertices_);
+    }
     invalidateLayout();
 }
 

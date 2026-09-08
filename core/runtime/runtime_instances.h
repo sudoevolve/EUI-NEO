@@ -410,15 +410,6 @@ public:
             }
         };
         auto noop = [](auto&) {};
-        auto releaseLayer = [](RetainedLayerInstance& instance) {
-            core::render::RenderBackend* renderBackend = core::render::activeRenderBackend();
-            if (renderBackend != nullptr && instance.handle != nullptr) {
-                renderBackend->destroyLayer(instance.handle);
-            }
-            instance.handle = nullptr;
-            instance.valid = false;
-        };
-
         releaseUnseenEntries(rects, releasePrimitive);
         releaseUnseenEntries(polygons, releasePrimitive);
         releaseUnseenEntries(texts, releasePrimitive);
@@ -431,6 +422,20 @@ public:
         releaseUnseenEntries(sliderStates, noop);
         releaseUnseenEntries(frameTargets, noop);
         releaseUnseenEntries(paintBounds, noop);
+        // Retained layers are only marked as seen while the renderer walks the
+        // current tree. Releasing them here would discard every layer before
+        // that walk whenever composition changes the element structure.
+    }
+
+    void releaseUnseenRetainedLayers() {
+        auto releaseLayer = [](RetainedLayerInstance& instance) {
+            core::render::RenderBackend* renderBackend = core::render::activeRenderBackend();
+            if (renderBackend != nullptr && instance.handle != nullptr) {
+                renderBackend->destroyLayer(instance.handle);
+            }
+            instance.handle = nullptr;
+            instance.valid = false;
+        };
         releaseUnseenEntries(retainedLayers, releaseLayer);
     }
 

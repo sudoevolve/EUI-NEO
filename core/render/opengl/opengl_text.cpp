@@ -196,10 +196,28 @@ bool ensureAtlasTexture(TextAtlasTexture& texture, const TextAtlasPageData& page
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if (page.channels == 4) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, page.width, page.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, page.pixels);
+    const GLenum format = page.channels == 4 ? GL_RGBA : GL_RED;
+    const GLint internalFormat = page.channels == 4 ? GL_RGBA8 : GL_R8;
+    if (recreate) {
+        glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     internalFormat,
+                     page.width,
+                     page.height,
+                     0,
+                     format,
+                     GL_UNSIGNED_BYTE,
+                     page.pixels);
     } else {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, page.width, page.height, 0, GL_RED, GL_UNSIGNED_BYTE, page.pixels);
+        glTexSubImage2D(GL_TEXTURE_2D,
+                        0,
+                        0,
+                        0,
+                        page.width,
+                        page.height,
+                        format,
+                        GL_UNSIGNED_BYTE,
+                        page.pixels);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
     texture.generation = page.generation;

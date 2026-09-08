@@ -153,11 +153,15 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
     core::render::RenderFrameStats& stats = core::render::currentRenderFrameStats();
 
     const bool hasRenderableContent = !ui_.roots().empty();
+    const auto releasePrunedRetainedLayers = [&] {
+        instances_.releaseUnseenRetainedLayers();
+    };
     if (!hasRenderableContent) {
         ++stats.clearCalls;
         renderBackend->clear(clearColor);
         dirtyRects_.clear();
         fullPaintRequested_ = false;
+        releasePrunedRetainedLayers();
         core::render::publishRenderFrameStats();
         return;
     }
@@ -170,6 +174,7 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
             *renderBackend, windowWidth, windowHeight, dpiScale);
         dirtyRects_.clear();
         fullPaintRequested_ = false;
+        releasePrunedRetainedLayers();
         core::render::publishRenderFrameStats();
         return;
     }
@@ -181,6 +186,7 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
 
     if (!fullPaintRequested_ && dirtyRects_.empty()) {
         renderBackend->blitRenderCache(windowWidth, windowHeight, core::render::RenderCacheBlitMode::Existing);
+        releasePrunedRetainedLayers();
         core::render::publishRenderFrameStats();
         return;
     }
@@ -192,6 +198,7 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
     if (!fullPaintRequested_ && dirtyRects.empty()) {
         dirtyRects_.clear();
         renderBackend->blitRenderCache(windowWidth, windowHeight, core::render::RenderCacheBlitMode::Existing);
+        releasePrunedRetainedLayers();
         core::render::publishRenderFrameStats();
         return;
     }
@@ -234,6 +241,7 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale, c
     dirtyRects_.clear();
     fullPaintRequested_ = retainedLayerWarmupNeeded;
     paintRequested_ = retainedLayerWarmupNeeded;
+    releasePrunedRetainedLayers();
     core::render::publishRenderFrameStats();
 }
 
@@ -247,6 +255,7 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale) {
 
     RuntimeRenderer(ui_, instances_).renderDirect(
         *renderBackend, windowWidth, windowHeight, dpiScale);
+    instances_.releaseUnseenRetainedLayers();
 }
 
 inline void Runtime::shutdown(bool releaseCachedImageTextures) {

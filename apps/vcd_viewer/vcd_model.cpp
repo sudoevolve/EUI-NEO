@@ -251,15 +251,16 @@ bool loadFile(const std::string& path, Document& document, std::string& error) {
     return true;
 }
 
-std::string valueAt(const Signal& signal, std::uint64_t time) {
+const std::string& valueAt(const Signal& signal, std::uint64_t time) {
+    static const std::string unknownValue = "x";
     if (signal.changes.empty()) {
-        return "x";
+        return unknownValue;
     }
     const auto it = std::upper_bound(
         signal.changes.begin(), signal.changes.end(), time,
         [](std::uint64_t value, const ValueChange& change) { return value < change.time; });
     if (it == signal.changes.begin()) {
-        return "x";
+        return unknownValue;
     }
     return std::prev(it)->value;
 }
