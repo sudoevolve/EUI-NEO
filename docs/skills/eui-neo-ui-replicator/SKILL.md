@@ -126,6 +126,17 @@ When building custom controls, make input math and render math use the same geom
 
 For high-frequency interactions, prefer Runtime bindings and state (`slider`, `scrollView`, `virtualList`, hover/pressed states, pointer transform bindings). Request a page compose only when business data or the visible declarative structure must change; do not request it merely to animate a control that Runtime already owns.
 
+### Resource lifetime and memory release
+
+Treat retained GPU layers and per-primitive caches as resources with an explicit frame lifetime:
+
+- `Runtime::update()` may mark retained layers, paint bounds, and primitive instances as unseen, but must not destroy retained GPU layers while the current frame may still render them. Pruning and `destroyLayer(...)` belong after the render/cache-blit path has completed, including early-return render paths.
+- A retained layer is owned by the active render backend. Release it only through the backend that created it, and clear its handle/valid flag immediately after destruction. Never release a layer merely because a declarative subtree was recomposed; release only entries that were confirmed unseen after the frame.
+- Do not solve memory growth by disabling retained-layer caching or by clearing every cache on every scroll/input event. Preserve stable element ids and let the runtime reuse unchanged layers; release only stale resources after a completed frame.
+- When a virtualized `TextPrimitive` receives new content, clear content-dependent glyph/line/vertex data before rebuilding it. Keep small reusable capacity, but shrink oversized capacity when it was created by an unusually long label or waveform value. Shared font atlas storage is independent and must not be recreated for each slot update.
+- Bound retained primitive count and text size before composition. `clear()` alone does not necessarily return a container's capacity; use an explicit shrink/swap only when the retained capacity is materially larger than the next workload, otherwise repeated scrolling can keep peak memory permanently attached to reusable slots.
+- Any resource-lifetime change must be checked on both normal and early-return render paths, plus shutdown/backend teardown. Verify that memory stabilizes after repeated virtual-list scroll/zoom cycles and that CPU/GPU work returns to idle when input stops.
+
 Before declaring a performance fix complete, validate all of these:
 
 - Static page: CPU and GPU return to idle after input and transitions stop.

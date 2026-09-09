@@ -35,6 +35,9 @@ struct ViewerState {
     std::vector<std::size_t> visibleSignals;
     std::string visibleSignalsSearch;
     int visibleSignalsGeneration = -1;
+    std::uint64_t waveBufferStart = 0;
+    std::uint64_t waveBufferEnd = 0;
+    std::uint64_t waveBufferWindow = 0;
     std::string status = "Open a VCD file to inspect its waveforms.";
     std::string error;
     int generation = 0;
@@ -156,6 +159,9 @@ void openVcd(ViewerState& state) {
     state.waveScroll = 0.0f;
     state.zoom.set(0.0f);
     state.pan.set(0.0f);
+    state.waveBufferStart = 0;
+    state.waveBufferEnd = 0;
+    state.waveBufferWindow = 0;
     state.error.clear();
     state.status = std::to_string(state.document.signals.size()) + " signals loaded";
     if (state.document.timescale.find("binary waveform") != std::string::npos) {
@@ -190,64 +196,63 @@ void label(eui::Ui& ui, const std::string& id, const std::string& text,
 }
 
 void drawWaveform(eui::Ui& ui, const vcd::Signal& signal, float width, float height,
-                  std::uint64_t start, std::uint64_t end, const std::string& id) {
-    const double span = static_cast<double>(std::max<std::uint64_t>(1, end - start));
+                  std::uint64_t viewStart, std::uint64_t viewEnd,
+                  std::uint64_t bufferStart, std::uint64_t bufferEnd,
+                  const std::string& id) {
+    const double viewSpan = static_cast<double>(std::max<std::uint64_t>(1, viewEnd - viewStart));
     const float highY = 8.0f;
     const float lowY = height - 10.0f;
     const float unknownY = height * 0.5f;
     const auto xFor = [=](std::uint64_t time) {
-        const double normalized = (static_cast<double>(time) - static_cast<double>(start)) / span;
+        // Keep the element frame inside the viewport. Samples outside the
+        // visible window are pinned to the nearest edge; this avoids negative
+        // child frames in Runtime while retaining the state entering the view.
+        const double normalized = (static_cast<double>(time) - static_cast<double>(viewStart)) / viewSpan;
         return static_cast<float>(std::clamp(normalized, 0.0, 1.0) * width);
     };
-    const std::string& initial = vcd::valueAt(signal, start);
+    const std::string& initial = vcd::valueAt(signal, bufferStart);
 
     const auto levelY = [](const std::string& value, float high, float low, float unknown) {
         return highValue(value) ? high : (lowValue(value) ? low : unknown);
     };
-    // The runtime walks every retained primitive on each interactive frame.
-    // Keep the step waveform bounded by the available pixel width instead of
-    // retaining thousands of sub-pixel segments from a dense VCD trace.
-    // A waveform row is repeated for every virtual-list slot. Twenty-four
-    // samples are enough at this row height, while keeping scroll-time tree
-    // traversal and primitive submission bounded.
+    // 使用视窗两侧的缓冲变化点，固定槽位避免拖动时重建声明式子树。
     constexpr std::size_t kMaxTransitions = 24;
     const auto first = std::lower_bound(
-        signal.changes.begin(), signal.changes.end(), start,
+        signal.changes.begin(), signal.changes.end(), bufferStart,
         [](const vcd::ValueChange& change, std::uint64_t time) { return change.time < time; });
     const auto last = std::upper_bound(
-        first, signal.changes.end(), end,
+        first, signal.changes.end(), bufferEnd,
         [](std::uint64_t time, const vcd::ValueChange& change) { return time < change.time; });
-    const std::size_t changeCount = static_cast<std::size_t>(last - first);
+    const std::size_t firstIndex = static_cast<std::size_t>(first - signal.changes.begin());
+    const std::size_t lastIndex = static_cast<std::size_t>(last - signal.changes.begin());
+    const std::size_t changeCount = lastIndex - firstIndex;
     const std::size_t sampleCount = std::min(changeCount, kMaxTransitions);
     float previousX = 0.0f;
     float previousY = levelY(initial, highY, lowY, unknownY);
     const std::string* previousValue = &initial;
-    std::size_t segment = 0;
-    for (std::size_t sample = 0; sample < kMaxTransitions; ++sample) {
-        if (sample < sampleCount) {
-            const std::size_t index = sampleCount <= 1
-                ? 0
-                : (changeCount - 1) * sample / (sampleCount - 1);
-            const vcd::ValueChange& change = first[index];
+    for (std::size_t slot = 0; slot < kMaxTransitions; ++slot) {
+        if (slot < sampleCount) {
+            const std::size_t index = firstIndex + (sampleCount <= 1 ? 0 :
+                (changeCount - 1u) * slot / (sampleCount - 1u));
+            const vcd::ValueChange& change = signal.changes[index];
             const float x = xFor(change.time);
             const float nextY = levelY(change.value, highY, lowY, unknownY);
             const eui::Color color = valueColor(*previousValue);
-            drawWaveSegment(ui, id + ".h." + std::to_string(segment),
+            const std::string segmentId = std::to_string(slot);
+            drawWaveSegment(ui, id + ".h." + segmentId,
                             {previousX, previousY}, {x, previousY}, color, 3.0f);
-            drawWaveSegment(ui, id + ".v." + std::to_string(segment),
+            drawWaveSegment(ui, id + ".v." + segmentId,
                             {x, previousY}, {x, nextY}, valueColor(change.value), 3.0f);
             previousX = x;
             previousY = nextY;
             previousValue = &change.value;
         } else {
-            // Keep the declarative subtree shape invariant while slots are
-            // rebound to signals with fewer transitions.
-            drawWaveSegment(ui, id + ".h." + std::to_string(segment),
+            const std::string segmentId = std::to_string(slot);
+            drawWaveSegment(ui, id + ".h." + segmentId,
                             {previousX, previousY}, {previousX, previousY}, kTransparent, 3.0f);
-            drawWaveSegment(ui, id + ".v." + std::to_string(segment),
+            drawWaveSegment(ui, id + ".v." + segmentId,
                             {previousX, previousY}, {previousX, previousY}, kTransparent, 3.0f);
         }
-        ++segment;
     }
     drawWaveSegment(ui, id + ".h.end", {previousX, previousY}, {width, previousY},
                     valueColor(*previousValue), 3.0f);
@@ -258,9 +263,15 @@ void drawWaveform(eui::Ui& ui, const vcd::Signal& signal, float width, float hei
     };
     std::array<ValueLabel, 6> valueLabels;
     if (signal.width > 1) {
-        std::uint64_t lastLabelTime = start;
+        std::uint64_t lastLabelTime = viewStart;
         int labels = 0;
-        for (auto it = first; it != last && labels < 6; ++it) {
+        const auto labelFirst = std::lower_bound(
+            signal.changes.begin(), signal.changes.end(), viewStart,
+            [](const vcd::ValueChange& change, std::uint64_t time) { return change.time < time; });
+        const auto labelLast = std::upper_bound(
+            labelFirst, signal.changes.end(), viewEnd,
+            [](std::uint64_t time, const vcd::ValueChange& change) { return time < change.time; });
+        for (auto it = labelFirst; it != labelLast && labels < 6; ++it) {
             const vcd::ValueChange& change = *it;
             if (change.time - lastLabelTime < 1) {
                 continue;
@@ -289,6 +300,20 @@ void composeTimeline(eui::Ui& ui, ViewerState& state, float width, float height)
     const std::uint64_t maxStart = total > window ? total - window : 0;
     const std::uint64_t start = static_cast<std::uint64_t>(state.pan.get() * static_cast<float>(maxStart));
     const std::uint64_t end = std::min(total, start + window);
+
+    const std::uint64_t margin = std::max<std::uint64_t>(1, window);
+    const bool invalidBuffer = state.waveBufferWindow != window ||
+                               state.waveBufferEnd <= state.waveBufferStart ||
+                               start < state.waveBufferStart || end > state.waveBufferEnd;
+    const bool nearLeftEdge = state.waveBufferStart > 0 &&
+                              start < state.waveBufferStart + margin / 2u;
+    const bool nearRightEdge = state.waveBufferEnd < total &&
+                               end > state.waveBufferEnd - margin / 2u;
+    if (invalidBuffer || nearLeftEdge || nearRightEdge) {
+        state.waveBufferStart = start > margin ? start - margin : 0;
+        state.waveBufferEnd = std::min(total, end + margin);
+        state.waveBufferWindow = window;
+    }
 
     const std::vector<std::size_t>& visibleSignals = visibleSignalsFor(state);
 
@@ -359,8 +384,13 @@ void composeTimeline(eui::Ui& ui, ViewerState& state, float width, float height)
                                     .position(gridX, 0.0f).size(1.0f, itemHeight)
                                     .color(alpha(theme().border, tick == 0 ? 0.64f : 0.20f)).build();
                             }
-                            drawWaveform(rowUi, signal, contentWaveWidth, itemHeight, start, end,
-                                         rowId + ".wave");
+                            rowUi.stack(rowId + ".wave.content")
+                                .size(contentWaveWidth, itemHeight)
+                                .content([&] {
+                                    drawWaveform(rowUi, signal, contentWaveWidth, itemHeight,
+                                                 start, end, state.waveBufferStart, state.waveBufferEnd,
+                                                 rowId + ".wave");
+                                }).build();
                         }).build();
                     rowUi.rect(rowId + ".line").position(0.0f, itemHeight - 1.0f)
                         .size(contentWidth, 1.0f).color(alpha(theme().border, 0.30f)).build();
