@@ -24,6 +24,11 @@ int main() {
         .onKeyEvent([&](const eui::KeyEvent&) { ++keyEvents; });
 
     assert(config.uiScaleValue == 1.25f);
+#if defined(EUI_DEBUG_BUILD)
+    assert(config.showDebugStatsInTitleValue);
+#else
+    assert(!config.showDebugStatsInTitleValue);
+#endif
 
     title.clear();
     pageId.clear();

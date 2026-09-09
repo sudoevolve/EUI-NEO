@@ -283,6 +283,11 @@ endif()
 target_link_libraries(eui_neo PUBLIC Threads::Threads)
 target_compile_features(eui_neo PUBLIC cxx_std_17)
 target_compile_definitions(eui_neo PRIVATE YYJSON_DISABLE_WRITER=1)
+# Keep application-facing debug defaults tied to CMake's configuration rather
+# than compiler-specific NDEBUG flags.  FetchContent consumers inherit this
+# definition through eui::neo when their target links the framework.
+target_compile_definitions(eui_neo INTERFACE
+    $<$<CONFIG:Debug>:EUI_DEBUG_BUILD=1>)
 eui_apply_compile_options(eui_neo)
 
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")

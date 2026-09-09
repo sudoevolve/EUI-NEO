@@ -16,7 +16,7 @@ struct DslAppConfig {
     int windowWidthValue = 800;
     int windowHeightValue = 600;
     float uiScaleValue = 1.0f;
-#ifndef NDEBUG
+#if defined(EUI_DEBUG_BUILD)
     bool showDebugStatsInTitleValue = true;
 #else
     bool showDebugStatsInTitleValue = false;
