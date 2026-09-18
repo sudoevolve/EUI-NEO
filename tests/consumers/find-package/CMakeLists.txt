@@ -31,6 +31,12 @@ endif()
 
 add_test(NAME eui_find_package_consumer COMMAND eui_find_package_consumer)
 
+if(TARGET eui::module_plot)
+    add_executable(eui_find_package_plot plot.cpp)
+    target_link_libraries(eui_find_package_plot PRIVATE eui::module_plot)
+    add_test(NAME eui_find_package_plot COMMAND eui_find_package_plot)
+endif()
+
 add_executable(eui_find_package_app
     main.cpp
     public_header_companion.cpp
