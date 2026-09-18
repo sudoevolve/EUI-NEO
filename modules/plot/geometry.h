@@ -20,6 +20,9 @@ enum class Graph {
     Band       ///< lower/upper 为绝对包络 Y 值。
 };
 
+/** @brief 序列使用的垂直坐标轴。 */
+enum class YAxis { Primary, Secondary };
+
 /** @brief 数据标记形状，尺寸为包围盒边长。 */
 enum class Marker { Square, Circle, Diamond, Cross };
 /** @brief 线型，虚线长度以线宽为基准。 */
@@ -64,6 +67,7 @@ struct Series {
     Style style;
     std::string name;
     bool visible = true;
+    YAxis yAxis = YAxis::Primary;
     /** @brief 显示模式；原始数据快照始终保留并用于拾取。 */
     CurveKind curve = CurveKind::Raw;
     std::vector<double> lower;     ///< ErrorBars 或 Band 的下界参数。
@@ -91,6 +95,8 @@ std::vector<DisplayRun> selectDisplay(const Data& data, const Axes& axes, Viewpo
 
 /** @brief 使用矩形裁剪生成批量三角形；非法样式抛出 std::invalid_argument。 */
 std::vector<Vertex> tessellate(const Series& series, const Axes& axes, Viewport viewport);
+/** @brief 使用 PolarAxes 生成极坐标折线或散点；其他 Graph 类型抛出 std::invalid_argument。 */
+std::vector<Vertex> polarTessellate(const Series& series, const PolarAxes& axes, Viewport viewport);
 std::vector<Vertex> missingGeometry(const Series& series, const Axes& axes, Viewport viewport);
 /** @brief 数据路径及凸多边形裁剪；非凸填充抛出 std::invalid_argument。 */
 std::vector<Vertex> pathGeometry(const std::vector<Point>& points, const Style& style, bool closed,

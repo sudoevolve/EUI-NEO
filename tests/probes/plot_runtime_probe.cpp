@@ -1,4 +1,6 @@
+#include "modules/plot/contour.h"
 #include "modules/plot/plot.h"
+#include "modules/plot/vector.h"
 #include "core/dsl_runtime.h"
 #include "core/render/render_backend.h"
 #include "core/window/window_backend.h"
@@ -101,6 +103,138 @@ int main() {
                 glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
                 glDeleteFramebuffers(1, &readback);
             }
+            PolarAxes polarAxes;
+            polarAxes.setAngleUnit(AngleUnit::Degrees);
+            polarAxes.radius.setRange({0, 1});
+            Series polarShape;
+            polarShape.data = Data({0, 90, 180, 270}, {1, 1, 1, 1});
+            for (const auto kind : {Graph::Line, Graph::Scatter}) {
+                polarShape.graph = kind;
+                renderer.render({{polarTessellate(polarShape, polarAxes, {0, 0, 100, 100}), {1, 0, 0, 1}}},
+                                100, 100);
+                glGenFramebuffers(1, &readback);
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, readback);
+                glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                       renderer.image()->descriptor().texture, 0);
+                std::vector<unsigned char> pixels(100 * 100 * 4);
+                glReadPixels(0, 0, 100, 100, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
+                std::size_t red = 0;
+                for (std::size_t i = 0; i < pixels.size(); i += 4)
+                    red += pixels[i] > 240 && pixels[i + 1] < 10;
+                require(red > 0, "polar graph produced no pixels");
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+                glDeleteFramebuffers(1, &readback);
+            }
+            ColorScale heatmapScale;
+            heatmapScale.setRange({0, 1});
+            ScalarField heatmapField(2, 2, {0, 0, 0, 0});
+            std::vector<Batch> heatmapBatches;
+            for (const auto& tile : heatmapTiles(heatmapField, heatmapScale, {0, 0, 75, 100}))
+                heatmapBatches.push_back({tile.vertices, tile.color});
+            for (auto tile : colorbarTiles(heatmapScale, {0, 0, 10, 100}, 8)) {
+                for (auto& vertex : tile.vertices)
+                    vertex.x += 80;
+                heatmapBatches.push_back({tile.vertices, tile.color});
+            }
+            renderer.render(heatmapBatches, 100, 100);
+            glGenFramebuffers(1, &readback);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, readback);
+            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                   renderer.image()->descriptor().texture, 0);
+            std::vector<unsigned char> heatmapPixels(100 * 100 * 4);
+            glReadPixels(0, 0, 100, 100, GL_RGBA, GL_UNSIGNED_BYTE, heatmapPixels.data());
+            std::size_t colorbarRed = 0;
+            for (std::size_t row = 0; row < 100; ++row)
+                for (std::size_t column = 80; column < 90; ++column)
+                    colorbarRed += heatmapPixels[(row * 100 + column) * 4] > 230;
+            require(colorbarRed > 0, "colorbar produced no high color pixels");
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &readback);
+            Axes fieldAxes;
+            fieldAxes.x.setRange({0, 2});
+            fieldAxes.y.setRange({0, 2});
+            const RectilinearField rectilinear({0, 1, 2}, {0, 2}, {0, 0.5, 1, 0.25, 0.75, 1});
+            const TriangulatedField triangulated({{0, 0}, {2, 0}, {0, 2}}, {0, 0.5, 1}, {{0, 1, 2}});
+            std::vector<Batch> fieldBatches;
+            for (const auto& tile : rectilinearTiles(rectilinear, heatmapScale, fieldAxes, {0, 0, 100, 100}))
+                fieldBatches.push_back({tile.vertices, tile.color});
+            for (const auto& tile : triangulatedTiles(triangulated, heatmapScale, fieldAxes, {0, 0, 100, 100}))
+                fieldBatches.push_back({tile.vertices, tile.color});
+            renderer.render(fieldBatches, 100, 100);
+            glGenFramebuffers(1, &readback);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, readback);
+            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                   renderer.image()->descriptor().texture, 0);
+            glReadPixels(50, 50, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+            require(pixel[0] > 30 || pixel[1] > 30 || pixel[2] > 30, "grid field produced no pixel");
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &readback);
+            const RectilinearField vectorX({0, 1, 2}, {0, 1, 2}, {1, 1, 1, 1, 1, 1, 1, 1, 1});
+            const RectilinearField vectorY({0, 1, 2}, {0, 1, 2}, {0, 0, 0, 0, 0, 0, 0, 0, 0});
+            const VectorField vectorField(vectorX, vectorY);
+            Axes vectorAxes;
+            vectorAxes.x.setRange({0, 2});
+            vectorAxes.y.setRange({0, 2});
+            std::vector<Batch> vectorBatches;
+            vectorBatches.push_back({arrowGeometry(vectorArrows(vectorField, 0.2), vectorAxes, {0, 0, 100, 100}),
+                                     {1, 0.8f, 0.1f, 1}});
+            vectorBatches.push_back(
+                {streamlineGeometry(streamlines(vectorField, {{0.5, 1}}, 0.2, 4, 1e-12, false)[0], vectorAxes,
+                                     {0, 0, 100, 100}),
+                 {0.1f, 0.8f, 1, 1}});
+            renderer.render(vectorBatches, 100, 100);
+            glGenFramebuffers(1, &readback);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, readback);
+            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                   renderer.image()->descriptor().texture, 0);
+            glReadPixels(50, 50, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+            require(pixel[0] > 30 || pixel[1] > 30 || pixel[2] > 30, "vector field produced no pixel");
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &readback);
+            ScalarField contourRenderField(2, 2, {0, 0, 1, 1}, {0, 1}, {0, 1}, FieldOrigin::LowerLeft,
+                                           FieldSampling::GridPoints);
+            Axes contourAxes;
+            contourAxes.x.setRange({0, 1});
+            contourAxes.y.setRange({0, 1});
+            Style fillStyle;
+            fillStyle.color = {1, 0, 0, 1};
+            std::vector<Batch> contourBatches;
+            const auto contourBands = filledContours(contourRenderField, {0.5});
+            for (const auto& triangle : contourBands[0].triangles) {
+                const auto vertices =
+                    pathGeometry({triangle[0], triangle[1], triangle[2]}, fillStyle, true, true, contourAxes,
+                                 {0, 0, 100, 100});
+                require(!vertices.empty(), "filled contour produced no vertices");
+                contourBatches.push_back({vertices, fillStyle.color});
+            }
+            Style contourStyle;
+            contourStyle.color = {1, 1, 1, 1};
+            const auto contourLines = marchingSquares(contourRenderField, {0.5});
+            for (const auto& segment : contourLines[0].segments)
+                contourBatches.push_back(
+                    {pathGeometry({segment.from, segment.to}, contourStyle, false, false, contourAxes, {0, 0, 100, 100}),
+                     contourStyle.color});
+            renderer.render(contourBatches, 100, 100);
+            glGenFramebuffers(1, &readback);
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, readback);
+            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                   renderer.image()->descriptor().texture, 0);
+            std::vector<unsigned char> contourPixels(100 * 100 * 4);
+            glReadPixels(0, 0, 100, 100, GL_RGBA, GL_UNSIGNED_BYTE, contourPixels.data());
+            std::size_t contourFill = 0;
+            unsigned char maxRed = 0;
+            unsigned char maxGreen = 0;
+            for (std::size_t index = 0; index < contourPixels.size(); index += 4) {
+                contourFill += contourPixels[index] > 240 && contourPixels[index + 1] < 10;
+                maxRed = std::max(maxRed, contourPixels[index]);
+                maxGreen = std::max(maxGreen, contourPixels[index + 1]);
+            }
+            require(contourFill > 0,
+                    ("filled contour produced no pixel: r=" + std::to_string(maxRed) +
+                     " g=" + std::to_string(maxGreen))
+                        .c_str());
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            glDeleteFramebuffers(1, &readback);
             // 缺失样本两侧可见，中间必须保持背景色。
             Series gap;
             gap.data = Data({0, 3, 5, 7, 10}, {0, 0, std::numeric_limits<double>::quiet_NaN(), 0, 0});

@@ -77,18 +77,18 @@ PlotFigure：整张图、子图布局、导出
 
 ## 阶段二：复杂二维图与科学标注
 
-- [ ] 支持多子图布局、共享坐标轴、双 Y 轴及范围/光标联动，避免联动事件递归触发。
-- [ ] 实现极坐标轴、角度单位、极坐标曲线和散点。
-- [ ] 实现热力图、矩阵图像和颜色条（colorbar），明确矩阵行列与坐标方向的关系。
-- [ ] 支持连续/离散色图、线性/对数色阶、手动/自动色阶及缺失值颜色。
-- [ ] 实现等高线和填充等高线，支持指定等值、标签及缺失区域。
-- [ ] 支持规则网格和非规则网格，明确数据插值及网格拓扑要求。
-- [ ] 实现矢量箭头与流线，定义箭头缩放、种子、积分及终止规则。
-- [ ] 支持上下标、希腊字母和数学公式排版；列明支持的语法子集与字体回退行为。
-- [ ] 科学标注使用共用布局能力，标题、图例、轴标签和普通 UI 可复用公式排版。
-- [ ] 支持高分辨率 PNG 导出，可配置尺寸、背景和 DPI，布局随导出尺寸重新计算。
-- [ ] 支持 SVG/PDF 矢量输出，保留路径与文本语义，并明确字体嵌入及栅格图层策略。
-- [ ] 验证已知标量场的等高线、向量场方向、极坐标映射、多子图联动及导出内容一致性。
+- [x] 支持多子图布局、共享坐标轴、双 Y 轴及范围/光标联动，避免联动事件递归触发（`tests/unit/plot_numeric.cpp`）。
+- [x] 实现极坐标轴、角度单位、极坐标曲线和散点（`plot_numeric`、`plot_geometry`、`plot_runtime_probe`、`examples/scientific_plot_phase2.cpp`；GLFW/SDL2 OpenGL）。
+- [x] 实现热力图、矩阵图像和颜色条（colorbar），明确矩阵行列与坐标方向的关系（`plot_numeric`、`plot_geometry`、`plot_runtime_probe`、`examples/scientific_plot_phase2.cpp`；GLFW/SDL2 OpenGL）。
+- [x] 支持连续/离散色图、线性/对数色阶、手动/自动色阶及缺失值颜色（`plot_numeric`、`plot_geometry`、`plot_runtime_probe`；GLFW/SDL2 OpenGL）。
+- [x] 实现等高线和填充等高线，支持指定等值、标签及缺失区域（`plot_geometry`、`plot_runtime_probe`、`plot_contour_runtime_probe`、`examples/scientific_plot_phase2.cpp`；GLFW/SDL2 OpenGL）。
+- [x] 支持规则网格和非规则网格，明确数据插值及网格拓扑要求（`RectilinearField`、`TriangulatedField`、`plot_geometry`、`plot_runtime_probe`；GLFW/SDL2 OpenGL）。
+- [x] 实现矢量箭头与流线，定义箭头缩放、种子、积分及终止规则（`VectorField`、`plot_vector`、`plot_runtime_probe`；GLFW/SDL2 OpenGL）。
+- [ ] 支持上下标、希腊字母和数学公式排版；列明支持的语法子集与字体回退行为（待接入正式 TeX/MathML 排版引擎）。
+- [ ] 科学标注使用共用布局能力，标题、图例、轴标签和普通 UI 可复用公式排版（当前仅支持普通 UTF-8 文本）。
+- [x] 支持高分辨率 PNG 导出，可配置尺寸、背景和 DPI，布局随导出尺寸重新计算（`writePng`、`plot_export`）。
+- [x] 支持 SVG/PDF 矢量输出，保留路径与文本语义，并明确字体嵌入及栅格图层策略（`writeSvg`、`writePdf`、`plot_export`）。
+- [x] 验证已知标量场的等高线、向量场方向、极坐标映射、多子图联动及导出内容一致性（`plot_geometry`、`plot_vector`、`plot_runtime_probe`、`plot_export`）。
 
 完成条件：二维曲线与二维场可以共享坐标、交互和标注；图片及矢量导出有回归样例，
 不将窗口截图等同于矢量导出。

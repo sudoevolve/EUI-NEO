@@ -243,4 +243,67 @@ bool Axes::equalize(Viewport viewport) {
     y.setRange(newY);
     return true;
 }
+
+void PolarAxes::setAngleUnit(AngleUnit unit) {
+    if (unit != AngleUnit::Radians && unit != AngleUnit::Degrees)
+        throw std::invalid_argument("plot: unknown angle unit");
+    unit_ = unit;
+}
+AngleUnit PolarAxes::angleUnit() const noexcept { return unit_; }
+void PolarAxes::setZeroAngle(double angle) {
+    if (!std::isfinite(angle))
+        throw std::invalid_argument("plot: zero angle must be finite");
+    zeroAngleRadians_ = unit_ == AngleUnit::Degrees ? angle * std::acos(-1) / 180 : angle;
+}
+double PolarAxes::zeroAngle() const noexcept {
+    return unit_ == AngleUnit::Degrees ? zeroAngleRadians_ * 180 / std::acos(-1) : zeroAngleRadians_;
+}
+void PolarAxes::setClockwise(bool clockwise) noexcept { clockwise_ = clockwise; }
+bool PolarAxes::clockwise() const noexcept { return clockwise_; }
+void PolarAxes::fit(const std::vector<Data>& data) {
+    std::optional<Range> extent;
+    for (const auto& series : data)
+        for (std::size_t index = 0; index < series.size(); ++index) {
+            const auto point = series.at(index);
+            if (!std::isfinite(point.x) || !std::isfinite(point.y) || point.y < 0)
+                continue;
+            include(extent, point.y);
+        }
+    if (extent)
+        extent->min = 0;
+    radius.fit(extent);
+}
+std::optional<Point> PolarAxes::toScreen(Point point, Viewport viewport) const {
+    if (!validViewport(viewport) || !std::isfinite(point.x) || !std::isfinite(point.y) || point.y < 0)
+        return std::nullopt;
+    const auto normalizedRadius = radius.normalize(point.y);
+    if (!normalizedRadius || *normalizedRadius < 0 || *normalizedRadius > 1)
+        return std::nullopt;
+    const double angle = zeroAngleRadians_ + (clockwise_ ? -1 : 1) *
+                                                  (unit_ == AngleUnit::Degrees ? point.x * std::acos(-1) / 180
+                                                                               : point.x);
+    const Point center{viewport.x + viewport.width / 2, viewport.y + viewport.height / 2};
+    const double pixelsPerRadius = std::min(viewport.width, viewport.height) / 2;
+    const Point result{center.x + *normalizedRadius * pixelsPerRadius * std::cos(angle),
+                       center.y - *normalizedRadius * pixelsPerRadius * std::sin(angle)};
+    return std::isfinite(result.x) && std::isfinite(result.y) ? std::optional<Point>{result} : std::nullopt;
+}
+std::optional<Point> PolarAxes::toData(Point point, Viewport viewport) const {
+    if (!validViewport(viewport) || !std::isfinite(point.x) || !std::isfinite(point.y))
+        return std::nullopt;
+    const Point center{viewport.x + viewport.width / 2, viewport.y + viewport.height / 2};
+    const double pixelsPerRadius = std::min(viewport.width, viewport.height) / 2;
+    const double x = (point.x - center.x) / pixelsPerRadius;
+    const double y = (center.y - point.y) / pixelsPerRadius;
+    const double normalizedRadius = std::hypot(x, y);
+    if (!std::isfinite(normalizedRadius) || normalizedRadius > 1)
+        return std::nullopt;
+    const auto radial = radius.denormalize(normalizedRadius);
+    if (!radial)
+        return std::nullopt;
+    double angle = (std::atan2(y, x) - zeroAngleRadians_) * (clockwise_ ? -1 : 1);
+    if (unit_ == AngleUnit::Degrees)
+        angle *= 180 / std::acos(-1);
+    return Point{angle, *radial};
+}
 } // namespace modules::plot

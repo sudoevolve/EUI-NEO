@@ -1,3 +1,5 @@
+#include "modules/plot/field.h"
+#include "modules/plot/contour.h"
 #include "modules/plot/geometry.h"
 
 #include <cmath>
@@ -83,6 +85,86 @@ int main() {
             points.graph = Graph::Scatter;
             points.style.marker = marker;
             require(!tessellate(points, axes, viewport).empty(), "marker");
+        }
+        PolarAxes polar;
+        polar.setAngleUnit(AngleUnit::Degrees);
+        polar.radius.setRange({0, 1});
+        Series polarLine;
+        polarLine.data = Data({0, 90, 180}, {1, 1, 1});
+        const auto polarLineVertices = polarTessellate(polarLine, polar, viewport);
+        require(!polarLineVertices.empty() && polarLineVertices.size() % 3 == 0, "polar line geometry");
+        Series polarScatter = polarLine;
+        polarScatter.graph = Graph::Scatter;
+        require(!polarTessellate(polarScatter, polar, viewport).empty(), "polar scatter geometry");
+        polarLine.graph = Graph::Bar;
+        try {
+            polarTessellate(polarLine, polar, viewport);
+            throw std::runtime_error("unsupported polar graph");
+        } catch (const std::invalid_argument&) {
+        }
+        ColorScale heatmapScale;
+        heatmapScale.setRange({0, 6});
+        ScalarField upperField(2, 3, {1, 2, 3, 4, 5, 6}, {0, 3}, {0, 2}, FieldOrigin::UpperLeft);
+        const auto upperTiles = heatmapTiles(upperField, heatmapScale, viewport);
+        require(upperTiles.size() == 6 && upperTiles.front().vertices.size() == 6 &&
+                upperTiles.front().vertices.front().y == 0,
+            "upper-origin heatmap tiles");
+        ScalarField lowerField(2, 3, {1, 2, 3, 4, 5, 6}, {0, 3}, {0, 2}, FieldOrigin::LowerLeft);
+        require(heatmapTiles(lowerField, heatmapScale, viewport).front().vertices.front().y == 50,
+            "lower-origin heatmap tiles");
+        ScalarField gridField(2, 2, {0, 2, 4, 6}, {0, 1}, {0, 1}, FieldOrigin::LowerLeft,
+                      FieldSampling::GridPoints);
+        require(heatmapTiles(gridField, heatmapScale, viewport).front().color == heatmapScale.map(3),
+            "grid-point heatmap averaging");
+        require(colorbarTiles(heatmapScale, {0, 0, 10, 100}, 8).size() == 8, "colorbar tiles");
+        ScalarField contourField(2, 2, {0, 1, 1, 0}, {0, 1}, {0, 1}, FieldOrigin::LowerLeft,
+                                 FieldSampling::GridPoints);
+        const auto contours = marchingSquares(contourField, {0.5});
+        require(contours.size() == 1 && contours[0].segments.size() == 2, "saddle contour");
+        require(automaticContourLevels(ScalarField(1, 2, {0, 2}), 3) == std::vector<double>({0.5, 1, 1.5}),
+            "automatic contour levels");
+        require(contourLabels(contours).size() == 1, "contour label");
+        const auto bands = filledContours(contourField, {0.5});
+        require(bands.size() == 2 && !bands[0].triangles.empty() && !bands[1].triangles.empty(),
+            "filled contours");
+        ScalarField monotonicContour(2, 2, {0, 0, 1, 1}, {0, 1}, {0, 1}, FieldOrigin::LowerLeft,
+                         FieldSampling::GridPoints);
+        const auto monotonicBands = filledContours(monotonicContour, {0.5});
+        require(!monotonicBands[0].triangles.empty(), "monotonic filled contour");
+        const auto fillVertices =
+            pathGeometry({monotonicBands[0].triangles[0][0], monotonicBands[0].triangles[0][1],
+                          monotonicBands[0].triangles[0][2]},
+                         Style{}, true, true, Axes{}, viewport);
+        require(fillVertices.size() == 3 && fillVertices[0].x != fillVertices[1].x &&
+                    fillVertices[0].y != fillVertices[2].y,
+                "filled contour render geometry");
+        ScalarField missingContour(2, 2, {0, 1, nan, 0}, {0, 1}, {0, 1}, FieldOrigin::LowerLeft,
+                                   FieldSampling::GridPoints);
+        require(marchingSquares(missingContour, {0.5})[0].segments.empty(), "missing contour cell");
+        require(filledContours(missingContour, {0.5})[0].triangles.empty(), "missing contour fill");
+        const RectilinearField rectilinear({0, 2, 5}, {0, 3}, {0, 2, 5, 3, 5, 8});
+        require(rectilinear.interpolate({1, 1.5}) && *rectilinear.interpolate({1, 1.5}) == 2.5,
+            "rectilinear interpolation");
+        require(!rectilinear.interpolate({-1, 1}), "rectilinear boundary");
+        axes.x.setRange({0, 5});
+        axes.y.setRange({0, 3});
+        require(rectilinearTiles(rectilinear, heatmapScale, axes, viewport).size() == 4,
+            "rectilinear tiles");
+        const TriangulatedField triangulated({{0, 0}, {2, 0}, {0, 2}}, {0, 2, 4}, {{0, 1, 2}});
+        require(triangulated.interpolate({0.5, 0.5}) && *triangulated.interpolate({0.5, 0.5}) == 1.5,
+            "triangulated interpolation");
+        axes.x.setRange({0, 2});
+        axes.y.setRange({0, 2});
+        require(triangulatedTiles(triangulated, heatmapScale, axes, viewport).size() == 1, "triangulated tiles");
+        try {
+            TriangulatedField({{0, 0}, {1, 0}, {2, 0}}, {0, 1, 2}, {{0, 1, 2}});
+            throw std::runtime_error("degenerate triangulated cell");
+        } catch (const std::invalid_argument&) {
+        }
+        try {
+            marchingSquares(contourField, {1, 1});
+            throw std::runtime_error("invalid contour levels");
+        } catch (const std::invalid_argument&) {
         }
         axes.x.setRange({0, 10});
         axes.y.setRange({-2, 2});

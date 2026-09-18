@@ -15,6 +15,9 @@ enum class Scale {
     Log10   ///< 十进制对数；非正值为缺失数据。
 };
 
+  /** @brief 极坐标角度数据的输入和输出单位。 */
+  enum class AngleUnit { Radians, Degrees };
+
 /** @brief 有序有限数据范围；Axis 的入口负责校验。 */
 struct Range {
     double min = 0;
@@ -84,6 +87,32 @@ class Axes {
     std::optional<Point> toData(Point point, Viewport viewport) const;
     /** @brief 扩展线性轴范围以实现等比例单位；对数轴返回 false，成功后两轴为手动范围。 */
     bool equalize(Viewport viewport);
+};
+
+/** @brief 后端无关的极坐标变换；Point.x 为角度，Point.y 为非负半径。 */
+class PolarAxes {
+  public:
+    /** @brief 径向范围和刻度；自动范围从零开始覆盖全部有效半径。 */
+    Axis radius;
+    void setAngleUnit(AngleUnit unit);
+    AngleUnit angleUnit() const noexcept;
+    /** @brief 配置零角，参数及返回值均使用当前角度单位。 */
+    void setZeroAngle(double angle);
+    double zeroAngle() const noexcept;
+    /** @brief 设为 true 时，正角度方向顺时针旋转。 */
+    void setClockwise(bool clockwise) noexcept;
+    bool clockwise() const noexcept;
+    /** @brief 使用有限且半径非负的数据拟合径向轴；角度不参与范围计算。 */
+    void fit(const std::vector<Data>& data);
+    /** @brief 极坐标数据转圆形视口屏幕坐标；圆盘外、负半径或无效输入返回空。 */
+    std::optional<Point> toScreen(Point point, Viewport viewport) const;
+    /** @brief 圆形视口屏幕坐标转极坐标数据；圆盘外或无效输入返回空。 */
+    std::optional<Point> toData(Point point, Viewport viewport) const;
+
+  private:
+    AngleUnit unit_ = AngleUnit::Radians;
+    double zeroAngleRadians_ = 0;
+    bool clockwise_ = false;
 };
 
 } // namespace modules::plot

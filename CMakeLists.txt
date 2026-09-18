@@ -487,7 +487,7 @@ function(eui_neo_configure_app target_name)
 endfunction()
 
 function(eui_neo_configure_named_app target_name)
-    if(target_name STREQUAL "scientific_plot")
+     if(target_name STREQUAL "scientific_plot" OR target_name STREQUAL "scientific_plot_phase2")
         target_link_libraries(${target_name} PRIVATE eui::module_plot)
     elseif(target_name STREQUAL "shadertoy")
         set(shadertoy_demo_spirv
@@ -555,7 +555,7 @@ if(EUI_BUILD_APPS)
     file(GLOB APP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
     foreach(app_source ${APP_SOURCES})
         get_filename_component(app_name "${app_source}" NAME_WE)
-        if(app_name STREQUAL "scientific_plot" AND
+        if((app_name STREQUAL "scientific_plot" OR app_name STREQUAL "scientific_plot_phase2") AND
            (NOT TARGET eui::module_plot OR NOT EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl"))
             continue()
         endif()

@@ -1,4 +1,6 @@
 #include "modules/plot/axes.h"
+#include "modules/plot/field.h"
+#include "modules/plot/figure.h"
 
 #include <cmath>
 #include <iostream>
@@ -96,6 +98,106 @@ int main() {
         require(axes.equalize({0, 0, 200, 100}), "equal aspect failed");
         near((axes.x.range().max - axes.x.range().min) / 200,
              (axes.y.range().max - axes.y.range().min) / 100);
+
+           Figure figure;
+           auto& first = figure.addPlot();
+           auto& second = figure.addPlot();
+           Axes firstAxes;
+           firstAxes.x.setRange({-2, 6});
+           first.setAxes(firstAxes);
+           Axes secondAxes;
+           secondAxes.x.setRange({10, 20});
+           second.setAxes(secondAxes);
+           figure.linkX({0, 1});
+        figure.linkCursor({0, 1});
+           figure.synchronizeLinks();
+           near(second.axes().x.range().min, -2);
+           near(second.axes().x.range().max, 6);
+           firstAxes = first.axes();
+           firstAxes.x.setRange({1, 3});
+           first.setAxes(firstAxes);
+           figure.synchronizeLinks();
+           near(second.axes().x.range().min, 1);
+           near(second.axes().x.range().max, 3);
+        first.setCursor({{2, -1}});
+        figure.synchronizeLinks();
+        require(second.cursor() && second.cursor()->x == 2 && second.cursor()->y == -1,
+            "linked cursor not synchronized");
+        second.setCursor({{4, 3}});
+        figure.synchronizeLinks();
+        require(first.cursor() && first.cursor()->x == 4 && first.cursor()->y == 3,
+            "linked cursor source not synchronized");
+        first.setCursor(std::nullopt);
+        figure.synchronizeLinks();
+        require(!second.cursor(), "linked cursor not cleared");
+           throws<std::invalid_argument>([&] { figure.linkY({0}); });
+           throws<std::out_of_range>([&] { figure.linkY({0, 2}); });
+        throws<std::invalid_argument>([&] { first.setCursor({{nan, 0}}); });
+
+        Plot dualAxis;
+        Axis secondaryAxis;
+        dualAxis.setSecondaryYAxis(secondaryAxis);
+        Series primary;
+        primary.data = Data({0, 1}, {-2, 4});
+        Series secondary;
+        secondary.data = Data({0, 1}, {100, 300});
+        secondary.yAxis = YAxis::Secondary;
+        dualAxis.setSeries({primary, secondary});
+        near(dualAxis.axes().x.range().min, 0);
+        near(dualAxis.axes().x.range().max, 1);
+        near(dualAxis.axes().y.range().min, -2);
+        near(dualAxis.axes().y.range().max, 4);
+        require(dualAxis.secondaryYAxis() && dualAxis.secondaryYAxis()->range().min == 100 &&
+                dualAxis.secondaryYAxis()->range().max == 300,
+            "secondary axis fit");
+
+        PolarAxes polar;
+        polar.setAngleUnit(AngleUnit::Degrees);
+        polar.fit({Data({0, 90, 180, 270}, {1, 2, 3, -1})});
+        near(polar.radius.range().min, 0);
+        near(polar.radius.range().max, 3);
+        const Viewport polarViewport{0, 0, 200, 200};
+        const auto polarScreen = polar.toScreen({90, 3}, polarViewport);
+        require(polarScreen.has_value(), "polar screen mapping");
+        near(polarScreen->x, 100);
+        near(polarScreen->y, 0);
+        const auto polarData = polar.toData(*polarScreen, polarViewport);
+        require(polarData.has_value(), "polar data mapping");
+        near(polarData->x, 90);
+        near(polarData->y, 3);
+        polar.setClockwise(true);
+        near(polar.toScreen({90, 3}, polarViewport)->y, 200);
+        require(!polar.toScreen({0, -1}, polarViewport), "negative polar radius mapped");
+        require(!polar.toData({0, 0}, polarViewport), "outside polar disk mapped");
+
+        ScalarField field(2, 3, {1, nan, 3, 4, 5, std::numeric_limits<double>::infinity()}, {-2, 4},
+                  {10, 20}, FieldOrigin::UpperLeft, FieldSampling::GridPoints);
+        require(field.rows() == 2 && field.columns() == 3 && std::isnan(field.value(0, 1)),
+            "scalar field row-major layout");
+        require(field.origin() == FieldOrigin::UpperLeft && field.sampling() == FieldSampling::GridPoints,
+            "scalar field metadata");
+        require(field.finiteRange() && field.finiteRange()->min == 1 && field.finiteRange()->max == 5,
+            "scalar field finite range");
+        throws<std::invalid_argument>([] { ScalarField(0, 1, {}); });
+        throws<std::invalid_argument>([] { ScalarField(2, 2, {1, 2, 3}); });
+        throws<std::out_of_range>([&] { field.value(2, 0); });
+
+        ColorScale colors;
+        colors.fit(field.finiteRange());
+        require(colors.range().min == 1 && colors.range().max == 5, "automatic color range");
+        const auto low = colors.map(1), high = colors.map(5), missing = colors.map(nan);
+        require(low != high && missing == colors.missingColor(), "continuous color scale");
+        colors.setDiscreteLevels(2);
+        require(colors.map(2) == colors.map(1) && colors.map(4) == colors.map(5), "discrete color scale");
+        colors.setMode(ColorScaleMode::Log10);
+        colors.setRange({1, 100});
+        require(colors.map(0) == colors.missingColor() && colors.map(1) != colors.map(100),
+            "logarithmic color scale");
+        ColorScale automaticLogColors;
+        automaticLogColors.setMode(ColorScaleMode::Log10);
+        automaticLogColors.fit(ScalarField(1, 3, {-1, 1, 100}));
+        require(automaticLogColors.range().min == 1 && automaticLogColors.range().max == 100,
+            "logarithmic scalar field range");
         std::cout << "plot_numeric: passed\n";
         return 0;
     } catch (const std::exception& error) {

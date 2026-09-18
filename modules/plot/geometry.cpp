@@ -372,6 +372,31 @@ std::vector<Vertex> tessellate(const Series& series, const Axes& axes, Viewport 
     return output;
 }
 
+std::vector<Vertex> polarTessellate(const Series& series, const PolarAxes& axes, Viewport viewport) {
+    if (series.graph != Graph::Line && series.graph != Graph::Scatter)
+        throw std::invalid_argument("plot: polar geometry supports line and scatter only");
+    std::vector<double> x;
+    std::vector<double> y;
+    x.reserve(series.data.size());
+    y.reserve(series.data.size());
+    for (std::size_t i = 0; i < series.data.size(); ++i) {
+        const auto mapped = axes.toScreen(series.data.at(i), viewport);
+        if (mapped) {
+            x.push_back(mapped->x);
+            y.push_back(-mapped->y);
+        } else {
+            x.push_back(std::numeric_limits<double>::quiet_NaN());
+            y.push_back(std::numeric_limits<double>::quiet_NaN());
+        }
+    }
+    Axes screenAxes;
+    screenAxes.x.setRange({viewport.x, viewport.x + viewport.width});
+    screenAxes.y.setRange({-viewport.y - viewport.height, -viewport.y});
+    Series mapped = series;
+    mapped.data = Data(x, y);
+    return tessellate(mapped, screenAxes, viewport);
+}
+
 std::vector<Vertex> missingGeometry(const Series& series, const Axes& axes, Viewport viewport) {
     std::vector<Vertex> output;
     for (std::size_t i = 0; i < series.data.size(); ++i) {
