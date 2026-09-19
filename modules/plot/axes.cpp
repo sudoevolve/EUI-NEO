@@ -194,15 +194,38 @@ std::vector<Tick> Axis::ticks(int targetCount) const {
     return result;
 }
 void Axes::fit(const std::vector<Data>& data) {
+    if (!x.automatic() && !y.automatic())
+        return;
     std::optional<Range> extentX, extentY;
     for (const auto& series : data) {
-        for (std::size_t index = 0; index < series.size(); ++index) {
-            const auto point = series.at(index);
-            if (!accepts(point.x, x.scale()) || !accepts(point.y, y.scale()))
-                continue;
-            include(extentX, point.x);
-            include(extentY, point.y);
-        }
+        const auto visit = [&](const auto& self, std::size_t first, std::size_t end) -> void {
+            const auto s = series.summary(first, end);
+            if (!s.valid)
+                return;
+            if (accepts(s.min.x, x.scale()) && accepts(s.min.y, y.scale())) {
+                include(extentX, s.min.x);
+                include(extentX, s.max.x);
+                include(extentY, s.min.y);
+                include(extentY, s.max.y);
+                return;
+            }
+            if (!accepts(s.max.x, x.scale()) || !accepts(s.max.y, y.scale()))
+                return;
+            if (end - first > 32) {
+                const auto middle = first + (end - first) / 2;
+                self(self, first, middle);
+                self(self, middle, end);
+                return;
+            }
+            for (std::size_t index = first; index < end; ++index) {
+                const auto point = series.at(index);
+                if (!accepts(point.x, x.scale()) || !accepts(point.y, y.scale()))
+                    continue;
+                include(extentX, point.x);
+                include(extentY, point.y);
+            }
+        };
+        visit(visit, 0, series.size());
     }
     x.fit(extentX);
     y.fit(extentY);
@@ -279,9 +302,9 @@ std::optional<Point> PolarAxes::toScreen(Point point, Viewport viewport) const {
     const auto normalizedRadius = radius.normalize(point.y);
     if (!normalizedRadius || *normalizedRadius < 0 || *normalizedRadius > 1)
         return std::nullopt;
-    const double angle = zeroAngleRadians_ + (clockwise_ ? -1 : 1) *
-                                                  (unit_ == AngleUnit::Degrees ? point.x * std::acos(-1) / 180
-                                                                               : point.x);
+    const double angle =
+        zeroAngleRadians_ +
+        (clockwise_ ? -1 : 1) * (unit_ == AngleUnit::Degrees ? point.x * std::acos(-1) / 180 : point.x);
     const Point center{viewport.x + viewport.width / 2, viewport.y + viewport.height / 2};
     const double pixelsPerRadius = std::min(viewport.width, viewport.height) / 2;
     const Point result{center.x + *normalizedRadius * pixelsPerRadius * std::cos(angle),

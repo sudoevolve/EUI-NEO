@@ -29,3 +29,15 @@ CPU 双精度参考路径负责拾取、离线导出和超出 GPU 支持范围�
 `examples/scientific_plot_phase3.cpp` 提供 3×2 三维集成展示；
 `examples/scientific_plot_phase4.cpp` 提供 4×2 体数据与高级输出集成展示。
 各面板可独立交互，整页可导出 PNG/SVG/PDF，第四阶段可保存恢复整页状态。
+
+## 高频二维波形
+
+`WaveformBuffer` 是面向采集线程的有界 UInt8 历史缓冲。它接收交错多通道块，预分配原始
+字节、峰值索引和快照池；`snapshot()` 返回可直接赋给 `Series::data` 的不可变 `Data`。
+因此应用只负责驱动采集设备和处理 `tryAppend()` 的背压，不需要自己维护显示降采样、峰值索引
+或拾取索引。旧快照被 UI 持有时，缓冲会返回 `false`，不会覆盖仍在绘制的数据。
+
+默认配置保留约 5 秒的双路 125 MS/s 数据，历史长度按完整块向上取整；65,536 点视口使用
+缓存层级统计选取每列首/末/极值点，拾取始终回到原始采样索引。接口位于
+`modules/plot/waveform.h`，完整吞吐和回绕验证在 `plot_throughput_probe --production`，
+单元覆盖在 `plot_waveform`。

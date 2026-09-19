@@ -6,11 +6,21 @@
 #include <vector>
 
 namespace modules::plot {
+namespace detail {
+struct DataStorage;
+}
+class WaveformBuffer;
 
 /** @brief 原始数据坐标；非有限分量代表缺失点，不会被转换为零。 */
 struct Point {
     double x = 0;
     double y = 0;
+};
+
+/** Valid original sample extent; extrema ties use the first original index. */
+struct DataSummary {
+    std::size_t valid = 0, minYIndex = 0, maxYIndex = 0;
+    Point min, max;
 };
 
 /**
@@ -31,6 +41,7 @@ class Data {
     std::size_t size() const noexcept;
     /** @brief 读取原始点；越界抛出 std::out_of_range。 */
     Point at(std::size_t index) const;
+    double xAt(std::size_t index) const;
     /** @brief 返回版本号；每次非空更新加一，溢出抛出 std::overflow_error。 */
     std::uint64_t revision() const noexcept;
     /** @brief 追加样本；复制末尾未满块及新增数据，已有完整块继续共享。 */
@@ -43,11 +54,17 @@ class Data {
     std::size_t blockCount() const noexcept;
     /** @brief 返回块的稳定身份；仅用于判断快照间复用，不得解引用。 */
     const void* blockIdentity(std::size_t block) const;
+    /** Cached hierarchical summary of [first,end). */
+    DataSummary summary(std::size_t first, std::size_t end) const;
+    bool orderedX() const noexcept;
+    /** First X >= value (or > value for upper=true); requires orderedX(). */
+    std::size_t boundX(double value, bool upper = false) const;
+    std::vector<std::size_t> missingIndices() const;
 
   private:
-    using Block = std::vector<Point>;
-    std::vector<std::shared_ptr<const Block>> blocks_;
-    std::size_t size_ = 0;
+    friend class WaveformBuffer;
+    explicit Data(std::shared_ptr<const detail::DataStorage> storage, std::uint64_t revision);
+    std::shared_ptr<const detail::DataStorage> storage_;
     std::uint64_t revision_ = 0;
 };
 

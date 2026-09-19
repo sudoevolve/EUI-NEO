@@ -7,7 +7,6 @@
 
 namespace modules::plot {
 namespace {
-constexpr double cellSize = 16;
 bool inside(Point p, Viewport v) {
     return p.x >= v.x && p.y >= v.y && p.x <= v.x + v.width && p.y <= v.y + v.height;
 }
@@ -93,8 +92,13 @@ void segment(std::vector<Vertex>& output, Point a, Point b, double width, Viewpo
         b.y += ey;
     }
     const double nx = -dy / length * width / 2, ny = dx / length * width / 2;
-    polygon(output, {{a.x + nx, a.y + ny}, {b.x + nx, b.y + ny}, {b.x - nx, b.y - ny}, {a.x - nx, a.y - ny}},
-            v);
+    const Point corners[] = {
+        {a.x + nx, a.y + ny}, {b.x + nx, b.y + ny}, {b.x - nx, b.y - ny}, {a.x - nx, a.y - ny}};
+    if (std::all_of(std::begin(corners), std::end(corners), [&](Point p) { return inside(p, v); })) {
+        for (int i : {0, 1, 2, 0, 2, 3})
+            output.push_back({float(corners[i].x - v.x), float(corners[i].y - v.y)});
+    } else
+        polygon(output, {std::begin(corners), std::end(corners)}, v);
     if (cap == LineCap::Round) {
         marker(output, a, width, Marker::Circle, v);
         marker(output, b, width, Marker::Circle, v);
@@ -188,16 +192,15 @@ std::vector<DisplayRun> selectDisplay(const Data& data, const Axes& axes, Viewpo
     const auto flush = [&] {
         if (!occupied)
             return;
-        std::vector<DisplayPoint> selected{first, low, high, last};
+        std::array<DisplayPoint, 4> selected{first, low, high, last};
         std::sort(selected.begin(), selected.end(),
                   [](const auto& a, const auto& b) { return a.index < b.index; });
-        selected.erase(std::unique(selected.begin(), selected.end(),
-                                   [](const auto& a, const auto& b) { return a.index == b.index; }),
-                       selected.end());
-        run.insert(run.end(), selected.begin(), selected.end());
+        const auto end = std::unique(selected.begin(), selected.end(),
+                                     [](const auto& a, const auto& b) { return a.index == b.index; });
+        run.insert(run.end(), selected.begin(), end);
         occupied = false;
     };
-    for (std::size_t i = 0; i < data.size(); ++i) {
+    const auto consume = [&](std::size_t i) {
         const auto mapped = axes.toScreen(data.at(i), viewport);
         if (!mapped) {
             flush();
@@ -205,7 +208,7 @@ std::vector<DisplayRun> selectDisplay(const Data& data, const Axes& axes, Viewpo
                 runs.push_back(std::move(run));
                 run.clear();
             }
-            continue;
+            return;
         }
         const double next = std::floor(mapped->x - viewport.x);
         if (occupied && next != column)
@@ -222,6 +225,47 @@ std::vector<DisplayRun> selectDisplay(const Data& data, const Axes& axes, Viewpo
                 high = point;
         }
         last = point;
+    };
+    std::size_t begin = 0, end = data.size();
+    if (data.orderedX()) {
+        const auto range = axes.x.range();
+        begin = data.boundX(range.min);
+        if (begin)
+            --begin; // Keep the segment crossing the left boundary.
+        end = data.boundX(range.max, true);
+        if (end < data.size())
+            ++end;
+    }
+    for (auto i = begin; i < end;) {
+        // Ordered X lets us query extrema of an entire pixel column without visiting its samples.
+        const auto x = axes.x.normalize(data.xAt(i));
+        if (!data.orderedX() || !x || !std::isfinite(*x * viewport.width)) {
+            consume(i++);
+            continue;
+        }
+        const auto col = std::floor(*x * viewport.width);
+        auto a = i + 1, b = end;
+        while (a < b) {
+            const auto m = a + (b - a) / 2;
+            const auto mx = axes.x.normalize(data.xAt(m));
+            if (mx && std::floor(*mx * viewport.width) == col)
+                a = m + 1;
+            else
+                b = m;
+        }
+        const auto s = data.summary(i, a);
+        if (s.valid == a - i && (axes.y.scale() == Scale::Linear || s.min.y > 0)) {
+            std::array<std::size_t, 4> indices{i, s.minYIndex, s.maxYIndex, a - 1};
+            std::sort(indices.begin(), indices.end());
+            const auto stop = std::unique(indices.begin(), indices.end());
+            for (auto it = indices.begin(); it != stop; ++it)
+                consume(*it);
+        } else {
+            // Missing values and log-domain breaks must retain their exact run boundaries.
+            for (auto j = i; j < a; ++j)
+                consume(j);
+        }
+        i = a;
     }
     flush();
     if (!run.empty())
@@ -399,7 +443,7 @@ std::vector<Vertex> polarTessellate(const Series& series, const PolarAxes& axes,
 
 std::vector<Vertex> missingGeometry(const Series& series, const Axes& axes, Viewport viewport) {
     std::vector<Vertex> output;
-    for (std::size_t i = 0; i < series.data.size(); ++i) {
+    for (const auto i : series.data.missingIndices()) {
         const auto point = series.data.at(i);
         if (std::isfinite(point.x) && std::isfinite(point.y))
             continue;
@@ -542,51 +586,65 @@ std::vector<BarGroup> arrangeBars(const std::vector<double>& x,
     return result;
 }
 
-void PointIndex::clear() {
-    data_ = Data{};
-    std::vector<std::vector<DisplayPoint>>{}.swap(buckets_);
-    columns_ = rows_ = 0;
-}
+void PointIndex::clear() { data_ = Data{}; }
 void PointIndex::rebuild(const Data& data, const Axes& axes, Viewport viewport) {
     if (!std::isfinite(viewport.x) || !std::isfinite(viewport.y) || !std::isfinite(viewport.width) ||
         !std::isfinite(viewport.height) || viewport.width <= 0 || viewport.height <= 0 ||
         viewport.width > 32768 || viewport.height > 32768)
         throw std::invalid_argument("plot: invalid index viewport");
-    clear();
     data_ = data;
+    axes_ = axes;
     viewport_ = viewport;
-    columns_ = static_cast<std::size_t>(std::ceil(viewport.width / cellSize));
-    rows_ = static_cast<std::size_t>(std::ceil(viewport.height / cellSize));
-    buckets_.resize(columns_ * rows_);
-    for (std::size_t i = 0; i < data.size(); ++i) {
-        const auto p = axes.toScreen(data.at(i), viewport);
-        if (!p || !inside(*p, viewport))
-            continue;
-        const auto column = std::min(columns_ - 1, static_cast<std::size_t>((p->x - viewport.x) / cellSize));
-        const auto row = std::min(rows_ - 1, static_cast<std::size_t>((p->y - viewport.y) / cellSize));
-        buckets_[row * columns_ + column].push_back({*p, i});
-    }
 }
 std::optional<Pick> PointIndex::nearest(Point screen, double radius) const {
-    if (buckets_.empty() || !std::isfinite(screen.x) || !std::isfinite(screen.y) || !std::isfinite(radius) ||
-        radius < 0)
+    if (!std::isfinite(screen.x) || !std::isfinite(screen.y) || !std::isfinite(radius) || radius < 0)
         return std::nullopt;
-    const auto coordinate = [](double value, std::size_t count) {
-        return static_cast<std::size_t>(std::clamp(std::floor(value / cellSize), 0.0, double(count - 1)));
-    };
-    const auto x0 = coordinate(screen.x - radius - viewport_.x, columns_);
-    const auto x1 = coordinate(screen.x + radius - viewport_.x, columns_);
-    const auto y0 = coordinate(screen.y - radius - viewport_.y, rows_);
-    const auto y1 = coordinate(screen.y + radius - viewport_.y, rows_);
     std::optional<Pick> result;
-    for (auto row = y0; row <= y1; ++row)
-        for (auto column = x0; column <= x1; ++column)
-            for (const auto& p : buckets_[row * columns_ + column]) {
-                const double distance = std::hypot(screen.x - p.screen.x, screen.y - p.screen.y);
-                if (distance <= radius && (!result || distance < result->distance ||
-                                           (distance == result->distance && p.index < result->index)))
-                    result = Pick{p.index, data_.at(p.index), p.screen, distance, Pick::Kind::Original};
-            }
+    const auto visit = [&](const auto& self, std::size_t a, std::size_t b) -> void {
+        if (a == b)
+            return;
+        const auto s = data_.summary(a, b);
+        if (!s.valid)
+            return;
+        // DataSummary stores independent X and Y extrema. Build the screen-space rectangle
+        // from the four combinations; pairing min X with min Y would under-bound the node.
+        const auto x0n = axes_.x.normalize(s.min.x), x1n = axes_.x.normalize(s.max.x);
+        const auto y0n = axes_.y.normalize(s.min.y), y1n = axes_.y.normalize(s.max.y);
+        if (x0n && x1n && y0n && y1n) {
+            const double x0 = std::max(viewport_.x, viewport_.x + std::min(*x0n, *x1n) * viewport_.width);
+            const double x1 =
+                std::min(viewport_.x + viewport_.width, viewport_.x + std::max(*x0n, *x1n) * viewport_.width);
+            const double y0 =
+                std::max(viewport_.y, viewport_.y + (1 - std::max(*y0n, *y1n)) * viewport_.height);
+            const double y1 = std::min(viewport_.y + viewport_.height,
+                                       viewport_.y + (1 - std::min(*y0n, *y1n)) * viewport_.height);
+            if (x0 > x1 || y0 > y1)
+                return;
+            const double distance =
+                std::hypot(screen.x - std::clamp(screen.x, x0, x1), screen.y - std::clamp(screen.y, y0, y1));
+            if (distance > (result ? result->distance : radius))
+                return;
+        } else if ((axes_.x.scale() == Scale::Log10 && s.max.x <= 0) ||
+                   (axes_.y.scale() == Scale::Log10 && s.max.y <= 0))
+            return;
+        if (b - a > 32) {
+            const auto m = a + (b - a) / 2;
+            self(self, a, m);
+            self(self, m, b);
+            return;
+        }
+        for (auto i = a; i < b; ++i) {
+            const auto point = data_.at(i);
+            const auto p = axes_.toScreen(point, viewport_);
+            if (!p || !inside(*p, viewport_))
+                continue;
+            const double distance = std::hypot(screen.x - p->x, screen.y - p->y);
+            if (distance <= radius && (!result || distance < result->distance ||
+                                       (distance == result->distance && i < result->index)))
+                result = Pick{i, point, *p, distance, Pick::Kind::Original};
+        }
+    };
+    visit(visit, 0, data_.size());
     return result;
 }
 Histogram histogram(const std::vector<double>& samples, const std::vector<double>& edges,

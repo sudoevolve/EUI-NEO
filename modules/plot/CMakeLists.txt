@@ -3,7 +3,7 @@ if(NOT EUI_ENABLE_PLOT)
     return()
 endif()
 
-add_library(eui_neo_module_plot data.cpp axes.cpp field.cpp contour.cpp geometry.cpp vector.cpp export.cpp renderer.cpp plot.cpp figure.cpp
+add_library(eui_neo_module_plot data.cpp waveform.cpp axes.cpp field.cpp contour.cpp geometry.cpp vector.cpp export.cpp renderer.cpp plot.cpp figure.cpp
     scene3d.cpp volume.cpp plot3d.cpp gpu_scene3d.cpp)
 add_library(eui::module_plot ALIAS eui_neo_module_plot)
 set_target_properties(eui_neo_module_plot PROPERTIES EXPORT_NAME module_plot)

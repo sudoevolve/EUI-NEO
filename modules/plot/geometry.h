@@ -145,9 +145,7 @@ class PointIndex {
   private:
     Data data_;
     Viewport viewport_;
-    std::size_t columns_ = 0;
-    std::size_t rows_ = 0;
-    std::vector<std::vector<DisplayPoint>> buckets_;
+    Axes axes_;
 };
 
 /** @brief 直方图归一化方式，分箱为左闭右开，最后一箱包含右端点。 */
