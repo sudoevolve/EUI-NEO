@@ -1,0 +1,251 @@
+[
+  {
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2",
+    "viewport": [
+      1920,
+      1080
+    ],
+    "sample_rate_per_channel": 125000000,
+    "input_bytes_per_second": 250000000
+  },
+  {
+    "mode": "production_waveform",
+    "dpi": 1,
+    "accepted_bytes": 2550005760,
+    "planned_bytes": 2550005760,
+    "accepted_MB_s": 249.996,
+    "pool_stalls": 0,
+    "max_source_backlog_ms": 1.976,
+    "reserved_bytes": 1365453480,
+    "retained_samples_per_channel": 625016832,
+    "frames": 311,
+    "observed_frames_per_second": 59.8654,
+    "frames_over_16_67ms": 4,
+    "injected_motion_events": 5177,
+    "frames_with_drag_change": 180,
+    "frames_with_zoom_change": 131,
+    "visible_sample_span_min": 55187.1,
+    "visible_sample_span_max": 76306.5,
+    "frame": {
+      "n": 311,
+      "median_ms": 12.8692,
+      "p95_ms": 15.6577,
+      "p99_ms": 17.1352,
+      "max_ms": 19.1321
+    },
+    "snapshot_and_set_series": {
+      "n": 311,
+      "median_ms": 5.3299,
+      "p95_ms": 6.8708,
+      "p99_ms": 8.1575,
+      "max_ms": 9.1133
+    },
+    "compose_and_present": {
+      "n": 311,
+      "median_ms": 7.4085,
+      "p95_ms": 9.6582,
+      "p99_ms": 10.6459,
+      "max_ms": 12.6362
+    },
+    "ingest_block": {
+      "n": 19455,
+      "median_ms": 0.1492,
+      "p95_ms": 0.2085,
+      "p99_ms": 0.277,
+      "max_ms": 0.9076
+    },
+    "event_schedule_to_dispatch": {
+      "n": 5177,
+      "median_ms": 9.2887,
+      "p95_ms": 16.8477,
+      "p99_ms": 17.5977,
+      "max_ms": 19.15
+    }
+  },
+  {
+    "mode": "production_integrity",
+    "dpi": 1,
+    "verified_retained_bytes": 1250033664,
+    "errors": 0
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 1,
+    "visible_samples_per_channel": 128,
+    "frame": {
+      "n": 16,
+      "median_ms": 3.9358,
+      "p95_ms": 4.9867,
+      "p99_ms": 4.9867,
+      "max_ms": 4.9867
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 1,
+    "visible_samples_per_channel": 65536,
+    "frame": {
+      "n": 16,
+      "median_ms": 7.562,
+      "p95_ms": 9.5217,
+      "p99_ms": 9.5217,
+      "max_ms": 9.5217
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 1,
+    "visible_samples_per_channel": 1250000,
+    "frame": {
+      "n": 16,
+      "median_ms": 10.5598,
+      "p95_ms": 14.3087,
+      "p99_ms": 14.3087,
+      "max_ms": 14.3087
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 1,
+    "visible_samples_per_channel": 125000000,
+    "frame": {
+      "n": 16,
+      "median_ms": 17.593,
+      "p95_ms": 20.0125,
+      "p99_ms": 20.0125,
+      "max_ms": 20.0125
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 1,
+    "visible_samples_per_channel": 625000000,
+    "frame": {
+      "n": 16,
+      "median_ms": 19.2487,
+      "p95_ms": 21.4388,
+      "p99_ms": 21.4388,
+      "max_ms": 21.4388
+    }
+  },
+  {
+    "mode": "production_waveform",
+    "dpi": 2,
+    "accepted_bytes": 2550005760,
+    "planned_bytes": 2550005760,
+    "accepted_MB_s": 250.001,
+    "pool_stalls": 0,
+    "max_source_backlog_ms": 2.22568,
+    "reserved_bytes": 1365453480,
+    "retained_samples_per_channel": 625016832,
+    "frames": 311,
+    "observed_frames_per_second": 59.8554,
+    "frames_over_16_67ms": 7,
+    "injected_motion_events": 5181,
+    "frames_with_drag_change": 180,
+    "frames_with_zoom_change": 131,
+    "visible_sample_span_min": 55014.3,
+    "visible_sample_span_max": 76245.8,
+    "frame": {
+      "n": 311,
+      "median_ms": 13.7149,
+      "p95_ms": 15.9855,
+      "p99_ms": 17.4895,
+      "max_ms": 19.938
+    },
+    "snapshot_and_set_series": {
+      "n": 311,
+      "median_ms": 5.3404,
+      "p95_ms": 6.5544,
+      "p99_ms": 7.2238,
+      "max_ms": 8.3218
+    },
+    "compose_and_present": {
+      "n": 311,
+      "median_ms": 8.1923,
+      "p95_ms": 10.2887,
+      "p99_ms": 11.1483,
+      "max_ms": 14.5555
+    },
+    "ingest_block": {
+      "n": 19455,
+      "median_ms": 0.1482,
+      "p95_ms": 0.1995,
+      "p99_ms": 0.2914,
+      "max_ms": 2.0907
+    },
+    "event_schedule_to_dispatch": {
+      "n": 5181,
+      "median_ms": 9.3715,
+      "p95_ms": 16.8717,
+      "p99_ms": 17.6541,
+      "max_ms": 20.5433
+    }
+  },
+  {
+    "mode": "production_integrity",
+    "dpi": 2,
+    "verified_retained_bytes": 1250033664,
+    "errors": 0
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 2,
+    "visible_samples_per_channel": 128,
+    "frame": {
+      "n": 16,
+      "median_ms": 4.0842,
+      "p95_ms": 5.1713,
+      "p99_ms": 5.1713,
+      "max_ms": 5.1713
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 2,
+    "visible_samples_per_channel": 65536,
+    "frame": {
+      "n": 16,
+      "median_ms": 8.4319,
+      "p95_ms": 10.2949,
+      "p99_ms": 10.2949,
+      "max_ms": 10.2949
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 2,
+    "visible_samples_per_channel": 1250000,
+    "frame": {
+      "n": 16,
+      "median_ms": 9.0304,
+      "p95_ms": 15.6927,
+      "p99_ms": 15.6927,
+      "max_ms": 15.6927
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 2,
+    "visible_samples_per_channel": 125000000,
+    "frame": {
+      "n": 16,
+      "median_ms": 16.2152,
+      "p95_ms": 18.4324,
+      "p99_ms": 18.4324,
+      "max_ms": 18.4324
+    }
+  },
+  {
+    "mode": "production_history_render",
+    "dpi": 2,
+    "visible_samples_per_channel": 625000000,
+    "frame": {
+      "n": 16,
+      "median_ms": 18.2397,
+      "p95_ms": 19.5664,
+      "p99_ms": 19.5664,
+      "max_ms": 19.5664
+    }
+  }
+]

@@ -92,50 +92,58 @@ class Plot {
 
 /** @brief 极坐标二维绘图区；数据 Point.x 为角度，Point.y 为非负半径。 */
 class PolarPlot {
-    public:
-        explicit PolarPlot(Budget budget = {});
-        ~PolarPlot();
-        PolarPlot(const PolarPlot&) = delete;
-        PolarPlot& operator=(const PolarPlot&) = delete;
-        /** @brief 替换极坐标折线或散点序列，并重新拟合自动径向范围。 */
-        void setSeries(std::vector<Series> series);
-        const std::vector<Series>& series() const;
-        /** @brief 设置角度和径向坐标轴配置，并保留自动径向拟合。 */
-        void setAxes(PolarAxes axes);
-        const PolarAxes& axes() const;
-        void setTitle(std::string title);
-        /** @brief 组合圆形极坐标网格及数据；尺寸至少为 160x160 逻辑像素。 */
-        void compose(eui::Ui& ui, const std::string& id, float width, float height, double dpi = 1);
-        /** @brief 在所属窗口设备销毁前释放离屏 GPU 资源。 */
-        void releaseGpu();
+  public:
+    explicit PolarPlot(Budget budget = {});
+    ~PolarPlot();
+    PolarPlot(const PolarPlot&) = delete;
+    PolarPlot& operator=(const PolarPlot&) = delete;
+    /** @brief 替换极坐标折线或散点序列，并重新拟合自动径向范围。 */
+    void setSeries(std::vector<Series> series);
+    const std::vector<Series>& series() const;
+    /** @brief 设置角度和径向坐标轴配置，并保留自动径向拟合。 */
+    void setAxes(PolarAxes axes);
+    const PolarAxes& axes() const;
+    void setTitle(std::string title);
+    /** @brief 组合圆形极坐标网格及数据；尺寸至少为 160x160 逻辑像素。 */
+    void compose(eui::Ui& ui, const std::string& id, float width, float height, double dpi = 1);
+    /** @brief 在所属窗口设备销毁前释放离屏 GPU 资源。 */
+    void releaseGpu();
 
-    private:
-        struct State;
-        std::shared_ptr<State> state_;
+  private:
+    struct State;
+    std::shared_ptr<State> state_;
 };
 
 /** @brief 标量场热力图与颜色条；数据行列语义由 ScalarField 显式定义。 */
 class HeatmapPlot {
-    public:
-        explicit HeatmapPlot(Budget budget = {});
-        ~HeatmapPlot();
-        HeatmapPlot(const HeatmapPlot&) = delete;
-        HeatmapPlot& operator=(const HeatmapPlot&) = delete;
-        /** @brief 设置不可变场快照，并将自动色阶拟合到场中有效样本。 */
-        void setField(ScalarField field);
-        const std::optional<ScalarField>& field() const noexcept;
-        /** @brief 设置色图、范围和离散配置；自动范围会重新使用当前场。 */
-        void setColorScale(ColorScale scale);
-        const ColorScale& colorScale() const noexcept;
-        void setTitle(std::string title);
-        /** @brief 组合热力图、纵向颜色条和主刻度标签。 */
-        void compose(eui::Ui& ui, const std::string& id, float width, float height, double dpi = 1);
-        /** @brief 在所属窗口设备销毁前释放离屏 GPU 资源。 */
-        void releaseGpu();
+  public:
+    explicit HeatmapPlot(Budget budget = {});
+    ~HeatmapPlot();
+    HeatmapPlot(const HeatmapPlot&) = delete;
+    HeatmapPlot& operator=(const HeatmapPlot&) = delete;
+    /** @brief 设置不可变场快照，并将自动色阶拟合到场中有效样本。 */
+    void setField(ScalarField field);
+    const std::optional<ScalarField>& field() const noexcept;
+    /** @brief 设置色图、范围和离散配置；自动范围会重新使用当前场。 */
+    void setColorScale(ColorScale scale);
+    const ColorScale& colorScale() const noexcept;
+    /** Shared Axis semantics: automatic/manual, reversed and log ranges. */
+    void setAxes(Axes axes);
+    const Axes& axes() const noexcept;
+    void resetView();
+    void pan(double horizontal, double vertical);
+    void zoom(Point anchor, double factor);
+    void setEnabled(bool enabled);
+    std::optional<FieldPick> probe() const;
+    void setTitle(std::string title);
+    /** @brief 组合热力图、坐标轴和颜色条；支持拖拽、滚轮、Shift 框选及右键复位。 */
+    void compose(eui::Ui& ui, const std::string& id, float width, float height, double dpi = 1);
+    /** @brief 在所属窗口设备销毁前释放离屏 GPU 资源。 */
+    void releaseGpu();
 
-    private:
-        struct State;
-        std::shared_ptr<State> state_;
+  private:
+    struct State;
+    std::shared_ptr<State> state_;
 };
 
 } // namespace modules::plot

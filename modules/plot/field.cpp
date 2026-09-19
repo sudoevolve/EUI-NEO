@@ -35,12 +35,13 @@ std::array<float, 4> color(ColorMap map, double fraction) {
         return interpolate({0.19f, 0.07f, 0.23f, 1}, {0.48f, 0.02f, 0.01f, 1}, fraction);
     return interpolate({0.27f, 0.0f, 0.33f, 1}, {0.99f, 0.91f, 0.14f, 1}, fraction);
 }
-FieldTile tile(double left, double top, double right, double bottom, Viewport viewport, std::array<float, 4> color) {
+FieldTile tile(double left, double top, double right, double bottom, Viewport viewport,
+               std::array<float, 4> color) {
     const auto vertex = [&](double x, double y) {
         return Vertex{static_cast<float>(x - viewport.x), static_cast<float>(y - viewport.y)};
     };
-    return {{vertex(left, top), vertex(right, top), vertex(right, bottom),
-             vertex(left, top), vertex(right, bottom), vertex(left, bottom)},
+    return {{vertex(left, top), vertex(right, top), vertex(right, bottom), vertex(left, top),
+             vertex(right, bottom), vertex(left, bottom)},
             color};
 }
 bool strictlyIncreasing(const std::vector<double>& coordinates) {
@@ -83,7 +84,8 @@ FieldTile triangleTile(const std::array<Point, 3>& points, std::array<float, 4> 
 
 ScalarField::ScalarField(std::size_t rows, std::size_t columns, std::vector<double> values, Range x, Range y,
                          FieldOrigin origin, FieldSampling sampling)
-    : rows_(rows), columns_(columns), values_(std::move(values)), x_(x), y_(y), origin_(origin), sampling_(sampling) {
+    : rows_(rows), columns_(columns), values_(std::move(values)), x_(x), y_(y), origin_(origin),
+      sampling_(sampling) {
     if (rows == 0 || columns == 0 || rows > std::numeric_limits<std::size_t>::max() / columns ||
         values_.size() != rows * columns || !validRange(x_) || !validRange(y_))
         throw std::invalid_argument("plot: invalid scalar field dimensions or range");
@@ -165,7 +167,9 @@ TriangulatedField::TriangulatedField(std::vector<Point> points, std::vector<doub
 }
 const std::vector<Point>& TriangulatedField::points() const noexcept { return points_; }
 const std::vector<double>& TriangulatedField::values() const noexcept { return values_; }
-const std::vector<std::array<std::size_t, 3>>& TriangulatedField::triangles() const noexcept { return triangles_; }
+const std::vector<std::array<std::size_t, 3>>& TriangulatedField::triangles() const noexcept {
+    return triangles_;
+}
 std::optional<double> TriangulatedField::interpolate(Point point) const {
     for (const auto triangle : triangles_) {
         const auto a = points_[triangle[0]], b = points_[triangle[1]], c = points_[triangle[2]];
@@ -214,8 +218,9 @@ void ColorScale::fit(const std::optional<Range>& range) {
     }
     range_ = *range;
     if (range_.min == range_.max) {
-        const double padding = mode_ == ColorScaleMode::Log10 ? range_.min * 0.5
-                                                                : (range_.min == 0 ? 1 : std::abs(range_.min) * 0.05);
+        const double padding = mode_ == ColorScaleMode::Log10
+                                   ? range_.min * 0.5
+                                   : (range_.min == 0 ? 1 : std::abs(range_.min) * 0.05);
         range_.min -= padding;
         range_.max += padding;
         if (mode_ == ColorScaleMode::Log10)
@@ -266,11 +271,45 @@ std::array<float, 4> ColorScale::map(double value) const {
     return color(map_, fraction);
 }
 std::vector<FieldTile> heatmapTiles(const ScalarField& field, const ColorScale& scale, Viewport viewport) {
+    Axes axes;
+    axes.x.setRange(field.xRange());
+    axes.y.setRange(field.yRange());
+    return heatmapTiles(field, scale, axes, viewport);
+}
+std::optional<FieldPick> pickField(const ScalarField& field, Point p) {
+    const auto xr = field.xRange(), yr = field.yRange();
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || p.x < xr.min || p.x > xr.max || p.y < yr.min ||
+        p.y > yr.max)
+        return std::nullopt;
+    Axis x, y;
+    x.setRange(xr);
+    y.setRange(yr);
+    const double u = *x.normalize(p.x), v = *y.normalize(p.y);
+    const double rowFraction = field.origin() == FieldOrigin::LowerLeft ? v : 1 - v;
+    const bool centers = field.sampling() == FieldSampling::CellCenters;
+    const auto index = [centers](double t, std::size_t count) {
+        return std::min(count - 1, static_cast<std::size_t>(centers ? std::floor(t * count)
+                                                                    : std::round(t * (count - 1))));
+    };
+    const auto row = index(rowFraction, field.rows()), column = index(u, field.columns());
+    const auto fraction = [centers](std::size_t i, std::size_t count) {
+        return centers ? (double(i) + .5) / count : (count == 1 ? .5 : double(i) / (count - 1));
+    };
+    const auto fx = fraction(column, field.columns()), fy = fraction(row, field.rows());
+    return FieldPick{
+        row,
+        column,
+        {*x.denormalize(fx), *y.denormalize(field.origin() == FieldOrigin::LowerLeft ? fy : 1 - fy)},
+        field.value(row, column)};
+}
+std::vector<FieldTile> heatmapTiles(const ScalarField& field, const ColorScale& scale, const Axes& axes,
+                                    Viewport viewport) {
     if (!std::isfinite(viewport.x) || !std::isfinite(viewport.y) || !std::isfinite(viewport.width) ||
         !std::isfinite(viewport.height) || viewport.width <= 0 || viewport.height <= 0)
         throw std::invalid_argument("plot: invalid heatmap viewport");
     const std::size_t rows = field.sampling() == FieldSampling::CellCenters ? field.rows() : field.rows() - 1;
-    const std::size_t columns = field.sampling() == FieldSampling::CellCenters ? field.columns() : field.columns() - 1;
+    const std::size_t columns =
+        field.sampling() == FieldSampling::CellCenters ? field.columns() : field.columns() - 1;
     std::vector<FieldTile> result;
     result.reserve(rows * columns);
     if (rows == 0 || columns == 0)
@@ -290,18 +329,24 @@ std::vector<FieldTile> heatmapTiles(const ScalarField& field, const ColorScale& 
                     value += sample / 4;
                 }
             }
-            const double left = viewport.x + viewport.width * column / columns;
-            const double right = viewport.x + viewport.width * (column + 1) / columns;
-            const double visualRow = static_cast<double>(field.origin() == FieldOrigin::UpperLeft ? row
-                                                                                                   : rows - row - 1);
-            const double top = viewport.y + viewport.height * visualRow / rows;
-            const double bottom = viewport.y + viewport.height * (visualRow + 1) / rows;
-            result.push_back(tile(left, top, right, bottom, viewport, scale.map(value)));
+            const auto xr = field.xRange(), yr = field.yRange();
+            const auto mix = [](Range r, double t) { return r.min * (1 - t) + r.max * t; };
+            const auto visualRow = field.origin() == FieldOrigin::LowerLeft ? row : rows - row - 1;
+            const double x0 = std::max(axes.x.range().min, mix(xr, double(column) / columns));
+            const double x1 = std::min(axes.x.range().max, mix(xr, double(column + 1) / columns));
+            const double y0 = std::max(axes.y.range().min, mix(yr, double(visualRow) / rows));
+            const double y1 = std::min(axes.y.range().max, mix(yr, double(visualRow + 1) / rows));
+            if (x0 >= x1 || y0 >= y1)
+                continue;
+            const auto a = axes.toScreen({x0, y0}, viewport), b = axes.toScreen({x1, y1}, viewport);
+            if (a && b)
+                result.push_back(tile(std::min(a->x, b->x), std::min(a->y, b->y), std::max(a->x, b->x),
+                                      std::max(a->y, b->y), viewport, scale.map(value)));
         }
     return result;
 }
-std::vector<FieldTile> rectilinearTiles(const RectilinearField& field, const ColorScale& scale, const Axes& axes,
-                                        Viewport viewport) {
+std::vector<FieldTile> rectilinearTiles(const RectilinearField& field, const ColorScale& scale,
+                                        const Axes& axes, Viewport viewport) {
     std::vector<FieldTile> result;
     result.reserve((field.rows() - 1) * (field.columns() - 1) * 2);
     for (std::size_t row = 0; row + 1 < field.rows(); ++row)
@@ -312,9 +357,9 @@ std::vector<FieldTile> rectilinearTiles(const RectilinearField& field, const Col
             for (const double value : values)
                 average += std::isfinite(value) ? value / 4 : std::numeric_limits<double>::quiet_NaN();
             const std::array<Point, 4> points{{{field.x()[column], field.y()[row]},
-                                                {field.x()[column + 1], field.y()[row]},
-                                                {field.x()[column + 1], field.y()[row + 1]},
-                                                {field.x()[column], field.y()[row + 1]}}};
+                                               {field.x()[column + 1], field.y()[row]},
+                                               {field.x()[column + 1], field.y()[row + 1]},
+                                               {field.x()[column], field.y()[row + 1]}}};
             const auto color = scale.map(average);
             for (const auto triangle : {std::array<Point, 3>{points[0], points[1], points[2]},
                                         std::array<Point, 3>{points[0], points[2], points[3]}}) {
@@ -325,17 +370,20 @@ std::vector<FieldTile> rectilinearTiles(const RectilinearField& field, const Col
         }
     return result;
 }
-std::vector<FieldTile> triangulatedTiles(const TriangulatedField& field, const ColorScale& scale, const Axes& axes,
-                                         Viewport viewport) {
+std::vector<FieldTile> triangulatedTiles(const TriangulatedField& field, const ColorScale& scale,
+                                         const Axes& axes, Viewport viewport) {
     std::vector<FieldTile> result;
     result.reserve(field.triangles().size());
     for (const auto indices : field.triangles()) {
-        const double values[] = {field.values()[indices[0]], field.values()[indices[1]], field.values()[indices[2]]};
-        const double average = std::isfinite(values[0]) && std::isfinite(values[1]) && std::isfinite(values[2])
-                                   ? (values[0] + values[1] + values[2]) / 3
-                                   : std::numeric_limits<double>::quiet_NaN();
-        auto tile = triangleTile({field.points()[indices[0]], field.points()[indices[1]], field.points()[indices[2]]},
-                                 scale.map(average), axes, viewport);
+        const double values[] = {field.values()[indices[0]], field.values()[indices[1]],
+                                 field.values()[indices[2]]};
+        const double average =
+            std::isfinite(values[0]) && std::isfinite(values[1]) && std::isfinite(values[2])
+                ? (values[0] + values[1] + values[2]) / 3
+                : std::numeric_limits<double>::quiet_NaN();
+        auto tile =
+            triangleTile({field.points()[indices[0]], field.points()[indices[1]], field.points()[indices[2]]},
+                         scale.map(average), axes, viewport);
         if (!tile.vertices.empty())
             result.push_back(std::move(tile));
     }
@@ -356,12 +404,14 @@ std::vector<FieldTile> colorbarTiles(const ColorScale& scale, Viewport viewport,
         const double low = double(index) / segments;
         const double high = double(index + 1) / segments;
         const double fraction = (low + high) / 2;
-        const double value = scale.mode() == ColorScaleMode::Log10
-                     ? std::exp(std::log(range.min) + (std::log(range.max) - std::log(range.min)) * fraction)
-                     : range.min + (range.max - range.min) * fraction;
+        const double value =
+            scale.mode() == ColorScaleMode::Log10
+                ? std::exp(std::log(range.min) + (std::log(range.max) - std::log(range.min)) * fraction)
+                : range.min + (range.max - range.min) * fraction;
         const double top = viewport.y + viewport.height * (1 - high);
         const double bottom = viewport.y + viewport.height * (1 - low);
-        result.push_back(tile(viewport.x, top, viewport.x + viewport.width, bottom, viewport, scale.map(value)));
+        result.push_back(
+            tile(viewport.x, top, viewport.x + viewport.width, bottom, viewport, scale.map(value)));
     }
     return result;
 }

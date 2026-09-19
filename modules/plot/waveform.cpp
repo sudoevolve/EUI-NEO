@@ -12,13 +12,36 @@ constexpr std::size_t leafSamples = 256;
 struct Extrema {
     std::uint32_t low = 0, high = 0;
 };
+std::size_t sampleBytes(SampleFormat format) {
+    switch (format) {
+    case SampleFormat::UInt8:
+        return 1;
+    case SampleFormat::Int16:
+    case SampleFormat::UInt16:
+        return 2;
+    default:
+        throw std::invalid_argument("plot: unsupported waveform sample format");
+    }
+}
 struct Block {
     std::vector<std::uint8_t> raw;
     std::vector<Extrema> tree;
     std::size_t channels, samples;
-    Block(std::size_t c, std::size_t n)
-        : raw(c * n), tree(c * 2 * (n / leafSamples)), channels(c), samples(n) {}
-    std::uint8_t at(std::size_t i, std::size_t c) const { return raw[i * channels + c]; }
+    SampleFormat format;
+    Block(std::size_t c, std::size_t n, SampleFormat f)
+        : raw(c * n * sampleBytes(f)), tree(c * 2 * (n / leafSamples)), channels(c), samples(n), format(f) {}
+    template <class T> T typedAt(std::size_t i, std::size_t c) const {
+        T value;
+        std::memcpy(&value, raw.data() + (i * channels + c) * sizeof(T), sizeof(T));
+        return value;
+    }
+    double at(std::size_t i, std::size_t c) const {
+        if (format == SampleFormat::UInt8)
+            return typedAt<std::uint8_t>(i, c);
+        if (format == SampleFormat::Int16)
+            return typedAt<std::int16_t>(i, c);
+        return typedAt<std::uint16_t>(i, c);
+    }
     Extrema merge(Extrema a, Extrema b, std::size_t c) const {
         const auto al = at(a.low, c), bl = at(b.low, c), ah = at(a.high, c), bh = at(b.high, c);
         if (bl < al || (bl == al && b.low < a.low))
@@ -27,16 +50,16 @@ struct Block {
             a.high = b.high;
         return a;
     }
-    void build() {
+    template <class T> void buildTyped() {
         const auto leaves = samples / leafSamples;
         for (std::size_t c = 0; c < channels; ++c) {
             auto* nodes = tree.data() + c * 2 * leaves;
             for (std::size_t l = 0; l < leaves; ++l) {
                 const auto first = std::uint32_t(l * leafSamples);
                 Extrema e{first, first};
-                auto low = at(first, c), high = low;
+                auto low = typedAt<T>(first, c), high = low;
                 for (auto i = first + 1; i < first + leafSamples; ++i) {
-                    const auto value = at(i, c);
+                    const auto value = typedAt<T>(i, c);
                     if (value < low) {
                         low = value;
                         e.low = i;
@@ -50,6 +73,19 @@ struct Block {
             }
             for (auto i = leaves - 1; i > 0; --i)
                 nodes[i] = merge(nodes[i * 2], nodes[i * 2 + 1], c);
+        }
+    }
+    void build() {
+        switch (format) {
+        case SampleFormat::UInt8:
+            buildTyped<std::uint8_t>();
+            break;
+        case SampleFormat::Int16:
+            buildTyped<std::int16_t>();
+            break;
+        case SampleFormat::UInt16:
+            buildTyped<std::uint16_t>();
+            break;
         }
     }
     Extrema query(std::size_t first, std::size_t end, std::size_t c) const {
@@ -173,7 +209,7 @@ struct WaveformBuffer::State {
     State(Config c, std::size_t reserved) : config(c), bytes(reserved), ring(retainedBlocks(c)) {
         pool.reserve(ring.size() + c.spareBlocks);
         for (std::size_t i = 0; i < ring.size() + c.spareBlocks; ++i)
-            pool.push_back(std::make_shared<Block>(c.channels, c.blockSamples));
+            pool.push_back(std::make_shared<Block>(c.channels, c.blockSamples, c.format));
     }
 };
 std::size_t WaveformBuffer::requiredBytes(const Config& c) {
@@ -183,11 +219,47 @@ std::size_t WaveformBuffer::requiredBytes(const Config& c) {
         throw std::invalid_argument("plot: invalid waveform configuration");
     const auto count = retainedBlocks(c), pool = checkedAdd(count, c.spareBlocks);
     checkedMultiply(count, c.blockSamples);
-    const auto payload = checkedMultiply(c.channels, c.blockSamples);
+    const auto payload = checkedMultiply(checkedMultiply(c.channels, c.blockSamples), sampleBytes(c.format));
     const auto summaries = checkedMultiply(c.channels * 2 * (c.blockSamples / leafSamples), sizeof(Extrema));
     return checkedAdd(checkedMultiply(pool, checkedAdd(checkedAdd(payload, summaries),
                                                        sizeof(Block) + sizeof(std::shared_ptr<Block>) + 64)),
                       checkedMultiply(count, sizeof(std::shared_ptr<const Block>)));
+}
+WaveformBuffer::Config WaveformBuffer::Config::forDuration(std::size_t channels, double rate, double seconds,
+                                                           SampleFormat format, std::size_t budget) {
+    const long double count = std::ceil(static_cast<long double>(rate) * seconds);
+    if (!std::isfinite(rate) || rate <= 0 || !std::isfinite(seconds) || seconds <= 0 ||
+        !std::isfinite(count) || count < 1 ||
+        count >= static_cast<long double>(std::numeric_limits<std::size_t>::max()))
+        throw std::invalid_argument("plot: invalid waveform duration/rate");
+    Config c;
+    c.channels = channels;
+    c.sampleRate = rate;
+    c.retainedSamples = static_cast<std::size_t>(count);
+    c.format = format;
+    c.budgetBytes = budget;
+    // Around a millisecond per publication, clamped to the supported block range.
+    c.blockSamples = 256;
+    while (c.blockSamples < 65536 && c.blockSamples < rate / 1000.)
+        c.blockSamples *= 2;
+    // Leave at least 100 ms of UI snapshot overlap at the requested sample rate.
+    const long double overlap = std::ceil(static_cast<long double>(rate) * .1L / c.blockSamples) + 1;
+    if (overlap >= static_cast<long double>(std::numeric_limits<std::size_t>::max()))
+        throw std::length_error("plot: waveform overlap size overflow");
+    c.spareBlocks = std::max(c.spareBlocks, static_cast<std::size_t>(overlap));
+    if (WaveformBuffer::requiredBytes(c) > budget)
+        throw std::length_error("plot: requested waveform duration exceeds budget");
+    return c;
+}
+WaveformBuffer::Config WaveformBuffer::Config::dual125MS() {
+    Config c = forDuration(2, 125000000, 5, SampleFormat::UInt8, 1536ull * 1024 * 1024);
+    c.spareBlocks = 256;
+    return c;
+}
+const WaveformBuffer::Config& WaveformBuffer::config() const noexcept { return state_->config; }
+std::size_t WaveformBuffer::blockBytes() const noexcept {
+    const auto& c = state_->config;
+    return c.channels * c.blockSamples * (c.format == SampleFormat::UInt8 ? 1 : 2);
 }
 WaveformBuffer::WaveformBuffer(Config config) {
     const auto bytes = requiredBytes(config);
@@ -197,9 +269,9 @@ WaveformBuffer::WaveformBuffer(Config config) {
 }
 WaveformBuffer::~WaveformBuffer() = default;
 std::size_t WaveformBuffer::reservedBytes() const noexcept { return state_->bytes; }
-bool WaveformBuffer::tryAppend(const std::uint8_t* input, std::size_t bytes) {
+bool WaveformBuffer::tryAppend(const void* input, std::size_t bytes) {
     auto& s = *state_;
-    if (!input || bytes != s.config.channels * s.config.blockSamples)
+    if (!input || bytes != blockBytes())
         throw std::invalid_argument("plot: expected one complete interleaved waveform block");
     std::lock_guard<std::mutex> writer(s.producer);
     // Stay in the exact integer range of double time coordinates.
@@ -250,5 +322,42 @@ WaveformBuffer::Snapshot WaveformBuffer::snapshot() const {
                                                  s.config.sampleRate),
                  revision));
     return result;
+}
+WaveformInput::WaveformInput(std::shared_ptr<WaveformBuffer> buffer) : buffer_(std::move(buffer)) {
+    if (!buffer_)
+        throw std::invalid_argument("plot: waveform input needs a buffer");
+    pending_.resize(buffer_->blockBytes());
+}
+bool WaveformInput::flush() {
+    if (used_ == pending_.size()) {
+        if (!buffer_->tryAppend(pending_.data(), used_))
+            return false;
+        used_ = 0;
+    }
+    return used_ == 0;
+}
+std::size_t WaveformInput::write(const void* bytes, std::size_t count) {
+    if (!bytes && count)
+        throw std::invalid_argument("plot: null waveform packet");
+    auto* source = static_cast<const std::uint8_t*>(bytes);
+    std::size_t accepted = 0;
+    while (accepted < count) {
+        if (used_ == pending_.size() && !flush())
+            break;
+        // Full aligned packets bypass the staging copy.
+        if (!used_ && count - accepted >= pending_.size()) {
+            if (!buffer_->tryAppend(source + accepted, pending_.size()))
+                break;
+            accepted += pending_.size();
+            continue;
+        }
+        const auto n = std::min(count - accepted, pending_.size() - used_);
+        std::memcpy(pending_.data() + used_, source + accepted, n);
+        used_ += n;
+        accepted += n;
+    }
+    if (used_ == pending_.size())
+        flush();
+    return accepted;
 }
 } // namespace modules::plot

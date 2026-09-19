@@ -117,20 +117,30 @@ class ColorScale {
     std::array<float, 4> missingColor_{0.35f, 0.35f, 0.35f, 1};
 };
 
-  /** @brief 单个同色标量场或颜色条图元批次。 */
-  struct FieldTile {
+/** @brief 单个同色标量场或颜色条图元批次。 */
+struct FieldTile {
     std::vector<Vertex> vertices;
     std::array<float, 4> color;
-  };
-  /** @brief 将标量场转换为有色矩形瓦片；GridPoints 单元使用四个有限顶点的算术平均值。 */
-  std::vector<FieldTile> heatmapTiles(const ScalarField& field, const ColorScale& scale, Viewport viewport);
-  /** @brief 将规则直角网格转换为按实际 x/y 坐标定位的有色三角形。 */
-  std::vector<FieldTile> rectilinearTiles(const RectilinearField& field, const ColorScale& scale,
-                                          const Axes& axes, Viewport viewport);
-  /** @brief 将显式三角非规则网格转换为有色三角形；不执行插值或重网格化。 */
-  std::vector<FieldTile> triangulatedTiles(const TriangulatedField& field, const ColorScale& scale,
-                                           const Axes& axes, Viewport viewport);
-  /** @brief 生成纵向颜色条；离散色阶保留每个色阶，连续色阶默认分为 128 段。 */
-  std::vector<FieldTile> colorbarTiles(const ColorScale& scale, Viewport viewport, std::size_t segments = 128);
+};
+/** @brief 将标量场转换为有色矩形瓦片；GridPoints 单元使用四个有限顶点的算术平均值。 */
+std::vector<FieldTile> heatmapTiles(const ScalarField& field, const ColorScale& scale, Viewport viewport);
+/** View-aware tiles: crop to axis ranges, including reversed and logarithmic axes. */
+std::vector<FieldTile> heatmapTiles(const ScalarField& field, const ColorScale& scale, const Axes& axes,
+                                    Viewport viewport);
+struct FieldPick {
+    std::size_t row = 0, column = 0;
+    Point position;
+    double value = 0; // Original sample (may be NaN), never the rendered cell average.
+};
+/** Containing cell for CellCenters, nearest original vertex for GridPoints; outside returns empty. */
+std::optional<FieldPick> pickField(const ScalarField& field, Point point);
+/** @brief 将规则直角网格转换为按实际 x/y 坐标定位的有色三角形。 */
+std::vector<FieldTile> rectilinearTiles(const RectilinearField& field, const ColorScale& scale,
+                                        const Axes& axes, Viewport viewport);
+/** @brief 将显式三角非规则网格转换为有色三角形；不执行插值或重网格化。 */
+std::vector<FieldTile> triangulatedTiles(const TriangulatedField& field, const ColorScale& scale,
+                                         const Axes& axes, Viewport viewport);
+/** @brief 生成纵向颜色条；离散色阶保留每个色阶，连续色阶默认分为 128 段。 */
+std::vector<FieldTile> colorbarTiles(const ColorScale& scale, Viewport viewport, std::size_t segments = 128);
 
 } // namespace modules::plot

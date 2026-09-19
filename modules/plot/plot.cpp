@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <limits>
+#include <sstream>
+#include <iomanip>
 
 namespace modules::plot {
 namespace {
@@ -231,9 +234,8 @@ void Plot::compose(eui::Ui& ui, const std::string& id, float width, float height
         throw std::invalid_argument("plot: viewport needs at least 160x120 logical pixels");
     auto& state = *state_;
     const auto yticks = state.axes.y.ticks(std::clamp(int(height / 60), 2, 10));
-    const auto secondaryTicks = state.secondaryY
-                                    ? state.secondaryY->ticks(std::clamp(int(height / 60), 2, 10))
-                                    : std::vector<Tick>{};
+    const auto secondaryTicks =
+        state.secondaryY ? state.secondaryY->ticks(std::clamp(int(height / 60), 2, 10)) : std::vector<Tick>{};
     float labelWidth = 0;
     for (const auto& tick : yticks)
         if (tick.major)
@@ -594,7 +596,8 @@ void PolarPlot::compose(eui::Ui& ui, const std::string& id, float width, float h
         constexpr double pi = 3.14159265358979323846;
         const double fullAngle = state.axes.angleUnit() == AngleUnit::Degrees ? 360 : 2 * pi;
         for (int i = 0; i < 8; ++i) {
-            const auto edge = state.axes.toScreen({fullAngle * i / 8, state.axes.radius.range().max}, viewport);
+            const auto edge =
+                state.axes.toScreen({fullAngle * i / 8, state.axes.radius.range().max}, viewport);
             if (edge)
                 appendLine(grid, {diameter / 2, diameter / 2}, *edge);
         }
@@ -634,28 +637,84 @@ struct HeatmapPlot::State {
     explicit State(Budget budget) : renderer(budget) {}
     std::optional<ScalarField> field;
     ColorScale scale;
+    Axes axes, dragAxes;
     Renderer renderer;
-    bool dirty = true;
-    double width = 0;
-    double height = 0;
-    double dpi = 0;
+    bool dirty = true, enabled = true, dragging = false, boxZoom = false;
+    double width = 0, height = 0, dpi = 0, pointerScale = 1;
+    Point pointer, press;
+    std::optional<FieldPick> probe;
     std::string title;
+    void fit() {
+        if (!field) {
+            axes.x.fit({});
+            axes.y.fit({});
+            return;
+        }
+        const auto extent = [](Range range, Scale mode) -> std::optional<Range> {
+            if (mode == Scale::Linear || range.min > 0)
+                return range;
+            if (range.max <= 0)
+                return std::nullopt;
+            return Range{std::max(std::numeric_limits<double>::min(), range.max * 1e-6), range.max};
+        };
+        axes.x.fit(extent(field->xRange(), axes.x.scale()));
+        axes.y.fit(extent(field->yRange(), axes.y.scale()));
+    }
+    void reset() {
+        axes.x.resetAuto();
+        axes.y.resetAuto();
+        fit();
+        dirty = true;
+        probe.reset();
+    }
 };
 HeatmapPlot::HeatmapPlot(Budget budget) : state_(std::make_shared<State>(budget)) {}
 HeatmapPlot::~HeatmapPlot() = default;
 void HeatmapPlot::setField(ScalarField field) {
     state_->field = std::move(field);
     state_->scale.fit(*state_->field);
+    state_->fit();
+    state_->probe.reset();
     state_->dirty = true;
 }
 const std::optional<ScalarField>& HeatmapPlot::field() const noexcept { return state_->field; }
 void HeatmapPlot::setColorScale(ColorScale scale) {
-    state_->scale = std::move(scale);
     if (state_->field)
-        state_->scale.fit(*state_->field);
+        scale.fit(*state_->field);
+    state_->scale = std::move(scale);
     state_->dirty = true;
 }
 const ColorScale& HeatmapPlot::colorScale() const noexcept { return state_->scale; }
+void HeatmapPlot::setAxes(Axes axes) {
+    state_->axes = std::move(axes);
+    state_->fit();
+    state_->dirty = true;
+    state_->probe.reset();
+}
+const Axes& HeatmapPlot::axes() const noexcept { return state_->axes; }
+void HeatmapPlot::resetView() { state_->reset(); }
+void HeatmapPlot::pan(double x, double y) {
+    if (transformAxes(state_->axes, {}, 1, {x, y})) {
+        state_->dirty = true;
+        state_->probe.reset();
+    }
+}
+void HeatmapPlot::zoom(Point anchor, double factor) {
+    if (!std::isfinite(factor) || factor <= 0)
+        return;
+    if (transformAxes(state_->axes, anchor, factor, {})) {
+        state_->dirty = true;
+        state_->probe.reset();
+    }
+}
+void HeatmapPlot::setEnabled(bool enabled) {
+    state_->enabled = enabled;
+    if (!enabled) {
+        state_->dragging = false;
+        state_->probe.reset();
+    }
+}
+std::optional<FieldPick> HeatmapPlot::probe() const { return state_->probe; }
 void HeatmapPlot::setTitle(std::string title) { state_->title = std::move(title); }
 void HeatmapPlot::releaseGpu() {
     state_->renderer.release();
@@ -665,64 +724,174 @@ void HeatmapPlot::compose(eui::Ui& ui, const std::string& id, float width, float
     if (!std::isfinite(width) || !std::isfinite(height) || width < 160 || height < 120 ||
         !std::isfinite(dpi) || dpi <= 0)
         throw std::invalid_argument("plot: heatmap viewport needs at least 160x120 logical pixels");
-    auto& state = *state_;
-    const float top = state.title.empty() ? 8.f : 30.f;
-    const float contentHeight = height - top - 10.f;
-    const float barWidth = 16.f;
-    const float gap = 8.f;
-    const float labelWidth = 48.f;
-    const float imageWidth = width - 16.f - barWidth - gap - labelWidth;
-    if (contentHeight <= 0 || imageWidth <= 0)
+    auto& s = *state_;
+    const auto yticks = s.axes.y.ticks(std::clamp(int(height / 60), 2, 10));
+    float labelWidth = 0;
+    for (const auto& tick : yticks)
+        if (tick.major)
+            labelWidth = std::max(labelWidth, core::TextPrimitive::measureTextWidth(tick.label, {}, 12));
+    const float left = std::min(width * .3f, std::max(50.f, labelWidth + 12));
+    const float top = s.title.empty() ? 16.f : 38.f, bottom = s.axes.x.label.empty() ? 36.f : 58.f;
+    const float barWidth = 14, gap = 10, right = 76;
+    const float imageWidth = width - left - right, contentHeight = height - top - bottom;
+    if (imageWidth <= 0 || contentHeight <= 0)
         return;
-    if (state.dirty || state.width != imageWidth || state.height != contentHeight || state.dpi != dpi) {
+    const Viewport viewport{0, 0, imageWidth, contentHeight};
+    const auto xticks = s.axes.x.ticks(std::clamp(int(imageWidth / 90), 2, 10));
+    if (s.dirty || s.width != imageWidth || s.height != contentHeight || s.dpi != dpi) {
         std::vector<Batch> batches;
-        if (state.field)
-            for (const auto& value : heatmapTiles(*state.field, state.scale, {0, 0, imageWidth, contentHeight}))
-                batches.push_back({value.vertices, value.color});
-        for (auto value : colorbarTiles(state.scale, {0, 0, barWidth, contentHeight})) {
-            for (auto& vertex : value.vertices)
-                vertex.x += imageWidth + gap;
-            batches.push_back({value.vertices, value.color});
+        if (s.field)
+            for (auto& tile : heatmapTiles(*s.field, s.scale, s.axes, viewport))
+                batches.push_back({std::move(tile.vertices), tile.color});
+        for (auto tile : colorbarTiles(s.scale, {0, 0, barWidth, contentHeight})) {
+            for (auto& v : tile.vertices)
+                v.x += imageWidth + gap;
+            batches.push_back({std::move(tile.vertices), tile.color});
         }
-        state.renderer.render(batches, imageWidth + gap + barWidth, contentHeight, dpi);
-        state.width = imageWidth;
-        state.height = contentHeight;
-        state.dpi = dpi;
-        state.dirty = false;
+        s.renderer.render(batches, imageWidth + gap + barWidth, contentHeight, dpi);
+        s.width = imageWidth;
+        s.height = contentHeight;
+        s.dpi = dpi;
+        s.dirty = false;
     }
+    const std::weak_ptr<State> weak = state_;
     ui.stack(id)
         .size(width, height)
         .clip()
         .content([&] {
             ui.image(id + ".data")
-                .position(8.f, top)
+                .position(left, top)
                 .size(imageWidth + gap + barWidth, contentHeight)
-                .texture(state.renderer.image(), state.renderer.revision())
+                .texture(s.renderer.image(), s.renderer.revision())
                 .flipVertically()
                 .build();
-            if (!state.title.empty())
-                ui.text(id + ".title")
-                    .position(8.f, 2.f)
-                    .size(imageWidth, 18.f)
-                    .text(state.title)
+            const auto label = [&](const std::string& key, const std::string& text, float x, float y,
+                                   float w) {
+                ui.text(id + key)
+                    .position(x, y)
+                    .size(w, 18)
+                    .text(text)
                     .fontSize(12)
-                    .color({0.8f, 0.83f, 0.88f, 1})
+                    .color({.8f, .83f, .88f, 1})
                     .build();
-            const auto range = state.scale.range();
-            for (int index = 0; index < 3; ++index) {
-                const double fraction = index / 2.0;
-                const double value = state.scale.mode() == ColorScaleMode::Log10
-                                         ? std::exp(std::log(range.min) +
-                                                    (std::log(range.max) - std::log(range.min)) * fraction)
-                                         : range.min + (range.max - range.min) * fraction;
-                ui.text(id + ".colorbar." + std::to_string(index))
-                    .position(8 + imageWidth + gap + barWidth + 4, top + contentHeight * float(1 - fraction) - 8)
-                    .size(labelWidth - 4, 16)
-                    .text(std::to_string(value))
-                    .fontSize(11)
-                    .color({0.8f, 0.83f, 0.88f, 1})
-                    .build();
+            };
+            label(".title", s.title, left, 2, imageWidth);
+            label(".xlabel", s.axes.x.label + (s.axes.x.unit.empty() ? "" : " (" + s.axes.x.unit + ")"), left,
+                  top + contentHeight + 25, imageWidth);
+            float previousEnd = -1;
+            for (std::size_t i = 0; i < xticks.size(); ++i)
+                if (xticks[i].major) {
+                    const auto t = s.axes.x.normalize(xticks[i].value);
+                    const float w = core::TextPrimitive::measureTextWidth(xticks[i].label, {}, 12) + 2;
+                    if (t) {
+                        const float x =
+                            std::clamp(left + float(*t) * imageWidth - w / 2, 0.f, std::max(0.f, width - w));
+                        if (x > previousEnd + 4) {
+                            label(".xtick." + std::to_string(i), xticks[i].label, x, top + contentHeight + 5,
+                                  w);
+                            previousEnd = x + w;
+                        }
+                    }
+                }
+            for (std::size_t i = 0; i < yticks.size(); ++i)
+                if (yticks[i].major) {
+                    const auto t = s.axes.y.normalize(yticks[i].value);
+                    if (t)
+                        label(".ytick." + std::to_string(i), yticks[i].label, 4,
+                              top + float(1 - *t) * contentHeight - 7, left - 8);
+                }
+            const auto range = s.scale.range();
+            for (int i = 0; i < 3; ++i) {
+                const double f = i / 2.;
+                const double v = s.scale.mode() == ColorScaleMode::Log10
+                                     ? std::exp(std::log(range.min) * (1 - f) + std::log(range.max) * f)
+                                     : range.min * (1 - f) + range.max * f;
+                std::ostringstream text;
+                text << std::setprecision(4) << v;
+                label(".colorbar." + std::to_string(i), text.str(), left + imageWidth + gap + barWidth + 4,
+                      top + contentHeight * float(1 - f) - 8, 48);
             }
+            ui.rect(id + ".input")
+                .position(left, top)
+                .size(imageWidth, contentHeight)
+                .color({0, 0, 0, 0})
+                .disabled(!s.enabled)
+                .acceptedButtons(core::PointerButton::Left | core::PointerButton::Right)
+                .onPress([weak](const core::PointerEvent& e, const core::Rect& bounds) {
+                    if (auto s = weak.lock(); s && s->enabled) {
+                        if (e.button == core::PointerButton::Right) {
+                            s->reset();
+                            return;
+                        }
+                        s->pointerScale = bounds.width / s->width;
+                        s->press = {(e.x - bounds.x) / s->pointerScale, (e.y - bounds.y) / s->pointerScale};
+                        s->pointer = s->press;
+                        s->dragAxes = s->axes;
+                        s->dragging = true;
+                        s->boxZoom = e.modifiers.shift;
+                    }
+                })
+                .onMove([weak](const core::PointerEvent& e, const core::Rect& bounds) {
+                    if (auto s = weak.lock(); s && s->enabled) {
+                        s->pointer = {e.x - bounds.x, e.y - bounds.y};
+                        const auto p = s->axes.toData(s->pointer, {0, 0, s->width, s->height});
+                        s->probe = p && s->field ? pickField(*s->field, *p) : std::nullopt;
+                    }
+                    return true;
+                })
+                .onDrag([weak](const core::dsl::DragEvent& e) {
+                    if (auto s = weak.lock(); s && s->enabled && s->dragging) {
+                        s->pointer = {s->press.x + e.totalX / s->pointerScale,
+                                      s->press.y + e.totalY / s->pointerScale};
+                        if (s->boxZoom)
+                            return;
+                        auto next = s->dragAxes;
+                        if (transformAxes(next, {}, 1,
+                                          {-e.totalX / s->pointerScale / s->width,
+                                           e.totalY / s->pointerScale / s->height})) {
+                            s->axes = next;
+                            s->dirty = true;
+                            s->probe.reset();
+                        }
+                    }
+                })
+                .onRelease([weak](const core::PointerEvent& e, const core::Rect& bounds) {
+                    if (auto s = weak.lock(); s && s->dragging) {
+                        s->dragging = false;
+                        if (e.action == core::PointerAction::Cancel || !s->boxZoom)
+                            return;
+                        Point end{std::clamp((e.x - bounds.x) / s->pointerScale, 0., s->width),
+                                  std::clamp((e.y - bounds.y) / s->pointerScale, 0., s->height)};
+                        const Viewport v{0, 0, s->width, s->height};
+                        const auto a = s->dragAxes.toData(s->press, v), b = s->dragAxes.toData(end, v);
+                        if (a && b && std::abs(end.x - s->press.x) > 3 && std::abs(end.y - s->press.y) > 3) {
+                            s->axes.x.setRange({std::min(a->x, b->x), std::max(a->x, b->x)});
+                            s->axes.y.setRange({std::min(a->y, b->y), std::max(a->y, b->y)});
+                            s->dirty = true;
+                            s->probe.reset();
+                        }
+                    }
+                })
+                .onHover([weak](bool hovered) {
+                    if (auto s = weak.lock(); s && !hovered)
+                        s->probe.reset();
+                })
+                .onScroll([weak](const core::ScrollEvent& e) {
+                    if (auto s = weak.lock(); s && s->enabled)
+                        if (transformAxes(s->axes, {s->pointer.x / s->width, 1 - s->pointer.y / s->height},
+                                          std::exp(std::clamp(-e.y * .12, -4., 4.)), {})) {
+                            s->dirty = true;
+                            s->probe.reset();
+                        }
+                })
+                .build();
+            if (s.dragging && s.boxZoom)
+                ui.rect(id + ".box")
+                    .position(left + float(std::min(s.press.x, s.pointer.x)),
+                              top + float(std::min(s.press.y, s.pointer.y)))
+                    .size(float(std::abs(s.pointer.x - s.press.x)), float(std::abs(s.pointer.y - s.press.y)))
+                    .color({.3f, .6f, 1, .2f})
+                    .build();
         })
         .build();
 }

@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
+#include <functional>
 #include <iostream>
 #include <thread>
 #include "tests/probes/plot_stream_experiment.h"
@@ -396,7 +398,7 @@ void streaming(Context& context, const std::vector<std::uint8_t>& raw, bool redu
 void production(Context& context, const std::vector<std::uint8_t>& raw, double dpi) {
     using stream_experiment::Deadline;
     constexpr std::size_t samples = 65536, bytes = samples * 2;
-    WaveformBuffer::Config config;
+    auto config = WaveformBuffer::Config::dual125MS();
     WaveformBuffer buffer(config);
     const auto planned = std::size_t(std::ceil(10.2 * 250000000. / bytes));
     std::atomic<std::size_t> accepted{0}, stalls{0};
@@ -600,14 +602,131 @@ void production(Context& context, const std::vector<std::uint8_t>& raw, double d
     }
     plot.releaseGpu();
 }
+
+void interactive(Context& context, const std::vector<std::uint8_t>& raw) {
+    WaveformBuffer buffer(WaveformBuffer::Config::dual125MS());
+    constexpr std::size_t blockBytes = 65536 * 2;
+    Plot plot;
+    Axes axes;
+    axes.x.setRange({0, 65536.0 / sampleRate});
+    axes.y.setRange({0, 255});
+    axes.x.label = "Time";
+    axes.x.unit = "us";
+    axes.x.formatter = [](double seconds) {
+        char label[64];
+        std::snprintf(label, sizeof(label), "%.3f", seconds * 1e6);
+        return std::string(label);
+    };
+    axes.y.label = "Amplitude (UInt8)";
+    plot.setAxes(axes);
+    std::size_t block = 0;
+    bool following = false, refresh = true, reset = false, closed = false;
+    const auto publish = [&] {
+        auto snapshot = buffer.snapshot();
+        std::vector<Series> series(2);
+        for (std::size_t ch = 0; ch < 2; ++ch) {
+            series[ch].data = snapshot.channels[ch];
+            series[ch].name = ch ? "CH2" : "CH1";
+        }
+        series[0].style.color = {.2f, .8f, 1, 1};
+        series[1].style.color = {1, .65f, .2f, 1};
+        plot.setSeries(std::move(series));
+        if (following || reset) {
+            auto view = plot.axes();
+            const double span = reset ? 65536.0 / sampleRate : view.x.range().max - view.x.range().min;
+            const double end = double(snapshot.nextSample) / sampleRate;
+            view.x.setRange({end - span, end});
+            if (reset) view.y.setRange({0, 255});
+            plot.setAxes(view);
+        }
+        reset = false;
+    };
+    // Frozen at startup: original samples and axes remain untouched while the user inspects them.
+    buffer.tryAppend(raw.data(), blockBytes);
+    ++block;
+    publish();
+    std::cout << "Manual waveform preview. Auto-follow OFF; drag/scroll to inspect.\n" << std::flush;
+    stream_experiment::Deadline deadline;
+    while (!closed) {
+        const auto frameStart = Clock::now();
+        int ww = 0, wh = 0, fw = 0, fh = 0;
+        float sx = 1, sy = 1;
+#if defined(EUI_WINDOW_BACKEND_SDL2)
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT || (event.type == SDL_WINDOWEVENT &&
+                event.window.event == SDL_WINDOWEVENT_CLOSE)) closed = true;
+        }
+        auto* nativeWindow = static_cast<SDL_Window*>(context.window);
+        SDL_GetWindowSize(nativeWindow, &ww, &wh);
+        SDL_GL_GetDrawableSize(nativeWindow, &fw, &fh);
+#else
+        auto* nativeWindow = static_cast<GLFWwindow*>(context.window);
+        glfwPollEvents();
+        if (glfwWindowShouldClose(nativeWindow)) break;
+        glfwGetWindowSize(nativeWindow, &ww, &wh);
+        glfwGetFramebufferSize(nativeWindow, &fw, &fh);
+        glfwGetWindowContentScale(nativeWindow, &sx, &sy);
+#endif
+        if (closed) break;
+        if (ww <= 0 || wh <= 0 || fw <= 0 || fh <= 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(30));
+            continue;
+        }
+        const float dpi = std::max(1.5f, sx);
+        const float pointerScale = float(fw) / ww;
+        const float width = fw / dpi, height = fh / dpi;
+        context.runtime.update(context.window, 1.f / 60, pointerScale, dpi);
+        if (following) {
+            if (buffer.tryAppend(raw.data() + (block * blockBytes) % raw.size(), blockBytes)) {
+                ++block;
+                refresh = true;
+            }
+        }
+        if (refresh || reset) { publish(); refresh = false; }
+        context.runtime.compose("waveform-preview", width, height,
+            [&](core::dsl::Ui& ui, const core::dsl::Screen&) {
+                context.ui = &ui;
+                ui.stack("preview").size(width, height).content([&] {
+                    const auto button = [&](const std::string& id, const std::string& text,
+                                            float x, float w, std::function<void()> action) {
+                        ui.rect(id).position(x, 10).size(w, 34).color({.12f,.22f,.32f,1})
+                            .onClick(std::move(action)).build();
+                        ui.text(id+".text").position(x+8, 15).size(w-16, 24).fontSize(15)
+                            .text(text).color({.95f,.97f,1,1}).build();
+                    };
+                    button("follow", following ? "Auto-follow: ON" : "Auto-follow: OFF", 16, 180,
+                           [&] { following = !following; });
+                    button("reset", "Reset view", 208, 120, [&] { reset = true; });
+                    ui.text("help").position(344, 17).size(std::max(0.f,width-360), 26)
+                        .fontSize(14).text(following ? "Live preview | OFF freezes samples and view"
+                            : "Frozen | Left drag: pan | Wheel: zoom | Shift+drag: box zoom")
+                        .color({.8f,.85f,.9f,1}).build();
+                    if (width >= 180 && height >= 200)
+                        ui.stack("chart").position(8, 58).size(width-16,height-70).content([&] {
+                            plot.compose(ui, "scope", width-16, height-70, dpi * 2);
+                        });
+                });
+            });
+        // Update the newly composed elements, then clear the framebuffer before drawing.
+        // The benchmark's three-argument direct render does not clear old axis labels.
+        context.runtime.update(context.window, 0, pointerScale, dpi);
+        context.backend->beginFrame({context.window, core::window::nativeWindowInfo(context.window), fw, fh, dpi});
+        context.runtime.render(fw, fh, dpi, {0.025f, 0.035f, 0.05f, 1});
+        context.backend->present();
+        deadline.wait(frameStart + std::chrono::microseconds(16667));
+    }
+    plot.releaseGpu();
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         stream_experiment::validate();
         if (argc < 2 || (std::string(argv[1]) != "--baseline" && std::string(argv[1]) != "--stream" &&
-                         std::string(argv[1]) != "--history" && std::string(argv[1]) != "--production")) {
+                         std::string(argv[1]) != "--history" && std::string(argv[1]) != "--production" &&
+                         std::string(argv[1]) != "--interactive")) {
             std::cout << "UInt8 extrema and sample zoom checks passed. Manual workload: --baseline, --stream "
-                         "or --history / --production.\n";
+                         "or --history / --production / --interactive.\n";
             return 0;
         }
         auto raw = sourceBytes();
@@ -617,6 +736,8 @@ int main(int argc, char** argv) {
         else if (std::string(argv[1]) == "--production") {
             for (double dpi : {1., 2.})
                 production(context, raw, dpi);
+        } else if (std::string(argv[1]) == "--interactive") {
+            interactive(context, raw);
         } else {
             const std::size_t keep =
                 std::string(argv[1]) == "--history"

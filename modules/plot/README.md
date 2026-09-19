@@ -32,12 +32,20 @@ CPU 双精度参考路径负责拾取、离线导出和超出 GPU 支持范围�
 
 ## 高频二维波形
 
-`WaveformBuffer` 是面向采集线程的有界 UInt8 历史缓冲。它接收交错多通道块，预分配原始
+`WaveformBuffer` 是面向采集线程的有界 UInt8/Int16/UInt16 历史缓冲。它接收交错多通道块，预分配原始
 字节、峰值索引和快照池；`snapshot()` 返回可直接赋给 `Series::data` 的不可变 `Data`。
 因此应用只负责驱动采集设备和处理 `tryAppend()` 的背压，不需要自己维护显示降采样、峰值索引
 或拾取索引。旧快照被 UI 持有时，缓冲会返回 `false`，不会覆盖仍在绘制的数据。
 
-默认配置保留约 5 秒的双路 125 MS/s 数据，历史长度按完整块向上取整；65,536 点视口使用
+默认配置为双路 100 kS/s、1 秒历史，固定池小于 1 MiB。`Config::forDuration()` 根据通道数、
+采样率、保留秒数检查预算；`Config::dual125MS()` 显式启用约 5 秒的双路 125 MS/s 历史。
+`WaveformInput` 适配不定长字节包，返回已接收前缀并保留未完成块。历史长度按完整块向上取整；65,536 点视口使用
 缓存层级统计选取每列首/末/极值点，拾取始终回到原始采样索引。接口位于
 `modules/plot/waveform.h`，完整吞吐和回绕验证在 `plot_throughput_probe --production`，
 单元覆盖在 `plot_waveform`。
+
+## 应用接入
+
+`PlotSession` 统一注册图表关闭处理，`LatestValue<T>` 在采集线程和 UI 之间传递最新显示快照。
+`examples/scientific_plot_acquisition.cpp` 是可独立构建的 Int16 上位机模板，包含暂停、跟随、
+热力图拖拽缩放和探针。完整写法见 [科学绘图应用开发](../../docs/科学绘图应用开发.md)。
