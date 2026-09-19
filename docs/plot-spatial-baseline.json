@@ -1,0 +1,162 @@
+{
+  "date": "2026-09-19",
+  "platform": "Windows 11 x64 10.0.26200",
+  "cpu": "Intel Core i7-12650H",
+  "display_adapter": "NVIDIA GeForce RTX 4060 Laptop GPU",
+  "display_driver": "32.0.16.1088",
+  "compiler": "MinGW GCC 15.2.0",
+  "configuration": "Release (-O3 overridden by project -Os)",
+  "rendering": "CPU BVH ray intersection and volume integration",
+  "window_probes": [
+    "GLFW/OpenGL",
+    "SDL2/OpenGL"
+  ],
+  "warmup": 2,
+  "results": [
+    {
+      "scene": "volume",
+      "dimensions": [
+        25,
+        25,
+        25
+      ],
+      "viewport": [
+        160,
+        120
+      ],
+      "step": 0.16,
+      "repeats": 8,
+      "median_ms": 25.1899,
+      "p95_ms": 25.8436,
+      "p99_ms": 25.8436,
+      "volume_samples": 43693,
+      "cache_bytes": 131656,
+      "brick_loads": 64,
+      "working_budget_bytes": 16777216,
+      "gpu_ms": null,
+      "process_gpu_bytes": null
+    },
+    {
+      "scene": "sparse_large_volume",
+      "logical_bytes": 1073741824,
+      "cache_bytes": 1019032,
+      "loads": 153
+    },
+    {
+      "scene": "volume",
+      "dimensions": [
+        25,
+        25,
+        25
+      ],
+      "viewport": [
+        160,
+        120
+      ],
+      "step": 0.08,
+      "repeats": 8,
+      "median_ms": 32.3935,
+      "p95_ms": 33.334,
+      "p99_ms": 33.334,
+      "volume_samples": 84742,
+      "cache_bytes": 131656,
+      "brick_loads": 64,
+      "working_budget_bytes": 16777216,
+      "gpu_ms": null,
+      "process_gpu_bytes": null
+    },
+    {
+      "scene": "sparse_large_volume",
+      "logical_bytes": 1073741824,
+      "cache_bytes": 1019032,
+      "loads": 153
+    },
+    {
+      "scene": "volume",
+      "dimensions": [
+        25,
+        25,
+        25
+      ],
+      "viewport": [
+        160,
+        120
+      ],
+      "step": 0.04,
+      "repeats": 8,
+      "median_ms": 46.7081,
+      "p95_ms": 47.4664,
+      "p99_ms": 47.4664,
+      "volume_samples": 166485,
+      "cache_bytes": 131656,
+      "brick_loads": 64,
+      "working_budget_bytes": 16777216,
+      "gpu_ms": null,
+      "process_gpu_bytes": null
+    },
+    {
+      "scene": "sparse_large_volume",
+      "logical_bytes": 1073741824,
+      "cache_bytes": 1019032,
+      "loads": 153
+    },
+    {
+      "scene": "slice",
+      "dimensions": [
+        25,
+        25,
+        25
+      ],
+      "viewport": [
+        160,
+        120
+      ],
+      "step": 0.08,
+      "repeats": 8,
+      "median_ms": 22.0246,
+      "p95_ms": 22.7131,
+      "p99_ms": 22.7131,
+      "volume_samples": 0,
+      "cache_bytes": 41664,
+      "brick_loads": 16,
+      "working_budget_bytes": 16777216,
+      "gpu_ms": null,
+      "process_gpu_bytes": null
+    },
+    {
+      "scene": "sparse_large_volume",
+      "logical_bytes": 1073741824,
+      "cache_bytes": 1019032,
+      "loads": 153
+    },
+    {
+      "scene": "isosurface",
+      "dimensions": [
+        25,
+        25,
+        25
+      ],
+      "viewport": [
+        160,
+        120
+      ],
+      "step": 0.08,
+      "repeats": 8,
+      "median_ms": 29.3687,
+      "p95_ms": 30.1597,
+      "p99_ms": 30.1597,
+      "volume_samples": 0,
+      "cache_bytes": 131656,
+      "brick_loads": 64,
+      "working_budget_bytes": 16777216,
+      "gpu_ms": null,
+      "process_gpu_bytes": null
+    },
+    {
+      "scene": "sparse_large_volume",
+      "logical_bytes": 1073741824,
+      "cache_bytes": 1019032,
+      "loads": 153
+    }
+  ]
+}

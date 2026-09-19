@@ -33,6 +33,8 @@ class Renderer {
     Renderer& operator=(const Renderer&) = delete;
     /** @brief 按逻辑尺寸绘制到物理像素纹理，复用缓冲容量；颜色为 straight RGBA。 */
     void render(const std::vector<Batch>& batches, double width, double height, double dpi = 1);
+    /** @brief Upload top-left RGBA8 software-rendered pixels; no continuous ImageStream polling. */
+    void uploadRgba(std::uint32_t width, std::uint32_t height, const std::vector<std::uint8_t>& rgba);
     /** @brief 返回只读纹理引用；尚未渲染或释放后为空。 */
     std::shared_ptr<const eui::GpuImage> image() const;
     /** @brief 每次成功绘制后增加，用于 image.texture() 的内容失效。 */

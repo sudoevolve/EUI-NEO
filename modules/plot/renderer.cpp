@@ -21,7 +21,12 @@ struct GlState {
     GLint viewport[4], blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha, blendRgb, blendAlpha;
     GLboolean blend, depth, cull, scissor, stencil, srgb, rasterizerDiscard, colorMask[4];
     GLfloat clearColor[4];
+    GLint unpackAlignment, unpackRowLength, unpackSkipRows, unpackSkipPixels;
     GlState() {
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlignment);
+        glGetIntegerv(GL_UNPACK_ROW_LENGTH, &unpackRowLength);
+        glGetIntegerv(GL_UNPACK_SKIP_ROWS, &unpackSkipRows);
+        glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &unpackSkipPixels);
         glGetIntegerv(GL_CURRENT_PROGRAM, &program);
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao);
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &buffer);
@@ -48,6 +53,10 @@ struct GlState {
         rasterizerDiscard = glIsEnabled(GL_RASTERIZER_DISCARD);
     }
     ~GlState() {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, unpackRowLength);
+        glPixelStorei(GL_UNPACK_SKIP_ROWS, unpackSkipRows);
+        glPixelStorei(GL_UNPACK_SKIP_PIXELS, unpackSkipPixels);
         glUseProgram(program);
         glBindVertexArray(vao);
         glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -161,6 +170,56 @@ void Renderer::release() {
     impl_ = std::make_unique<Impl>();
     impl_->budget = budget;
     impl_->revision = revision;
+}
+void Renderer::uploadRgba(std::uint32_t width, std::uint32_t height, const std::vector<std::uint8_t>& rgba) {
+#if defined(EUI_RENDER_BACKEND_OPENGL)
+    if (!width || !height || width > 32768 || height > 32768 ||
+        std::uint64_t(width) * height * 4 != rgba.size())
+        throw std::invalid_argument("plot: invalid RGBA dimensions");
+    if (rgba.size() > impl_->budget.textureBytes)
+        throw std::length_error("plot: GPU texture budget exceeded");
+    const auto device = eui::image::gpuDevice();
+    if (device.api != eui::GpuApi::OpenGL || !device.identity ||
+        (impl_->device && impl_->device != device.identity))
+        throw std::runtime_error("plot: RGBA upload requires the owning OpenGL device");
+    GlState state;
+    GLint maximum = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum);
+    if (width > static_cast<std::uint32_t>(maximum) || height > static_cast<std::uint32_t>(maximum))
+        throw std::length_error("plot: GPU texture limit exceeded");
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+    if (!impl_->image || impl_->image->descriptor().width != static_cast<int>(width) ||
+        impl_->image->descriptor().height != static_cast<int>(height)) {
+        auto owner = std::make_shared<Texture>();
+        glGenTextures(1, &owner->texture);
+        glBindTexture(GL_TEXTURE_2D, owner->texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+        eui::GpuImageDescriptor descriptor;
+        descriptor.device = device;
+        descriptor.width = static_cast<int>(width);
+        descriptor.height = static_cast<int>(height);
+        descriptor.texture = owner->texture;
+        auto image = eui::image::importGpuImage(descriptor, owner);
+        if (!image) throw std::runtime_error("plot: GPU image import failed");
+        impl_->image = std::move(image);
+    } else {
+        glBindTexture(GL_TEXTURE_2D, impl_->image->descriptor().texture);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+    }
+    impl_->device = device.identity;
+    ++impl_->revision;
+#else
+    (void)width; (void)height; (void)rgba;
+    throw std::runtime_error("plot: Vulkan upload is not implemented");
+#endif
 }
 void Renderer::render(const std::vector<Batch>& batches, double width, double height, double dpi) {
 #if defined(EUI_RENDER_BACKEND_OPENGL)

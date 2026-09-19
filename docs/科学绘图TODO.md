@@ -95,33 +95,39 @@ PlotFigure：整张图、子图布局、导出
 
 ## 阶段三：三维科学绘图
 
-- [ ] 在共用数据模型中支持 X/Y/Z 数据及三维坐标轴、刻度和边界框。
-- [ ] 实现三维曲线、散点、线框网格、曲面和任意三角网格。
-- [ ] 实现三维相机、轨道旋转、平移、缩放、正交/透视投影和视图复位。
-- [ ] 引入三维绘图区的深度测试、裁剪、遮挡、面剔除及可配置光照。
-- [ ] 支持法线、颜色/标量映射、曲面透明度及等高线投影。
-- [ ] 定义透明对象排序策略和适用限制，不以普通 UI 的绘制顺序替代三维遮挡。
-- [ ] 实现三维数据拾取、原始数据索引回查、测距和深度正确的标注。
-- [ ] 三维渲染与 UI 合成之间正确恢复 GL 状态、处理 DPI、裁剪和 GPU 资源生命周期。
-- [ ] 验证相机变换、深度遮挡、网格边界、曲面拾取及反复创建销毁。
+- [x] 在共用数据模型中支持 X/Y/Z 数据及三维坐标轴、刻度和边界框（`Geometry3D`、`Scene3D`、`plot_spatial`、`scientific_plot_phase3`）。
+- [x] 实现三维曲线、散点、线框网格、曲面和任意三角网格（`curve3D`、`surface3D`、`plot_spatial`；双精度 CPU 求交）。
+- [x] 实现三维相机、轨道旋转、平移、缩放、正交/透视投影和视图复位（`Camera3D`、`Plot3D`、`plot_spatial_runtime_probe`）。
+- [x] 引入三维绘图区的深度测试、裁剪、遮挡、面剔除及可配置光照（`SceneRenderer3D`、`plot_spatial`；CPU 射线深度测试，不使用 GL 深度附件）。
+- [x] 支持法线、颜色/标量映射、曲面透明度及等高线投影（`Material3D`、`computeNormals`、`contourProjection3D`、`plot_spatial`）。
+- [x] 定义透明对象排序策略和适用限制，不以普通 UI 的绘制顺序替代三维遮挡（逐射线交点排序；`plot_spatial` 相交透明面；限制见三维文档）。
+- [x] 实现三维数据拾取、原始数据索引回查、测距和深度正确的标注（`Pick3D`、`plot_spatial`、`plot_spatial_runtime_probe`；标注按锚点深度显隐）。
+- [x] 三维渲染与 UI 合成之间正确恢复 GL 状态、处理 DPI、裁剪和 GPU 资源生命周期（`GpuSceneRenderer3D`、`plot_spatial_runtime_probe`；GLFW/SDL2 OpenGL，1×/2× DPI）。
+- [x] 验证相机变换、深度遮挡、网格边界、曲面拾取及反复创建销毁（`plot_spatial`、`plot_spatial_runtime_probe`；32 次纹理创建/释放）。
 
 完成条件：三维几何能在交互视口内正确显示、旋转和拾取，实际深度和投影行为有测试，
 不以 UI 元素的透视变换代替三维绘图能力。
 
 ## 阶段四：体数据与高级输出
 
-- [ ] 定义体数据尺寸、轴顺序、采样间距、原点、数值类型和内存布局。
-- [ ] 实现轴向/任意方向切片及多视图联动。
-- [ ] 实现等值面提取与显示，验证拓扑、法线、边界和缺失值。
-- [ ] 实现体绘制及颜色/透明度传递函数，提供采样质量与性能配置。
-- [ ] 支持体数据分块加载、显存预算和按需更新，避免默认全量复制大体积数据。
-- [ ] 完善相交透明几何与体数据的合成，明确算法的精度和资源代价。
-- [ ] 支持三维/体数据高分辨率输出；SVG/PDF 对不可矢量化内容明确使用栅格图层。
-- [ ] 保存与恢复视图状态、相机、色阶和标注，使显示和导出可复现。
-- [ ] 使用已知体数据验证切片位置、等值面数值及传递函数；记录不同质量设置的性能。
+- [x] 定义体数据尺寸、轴顺序、采样间距、原点、数值类型和内存布局（`VolumeLayout`、`VolumeData`、`plot_spatial`；Float64，X 最快）。
+- [x] 实现轴向/任意方向切片及多视图联动（`SlicePlane`、`SliceLink`、`volumeSlice`、`plot_spatial`、`scientific_plot_phase4`）。
+- [x] 实现等值面提取与显示，验证拓扑、法线、边界和缺失值（`isoSurface`、`plot_spatial`、`scientific_plot_phase4`；一致四面体拆分）。
+- [x] 实现体绘制及颜色/透明度传递函数，提供采样质量与性能配置（`TransferFunction`、`VolumeLayer`、`RenderSettings3D`、`plot_spatial`、`scientific_plot_phase4`）。
+- [x] 支持体数据分块加载、显存预算和按需更新，避免默认全量复制大体积数据（CPU LRU、region invalidate；GPU 体纹理上传前检查预算，超限回退，切片只上传几何；`plot_spatial_benchmark` 验证 1 GiB 逻辑体、1 MiB 缓存）。
+- [x] 完善相交透明几何与体数据的合成，明确算法的精度和资源代价（交点间体积分与步长透明度修正，超交点/采样上限报错；`plot_spatial`）。
+- [x] 支持三维/体数据高分辨率输出；SVG/PDF 对不可矢量化内容明确使用栅格图层（`Plot3D::exportScene`、`writeRasterPng`、`plot_export`、两个阶段集成示例）。
+- [x] 保存与恢复视图状态、相机、色阶和标注，使显示和导出可复现（`saveView3D`、`restoreView3D`、`plot_spatial`；要求相同数据/材质/传递函数/采样设置）。
+- [x] 使用已知体数据验证切片位置、等值面数值及传递函数；记录不同质量设置的性能（`plot_spatial`、`plot_spatial_benchmark`；验收记录见下）。
 
-完成条件：切片、等值面与体绘制各有独立示例、正确性测试和内存预算；导出策略明确，
+完成条件：切片、等值面与体绘制各有独立展示面板、正确性测试和内存预算；导出策略明确，
 大数据场景能在预算内运行或明确报告容量限制。
+
+第三、第四阶段的 API、算法、所有权与限制见 [三维与体数据](科学绘图三维与体数据.md)，
+验证平台、数据规模、预算及性能记录见 [三维验收](科学绘图三维验收.md)。
+交互使用 OpenGL 3.3 GPU BVH 求交/体积分，导出和拾取保留 CPU 双精度参考实现。
+两个 gallery 的图像对照、缩放与 2× 性能入口为 `plot_gallery_phase3_probe` / `plot_gallery_phase4_probe`。
+Vulkan 视口、多体重叠及完整 Unicode PDF 字体嵌入不在本次实现范围内。
 
 ## 贯穿各阶段的性能、资源与自动化测试
 

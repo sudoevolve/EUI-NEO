@@ -110,6 +110,11 @@ if(APPLE)
 endif()
 
 function(eui_apply_compile_options target_name)
+    set(eui_disable_exceptions TRUE)
+    if(target_name STREQUAL "vcd_viewer" OR target_name STREQUAL "eui_neo_module_plot" OR
+       target_name MATCHES "^plot_" OR target_name MATCHES "^scientific_plot")
+        set(eui_disable_exceptions FALSE)
+    endif()
     if(MSVC)
         target_compile_options(${target_name} PRIVATE
             /utf-8
@@ -122,13 +127,13 @@ function(eui_apply_compile_options target_name)
     elseif(APPLE)
         target_compile_options(${target_name} PRIVATE
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-Os>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<NOT:$<STREQUAL:${target_name},vcd_viewer>>>:-fno-exceptions>
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<BOOL:${eui_disable_exceptions}>>:-fno-exceptions>
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-rtti>
         )
     else()
         target_compile_options(${target_name} PRIVATE
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-Os>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<NOT:$<STREQUAL:${target_name},vcd_viewer>>>:-fno-exceptions>
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<BOOL:${eui_disable_exceptions}>>:-fno-exceptions>
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-rtti>
         )
     endif()
@@ -487,7 +492,7 @@ function(eui_neo_configure_app target_name)
 endfunction()
 
 function(eui_neo_configure_named_app target_name)
-     if(target_name STREQUAL "scientific_plot" OR target_name STREQUAL "scientific_plot_phase2")
+     if(target_name MATCHES "^scientific_plot($|_)")
         target_link_libraries(${target_name} PRIVATE eui::module_plot)
     elseif(target_name STREQUAL "shadertoy")
         set(shadertoy_demo_spirv
@@ -555,7 +560,7 @@ if(EUI_BUILD_APPS)
     file(GLOB APP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
     foreach(app_source ${APP_SOURCES})
         get_filename_component(app_name "${app_source}" NAME_WE)
-        if((app_name STREQUAL "scientific_plot" OR app_name STREQUAL "scientific_plot_phase2") AND
+        if(app_name MATCHES "^scientific_plot($|_)" AND
            (NOT TARGET eui::module_plot OR NOT EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl"))
             continue()
         endif()
@@ -665,6 +670,9 @@ if(EUI_BUILD_TEST_FIXTURES)
         target_compile_definitions(${probe_name} PRIVATE EUI_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
         add_test(NAME ${probe_name} COMMAND ${probe_name} --frames 3)
         set_tests_properties(${probe_name} PROPERTIES LABELS "probe")
+        if(probe_name MATCHES "^plot_gallery_")
+            set_tests_properties(${probe_name} PROPERTIES LABELS "probe;benchmark" RUN_SERIAL TRUE)
+        endif()
         if(probe_name STREQUAL "gpu_image_probe")
             set_tests_properties(${probe_name} PROPERTIES FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
         endif()
@@ -742,6 +750,17 @@ if(EUI_BUILD_TEST_FIXTURES)
             foreach(plot_count IN ITEMS 100000 1000000)
                 add_test(NAME plot_benchmark_${plot_count} COMMAND plot_benchmark ${plot_count})
                 set_tests_properties(plot_benchmark_${plot_count} PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
+            endforeach()
+        endif()
+        if(unit_name STREQUAL "plot_spatial_benchmark")
+            set_tests_properties(plot_spatial_benchmark PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
+            foreach(plot_step IN ITEMS 0.16 0.04)
+                add_test(NAME plot_spatial_benchmark_${plot_step} COMMAND plot_spatial_benchmark ${plot_step})
+                set_tests_properties(plot_spatial_benchmark_${plot_step} PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
+            endforeach()
+            foreach(plot_scene IN ITEMS slice isosurface)
+                add_test(NAME plot_spatial_benchmark_${plot_scene} COMMAND plot_spatial_benchmark 0.08 ${plot_scene})
+                set_tests_properties(plot_spatial_benchmark_${plot_scene} PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
             endforeach()
         endif()
     endforeach()
