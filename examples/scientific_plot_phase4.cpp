@@ -9,7 +9,7 @@ std::unique_ptr<SliceLink> cursor;
 std::string message =
     "Drag orbit | Shift drag pan | Wheel zoom | Click slices then Link pick | Export saves all eight views";
 double isoLevel = 0.3, angle = 0.3, shift = 0, dpi = 1;
-int quality = 0, transfer = 0;
+std::array<int, 2> quality{0, 0}, transfer{0, 0};
 bool holes = false;
 
 double value(Vec3 p) { return std::exp(-((p.x - shift) * (p.x - shift) + p.y * p.y + p.z * p.z) * 5); }
@@ -55,19 +55,22 @@ Scene3D sliceScene(const SlicePlane& plane, const VolumeData& source) {
     scene.objects.push_back(slice);
     return scene;
 }
-void updateSlices() {
-    for (std::size_t i = 0; i < 3; ++i)
-        panels[i].plot->setScene(sliceScene(cursor->plane(i), *data));
+void updateOblique() {
     const Vec3 u{std::cos(angle), std::sin(angle), 0}, v{0, 0, 1};
     const auto origin = cursor->position() - u * 0.8 - v * 0.8;
     panels[3].plot->setScene(sliceScene({origin, u, v, 1.6, 1.6, 21, 21}, *data));
+}
+void updateSlices() {
+    for (std::size_t i = 0; i < 3; ++i)
+        panels[i].plot->setScene(sliceScene(cursor->plane(i), *data));
+    updateOblique();
 }
 void updateLarge() {
     SlicePlane plane{{-1, -1, cursor->position().z}, {1, 0, 0}, {0, 1, 0}, 2, 2, 25, 25};
     panels[7].plot->setScene(sliceScene(plane, *largeData));
 }
-TransferFunction function() {
-    if (transfer)
+TransferFunction function(std::size_t index) {
+    if (transfer.at(index - 5))
         return TransferFunction({{0, {0, 0, 0, 0}},
                                  {0.15, {0.3f, 0.1f, 0.5f, 0}},
                                  {0.4, {1, 0.2f, 0.3f, 0.12f}},
@@ -77,37 +80,72 @@ TransferFunction function() {
                              {0.3, {0.1f, 0.8f, 1, 0.08f}},
                              {1, {1, 0.6f, 0.1f, 0.5f}}});
 }
-void updateVolume() {
-    auto mesh = isoSurface(*data, isoLevel, 16 * 1024 * 1024);
-    Scene3D iso;
-    iso.bounds = data->layout().bounds();
-    iso.objects.push_back(object(mesh, {0.35f, 0.8f, 1, 1}));
-    panels[4].plot->setScene(iso);
+void updateIsosurface() {
+    Scene3D scene;
+    scene.bounds = data->layout().bounds();
+    scene.objects.push_back(object(isoSurface(*data, isoLevel, 16 * 1024 * 1024), {0.35f, 0.8f, 1, 1}));
+    panels[4].plot->setScene(std::move(scene));
+}
+void updateQuality(std::size_t index) {
+    RenderSettings3D settings;
+    settings.volumeStep = 0.16 / std::pow(2., quality.at(index - 5));
+    settings.workingBytes = 32 * 1024 * 1024;
+    panels[index].plot->setSettings(settings);
+}
+void updateVolume(std::size_t index) {
+    auto scene = panels[index].plot->scene();
+    scene.bounds = data->layout().bounds();
     auto layer = std::make_shared<VolumeLayer>();
     layer->data = data;
     layer->referenceStep = 0.1;
-    layer->transfer = function();
-    Scene3D volume;
-    volume.bounds = iso.bounds;
-    volume.volume = layer;
-    panels[5].plot->setScene(volume);
-    auto shell = object(std::move(mesh), {1, 0.35f, 0.2f, 0.25f});
-    volume.objects.push_back(shell);
+    layer->transfer = function(index);
+    scene.volume = std::move(layer);
+    panels[index].plot->setScene(std::move(scene));
+}
+void updateMixedSlice() {
+    auto scene = panels[6].plot->scene();
     auto slice = object(volumeSlice(*data, cursor->plane(2)), {1, 1, 1, 0.35f}, true);
     slice.material.lighting = false;
-    volume.objects.push_back(slice);
-    panels[6].plot->setScene(volume);
-    RenderSettings3D settings;
-    settings.volumeStep = 0.16 / std::pow(2., quality);
-    settings.workingBytes = 32 * 1024 * 1024;
-    panels[5].plot->setSettings(settings);
-    panels[6].plot->setSettings(settings);
+    scene.objects.at(1) = std::move(slice);
+    panels[6].plot->setScene(std::move(scene));
+}
+void updateVolumes() {
+    updateIsosurface();
+    updateVolume(5);
+    Scene3D mixed;
+    mixed.bounds = data->layout().bounds();
+    // This panel has its own fixed shell; the Isovalue button belongs to panel 4.
+    mixed.objects.push_back(object(isoSurface(*data, 0.3, 16 * 1024 * 1024), {1, 0.35f, 0.2f, 0.25f}));
+    auto slice = object(volumeSlice(*data, cursor->plane(2)), {1, 1, 1, 0.35f}, true);
+    slice.material.lighting = false;
+    mixed.objects.push_back(std::move(slice));
+    panels[6].plot->setScene(std::move(mixed));
+    updateVolume(6);
+    updateQuality(5);
+    updateQuality(6);
+}
+void setSlicePosition(Vec3 position) {
+    const auto previous = cursor->position();
+    cursor->setPosition(position);
+    const auto current = cursor->position();
+    bool changed = false;
+    for (std::size_t i = 0; i < 3; ++i) {
+        if (previous[i] == current[i])
+            continue;
+        panels[i].plot->setScene(sliceScene(cursor->plane(i), *data));
+        changed = true;
+    }
+    if (changed)
+        updateOblique();
+    if (previous.z != current.z) {
+        updateLarge();
+        updateMixedSlice();
+    }
 }
 void refresh() {
     data->invalidate({{0, 0, 0}, data->layout().dimensions});
     updateSlices();
-    updateVolume();
-    updateLarge();
+    updateVolumes();
 }
 void initialize() {
     for (auto pair : std::vector<std::pair<std::string, std::string>>{
@@ -117,7 +155,7 @@ void initialize() {
              {"Oblique slice", "Arbitrary orthonormal plane; rotate with Angle"},
              {"Isosurface", "Shared topology, increasing-value normals"},
              {"Volume + transfer function", "Color / opacity knots and sampling quality"},
-             {"Volume + geometry", "Interleaved slice, shell and volume depth"},
+             {"Volume + geometry", "Linked Z slice; fixed 0.3 shell; local quality/transfer"},
              {"512 cubed / on-demand slice", "1 GiB logical Float64 source / 1 MiB LRU"}}) {
         Panel panel;
         panel.title = pair.first;
@@ -126,7 +164,7 @@ void initialize() {
     }
     createData();
     updateSlices();
-    updateVolume();
+    updateVolumes();
     updateLarge();
     for (auto& panel : panels) {
         panel.plot->resetView();
@@ -145,8 +183,9 @@ void initialize() {
 std::string settings() {
     auto p = cursor->position();
     std::ostringstream out;
-    out << std::setprecision(17) << isoLevel << ' ' << angle << ' ' << shift << ' ' << quality << ' '
-        << transfer << ' ' << holes << ' ' << p.x << ' ' << p.y << ' ' << p.z;
+    out << std::setprecision(17) << isoLevel << ' ' << angle << ' ' << shift << ' ' << quality[0] << ' '
+        << transfer[0] << ' ' << holes << ' ' << p.x << ' ' << p.y << ' ' << p.z << ' ' << quality[1] << ' '
+        << transfer[1];
     return out.str();
 }
 void restoreSettings(const std::string& text) {
@@ -159,24 +198,32 @@ void restoreSettings(const std::string& text) {
     if (!in || !finite(p) || !std::isfinite(a) || !std::isfinite(s) || !std::isfinite(level) ||
         level < 0.05 || level > 0.9 || q < 0 || q > 2 || t < 0 || t > 1)
         throw std::runtime_error("Invalid volume gallery settings");
+    int mixedQuality = q, mixedTransfer = t;
+    in >> std::ws;
+    if (!in.eof()) {
+        if (!(in >> mixedQuality >> mixedTransfer) || mixedQuality < 0 || mixedQuality > 2 ||
+            mixedTransfer < 0 || mixedTransfer > 1)
+            throw std::runtime_error("Invalid per-panel volume settings");
+        in >> std::ws;
+        if (!in.eof())
+            throw std::runtime_error("Trailing volume settings");
+    }
     isoLevel = level;
     angle = a;
     shift = s;
-    quality = q;
-    transfer = t;
+    quality = {q, mixedQuality};
+    transfer = {t, mixedTransfer};
     holes = h;
     cursor->setPosition(p);
     refresh();
+    updateLarge();
 }
 void moveSlice(std::size_t axis) {
     auto p = cursor->position();
     p[axis] += 0.2;
     if (p[axis] > 0.8)
         p[axis] = -0.8;
-    cursor->setPosition(p);
-    updateSlices();
-    updateLarge();
-    updateVolume();
+    setSlicePosition(p);
 }
 void controls(eui::Ui& ui, std::size_t i) {
     const auto id = "control." + std::to_string(i);
@@ -186,10 +233,7 @@ void controls(eui::Ui& ui, std::size_t i) {
             ui, id + ".link", "Link pick",
             [i] {
                 if (auto hit = panels[i].plot->selection()) {
-                    cursor->setPosition(hit->position);
-                    updateSlices();
-                    updateLarge();
-                    updateVolume();
+                    setSlicePosition(hit->position);
                     message = "Linked cursor to selected world position";
                 } else
                     message = "Click this slice to select a point first";
@@ -201,7 +245,7 @@ void controls(eui::Ui& ui, std::size_t i) {
             ui, id + ".angle", "Angle",
             [] {
                 angle += 0.25;
-                updateSlices();
+                updateOblique();
             },
             78);
         button(ui, id + ".position", "Move Z", [] { moveSlice(2); }, 82);
@@ -211,31 +255,24 @@ void controls(eui::Ui& ui, std::size_t i) {
             ui, id + ".level", "Isovalue",
             [] {
                 isoLevel = isoLevel < 0.6 ? isoLevel + 0.15 : 0.15;
-                updateVolume();
+                updateIsosurface();
                 message = "Isovalue = " + std::to_string(isoLevel);
             },
             84);
-        button(
-            ui, id + ".holes", holes ? "Fill missing" : "Missing region",
-            [] {
-                holes = !holes;
-                refresh();
-            },
-            116);
     }
     if (i == 5 || i == 6) {
         button(
-            ui, id + ".quality", "Quality " + std::to_string(quality),
-            [] {
-                quality = (quality + 1) % 3;
-                updateVolume();
+            ui, id + ".quality", "Quality " + std::to_string(quality[i - 5]),
+            [i] {
+                quality[i - 5] = (quality[i - 5] + 1) % 3;
+                updateQuality(i);
             },
             86);
         button(
             ui, id + ".transfer", "Transfer",
-            [] {
-                transfer = 1 - transfer;
-                updateVolume();
+            [i] {
+                transfer[i - 5] = 1 - transfer[i - 5];
+                updateVolume(i);
             },
             84);
     }
@@ -312,6 +349,14 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                         },
                         108);
                     button(
+                        ui, "holes", holes ? "Fill all missing" : "Missing data (all)",
+                        [] {
+                            holes = !holes;
+                            refresh();
+                            message = "Shared source updated in all seven small-volume views";
+                        },
+                        136);
+                    button(
                         ui, "cache", "Free caches",
                         [] {
                             data->clearCache();
@@ -365,8 +410,8 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                    << " | 21^3, XYZ spacing 0.1, origin (-1,-1,-1), Float64 X-fast | Cache "
                    << data->cacheBytes() / 1024 << " / 128 KiB"
                    << " | Large " << largeData->cacheBytes() / 1024 << " / 1024 KiB, loads "
-                   << largeData->loads() << " | Step " << 0.16 / std::pow(2., quality) << " | Iso "
-                   << isoLevel;
+                   << largeData->loads() << " | Step " << 0.16 / std::pow(2., quality[0]) << "/"
+                   << 0.16 / std::pow(2., quality[1]) << " | Iso " << isoLevel;
             text(ui, "status", status.str(), 12, 101, screen.width - 24, 11);
             for (std::size_t i = 0; i < panels.size(); ++i)
                 panel(ui, panels[i], i, gap + (i % 4) * (width + gap), 138 + (i / 4) * (height + gap), width,

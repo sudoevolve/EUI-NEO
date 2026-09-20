@@ -14,6 +14,7 @@
 #include <chrono>
 #include <iostream>
 #include <algorithm>
+#include "tests/probes/plot_gallery_controls.h"
 
 namespace {
 void requireGallery(bool condition, const char* message) {
@@ -100,6 +101,7 @@ int main() {
             }
             auto compose = [&] { runtime.compose("gallery", 1680, 980, app::compose); };
             for (double dpi : {1., 2.}) {
+                verifyGalleryControls(dpi);
                 app::dpi = dpi;
                 for (auto& panel : app::panels) {
                     panel.plot->resetView();

@@ -53,7 +53,14 @@ void curves() {
     scene.objects = {line, points};
     panels[0].plot->setScene(scene);
 }
-void surfaces() {
+void surfaceColors() {
+    auto v = panels[1].plot->view();
+    v.colorScale.setRange({-0.65, 0.65});
+    v.colorScale.setColorMap(palette % 2 ? ColorMap::Turbo : ColorMap::Viridis);
+    v.colorScale.setDiscreteLevels(palette == 2 ? 8 : 0);
+    panels[1].plot->setView(v);
+}
+void surface() {
     auto f = field();
     Scene3D scene;
     scene.bounds = {{-1.6, -1.6, -1}, {1.6, 1.6, 1}};
@@ -70,13 +77,14 @@ void surfaces() {
     scene.objects.push_back(contours);
     panels[1].plot->setScene(scene);
     auto v = panels[1].plot->view();
-    v.colorScale.setRange({-0.65, 0.65});
-    v.colorScale.setColorMap(palette % 2 ? ColorMap::Turbo : ColorMap::Viridis);
-    v.colorScale.setDiscreteLevels(palette == 2 ? 8 : 0);
     v.annotations = {{{0, 0, 0.65}, "peak"}};
     panels[1].plot->setView(v);
+    surfaceColors();
+}
+void wireframe() {
+    const auto f = field();
     Scene3D wireScene;
-    wireScene.bounds = scene.bounds;
+    wireScene.bounds = {{-1.6, -1.6, -1}, {1.6, 1.6, 1}};
     auto wire = object(surface3D(f, true), {0.2f, 0.85f, 0.9f, 1});
     wire.material.radius = 0.012;
     wireScene.objects.push_back(wire);
@@ -148,7 +156,8 @@ void initialize() {
         panels.push_back(std::move(p));
     }
     curves();
-    surfaces();
+    surface();
+    wireframe();
     mesh();
     intersections();
     picking();
@@ -171,14 +180,14 @@ void controls(eui::Ui& ui, std::size_t i) {
     if (i == 1)
         button(ui, id + ".map", "Color scale", [] {
             palette = (palette + 1) % 3;
-            surfaces();
+            surfaceColors();
         });
     if (i == 2)
         button(
             ui, id + ".normals", normals ? "Hide normals" : "Show normals",
             [] {
                 normals = !normals;
-                surfaces();
+                wireframe();
             },
             110);
     if (i == 3) {
