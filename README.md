@@ -142,6 +142,7 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 
 ## Docs
 
+- [Contribution Guidelines](CONTRIBUTING.md)
 - [DSL Design And Current Implementation](docs/DSL.md)
 - [Components](docs/组件.md)
 - [Modules](docs/模块.md)

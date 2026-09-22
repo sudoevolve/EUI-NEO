@@ -144,6 +144,7 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 
 ## 文档
 
+- [贡献与提交规范](CONTRIBUTING.md)
 - [DSL 设计与当前实现](docs/DSL.md)
 - [组件](docs/组件.md)
 - [模块](docs/模块.md)
