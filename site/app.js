@@ -7,10 +7,10 @@ const copy = {
     "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2",
     "hero.title": "EUI-NEO",
     "hero.lede": "一个基于 C++17、支持 GLFW/SDL2 和 OpenGL/Vulkan 的跨平台高性能轻量级 UI 框架。",
-    "hero.docs": "查阅文档",
+    "hero.start": "开始接入",
     "hero.github": "GitHub",
     "hero.qq": "加入 QQ 群",
-    "hero.scroll": "查看文档索引",
+    "hero.scroll": "开始接入",
     "stats.window": "窗口后端",
     "stats.render": "渲染后端",
     "stats.components": "组件",
@@ -54,7 +54,9 @@ const copy = {
     "start.copied": "已复制",
     "start.copyFailed": "复制失败",
     "start.guide": "安装与进阶接入",
-    "filter.all": "全部"
+    "filter.all": "全部",
+    "footer.contributors": "贡献者",
+    "footer.rights": " · 保留所有权利"
   },
   en: {
     "nav.docs": "Docs",
@@ -64,10 +66,10 @@ const copy = {
     "hero.eyebrow": "C++17 · OpenGL / Vulkan · GLFW / SDL2",
     "hero.title": "EUI-NEO",
     "hero.lede": "A cross-platform, high-performance, low-overhead C++17 UI framework with GLFW/SDL2 window backends and OpenGL/Vulkan render backends.",
-    "hero.docs": "Browse Docs",
+    "hero.start": "Get Started",
     "hero.github": "GitHub",
     "hero.qq": "Join QQ Group",
-    "hero.scroll": "Open the docs index",
+    "hero.scroll": "Get Started",
     "stats.window": "window backends",
     "stats.render": "render backends",
     "stats.components": "components",
@@ -111,7 +113,9 @@ const copy = {
     "start.copied": "Copied",
     "start.copyFailed": "Copy failed",
     "start.guide": "Install and integrate",
-    "filter.all": "All"
+    "filter.all": "All",
+    "footer.contributors": "Contributors",
+    "footer.rights": " · All rights reserved"
   }
 };
 
@@ -135,19 +139,34 @@ const categoryMap = {
   "Workflow": "workflow"
 };
 
+// Ordered from onboarding to internals: integrate first, then daily-use
+// component/framework docs, then advanced DSL/rendering internals last.
 const docs = [
   {
-    category: "core",
-    href: "../docs/DSL.md",
+    category: "workflow",
+    href: "../docs/集成指南.md",
     zh: {
-      title: "DSL 设计与当前实现",
-      desc: "元素、布局属性、交互和 DSL app 入口。"
+      title: "集成指南",
+      desc: "Quick Start、安装 SDK 和 FetchContent，从零接入 EUI-NEO。"
     },
     en: {
-      title: "DSL Design",
-      desc: "Elements, layout properties, interactions, and the DSL app entry."
+      title: "Integration Guide",
+      desc: "Quick Start, SDK installation, and FetchContent to bring EUI-NEO into a project."
     },
-    tags: "dsl ui compose layout interaction"
+    tags: "integration cmake sdk install find_package fetchcontent app quick start"
+  },
+  {
+    category: "workflow",
+    href: "../docs/开发与发布.md",
+    zh: {
+      title: "开发与发布",
+      desc: "构建、验证、release 和项目维护流程。"
+    },
+    en: {
+      title: "Development And Release",
+      desc: "Builds, verification, releases, and maintenance workflow."
+    },
+    tags: "development release build verify"
   },
   {
     category: "components",
@@ -164,6 +183,19 @@ const docs = [
   },
   {
     category: "core",
+    href: "../docs/布局.md",
+    zh: {
+      title: "布局",
+      desc: "Row、Column、Stack、wrapContent 和 flex 行为。"
+    },
+    en: {
+      title: "Layout",
+      desc: "Row, Column, Stack, wrapContent, and flex behavior."
+    },
+    tags: "layout row column stack flex"
+  },
+  {
+    category: "core",
     href: "../docs/状态.md",
     zh: {
       title: "状态模型",
@@ -177,6 +209,97 @@ const docs = [
   },
   {
     category: "core",
+    href: "../docs/动画.md",
+    zh: {
+      title: "动画",
+      desc: "Transition、缓动、状态动画和 transform。"
+    },
+    en: {
+      title: "Animation",
+      desc: "Transitions, easing, state animation, and transforms."
+    },
+    tags: "animation transition easing transform"
+  },
+  {
+    category: "core",
+    href: "../docs/图片.md",
+    zh: {
+      title: "图片",
+      desc: "图片源、远程图片、SVG、GIF 和纹理缓存。"
+    },
+    en: {
+      title: "Images",
+      desc: "Image sources, remote images, SVG, GIF, and texture cache."
+    },
+    tags: "image svg gif texture cache remote"
+  },
+  {
+    category: "platform",
+    href: "../docs/事件.md",
+    zh: {
+      title: "事件",
+      desc: "输入队列、hover/press/click、文本输入和焦点。"
+    },
+    en: {
+      title: "Events",
+      desc: "Input queues, hover/press/click, text input, and focus."
+    },
+    tags: "events input ime focus mouse keyboard"
+  },
+  {
+    category: "core",
+    href: "../docs/audio.md",
+    zh: {
+      title: "音频",
+      desc: "miniaudio 播放器、资源路径、错误处理和配乐卡点同步。"
+    },
+    en: {
+      title: "Audio",
+      desc: "miniaudio playback, resource paths, errors, and music-synchronized animation."
+    },
+    tags: "audio miniaudio player music beat sync position duration mp3 wav flac ogg"
+  },
+  {
+    category: "platform",
+    href: "../docs/网络.md",
+    zh: {
+      title: "网络",
+      desc: "异步文本请求、图片请求和网络结果缓存。"
+    },
+    en: {
+      title: "Network",
+      desc: "Async text requests, image requests, and network result cache."
+    },
+    tags: "network async image request curl"
+  },
+  {
+    category: "platform",
+    href: "../docs/异步.md",
+    zh: {
+      title: "异步",
+      desc: "异步任务、请求和 Runtime 结果回收。"
+    },
+    en: {
+      title: "Async",
+      desc: "Async tasks, requests, and Runtime result collection."
+    },
+    tags: "async task request runtime"
+  },
+  {
+    category: "platform",
+    href: "../docs/平台能力.md",
+    zh: {
+      title: "平台能力",
+      desc: "文件对话框、URL、托盘、剪贴板和窗口能力。"
+    },
+    en: {
+      title: "Platform Capabilities",
+      desc: "Dialogs, URLs, tray, clipboard, and window capabilities."
+    },
+    tags: "platform dialog tray clipboard window"
+  },
+  {
+    category: "core",
     href: "../docs/模块.md",
     zh: {
       title: "模块",
@@ -187,6 +310,19 @@ const docs = [
       desc: "Build, usage, and development rules for optional modules such as keyboard and serial."
     },
     tags: "modules keyboard serial optional feature"
+  },
+  {
+    category: "core",
+    href: "../docs/DSL.md",
+    zh: {
+      title: "DSL 设计与当前实现",
+      desc: "进阶：元素、布局属性、交互和 DSL app 入口的底层设计。"
+    },
+    en: {
+      title: "DSL Design",
+      desc: "Advanced: elements, layout properties, interactions, and the DSL app entry internals."
+    },
+    tags: "dsl ui compose layout interaction advanced internal"
   },
   {
     category: "rendering",
@@ -239,136 +375,6 @@ const docs = [
       desc: "Pass graphs, channels, uniforms, presets, and the shared OpenGL / Vulkan contract."
     },
     tags: "shadertoy shader graph pass channel uniform opengl vulkan"
-  },
-  {
-    category: "platform",
-    href: "../docs/事件.md",
-    zh: {
-      title: "事件",
-      desc: "输入队列、hover/press/click、文本输入和焦点。"
-    },
-    en: {
-      title: "Events",
-      desc: "Input queues, hover/press/click, text input, and focus."
-    },
-    tags: "events input ime focus mouse keyboard"
-  },
-  {
-    category: "core",
-    href: "../docs/布局.md",
-    zh: {
-      title: "布局",
-      desc: "Row、Column、Stack、wrapContent 和 flex 行为。"
-    },
-    en: {
-      title: "Layout",
-      desc: "Row, Column, Stack, wrapContent, and flex behavior."
-    },
-    tags: "layout row column stack flex"
-  },
-  {
-    category: "core",
-    href: "../docs/动画.md",
-    zh: {
-      title: "动画",
-      desc: "Transition、缓动、状态动画和 transform。"
-    },
-    en: {
-      title: "Animation",
-      desc: "Transitions, easing, state animation, and transforms."
-    },
-    tags: "animation transition easing transform"
-  },
-  {
-    category: "core",
-    href: "../docs/图片.md",
-    zh: {
-      title: "图片",
-      desc: "图片源、远程图片、SVG、GIF 和纹理缓存。"
-    },
-    en: {
-      title: "Images",
-      desc: "Image sources, remote images, SVG, GIF, and texture cache."
-    },
-    tags: "image svg gif texture cache remote"
-  },
-  {
-    category: "core",
-    href: "../docs/audio.md",
-    zh: {
-      title: "音频",
-      desc: "miniaudio 播放器、资源路径、错误处理和配乐卡点同步。"
-    },
-    en: {
-      title: "Audio",
-      desc: "miniaudio playback, resource paths, errors, and music-synchronized animation."
-    },
-    tags: "audio miniaudio player music beat sync position duration mp3 wav flac ogg"
-  },
-  {
-    category: "platform",
-    href: "../docs/平台能力.md",
-    zh: {
-      title: "平台能力",
-      desc: "文件对话框、URL、托盘、剪贴板和窗口能力。"
-    },
-    en: {
-      title: "Platform Capabilities",
-      desc: "Dialogs, URLs, tray, clipboard, and window capabilities."
-    },
-    tags: "platform dialog tray clipboard window"
-  },
-  {
-    category: "workflow",
-    href: "../docs/集成指南.md",
-    zh: {
-      title: "集成指南",
-      desc: "Quick Start、安装 SDK 和 FetchContent。"
-    },
-    en: {
-      title: "Integration Guide",
-      desc: "Quick Start, SDK installation, and FetchContent."
-    },
-    tags: "integration cmake sdk install find_package fetchcontent app"
-  },
-  {
-    category: "workflow",
-    href: "../docs/开发与发布.md",
-    zh: {
-      title: "开发与发布",
-      desc: "构建、验证、release 和项目维护流程。"
-    },
-    en: {
-      title: "Development And Release",
-      desc: "Builds, verification, releases, and maintenance workflow."
-    },
-    tags: "development release build verify"
-  },
-  {
-    category: "platform",
-    href: "../docs/网络.md",
-    zh: {
-      title: "网络",
-      desc: "异步文本请求、图片请求和网络结果缓存。"
-    },
-    en: {
-      title: "Network",
-      desc: "Async text requests, image requests, and network result cache."
-    },
-    tags: "network async image request curl"
-  },
-  {
-    category: "platform",
-    href: "../docs/异步.md",
-    zh: {
-      title: "异步",
-      desc: "异步任务、请求和 Runtime 结果回收。"
-    },
-    en: {
-      title: "Async",
-      desc: "Async tasks, requests, and Runtime result collection."
-    },
-    tags: "async task request runtime"
   }
 ];
 
@@ -713,6 +719,81 @@ function renderComponents() {
   });
 }
 
+const CONTRIBUTORS_ENDPOINT =
+  "https://api.github.com/repos/sudoevolve/EUI-NEO/contributors?per_page=40&anon=false";
+const CONTRIBUTORS_CACHE_KEY = "eui-site-contributors";
+const CONTRIBUTORS_CACHE_TTL = 6 * 60 * 60 * 1000;
+
+function readContributorCache() {
+  try {
+    const raw = localStorage.getItem(CONTRIBUTORS_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.list) || Date.now() - parsed.time > CONTRIBUTORS_CACHE_TTL) {
+      return null;
+    }
+    return parsed.list;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeContributorCache(list) {
+  try {
+    localStorage.setItem(CONTRIBUTORS_CACHE_KEY, JSON.stringify({ time: Date.now(), list }));
+  } catch (error) {
+    // Private mode or quota limits should not block rendering.
+  }
+}
+
+function renderContributors(list) {
+  const track = document.querySelector("#contributorTrack");
+  const wrapper = document.querySelector(".footer-contributors");
+  if (!track || !wrapper) {
+    return;
+  }
+  if (!list.length) {
+    wrapper.classList.add("is-empty");
+    return;
+  }
+  const markup = list
+    .map(
+      (person) =>
+        `<a class="contributor" href="${person.url}" target="_blank" rel="noopener">` +
+        `<img src="${person.avatar}" alt="" loading="lazy" width="26" height="26">` +
+        `<span>${escapeHtml(person.login)}</span></a>`
+    )
+    .join("");
+  // Duplicate the list once so the marquee loop has no visible seam.
+  track.innerHTML = markup + markup;
+}
+
+async function loadContributors() {
+  const cached = readContributorCache();
+  if (cached) {
+    renderContributors(cached);
+    return;
+  }
+  try {
+    const response = await fetch(CONTRIBUTORS_ENDPOINT, {
+      headers: { Accept: "application/vnd.github+json" }
+    });
+    if (!response.ok) {
+      throw new Error(String(response.status));
+    }
+    const data = await response.json();
+    const list = data
+      .filter((entry) => entry && entry.login && entry.type !== "Bot")
+      .map((entry) => ({ login: entry.login, avatar: `${entry.avatar_url}&s=64`, url: entry.html_url }));
+    writeContributorCache(list);
+    renderContributors(list);
+  } catch (error) {
+    document.querySelector(".footer-contributors")?.classList.add("is-empty");
+  }
+}
+
 document.querySelectorAll(".lang-button").forEach((button) => {
   button.addEventListener("click", () => setLanguage(button.dataset.lang));
 });
@@ -921,3 +1002,9 @@ renderComponents();
 setTheme(currentTheme);
 setLanguage(currentLang);
 updateScrollState();
+
+const footerYear = document.querySelector("#footerYear");
+if (footerYear) {
+  footerYear.textContent = String(new Date().getFullYear());
+}
+loadContributors();

@@ -18,10 +18,10 @@
         <span>EUI-NEO</span>
       </a>
       <nav class="nav" aria-label="Primary">
+        <a href="#start" data-i18n="nav.start">开始</a>
+        <a href="#components" data-i18n="nav.components">组件</a>
         <a href="#docs" data-i18n="nav.docs">文档</a>
         <a href="#rendering" data-i18n="nav.rendering">渲染</a>
-        <a href="#components" data-i18n="nav.components">组件</a>
-        <a href="#start" data-i18n="nav.start">开始</a>
       </nav>
       <div class="language" aria-label="Language">
         <button class="theme-button" id="themeButton" type="button" aria-label="Toggle theme">◐</button>
@@ -38,7 +38,7 @@
             <h1 data-i18n="hero.title">EUI-NEO</h1>
             <p class="hero-lede" data-i18n="hero.lede">一个基于 C++17、支持 GLFW/SDL2 和 OpenGL/Vulkan 的跨平台高性能轻量级 UI 框架。</p>
             <div class="hero-actions">
-              <a class="primary-action" href="#docs" data-i18n="hero.docs">查阅文档</a>
+              <a class="primary-action" href="#start" data-i18n="hero.start">开始接入</a>
               <a class="secondary-action" href="https://github.com/sudoevolve/EUI-NEO" data-i18n="hero.github">GitHub</a>
               <a class="secondary-action" href="https://qm.qq.com/q/vEKvyhA9he" target="_blank" rel="noopener" data-i18n="hero.qq">加入 QQ 群</a>
             </div>
@@ -72,7 +72,7 @@
             <span data-i18n="stats.components">组件</span>
           </div>
         </div>
-        <a class="scroll-cue" href="#docs" data-i18n="hero.scroll">查看文档索引</a>
+        <a class="scroll-cue" href="#start" data-i18n="hero.scroll">开始接入</a>
       </section>
 
       <section class="manifest">
@@ -105,71 +105,9 @@
         </div>
       </section>
 
-      <section class="doc-search" id="docs">
-        <div class="section-heading split-heading">
-          <div>
-            <span class="section-index">02 / INDEX</span>
-            <p class="eyebrow" data-i18n="docs.eyebrow">Documentation</p>
-            <h2 data-i18n="docs.title">查找架构、组件和集成文档</h2>
-          </div>
-          <p data-i18n="docs.lede">按渲染、输入、组件、平台能力或构建流程快速定位仓库文档。</p>
-        </div>
-        <div class="search-panel">
-          <label class="search-box">
-            <span data-i18n="docs.searchLabel">搜索</span>
-            <input id="docSearch" type="search" autocomplete="off" data-i18n-placeholder="docs.searchPlaceholder" placeholder="搜索 DSL、Vulkan、IME、组件、布局...">
-          </label>
-          <div class="filters" id="docFilters" aria-label="Document filters"></div>
-        </div>
-        <div class="docs-grid docs-index" id="docsGrid"></div>
-      </section>
-
-      <section class="rendering" id="rendering">
-        <div class="section-heading split-heading">
-          <div>
-            <span class="section-index">03 / RENDER</span>
-            <p class="eyebrow" data-i18n="rendering.eyebrow">Rendering Core</p>
-            <h2 data-i18n="rendering.title">统一 Runtime，双渲染后端</h2>
-          </div>
-          <p data-i18n="rendering.lede">窗口、输入、Runtime 和 GPU 后端各守边界，让同一套 DSL 输出到 OpenGL 或 Vulkan。</p>
-        </div>
-        <div class="render-flow">
-          <div class="flow-item">
-            <span>01</span>
-            <h3 data-i18n="flow.compose.title">Compose</h3>
-            <p data-i18n="flow.compose.text">C++ DSL 构建 UI 树，Runtime 负责布局、状态同步和交互派发。</p>
-          </div>
-          <div class="flow-item">
-            <span>02</span>
-            <h3 data-i18n="flow.dirty.title">Dirty Rect</h3>
-            <p data-i18n="flow.dirty.text">按 id 缓存图元，变化时计算保守脏区，必要时升级 full redraw。</p>
-          </div>
-          <div class="flow-item">
-            <span>03</span>
-            <h3 data-i18n="flow.backend.title">Backend</h3>
-            <p data-i18n="flow.backend.text">OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture 和 frame lifecycle。</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="showcase" aria-label="Gallery">
-        <img src="../docs/pic/示例1.jpg" alt="EUI-NEO example interface">
-        <img src="../docs/pic/示例2.jpg" alt="EUI-NEO example interface">
-      </section>
-
-      <section class="components-band" id="components">
-        <div>
-          <span class="section-index">04 / LAYER</span>
-          <p class="eyebrow" data-i18n="components.eyebrow">Component Layer</p>
-          <h2 data-i18n="components.title">为工具型界面准备的组件层</h2>
-          <p data-i18n="components.lede">按钮、输入、弹层、选择器、图表和数据表都只组合 DSL 树，不穿透后端 primitive。</p>
-        </div>
-        <div class="component-list" id="componentList"></div>
-      </section>
-
       <section class="start" id="start">
         <div class="section-heading">
-          <span class="section-index">05 / BUILD</span>
+          <span class="section-index">02 / START</span>
           <p class="eyebrow" data-i18n="start.eyebrow">Quick Start</p>
           <h2 data-i18n="start.title">快速开始</h2>
           <p data-i18n="start.lede">只需一个 CMakeLists.txt 和一个 main.cpp，CMake 会自动拉取 EUI-NEO。</p>
@@ -267,7 +205,79 @@ cmake --build build --config Release --parallel
           <a class="secondary-action" href="../docs/集成指南.md" data-i18n="start.guide">安装与进阶接入</a>
         </div>
       </section>
+
+      <section class="components-band" id="components">
+        <div>
+          <span class="section-index">03 / LAYER</span>
+          <p class="eyebrow" data-i18n="components.eyebrow">Component Layer</p>
+          <h2 data-i18n="components.title">为工具型界面准备的组件层</h2>
+          <p data-i18n="components.lede">按钮、输入、弹层、选择器、图表和数据表都只组合 DSL 树，不穿透后端 primitive。</p>
+        </div>
+        <div class="component-list" id="componentList"></div>
+      </section>
+
+      <section class="showcase" aria-label="Gallery">
+        <img src="../docs/pic/示例1.jpg" alt="EUI-NEO example interface">
+        <img src="../docs/pic/示例2.jpg" alt="EUI-NEO example interface">
+      </section>
+
+      <section class="doc-search" id="docs">
+        <div class="section-heading split-heading">
+          <div>
+            <span class="section-index">04 / INDEX</span>
+            <p class="eyebrow" data-i18n="docs.eyebrow">Documentation</p>
+            <h2 data-i18n="docs.title">查找架构、组件和集成文档</h2>
+          </div>
+          <p data-i18n="docs.lede">按渲染、输入、组件、平台能力或构建流程快速定位仓库文档。</p>
+        </div>
+        <div class="search-panel">
+          <label class="search-box">
+            <span data-i18n="docs.searchLabel">搜索</span>
+            <input id="docSearch" type="search" autocomplete="off" data-i18n-placeholder="docs.searchPlaceholder" placeholder="搜索 DSL、Vulkan、IME、组件、布局...">
+          </label>
+          <div class="filters" id="docFilters" aria-label="Document filters"></div>
+        </div>
+        <div class="docs-grid docs-index" id="docsGrid"></div>
+      </section>
+
+      <section class="rendering" id="rendering">
+        <div class="section-heading split-heading">
+          <div>
+            <span class="section-index">05 / RENDER</span>
+            <p class="eyebrow" data-i18n="rendering.eyebrow">Rendering Core</p>
+            <h2 data-i18n="rendering.title">统一 Runtime，双渲染后端</h2>
+          </div>
+          <p data-i18n="rendering.lede">窗口、输入、Runtime 和 GPU 后端各守边界，让同一套 DSL 输出到 OpenGL 或 Vulkan。</p>
+        </div>
+        <div class="render-flow">
+          <div class="flow-item">
+            <span>01</span>
+            <h3 data-i18n="flow.compose.title">Compose</h3>
+            <p data-i18n="flow.compose.text">C++ DSL 构建 UI 树，Runtime 负责布局、状态同步和交互派发。</p>
+          </div>
+          <div class="flow-item">
+            <span>02</span>
+            <h3 data-i18n="flow.dirty.title">Dirty Rect</h3>
+            <p data-i18n="flow.dirty.text">按 id 缓存图元，变化时计算保守脏区，必要时升级 full redraw。</p>
+          </div>
+          <div class="flow-item">
+            <span>03</span>
+            <h3 data-i18n="flow.backend.title">Backend</h3>
+            <p data-i18n="flow.backend.text">OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture 和 frame lifecycle。</p>
+          </div>
+        </div>
+      </section>
     </main>
+
+    <footer class="site-footer">
+      <div class="footer-contributors">
+        <p class="footer-label" data-i18n="footer.contributors">贡献者</p>
+        <div class="contributor-marquee" id="contributorMarquee" aria-label="Contributors">
+          <div class="contributor-track" id="contributorTrack"></div>
+        </div>
+      </div>
+      <p class="footer-copyright">© <span id="footerYear"></span> <a href="https://github.com/sudoevolve" target="_blank" rel="noopener">sudoevolve</a><span data-i18n="footer.rights"> · 保留所有权利</span></p>
+    </footer>
   </div>
 
   <aside class="doc-reader" id="docReader" aria-hidden="true">

@@ -1542,3 +1542,113 @@ code {
     grid-template-columns: 34px 1fr;
   }
 }
+
+.site-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 0 56px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.footer-contributors {
+  width: 100%;
+}
+
+.footer-label {
+  margin: 0 0 12px;
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 720;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.footer-contributors.is-empty {
+  display: none;
+}
+
+.contributor-marquee {
+  position: relative;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.contributor-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  animation: contributor-scroll 38s linear infinite;
+}
+
+.contributor-marquee:hover .contributor-track {
+  animation-play-state: paused;
+}
+
+.contributor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px 5px 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 660;
+  white-space: nowrap;
+  text-decoration: none;
+  flex: none;
+}
+
+.contributor:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--line));
+  background: var(--hover);
+}
+
+.contributor img {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  background: var(--panel);
+}
+
+.footer-copyright {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.footer-copyright a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@keyframes contributor-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contributor-track {
+    animation: none;
+    flex-wrap: wrap;
+  }
+}
+
+\n

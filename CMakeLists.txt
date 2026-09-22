@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(EUI-NEO VERSION 0.5.9)
+project(EUI-NEO VERSION 0.6.0)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -111,7 +111,8 @@ endif()
 
 function(eui_apply_compile_options target_name)
     set(eui_disable_exceptions TRUE)
-    if(target_name STREQUAL "vcd_viewer" OR target_name STREQUAL "eui_neo_module_plot" OR
+    if(target_name STREQUAL "vcd_viewer" OR target_name STREQUAL "gpu_image_probe" OR
+       target_name STREQUAL "eui_neo_module_plot" OR
        target_name MATCHES "^plot_" OR target_name MATCHES "^scientific_plot")
         set(eui_disable_exceptions FALSE)
     endif()
