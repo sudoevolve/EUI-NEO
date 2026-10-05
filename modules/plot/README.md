@@ -19,11 +19,13 @@ target_link_libraries(my_app PRIVATE eui::module_plot)
 
 安装包使用相同 target。模块没有额外第三方依赖，不反向引入到 `eui::neo`。
 `EUI_ENABLE_PLOT=OFF` 或删除模块目录后，绘图示例与测试自动跳过。
-数值部分不使用 GPU 类型；当前窗口图像输出仅支持 OpenGL，Vulkan 不提供绘图视口。
+数值部分不使用 GPU 类型。OpenGL 使用离屏 GPU 绘图；Vulkan 通过 CPU 光栅化二维批次并上传到
+Vulkan 图像，视口功能可用但不是 GPU 加速路径。Vulkan 下三维交互也使用 CPU 参考光栅器；
+OpenGL 仍使用 GPU BVH 与体光线投射。
 
 `Plot3D`、`SceneRenderer3D`、`VolumeData` 提供三维几何、相机、深度拾取、切片、等值面及体积分。
-交互视口使用 OpenGL 3.3 的 GPU BVH 求交与体光线投射；相机更新复用几何与体纹理。
-CPU 双精度参考路径负责拾取、离线导出和超出 GPU 支持范围时的回退。
+OpenGL 交互视口使用 OpenGL 3.3 的 GPU BVH 求交与体光线投射；相机更新复用几何与体纹理。
+Vulkan 交互视口以 CPU 双精度参考渲染结果上传显示；CPU 路径也负责拾取和离线导出。
 用法、预算、透明合成和输出限制见 [三维与体数据](../../docs/科学绘图三维与体数据.md)。
 
 `examples/scientific_plot_phase3.cpp` 提供 3×2 三维集成展示；

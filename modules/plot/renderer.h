@@ -22,8 +22,8 @@ struct Batch {
 /**
  * @brief 可选模块的离屏渲染器；仅在创建它的窗口 UI/渲染线程使用。
  *
- * GPU 类型隐藏在实现内。必须在窗口设备销毁前 release()；UI 持有的图像引用由
- * 核心外部图像接口延迟退休。当前仅支持 OpenGL，其他后端明确抛出 runtime_error。
+ * GPU 类型隐藏在实现内。OpenGL 使用 GPU 光栅化；Vulkan 使用 CPU 光栅化并上传结果。
+ * 必须在窗口设备销毁前 release()；UI 持有的图像引用由核心外部图像接口延迟退休。
  */
 class Renderer {
   public:
