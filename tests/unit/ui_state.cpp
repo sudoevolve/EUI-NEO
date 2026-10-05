@@ -178,6 +178,150 @@ bool componentDefaultsMatchGallery() {
     return true;
 }
 
+bool dropdownRetainsUncontrolledOpenState() {
+    core::dsl::Ui ui;
+    const auto compose = [&] {
+        ui.begin("dropdown.internal-state");
+        components::dropdown(ui, "menu").items({"A", "B"}).build();
+        ui.end();
+    };
+
+    compose();
+    const core::dsl::Element* field = ui.find("menu.field");
+    if (field == nullptr || !field->onClick) {
+        std::cerr << "dropdown field click handler missing\n";
+        return false;
+    }
+    field->onClick();
+    compose();
+    const core::dsl::Element* option = ui.find("menu.item.0");
+    if (option == nullptr || option->disabled) {
+        std::cerr << "uncontrolled dropdown did not open after click\n";
+        return false;
+    }
+    option->onClick();
+    compose();
+    option = ui.find("menu.item.0");
+    if (option == nullptr || !option->disabled) {
+        std::cerr << "uncontrolled dropdown did not close after selection\n";
+        return false;
+    }
+    return true;
+}
+
+bool dropdownOpenCallbackRemainsControlled() {
+    core::dsl::Ui ui;
+    bool open = false;
+    const auto compose = [&] {
+        ui.begin("dropdown.controlled-state");
+        components::dropdown(ui, "menu")
+            .items({"A"})
+            .open(open)
+            .onOpenChange([&](bool value) { open = value; })
+            .build();
+        ui.end();
+    };
+
+    compose();
+    const core::dsl::Element* field = ui.find("menu.field");
+    if (field == nullptr || !field->onClick) return false;
+    field->onClick();
+    if (!open) {
+        std::cerr << "controlled dropdown callback did not receive open state\n";
+        return false;
+    }
+    compose();
+    const core::dsl::Element* option = ui.find("menu.item.0");
+    if (option == nullptr || option->disabled) {
+        std::cerr << "controlled dropdown ignored external open state\n";
+        return false;
+    }
+    return true;
+}
+
+bool nestedHighZChildPromotesItsContainer() {
+    core::dsl::Ui ui;
+    ui.begin("zindex.escape");
+    ui.stack("viewport")
+        .size(400, 300)
+        .content([&] {
+            ui.stack("card")
+                .size(300, 120)
+                .content([&] { ui.rect("popup").size(120, 80).zIndex(100).build(); })
+                .build();
+            ui.rect("sibling").size(300, 120).zIndex(0).build();
+        })
+        .build();
+    ui.end();
+    ui.layout(400, 300);
+
+    const auto* viewport = ui.find("viewport");
+    if (viewport == nullptr || viewport->orderedChildren.size() != 2 ||
+        viewport->orderedChildren.front()->id != "zindex.escape.sibling" ||
+        viewport->orderedChildren.back()->id != "zindex.escape.card") {
+        std::cerr << "container with high-z descendant was not promoted";
+        if (viewport != nullptr) {
+            std::cerr << " children=" << viewport->orderedChildren.size();
+            for (const auto* child : viewport->orderedChildren)
+                std::cerr << " [" << child->id << ", z=" << child->zIndex
+                          << ", subtree=" << child->subtreeMaxZIndex << "]";
+        }
+        std::cerr << '\n';
+        return false;
+    }
+    return true;
+}
+
+bool zeroZDescendantsPreserveInsertionOrder() {
+    core::dsl::Ui ui;
+    ui.begin("zindex.stable");
+    ui.stack("root")
+        .size(200, 100)
+        .content([&] {
+            ui.rect("first").size(20, 20).build();
+            ui.rect("second").size(20, 20).build();
+        })
+        .build();
+    ui.end();
+    ui.layout(200, 100);
+    const auto* root = ui.find("root");
+    return root != nullptr && root->orderedChildren.size() == 2 &&
+            root->orderedChildren[0]->id == "zindex.stable.first" &&
+            root->orderedChildren[1]->id == "zindex.stable.second";
+}
+
+bool dropdownCanOpenUpWithoutChangingDefaultDirection() {
+    const auto popupRelativeToField = [](bool openUp) -> std::optional<std::pair<float, float>> {
+        core::dsl::Ui ui;
+        ui.begin("dropdown.direction");
+        ui.stack("anchor")
+            .position(20, 160)
+            .size(280, 100)
+            .content([&] {
+                components::dropdown(ui, "menu").items({"A", "B"}).open(true).openUp(openUp).build();
+            })
+            .build();
+        ui.end();
+        ui.layout(360, 240);
+        const auto* field = ui.find("menu.field");
+        const auto* popup = ui.find("menu.popup");
+        if (!field || !popup) return std::nullopt;
+        return std::pair<float, float>{field->frame.y, popup->frame.y};
+    };
+
+    const auto upward = popupRelativeToField(true);
+    const auto downward = popupRelativeToField(false);
+    if (!upward || upward->second >= upward->first) {
+        std::cerr << "openUp popup was not positioned above its field\n";
+        return false;
+    }
+    if (!downward || downward->second <= downward->first) {
+        std::cerr << "default dropdown direction no longer opens downward\n";
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int main() {
@@ -210,5 +354,10 @@ int main() {
     ok = textWrapContentUsesIntrinsicSize() && ok;
     ok = textSizeMeasurementMatchesLineLayout() && ok;
     ok = componentDefaultsMatchGallery() && ok;
+    ok = dropdownRetainsUncontrolledOpenState() && ok;
+    ok = dropdownOpenCallbackRemainsControlled() && ok;
+    ok = nestedHighZChildPromotesItsContainer() && ok;
+    ok = zeroZDescendantsPreserveInsertionOrder() && ok;
+    ok = dropdownCanOpenUpWithoutChangingDefaultDirection() && ok;
     return ok ? 0 : 1;
 }

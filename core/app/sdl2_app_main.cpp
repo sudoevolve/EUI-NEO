@@ -616,6 +616,7 @@ int eui_app_run() {
     windowRequest.alwaysOnTop = app::windowAlwaysOnTop();
     windowRequest.maximized = app::windowMaximized();
     windowRequest.title = app::windowTitle();
+    windowRequest.appId = app::dslAppConfig().appIdValue;
     windowRequest.renderApi = core::render::windowRenderApi();
     SDL_Window* window = static_cast<SDL_Window*>(core::window::createWindow(windowRequest));
     if (window == nullptr) {

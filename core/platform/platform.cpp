@@ -9,10 +9,17 @@
 #include <cstdlib>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
+
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
@@ -28,7 +35,6 @@
 #include <mach-o/dyld.h>
 #include <sys/wait.h>
 #elif defined(__linux__)
-#include <unistd.h>
 #include <sys/wait.h>
 #else
 #include <sys/wait.h>
@@ -239,6 +245,7 @@ struct CommandResult {
     bool started = false;
     int exitCode = -1;
     std::string output;
+    std::string errorOutput;
 };
 
 int decodeProcessExitCode(int status) {
@@ -264,9 +271,35 @@ CommandResult runCommand(const std::string& command) {
 #if defined(_WIN32)
     FILE* pipe = _popen(command.c_str(), "r");
 #else
-    FILE* pipe = popen(command.c_str(), "r");
+    std::string errorPath;
+    std::string capturedCommand = command;
+    std::error_code directoryError;
+    const auto directory = std::filesystem::temp_directory_path(directoryError);
+    if (!directoryError) {
+        std::string pattern = (directory / "eui-dialog-stderr-XXXXXX").string();
+        std::vector<char> writablePattern(pattern.begin(), pattern.end());
+        writablePattern.push_back('\0');
+        const int errorFd = mkstemp(writablePattern.data());
+        if (errorFd < 0) {
+            result.errorOutput = "Could not create a temporary file to capture dialog diagnostics.";
+            return result;
+        }
+        close(errorFd);
+        errorPath = writablePattern.data();
+        capturedCommand += " 2>" + shellQuote(errorPath);
+    } else {
+        result.errorOutput = "Could not locate a temporary directory to capture dialog diagnostics.";
+        return result;
+    }
+    FILE* pipe = popen(capturedCommand.c_str(), "r");
 #endif
     if (pipe == nullptr) {
+#if !defined(_WIN32)
+        if (!errorPath.empty()) {
+            std::error_code ignored;
+            std::filesystem::remove(errorPath, ignored);
+        }
+#endif
         return result;
     }
     result.started = true;
@@ -283,6 +316,15 @@ CommandResult runCommand(const std::string& command) {
 #endif
     result.exitCode = decodeProcessExitCode(status);
     result.output = trimTrailingWhitespace(std::move(result.output));
+#if !defined(_WIN32)
+    if (!errorPath.empty()) {
+        std::ifstream errors(errorPath, std::ios::binary);
+        result.errorOutput.assign(std::istreambuf_iterator<char>(errors), std::istreambuf_iterator<char>());
+        result.errorOutput = trimTrailingWhitespace(std::move(result.errorOutput));
+        std::error_code ignored;
+        std::filesystem::remove(errorPath, ignored);
+    }
+#endif
     return result;
 }
 
@@ -377,7 +419,6 @@ std::string osascriptCommand(const std::vector<std::string>& lines) {
         command += " -e ";
         command += shellQuote(line);
     }
-    command += " 2>&1";
     return command;
 }
 
@@ -416,28 +457,37 @@ std::string appleFileDialogCommand(const FileDialogOptions& options, const std::
     });
 }
 
-bool commandWasCancelled(const CommandResult& command) {
-    return command.exitCode != 0 &&
-        (command.output.empty() ||
-            command.output.find("-128") != std::string::npos ||
-            command.output.find("User canceled") != std::string::npos ||
-            command.output.find("cancelled") != std::string::npos ||
-            command.output.find("canceled") != std::string::npos);
+bool commandWasCancelled(const CommandResult& command, const std::string& toolName) {
+    const bool linuxDialogCancelled =
+        (toolName == "zenity" || toolName == "kdialog") && command.exitCode == 1;
+    return command.exitCode != 0 && command.output.empty() &&
+        (linuxDialogCancelled || (command.exitCode == 1 && command.errorOutput.empty()) ||
+            command.errorOutput.find("-128") != std::string::npos ||
+            command.errorOutput.find("User canceled") != std::string::npos ||
+            command.errorOutput.find("cancelled") != std::string::npos ||
+            command.errorOutput.find("canceled") != std::string::npos);
 }
 
 FileDialogResult resultFromCommand(const CommandResult& command, const std::string& toolName) {
     if (!command.started) {
-        return failedFileDialog(toolName + " could not be started.");
+        return failedFileDialog(command.errorOutput.empty()
+            ? toolName + " could not be started."
+            : command.errorOutput);
     }
     if (command.exitCode == 0) {
+        if (command.output.empty() && !command.errorOutput.empty()) {
+            return failedFileDialog(command.errorOutput);
+        }
         return selectedFiles(splitLines(command.output));
     }
-    if (commandWasCancelled(command)) {
+    if (commandWasCancelled(command, toolName)) {
         return cancelledFileDialog();
     }
-    std::string error = command.output.empty()
-        ? toolName + " failed with exit code " + std::to_string(command.exitCode) + "."
-        : command.output;
+    std::string error = !command.errorOutput.empty()
+        ? command.errorOutput
+        : (command.output.empty()
+            ? toolName + " failed with exit code " + std::to_string(command.exitCode) + "."
+            : command.output);
     return failedFileDialog(std::move(error));
 }
 
@@ -464,7 +514,7 @@ FileDialogResult runZenityFileDialog(const FileDialogOptions& options, const std
         command += " --file-filter=" + shellQuote(filter);
         command += " --file-filter=" + shellQuote("All files | *");
     }
-    command += "; else exit 127; fi 2>&1";
+    command += "; else exit 127; fi";
 
     const CommandResult result = runCommand(command);
     if (result.exitCode == 127) {
@@ -491,7 +541,7 @@ FileDialogResult runKdialogFileDialog(const FileDialogOptions& options, const st
     }
     command += " --getopenfilename " + shellQuote(startDirectory);
     command += " " + shellQuote(kdialogFilterArgument(options, extensionNames));
-    command += "; else exit 127; fi 2>&1";
+    command += "; else exit 127; fi";
 
     const CommandResult result = runCommand(command);
     if (result.exitCode == 127) {

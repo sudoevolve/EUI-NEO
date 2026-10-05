@@ -31,14 +31,29 @@ int main() {
     assert(latest && latest->sequence == 4);
 
     assert(!stream->submit({pixels, 4, 2, 15, core::render::ImagePixelFormat::RGBA8, 5}));
-    assert(!stream->submit({pixels, 4, 2, 16, core::render::ImagePixelFormat::BGRA8, 6}));
+    if (!stream->submit({pixels, 4, 2, 16, core::render::ImagePixelFormat::BGRA8, 6})) {
+        return 1;
+    }
+    auto bgraLatest = stream->consumeLatest();
+    if (!bgraLatest || bgraLatest->sequence != 6 || bgraLatest->format != core::render::ImagePixelFormat::BGRA8) {
+        return 1;
+    }
 
     std::vector<std::uint8_t> converted;
     const auto bgra = std::make_shared<const std::vector<std::uint8_t>>(
         std::vector<std::uint8_t>{1, 2, 3, 255});
     const core::render::ImageFrame bgraFrame{bgra, 1, 1, 4, core::render::ImagePixelFormat::BGRA8, 0};
-    assert(bgraFrame.convertToRgba8(converted));
-    assert((converted == std::vector<std::uint8_t>{3, 2, 1, 255}));
+    if (!bgraFrame.convertToRgba8(converted) || converted != std::vector<std::uint8_t>{3, 2, 1, 255}) {
+        return 1;
+    }
+    if (!stream->submit({bgra, 1, 1, 4, core::render::ImagePixelFormat::BGRA8, 7})) {
+        return 1;
+    }
+    auto bgraPixelFrame = stream->consumeLatest();
+    if (!bgraPixelFrame || !bgraPixelFrame->convertToRgba8(converted) ||
+        converted != std::vector<std::uint8_t>{3, 2, 1, 255}) {
+        return 1;
+    }
 
     const auto nv12Y = bytes({128});
     const auto nv12UV = bytes({128, 128});

@@ -97,6 +97,11 @@ Debug 配置只控制诊断输出，不参与业务状态。`showDebugStatsInTit
 
 `DslAppConfig` 的标题、页面 ID、图标和字体路径、托盘文本与图标路径都由配置对象以 `std::string` 持有。setter 可以安全接收局部或临时 `std::string`；调用返回后不会保留调用方字符串的指针。
 
+`.onStart(callback)` 在主窗口和 RenderBackend 创建成功、Runtime 初始化后、首次 `compose()` 前，
+于 UI/渲染线程调用一次。适合初始化依赖当前图形设备的应用资源或启动生产者；重复 initialize
+不会重复调用，完成一次 shutdown 后重新初始化会再次调用。回调必须不抛异常，并由应用在部分初始化
+失败时自行安全清理；`onShutdown` 同样必须容忍资源尚未创建。
+
 `.onShutdown(callback)` 在 UI/渲染线程、主窗口 Runtime 和 GPU 设备销毁前调用，供应用停止自己的
 后台生产者并释放所持有的外部 GPU 图像引用。回调也可能在应用初始化失败的清理路径执行，
 必须容忍资源尚未创建，不应抛异常。参见 [外部 GPU 图像的生命周期](动态纹理.md)。

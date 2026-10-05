@@ -22,6 +22,8 @@ Keep only one matching source tree for each library. Configuration fails with th
 
 The current snapshots are GLFW 3.4, FreeType 2.13.3, libpng 1.6.43, zlib 1.3.1, MD4C 0.5.3, and pinned glad/tray revisions. `stb_image.h`, `nanosvg.h`, and `nanosvgrast.h` are project-used single-file dependencies.
 
+Linux builds using EUI-NEO's bundled or fetched GLFW target compile a generated `x11_window.c` copy that drops XIM-filtered key events. CMake verifies both the upstream and patched SHA-256; an unknown GLFW revision fails configuration for review. An externally supplied GLFW target is unchanged.
+
 SDL2 is intentionally not vendored. The default GLFW backend does not require SDL2. When configuring `-DEUI_WINDOW_BACKEND=sdl2`, use a system SDL2 package in `auto` mode or use `-DEUI_DEPS_MODE=fetch` to download the pinned SDL2 source.
 
 CMake dependency modes:

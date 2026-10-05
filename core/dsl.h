@@ -220,6 +220,7 @@ struct Element {
 
     std::vector<std::unique_ptr<Element>> children;
     std::vector<const Element*> orderedChildren;
+    int subtreeMaxZIndex = 0;
     bool subtreeNeedsUpdate = true;
     bool subtreeHasDependentVisuals = false;
     bool subtreeHasBackdropBlur = false;
@@ -1673,7 +1674,7 @@ private:
             hasBackdropBlur_ = hasBackdropBlur_ || root->subtreeHasBackdropBlur;
         }
         std::stable_sort(orderedRoots_.begin(), orderedRoots_.end(), [](const Element* a, const Element* b) {
-            return a->zIndex < b->zIndex;
+            return a->subtreeMaxZIndex < b->subtreeMaxZIndex;
         });
     }
 
@@ -1681,19 +1682,21 @@ private:
         element.orderedChildren.clear();
         element.orderedChildren.reserve(element.children.size());
         element.subtreeNeedsUpdate = elementNeedsUpdate(element);
+        element.subtreeMaxZIndex = element.zIndex;
         element.subtreeHasDependentVisuals = elementHasDependentVisuals(element);
         element.subtreeHasBackdropBlur = elementHasBackdropBlur(element);
         element.subtreeBlocksRetainedLayer = elementBlocksRetainedLayer(element);
         for (const auto& child : element.children) {
             element.orderedChildren.push_back(child.get());
             rebuildOrderedChildren(*child);
+            element.subtreeMaxZIndex = std::max(element.subtreeMaxZIndex, child->subtreeMaxZIndex);
             element.subtreeNeedsUpdate = element.subtreeNeedsUpdate || child->subtreeNeedsUpdate;
             element.subtreeHasDependentVisuals = element.subtreeHasDependentVisuals || child->subtreeHasDependentVisuals;
             element.subtreeHasBackdropBlur = element.subtreeHasBackdropBlur || child->subtreeHasBackdropBlur;
             element.subtreeBlocksRetainedLayer = element.subtreeBlocksRetainedLayer || child->subtreeBlocksRetainedLayer;
         }
         std::stable_sort(element.orderedChildren.begin(), element.orderedChildren.end(), [](const Element* a, const Element* b) {
-            return a->zIndex < b->zIndex;
+            return a->subtreeMaxZIndex < b->subtreeMaxZIndex;
         });
     }
 

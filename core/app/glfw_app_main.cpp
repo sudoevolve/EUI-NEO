@@ -427,6 +427,7 @@ int eui_app_run() {
     windowRequest.alwaysOnTop = app::windowAlwaysOnTop();
     windowRequest.maximized = app::windowMaximized();
     windowRequest.title = app::windowTitle();
+    windowRequest.appId = app::dslAppConfig().appIdValue;
     windowRequest.renderApi = core::render::windowRenderApi();
     GLFWwindow* window = static_cast<GLFWwindow*>(core::window::createWindow(windowRequest));
     if (!window) {

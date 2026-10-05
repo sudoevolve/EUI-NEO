@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace core::window {
 
 using Handle = void*;
@@ -27,6 +29,7 @@ struct WindowCreateRequest {
     int maxWidth = 0;
     int maxHeight = 0;
     const char* title = "";
+    std::string appId;
     bool resizable = true;
     bool highDpi = true;
     bool decorated = true;

@@ -330,6 +330,76 @@ int main() {
             backend->present();
             pump();
         };
+#if defined(EUI_RENDER_BACKEND_OPENGL)
+        {
+            auto stream = std::make_shared<eui::ImageStream>();
+            const auto pixels = std::make_shared<const std::vector<std::uint8_t>>(
+                std::vector<std::uint8_t>{255, 0, 255, 255, 255, 0, 255, 255,
+                                          255, 0, 255, 255, 255, 0, 255, 255});
+            eui::ImageFrame sourceFrame{pixels, 2, 2, 8, eui::ImagePixelFormat::RGBA8, 1};
+            require(stream->submit(sourceFrame), "RGBA ImageStream frame submission");
+            const auto consumedFrame = stream->consumeLatest();
+            require(consumedFrame.has_value(), "RGBA ImageStream frame consumption");
+            std::vector<std::uint8_t> rgba;
+            require(consumedFrame->convertToRgba8(rgba), "RGBA ImageStream conversion");
+
+            GLint previousBuffer = 0, previousAlignment = 0, previousRowLength = 0;
+            GLint previousSkipPixels = 0, previousSkipRows = 0, previousSwapBytes = 0;
+            glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &previousBuffer);
+            glGetIntegerv(GL_UNPACK_ALIGNMENT, &previousAlignment);
+            glGetIntegerv(GL_UNPACK_ROW_LENGTH, &previousRowLength);
+            glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &previousSkipPixels);
+            glGetIntegerv(GL_UNPACK_SKIP_ROWS, &previousSkipRows);
+            glGetIntegerv(GL_UNPACK_SWAP_BYTES, &previousSwapBytes);
+
+            GLuint unpackBuffer = 0;
+            glGenBuffers(1, &unpackBuffer);
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+            glBufferData(GL_PIXEL_UNPACK_BUFFER, 256, nullptr, GL_STREAM_DRAW);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 8);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 17);
+            glPixelStorei(GL_UNPACK_SKIP_PIXELS, 3);
+            glPixelStorei(GL_UNPACK_SKIP_ROWS, 2);
+            glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_TRUE);
+
+            auto textureHandle = backend->createTexture(rgba.data(), 2, 2);
+            require(textureHandle != nullptr, "RGBA ImageStream texture creation");
+            const GLuint texture = *static_cast<const GLuint*>(textureHandle);
+            std::vector<std::uint8_t> readback(rgba.size());
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, readback.data());
+            require(readback == rgba, "RGBA ImageStream texture upload ignored inherited unpack state");
+
+            const std::vector<std::uint8_t> updatedRgba{
+                0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255};
+            require(backend->updateTexture(textureHandle, updatedRgba.data(), 2, 2),
+                    "RGBA ImageStream texture update");
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, readback.data());
+            require(readback == updatedRgba, "RGBA ImageStream texture update ignored inherited unpack state");
+            GLint actualBuffer = 0, actualAlignment = 0, actualRowLength = 0;
+            GLint actualSkipPixels = 0, actualSkipRows = 0, actualSwapBytes = 0;
+            glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &actualBuffer);
+            glGetIntegerv(GL_UNPACK_ALIGNMENT, &actualAlignment);
+            glGetIntegerv(GL_UNPACK_ROW_LENGTH, &actualRowLength);
+            glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &actualSkipPixels);
+            glGetIntegerv(GL_UNPACK_SKIP_ROWS, &actualSkipRows);
+            glGetIntegerv(GL_UNPACK_SWAP_BYTES, &actualSwapBytes);
+            require(actualBuffer == static_cast<GLint>(unpackBuffer) && actualAlignment == 8 &&
+                        actualRowLength == 17 && actualSkipPixels == 3 && actualSkipRows == 2 &&
+                        actualSwapBytes == GL_TRUE,
+                    "ImageStream upload leaked pixel unpack state");
+
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(previousBuffer));
+            glPixelStorei(GL_UNPACK_ALIGNMENT, previousAlignment);
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, previousRowLength);
+            glPixelStorei(GL_UNPACK_SKIP_PIXELS, previousSkipPixels);
+            glPixelStorei(GL_UNPACK_SKIP_ROWS, previousSkipRows);
+            glPixelStorei(GL_UNPACK_SWAP_BYTES, previousSwapBytes);
+            glDeleteBuffers(1, &unpackBuffer);
+            backend->destroyTexture(textureHandle);
+        }
+#endif
         frame(image, 0);
         checkWindowPixel(window, false);
         require(!runtime.isAnimating(), "static texture keeps render loop alive");
