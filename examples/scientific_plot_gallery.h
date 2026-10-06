@@ -90,11 +90,12 @@ inline void exportGallery(const std::vector<Panel>& panels, std::size_t columns,
                           const std::string& filename) {
     constexpr int width = 600, height = 440;
     ExportScene page;
-    page.width = width * columns;
-    page.height = height * ((panels.size() + columns - 1) / columns);
+    page.width = static_cast<double>(width * columns);
+    page.height = static_cast<double>(height * ((panels.size() + columns - 1) / columns));
     page.background = {0.04f, 0.05f, 0.07f, 1};
     for (std::size_t i = 0; i < panels.size(); ++i) {
-        const double x = (i % columns) * width, y = (i / columns) * height;
+        const double x = static_cast<double>((i % columns) * width);
+        const double y = static_cast<double>((i / columns) * height);
         auto scene = panels[i].plot->exportScene(width - 20, height - 70, 1.5);
         for (auto& raster : scene.rasters) {
             raster.position.x += x + 10;

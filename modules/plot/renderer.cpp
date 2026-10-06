@@ -302,12 +302,21 @@ void ensureStaging(VulkanTexture& texture, VkDeviceSize required) {
     texture.stagingCapacity = requirements.size;
 }
 
-void uploadVulkanTexture(VulkanTexture& texture, const std::uint8_t* rgba, std::size_t byteCount) {
+void uploadVulkanTexture(VulkanTexture& texture, const std::uint8_t* rgba, std::size_t byteCount,
+                         bool flipRows) {
     ensureStaging(texture, static_cast<VkDeviceSize>(byteCount));
     void* mapped = nullptr;
     checkVk(vkMapMemory(texture.device, texture.stagingMemory, 0, texture.stagingCapacity, 0, &mapped),
             "staging memory map");
-    std::memcpy(mapped, rgba, byteCount);
+    if (flipRows) {
+        auto* destination = static_cast<std::uint8_t*>(mapped);
+        const std::size_t rowBytes = static_cast<std::size_t>(texture.width) * 4;
+        for (std::uint32_t row = 0; row < texture.height; ++row)
+            std::memcpy(destination + static_cast<std::size_t>(texture.height - 1 - row) * rowBytes,
+                        rgba + static_cast<std::size_t>(row) * rowBytes, rowBytes);
+    } else {
+        std::memcpy(mapped, rgba, byteCount);
+    }
     if ((texture.stagingProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
         VkMappedMemoryRange range{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
         range.memory = texture.stagingMemory;
@@ -400,6 +409,10 @@ std::vector<std::uint8_t> rasterize(const std::vector<Batch>& batches, int width
         const double alpha = batch.color[3];
         if (alpha <= 0)
             continue;
+        const double inverseAlpha = 1.0 - alpha;
+        const double sourceRed = batch.color[0] * alpha * 255.0;
+        const double sourceGreen = batch.color[1] * alpha * 255.0;
+        const double sourceBlue = batch.color[2] * alpha * 255.0;
         for (std::size_t triangle = 0; triangle < batch.vertices.size(); triangle += 3) {
             const auto& a = batch.vertices[triangle];
             const auto& b = batch.vertices[triangle + 1];
@@ -410,6 +423,8 @@ std::vector<std::uint8_t> rasterize(const std::vector<Batch>& batches, int width
             const double area = edge(ax, ay, bx, by, cx, cy);
             if (std::abs(area) < 1e-12)
                 continue;
+            const double orientation = area > 0 ? 1.0 : -1.0;
+            const double edgeTolerance = std::abs(area) * 1e-9;
             const int left = static_cast<int>(std::clamp(std::floor(std::min({ax, bx, cx})), 0.0,
                                                          double(width - 1)));
             const int right = static_cast<int>(std::clamp(std::ceil(std::max({ax, bx, cx})), 0.0,
@@ -418,23 +433,37 @@ std::vector<std::uint8_t> rasterize(const std::vector<Batch>& batches, int width
                                                         double(height - 1)));
             const int bottom = static_cast<int>(std::clamp(std::ceil(std::max({ay, by, cy})), 0.0,
                                                            double(height)));
+            const double startX = left + 0.5;
+            const double startY = top + 0.5;
+            double rowEdge0 = orientation * edge(bx, by, cx, cy, startX, startY);
+            double rowEdge1 = orientation * edge(cx, cy, ax, ay, startX, startY);
+            double rowEdge2 = orientation * edge(ax, ay, bx, by, startX, startY);
+            const double edge0StepX = orientation * (cy - by);
+            const double edge1StepX = orientation * (ay - cy);
+            const double edge2StepX = orientation * (by - ay);
+            const double edge0StepY = orientation * (bx - cx);
+            const double edge1StepY = orientation * (cx - ax);
+            const double edge2StepY = orientation * (ax - bx);
             for (int y = top; y < bottom; ++y) {
+                double e0 = rowEdge0;
+                double e1 = rowEdge1;
+                double e2 = rowEdge2;
                 for (int x = left; x < right; ++x) {
-                    const double px = x + 0.5, py = y + 0.5;
-                    const double wa = edge(bx, by, cx, cy, px, py) / area;
-                    const double wb = edge(cx, cy, ax, ay, px, py) / area;
-                    const double wc = 1.0 - wa - wb;
-                    if (wa < -1e-9 || wb < -1e-9 || wc < -1e-9)
-                        continue;
-                    const std::size_t offset = (static_cast<std::size_t>(y) * width + x) * 4;
-                    for (int channel = 0; channel < 3; ++channel) {
-                        const double destination = rgba[offset + channel] / 255.0;
-                        const double blended = batch.color[channel] * alpha + destination * (1.0 - alpha);
-                        rgba[offset + channel] = static_cast<std::uint8_t>(std::lround(std::clamp(blended, 0.0, 1.0) * 255));
+                    if (e0 >= -edgeTolerance && e1 >= -edgeTolerance && e2 >= -edgeTolerance) {
+                        const std::size_t offset = (static_cast<std::size_t>(y) * width + x) * 4;
+                        rgba[offset] = static_cast<std::uint8_t>(sourceRed + rgba[offset] * inverseAlpha + 0.5);
+                        rgba[offset + 1] =
+                            static_cast<std::uint8_t>(sourceGreen + rgba[offset + 1] * inverseAlpha + 0.5);
+                        rgba[offset + 2] =
+                            static_cast<std::uint8_t>(sourceBlue + rgba[offset + 2] * inverseAlpha + 0.5);
                     }
-                    rgba[offset + 3] = static_cast<std::uint8_t>(std::lround(
-                        (alpha + (rgba[offset + 3] / 255.0) * (1.0 - alpha)) * 255));
+                    e0 += edge0StepX;
+                    e1 += edge1StepX;
+                    e2 += edge2StepX;
                 }
+                rowEdge0 += edge0StepY;
+                rowEdge1 += edge1StepY;
+                rowEdge2 += edge2StepY;
             }
         }
     }
@@ -542,12 +571,7 @@ void Renderer::uploadRgba(std::uint32_t width, std::uint32_t height, const std::
         impl_->image->descriptor().width != static_cast<int>(width) ||
         impl_->image->descriptor().height != static_cast<int>(height);
     auto texture = recreate ? createVulkanTexture(device, width, height) : impl_->vulkanTexture;
-    std::vector<std::uint8_t> bottomUp(rgba.size());
-    const std::size_t rowBytes = static_cast<std::size_t>(width) * 4;
-    for (std::uint32_t row = 0; row < height; ++row)
-        std::memcpy(bottomUp.data() + static_cast<std::size_t>(height - 1 - row) * rowBytes,
-                    rgba.data() + static_cast<std::size_t>(row) * rowBytes, rowBytes);
-    uploadVulkanTexture(*texture, bottomUp.data(), bottomUp.size());
+    uploadVulkanTexture(*texture, rgba.data(), rgba.size(), true);
     if (recreate) {
         eui::GpuImageDescriptor descriptor;
         descriptor.device = device;

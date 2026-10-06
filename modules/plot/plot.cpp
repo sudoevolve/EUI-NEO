@@ -294,7 +294,9 @@ void Plot::compose(eui::Ui& ui, const std::string& id, float width, float height
                 {pathGeometry(path.points, path.style, path.closed, path.filled, state.axes, viewport),
                  path.style.color});
         }
-        state.renderer.render(batches, plotWidth, plotHeight, dpi);
+        const bool vulkanPreview = state.dragging && eui::image::gpuDevice().api == eui::GpuApi::Vulkan;
+        const double renderScale = vulkanPreview ? 0.5 : 1.0;
+        state.renderer.render(batches, plotWidth, plotHeight, dpi * renderScale);
         state.dirty = false;
     }
     const std::weak_ptr<State> weak = state_;
@@ -459,7 +461,9 @@ void Plot::compose(eui::Ui& ui, const std::string& id, float width, float height
                 })
                 .onRelease([weak](const core::PointerEvent& event, const core::Rect& bounds) {
                     if (const auto s = weak.lock(); s && s->dragging) {
+                        const bool viewWasClean = !s->dirty;
                         s->dragging = false;
+                        s->dirty = true;
                         if (event.action == core::PointerAction::Cancel)
                             return;
                         const Point end{
@@ -480,7 +484,7 @@ void Plot::compose(eui::Ui& ui, const std::string& id, float width, float height
                                 s->measureStart.reset();
                             } else
                                 s->measureStart = b;
-                        } else if (std::hypot(end.x - s->press.x, end.y - s->press.y) <= 3 && !s->dirty) {
+                        } else if (std::hypot(end.x - s->press.x, end.y - s->press.y) <= 3 && viewWasClean) {
                             s->updateProbe(end);
                             s->selected = s->probe;
                         }

@@ -21,6 +21,9 @@ target_link_libraries(my_app PRIVATE eui::module_plot)
 `EUI_ENABLE_PLOT=OFF` 或删除模块目录后，绘图示例与测试自动跳过。
 数值部分不使用 GPU 类型。OpenGL 使用离屏 GPU 绘图；Vulkan 通过 CPU 光栅化二维批次并上传到
 Vulkan 图像，视口功能可用但不是 GPU 加速路径。Vulkan 下三维交互也使用 CPU 参考光栅器；
+拖动时临时以四分之一分辨率预览，松手后恢复完整分辨率；本机 Vulkan 实测中，125k
+点二维图拖动中位约 12 ms，21³ 体数据、512×384 视口 orbit 拖动中位约 9.9 ms，松手
+完整重绘约 119 ms。数据为单机基准，且大体数据在 Vulkan 下仍可能明显停顿。
 OpenGL 仍使用 GPU BVH 与体光线投射。
 
 `Plot3D`、`SceneRenderer3D`、`VolumeData` 提供三维几何、相机、深度拾取、切片、等值面及体积分。

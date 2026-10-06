@@ -184,7 +184,10 @@ void Plot3D::compose(eui::Ui& ui, const std::string& id, float width, float heig
         s.volumeRevision = revision;
     }
     if (s.dirty) {
-        const auto w = std::uint32_t(std::ceil(width * dpi)), h = std::uint32_t(std::ceil(height * dpi));
+        const bool vulkanPreview = s.dragging && eui::image::gpuDevice().api == eui::GpuApi::Vulkan;
+        const double renderScale = vulkanPreview ? 0.25 : 1.0;
+        const double renderDpi = dpi * renderScale;
+        const auto w = std::uint32_t(std::ceil(width * renderDpi)), h = std::uint32_t(std::ceil(height * renderDpi));
         s.gpuFrame = s.gpu.render(*s.renderer, s.sceneRevision, s.view.camera, w, h);
         if (s.gpuFrame) {
             s.frame = {};
@@ -194,7 +197,7 @@ void Plot3D::compose(eui::Ui& ui, const std::string& id, float width, float heig
             s.frame = render(w, h);
             s.texture.uploadRgba(w, h, s.frame.rgba);
         }
-        s.texts = labels(s.scene, s.view, s.frame, dpi, s.gpuFrame ? &s.gpu : nullptr);
+        s.texts = labels(s.scene, s.view, s.frame, renderDpi, s.gpuFrame ? &s.gpu : nullptr);
         ++s.imageRevision;
         s.dirty = false;
     }
@@ -255,6 +258,7 @@ void Plot3D::compose(eui::Ui& ui, const std::string& id, float width, float heig
                 .onRelease([weak](const core::PointerEvent& e, const core::Rect& b) {
                     if (auto s = weak.lock(); s && s->dragging) {
                         s->dragging = false;
+                        s->dirty = true;
                         if (!s->enabled || e.action == core::PointerAction::Cancel)
                             return;
                         const Point p{(e.x - b.x) / s->pointerScale, (e.y - b.y) / s->pointerScale};
