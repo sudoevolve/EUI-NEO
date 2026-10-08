@@ -1007,3 +1007,15 @@ check_required_components(EuiNeo)
         DESTINATION "${EUI_NEO_INSTALL_CMAKEDIR}"
     )
 endif()
+
+# Explicit integration probe: requires a running XIM server on the test display.
+option(EUI_BUILD_LINUX_IME_PROBE "Build the bundled GLFW X11 caret integration probe" OFF)
+if(EUI_BUILD_LINUX_IME_PROBE AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET glfw)
+    get_target_property(_eui_ime_definitions glfw INTERFACE_COMPILE_DEFINITIONS)
+    if(NOT "EUI_GLFW_X11_IME_POSITION=1" IN_LIST _eui_ime_definitions)
+        message(FATAL_ERROR "IME probe requires EUI's bundled X11 GLFW extension")
+    endif()
+    add_executable(eui_linux_ime_cursor_probe tests/platform/linux_ime_cursor_probe.c)
+    target_compile_definitions(eui_linux_ime_cursor_probe PRIVATE _GLFW_X11)
+    target_link_libraries(eui_linux_ime_cursor_probe PRIVATE glfw)
+endif()

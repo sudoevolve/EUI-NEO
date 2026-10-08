@@ -447,7 +447,8 @@ static GLFWbool hasUsableInputMethodStyle(void)
 
     for (unsigned int i = 0;  i < styles->count_styles;  i++)
     {
-        if (styles->supported_styles[i] == (XIMPreeditNothing | XIMStatusNothing))
+        if (styles->supported_styles[i] == (XIMPreeditNothing | XIMStatusNothing) ||
+            styles->supported_styles[i] == (XIMPreeditPosition | XIMStatusNothing))
         {
             found = GLFW_TRUE;
             break;
@@ -1385,6 +1386,16 @@ int _glfwInitX11(void)
         _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XGetEventData");
     _glfw.x11.xlib.GetICValues = (PFN_XGetICValues)
         _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XGetICValues");
+    _glfw.x11.xlib.FreeStringList = (PFN_XFreeStringList)
+        _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XFreeStringList");
+    _glfw.x11.xlib.CreateFontSet = (PFN_XCreateFontSet)
+        _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XCreateFontSet");
+    _glfw.x11.xlib.FreeFontSet = (PFN_XFreeFontSet)
+        _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XFreeFontSet");
+    _glfw.x11.xlib.SetICValues = (PFN_XSetICValues)
+        _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XSetICValues");
+    _glfw.x11.xlib.VaCreateNestedList = (PFN_XVaCreateNestedList)
+        _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XVaCreateNestedList");
     _glfw.x11.xlib.GetIMValues = (PFN_XGetIMValues)
         _glfwPlatformGetModuleSymbol(_glfw.x11.xlib.handle, "XGetIMValues");
     _glfw.x11.xlib.GetInputFocus = (PFN_XGetInputFocus)

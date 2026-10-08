@@ -393,6 +393,10 @@ GLFWAPI RROutput glfwGetX11Monitor(GLFWmonitor* monitor);
  */
 GLFWAPI Window glfwGetX11Window(GLFWwindow* window);
 
+/* EUI extension: set the XIM over-the-spot caret in window-local pixels.
+ * Returns GLFW_FALSE when the active input method has no position style. */
+GLFWAPI int glfwSetX11InputMethodCursorPos(GLFWwindow* window, int x, int y);
+
 /*! @brief Sets the current primary selection to the specified string.
  *
  *  @param[in] string A UTF-8 encoded string.

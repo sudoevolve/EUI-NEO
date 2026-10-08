@@ -79,6 +79,42 @@ bool scrollMotionCapsLongFrameDelta() {
     return true;
 }
 
+bool controlledScrollOffsetsPreserveUserMotion() {
+    core::dsl::Element owner;
+    owner.scrollMaxOffset = 100.0f;
+    core::dsl::runtime::ScrollStateInstance state;
+    core::dsl::syncOwnedScrollState(owner, state);
+    state.offset = 30.0f;
+    state.velocity = 50.0f;
+    core::dsl::syncOwnedScrollState(owner, state);
+    if (state.offset != 30.0f || state.velocity != 50.0f) {
+        std::cerr << "unchanged page offset reset user scrolling\n";
+        return false;
+    }
+    owner.scrollOffset = 30.0f;
+    core::dsl::syncOwnedScrollState(owner, state);
+    if (state.velocity != 50.0f) {
+        std::cerr << "onChange echo stopped wheel inertia\n";
+        return false;
+    }
+    owner.scrollOffset = 100.0f;
+    core::dsl::syncOwnedScrollState(owner, state);
+    if (state.offset != 100.0f || state.velocity != 0.0f) {
+        std::cerr << "programmatic jump was ignored\n";
+        return false;
+    }
+    owner.scrollMaxOffset = 150.0f;
+    owner.scrollOffset = 150.0f;
+    core::dsl::syncOwnedScrollState(owner, state);
+    if (state.offset != 150.0f) {
+        std::cerr << "new content did not follow requested bottom\n";
+        return false;
+    }
+    owner.scrollMaxOffset = 20.0f;
+    core::dsl::syncOwnedScrollState(owner, state);
+    return state.offset == 20.0f && state.velocity == 0.0f;
+}
+
 bool blockPointerUsesArrowCursor() {
     core::dsl::Ui ui;
     ui.begin("block.pointer");
@@ -350,6 +386,7 @@ int main() {
     ok = scrollMotionClampsAtBoundary() && ok;
     ok = repeatedScrollImpulsesAccumulate() && ok;
     ok = scrollMotionCapsLongFrameDelta() && ok;
+    ok = controlledScrollOffsetsPreserveUserMotion() && ok;
     ok = blockPointerUsesArrowCursor() && ok;
     ok = textWrapContentUsesIntrinsicSize() && ok;
     ok = textSizeMeasurementMatchesLineLayout() && ok;

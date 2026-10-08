@@ -110,6 +110,11 @@ typedef int (* PFN_XConvertSelection)(Display*,Atom,Atom,Atom,Window,Time);
 typedef Colormap (* PFN_XCreateColormap)(Display*,Window,Visual*,int);
 typedef Cursor (* PFN_XCreateFontCursor)(Display*,unsigned int);
 typedef XIC (* PFN_XCreateIC)(XIM,...);
+typedef void (* PFN_XFreeStringList)(char**);
+typedef XFontSet (* PFN_XCreateFontSet)(Display*,const char*,char***,int*,char**);
+typedef void (* PFN_XFreeFontSet)(Display*,XFontSet);
+typedef char* (* PFN_XSetICValues)(XIC,...);
+typedef XVaNestedList (* PFN_XVaCreateNestedList)(int,...);
 typedef Region (* PFN_XCreateRegion)(void);
 typedef Window (* PFN_XCreateWindow)(Display*,Window,int,int,unsigned int,unsigned int,unsigned int,int,unsigned int,Visual*,unsigned long,XSetWindowAttributes*);
 typedef int (* PFN_XDefineCursor)(Display*,Window,Cursor);
@@ -211,6 +216,11 @@ typedef void (* PFN_Xutf8SetWMProperties)(Display*,Window,const char*,const char
 #define XConvertSelection _glfw.x11.xlib.ConvertSelection
 #define XCreateColormap _glfw.x11.xlib.CreateColormap
 #define XCreateFontCursor _glfw.x11.xlib.CreateFontCursor
+#define XFreeStringList _glfw.x11.xlib.FreeStringList
+#define XCreateFontSet _glfw.x11.xlib.CreateFontSet
+#define XFreeFontSet _glfw.x11.xlib.FreeFontSet
+#define XSetICValues _glfw.x11.xlib.SetICValues
+#define XVaCreateNestedList _glfw.x11.xlib.VaCreateNestedList
 #define XCreateIC _glfw.x11.xlib.CreateIC
 #define XCreateRegion _glfw.x11.xlib.CreateRegion
 #define XCreateWindow _glfw.x11.xlib.CreateWindow
@@ -526,6 +536,8 @@ typedef struct _GLFWwindowX11
     Window          handle;
     Window          parent;
     XIC             ic;
+    XFontSet        imeFontSet;
+    GLFWbool        imePosition;
 
     GLFWbool        overrideRedirect;
     GLFWbool        iconified;
@@ -658,6 +670,11 @@ typedef struct _GLFWlibraryX11
         PFN_XCreateColormap CreateColormap;
         PFN_XCreateFontCursor CreateFontCursor;
         PFN_XCreateIC CreateIC;
+        PFN_XFreeStringList FreeStringList;
+        PFN_XCreateFontSet CreateFontSet;
+        PFN_XFreeFontSet FreeFontSet;
+        PFN_XSetICValues SetICValues;
+        PFN_XVaCreateNestedList VaCreateNestedList;
         PFN_XCreateRegion CreateRegion;
         PFN_XCreateWindow CreateWindow;
         PFN_XDefineCursor DefineCursor;

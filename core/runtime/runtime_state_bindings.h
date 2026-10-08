@@ -89,12 +89,19 @@ inline void syncOwnedScrollState(const Element& element, runtime::ScrollStateIns
     instance.step = std::max(1.0f, element.scrollStep);
     instance.dirtyRect = {element.frame.x, element.frame.y, element.frame.width, element.frame.height};
     instance.hasDirtyRect = true;
-    if (!instance.initialized) {
-        instance.offset = std::clamp(element.scrollOffset, 0.0f, instance.maxOffset);
+    const float requested = std::clamp(element.scrollOffset, 0.0f, instance.maxOffset);
+    if (!instance.initialized || element.scrollOffset != instance.configuredOffset) {
+        // A new requested offset is a programmatic jump. An onChange echo of
+        // the current position must not stop in-progress wheel inertia.
+        if (!instance.initialized || requested != instance.offset) {
+            instance.offset = requested;
+            instance.velocity = 0.0f;
+        }
         instance.initialized = true;
     } else {
         instance.offset = std::clamp(instance.offset, 0.0f, instance.maxOffset);
     }
+    instance.configuredOffset = element.scrollOffset;
     if (instance.maxOffset <= 0.0f ||
         (instance.offset <= 0.0f && instance.velocity < 0.0f) ||
         (instance.offset >= instance.maxOffset && instance.velocity > 0.0f)) {

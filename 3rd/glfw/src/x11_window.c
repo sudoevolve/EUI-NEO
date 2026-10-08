@@ -1931,7 +1931,40 @@ void _glfwCreateInputContextX11(_GLFWwindow* window)
     callback.callback = (XIMProc) inputContextDestroyCallback;
     callback.client_data = (XPointer) window;
 
-    window->x11.ic = XCreateIC(_glfw.x11.im,
+    window->x11.imePosition = GLFW_FALSE;
+    // Prefer over-the-spot preedit so the IM can place candidates by the caret.
+    // Old input methods remain usable through the original Nothing fallback.
+    if (XVaCreateNestedList && XSetICValues && XCreateFontSet && XFreeFontSet)
+    {
+        XPoint spot = { 0, 0 };
+        char** missing = NULL;
+        int missingCount = 0;
+        char* defaultString = NULL;
+        if (!window->x11.imeFontSet)
+            window->x11.imeFontSet = XCreateFontSet(_glfw.x11.display, "fixed",
+                                                  &missing, &missingCount, &defaultString);
+        if (missing)
+            XFreeStringList(missing);
+        XVaNestedList preedit = window->x11.imeFontSet
+            ? XVaCreateNestedList(0, XNSpotLocation, &spot,
+                                 XNFontSet, window->x11.imeFontSet,
+                                 XNForeground, BlackPixel(_glfw.x11.display, _glfw.x11.screen),
+                                 XNBackground, WhitePixel(_glfw.x11.display, _glfw.x11.screen), NULL) : NULL;
+        if (preedit)
+        {
+            window->x11.ic = XCreateIC(_glfw.x11.im,
+                                     XNInputStyle, XIMPreeditPosition | XIMStatusNothing,
+                                     XNClientWindow, window->x11.handle,
+                                     XNFocusWindow, window->x11.handle,
+                                     XNPreeditAttributes, preedit,
+                                     XNDestroyCallback, &callback,
+                                     NULL);
+            window->x11.imePosition = window->x11.ic != NULL;
+            XFree(preedit);
+        }
+    }
+    if (!window->x11.ic)
+        window->x11.ic = XCreateIC(_glfw.x11.im,
                                XNInputStyle,
                                XIMPreeditNothing | XIMStatusNothing,
                                XNClientWindow,
@@ -2062,6 +2095,12 @@ void _glfwDestroyWindowX11(_GLFWwindow* window)
     {
         XDestroyIC(window->x11.ic);
         window->x11.ic = NULL;
+    }
+
+    if (window->x11.imeFontSet)
+    {
+        XFreeFontSet(_glfw.x11.display, window->x11.imeFontSet);
+        window->x11.imeFontSet = NULL;
     }
 
     if (window->context.destroy)
@@ -3359,5 +3398,23 @@ GLFWAPI const char* glfwGetX11SelectionString(void)
     return getSelectionString(_glfw.x11.PRIMARY);
 }
 
-#endif // _GLFW_X11
+// EUI extension: window-local pixel coordinates, UI thread only.
+GLFWAPI int glfwSetX11InputMethodCursorPos(GLFWwindow* handle, int x, int y)
+{
+    _GLFWwindow* window = (_GLFWwindow*) handle;
+    _GLFW_REQUIRE_INIT_OR_RETURN(GLFW_FALSE);
+    if (_glfw.platform.platformID != GLFW_PLATFORM_X11 || !window ||
+        !window->x11.ic || !window->x11.imePosition || !XSetICValues || !XVaCreateNestedList)
+        return GLFW_FALSE;
+    XPoint spot = { (short) _glfw_min(_glfw_max(x, 0), 32767),
+                    (short) _glfw_min(_glfw_max(y, 0), 32767) };
+    XVaNestedList preedit = XVaCreateNestedList(0, XNSpotLocation, &spot, NULL);
+    if (!preedit)
+        return GLFW_FALSE;
+    const char* failed = XSetICValues(window->x11.ic, XNPreeditAttributes, preedit, NULL);
+    XFree(preedit);
+    XFlush(_glfw.x11.display);
+    return failed == NULL;
+}
 
+#endif // _GLFW_X11

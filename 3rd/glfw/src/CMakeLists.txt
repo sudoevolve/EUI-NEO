@@ -366,3 +366,7 @@ if (GLFW_INSTALL)
             LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 endif()
 
+
+if (GLFW_BUILD_X11)
+    target_compile_definitions(glfw PUBLIC EUI_GLFW_X11_IME_POSITION=1)
+endif()
