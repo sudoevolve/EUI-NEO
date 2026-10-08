@@ -7,7 +7,8 @@
 覆盖范围以本清单及对应测试为准，不承诺兼容 MATLAB 的全部绘图函数、脚本或图形对象行为。
 
 优先实现 OpenGL，并验证 GLFW、SDL2 两种窗口后端。绘图数据模型与公共接口保持后端无关；
-Vulkan 的实现和验证单独记录，不以接口存在代替后端能力验证。
+Vulkan 二维及三维视口已有 Windows CPU 回退实现和 probe 验证，不代表 GPU 加速或跨平台支持；
+其余 Vulkan 能力与平台仍需按实际测试单独记录，不以接口存在代替后端能力验证。
 Octave 解释器接入、计算进程通信、数值求解器和 MATLAB 兼容层不属于本清单范围。
 
 现有 `lineChart`、`barChart`、`pieChart` 是轻量展示组件。折线和柱状图使用归一化值，
@@ -125,9 +126,11 @@ PlotFigure：整张图、子图布局、导出
 
 第三、第四阶段的 API、算法、所有权与限制见 [三维与体数据](科学绘图三维与体数据.md)，
 验证平台、数据规模、预算及性能记录见 [三维验收](科学绘图三维验收.md)。
-交互使用 OpenGL 3.3 GPU BVH 求交/体积分，导出和拾取保留 CPU 双精度参考实现。
+OpenGL 交互使用 OpenGL 3.3 GPU BVH 求交/体积分；Vulkan 视口使用 CPU 参考渲染后上传。
+导出和拾取保留 CPU 双精度参考实现。
 两个 gallery 的图像对照、缩放与 2× 性能入口为 `plot_gallery_phase3_probe` / `plot_gallery_phase4_probe`。
-Vulkan 视口、多体重叠及完整 Unicode PDF 字体嵌入不在本次实现范围内。
+Vulkan GPU 加速、多体重叠及完整 Unicode PDF 字体嵌入不在本次实现范围内；Vulkan CPU 视口路径
+及当前验证范围见[科学绘图验收记录](科学绘图三维验收.md)。
 
 ## 贯穿各阶段的性能、资源与自动化测试
 

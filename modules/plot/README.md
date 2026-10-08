@@ -1,29 +1,34 @@
 # 科学绘图模块
 
-`eui::module_plot` 提供独立 XY 数据、笛卡尔与极坐标轴、二维图形、原始数据拾取和
-OpenGL 离屏绘图。`PolarPlot` 接收 $(\theta,r)$ 数据，支持度/弧度、可配置零角及顺逆时针
+`eui::module_plot` 提供独立 XY 数据、笛卡尔与极坐标轴、二维图形和原始数据拾取。
+`PolarPlot` 接收 $(\theta,r)$ 数据，支持度/弧度、可配置零角及顺逆时针
 方向，并绘制曲线和散点。`ScalarField`、`ColorScale` 和 `HeatmapPlot` 提供行优先矩阵、
 连续/离散线性或对数色阶及 colorbar。`marchingSquares`、`filledContours` 和 `contourLabels`
-提供缺失单元跳过的等高线、填充带和标签锚点。完整 API、生命周期、限制和测试入口见 [科学绘图](../../docs/科学绘图.md)。
+提供缺失单元跳过的等高线、填充带和标签锚点。首次构建与接入见[快速开始](../../docs/科学绘图快速开始.md)；
+完整 API、生命周期、限制和测试入口见[科学绘图](../../docs/科学绘图.md)。
 `VectorField`、`vectorArrows` 和 `streamlines` 提供共享规则网格上的箭头与固定步 RK4 流线。
 数学公式排版暂未实现；当前标注使用普通 UTF-8 文本。后续应接入成熟 TeX/MathML 引擎生成 SVG，
 而不是在 FreeType 字符层手工拼接分式和根式。`ExportScene` 提供 PNG、SVG 和 PDF 输出。
 `examples/scientific_plot_phase2.cpp` 将阶段二能力合并为一个可手测的 4×2 面板示例。
 
 ```cmake
-set(EUI_ENABLE_MODULES ON CACHE BOOL "" FORCE)
-set(EUI_ENABLE_PLOT ON CACHE BOOL "" FORCE)
+set(EUI_ENABLE_MODULES ON CACHE BOOL "Build EUI-NEO optional modules")
+set(EUI_ENABLE_PLOT ON CACHE BOOL "Build the scientific plotting module")
 add_subdirectory(EUI-NEO)
 target_link_libraries(my_app PRIVATE eui::module_plot)
 ```
+
+不要用 `FORCE` 覆盖宿主项目已有的 cache 选择；完整源码接入和安装包步骤见
+[快速开始](../../docs/科学绘图快速开始.md)。
 
 安装包使用相同 target。模块没有额外第三方依赖，不反向引入到 `eui::neo`。
 `EUI_ENABLE_PLOT=OFF` 或删除模块目录后，绘图示例与测试自动跳过。
 数值部分不使用 GPU 类型。OpenGL 使用离屏 GPU 绘图；Vulkan 通过 CPU 光栅化二维批次并上传到
 Vulkan 图像，视口功能可用但不是 GPU 加速路径。Vulkan 下三维交互也使用 CPU 参考光栅器；
-拖动时临时以四分之一分辨率预览，松手后恢复完整分辨率；本机 Vulkan 实测中，125k
-点二维图拖动中位约 12 ms，21³ 体数据、512×384 视口 orbit 拖动中位约 9.9 ms，松手
-完整重绘约 119 ms。数据为单机基准，且大体数据在 Vulkan 下仍可能明显停顿。
+拖动时二维临时以二分之一分辨率预览，三维使用四分之一分辨率，松手后恢复完整分辨率。
+本机 Vulkan 实测中，二维每条序列 125k 点、1920×1080 视口拖动中位约 12 ms；21³ 体数据、
+512×384 视口 orbit 拖动中位约 9.9 ms，松手完整重绘约 119 ms。数据为单机基准，不是帧率保证；
+大体数据在 Vulkan 下仍可能明显停顿。
 OpenGL 仍使用 GPU BVH 与体光线投射。
 
 `Plot3D`、`SceneRenderer3D`、`VolumeData` 提供三维几何、相机、深度拾取、切片、等值面及体积分。
