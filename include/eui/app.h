@@ -40,6 +40,7 @@ int maximumWindowHeight();
 bool windowResizable();
 bool windowHighDpi();
 bool windowDecorated();
+bool windowTransparent();
 bool windowAlwaysOnTop();
 bool windowMaximized();
 float uiScale();

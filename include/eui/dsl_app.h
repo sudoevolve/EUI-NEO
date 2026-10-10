@@ -27,6 +27,7 @@ struct DslAppConfig {
     bool resizableValue = true;
     bool highDpiValue = true;
     bool decoratedValue = true;
+    bool transparentValue = false;
     bool alwaysOnTopValue = false;
     bool maximizedValue = false;
     float uiScaleValue = 1.0f;
@@ -85,6 +86,8 @@ struct DslAppConfig {
     DslAppConfig& resizable(bool value = true) { resizableValue = value; return *this; }
     DslAppConfig& highDpi(bool value = true) { highDpiValue = value; return *this; }
     DslAppConfig& decorated(bool value = true) { decoratedValue = value; return *this; }
+    /** @brief 请求带 alpha 的 framebuffer（自绘圆角窗口）。平台不支持时 framebufferTransparent 返回 false。 */
+    DslAppConfig& transparent(bool value = true) { transparentValue = value; return *this; }
     DslAppConfig& alwaysOnTop(bool value = true) { alwaysOnTopValue = value; return *this; }
     DslAppConfig& maximized(bool value = true) { maximizedValue = value; return *this; }
     DslAppConfig& uiScale(float value) {

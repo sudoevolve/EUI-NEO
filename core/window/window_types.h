@@ -48,6 +48,7 @@ struct WindowCreateRequest {
     bool resizable = true;
     bool highDpi = true;
     bool decorated = true;
+    bool transparent = false;
     bool alwaysOnTop = false;
     bool maximized = false;
     bool modal = false;

@@ -638,6 +638,7 @@ int eui_app_run() {
     windowRequest.resizable = app::windowResizable();
     windowRequest.highDpi = app::windowHighDpi();
     windowRequest.decorated = app::windowDecorated();
+    windowRequest.transparent = app::windowTransparent();
     windowRequest.alwaysOnTop = app::windowAlwaysOnTop();
     windowRequest.maximized = app::windowMaximized();
     windowRequest.title = app::windowTitle();
@@ -649,7 +650,7 @@ int eui_app_run() {
         return -1;
     }
 
-    auto renderBackend = core::render::createRenderBackend(window);
+    auto renderBackend = core::render::createRenderBackend(window, nullptr, app::windowTransparent());
     if (!renderBackend) {
         core::window::destroyWindow(window);
         SDL_Quit();

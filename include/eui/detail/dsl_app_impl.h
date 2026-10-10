@@ -237,6 +237,10 @@ bool windowDecorated() {
     return dslAppConfig().decoratedValue;
 }
 
+bool windowTransparent() {
+    return dslAppConfig().transparentValue;
+}
+
 bool windowAlwaysOnTop() {
     return dslAppConfig().alwaysOnTopValue;
 }

@@ -29,6 +29,9 @@ void destroyCursor(CursorHandle cursor);
 
 void setWindowIcon(Handle window, int width, int height, unsigned char* pixels);
 void setImeCursorRect(Handle window, float x, float y, float width, float height);
+// Reports whether the created framebuffer actually carries alpha (GLFW
+// honors the transparent request; SDL2 and compositor-less X11 do not).
+bool framebufferTransparent(Handle window);
 // Hand an interactive move/resize to the window manager (EWMH
 // _NET_WM_MOVERESIZE on X11). Per-frame programmatic moves arrive as
 // ConfigureRequests and can be clamped back into the workarea, so undecorated

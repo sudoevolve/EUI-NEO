@@ -17,4 +17,8 @@ using WindowResizeEdge = core::window::WindowResizeEdge;
 using core::window::beginWindowMove;
 using core::window::beginWindowResize;
 
+// Reports whether the created framebuffer actually carries alpha (GLFW honors
+// the transparent request; SDL2 and compositor-less X11 do not).
+using core::window::framebufferTransparent;
+
 } // namespace eui::window

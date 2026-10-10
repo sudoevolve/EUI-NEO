@@ -69,14 +69,16 @@ core::window::RenderApi windowRenderApi() {
 #endif
 }
 
-std::unique_ptr<RenderBackend> createRenderBackend(core::window::Handle window, RenderBackend* shareBackend) {
+std::unique_ptr<RenderBackend> createRenderBackend(core::window::Handle window, RenderBackend* shareBackend, bool transparent) {
 #if defined(EUI_RENDER_BACKEND_OPENGL)
+    (void)transparent; // GL composites through the framebuffer alpha channel as-is.
     return std::make_unique<opengl::OpenGLRenderBackend>(window, shareBackend);
 #elif defined(EUI_RENDER_BACKEND_VULKAN)
-    return std::make_unique<vulkan::VulkanRenderBackend>(window, shareBackend);
+    return std::make_unique<vulkan::VulkanRenderBackend>(window, shareBackend, transparent);
 #else
     (void)window;
     (void)shareBackend;
+    (void)transparent;
     return {};
 #endif
 }
