@@ -89,12 +89,18 @@ public:
                     .sliderKnobFrom(id_)
                     .build();
 
+                // Hit area keeps input priority via composition order (last
+                // child of this stack): ordered children are hit-tested in
+                // reverse, so no zIndex is needed here. A raised internal
+                // zIndex inflates this subtree's max z-index and makes the
+                // whole slider outrank host-level siblings (e.g. root-level
+                // overlays/scrim/menus composed at default z=0), breaking
+                // their hit testing and paint order.
                 ui_.rect(id_ + ".hit")
                     .size(width_, height_)
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f))
-                    .zIndex(10)
                     .interactive()
                     .sliderInputFrom(id_)
                     .build();

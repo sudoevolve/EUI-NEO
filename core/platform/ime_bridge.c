@@ -532,6 +532,39 @@ void eui_ime_clear_composition(GLFWwindow* window) {
     eui_ime_clear_marked_text([nsWindow contentView]);
 }
 
+#elif defined(__linux__) && defined(EUI_GLFW_X11_IME_POSITION)
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3native.h>
+#include <math.h>
+
+void eui_ime_set_cursor_rect(GLFWwindow* window, double x, double y, double width, double height) {
+    (void)width;
+    if (!window || glfwGetPlatform() != GLFW_PLATFORM_X11 || !isfinite(x) || !isfinite(y) || !isfinite(height))
+        return;
+    // Runtime supplies framebuffer coordinates. XIM expects window-local pixels.
+    int ww, wh, fw, fh;
+    glfwGetWindowSize(window, &ww, &wh);
+    glfwGetFramebufferSize(window, &fw, &fh);
+    if (fw <= 0 || fh <= 0)
+        return;
+    glfwSetX11InputMethodCursorPos(window,
+        (int)fmin(32767.0, fmax(0.0, x * ww / fw)),
+        (int)fmin(32767.0, fmax(0.0, (y + height) * wh / fh)));
+}
+void eui_ime_set_cursor_rect_with_font(GLFWwindow* window, double x, double y, double width, double height, double fontHeight) {
+    (void)fontHeight;
+    eui_ime_set_cursor_rect(window, x, y, width, height);
+}
+void eui_ime_install_message_filter(GLFWwindow* window) { (void)window; }
+void eui_ime_uninstall_message_filter(GLFWwindow* window) { (void)window; }
+int eui_ime_is_composing(GLFWwindow* window) { (void)window; return 0; }
+int eui_ime_get_composition_string_utf8(GLFWwindow* window, char* buffer, int bufferSize) {
+    (void)window;
+    if (buffer && bufferSize > 0) buffer[0] = '\0';
+    return 0;
+}
+void eui_ime_clear_composition(GLFWwindow* window) { (void)window; }
+
 #else
 
 void eui_ime_set_cursor_rect(GLFWwindow* window, double x, double y, double width, double height) {

@@ -139,6 +139,7 @@ bool ImageFrame::convertToRgba8(std::vector<std::uint8_t>& output) const {
                 destination[1] = pixel[1];
                 destination[2] = pixel[bgra ? 0 : 2];
                 destination[3] = pixel[3];
+                destination += 4;
             }
         }
         return true;

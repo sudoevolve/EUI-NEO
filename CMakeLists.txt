@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(EUI-NEO VERSION 0.6.0)
+project(EUI-NEO VERSION 0.6.1)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -716,6 +716,9 @@ if(EUI_BUILD_TEST_FIXTURES)
         endif()
         add_test(NAME ${unit_name} COMMAND ${unit_name})
         set_tests_properties(${unit_name} PROPERTIES LABELS "unit")
+        if(unit_name STREQUAL "platform_dialog" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set_tests_properties(${unit_name} PROPERTIES SKIP_RETURN_CODE 77)
+        endif()
     endforeach()
 endif()
 
@@ -944,4 +947,16 @@ check_required_components(EuiNeo)
         "${CMAKE_CURRENT_BINARY_DIR}/EuiNeoConfigVersion.cmake"
         DESTINATION "${EUI_NEO_INSTALL_CMAKEDIR}"
     )
+endif()
+
+# Explicit integration probe: requires a running XIM server on the test display.
+option(EUI_BUILD_LINUX_IME_PROBE "Build the bundled GLFW X11 caret integration probe" OFF)
+if(EUI_BUILD_LINUX_IME_PROBE AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET glfw)
+    get_target_property(_eui_ime_definitions glfw INTERFACE_COMPILE_DEFINITIONS)
+    if(NOT "EUI_GLFW_X11_IME_POSITION=1" IN_LIST _eui_ime_definitions)
+        message(FATAL_ERROR "IME probe requires EUI's bundled X11 GLFW extension")
+    endif()
+    add_executable(eui_linux_ime_cursor_probe tests/platform/linux_ime_cursor_probe.c)
+    target_compile_definitions(eui_linux_ime_cursor_probe PRIVATE _GLFW_X11)
+    target_link_libraries(eui_linux_ime_cursor_probe PRIVATE glfw)
 endif()

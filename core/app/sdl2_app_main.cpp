@@ -50,6 +50,7 @@ struct WindowState : app::AppRunner {
 struct ManagedWindow {
     SDL_Window* window = nullptr;
     bool closeRequested = false;
+    bool shown = false;
     SDL_Window* parentWindow = nullptr;
     app::DslWindowRuntime content;
     std::unique_ptr<core::render::RenderBackend> renderBackend;
@@ -127,6 +128,12 @@ float dpiScale(SDL_Window* window) {
     }
     const float x11Scale = core::window::x11ContentScale(window);
     return x11Scale > 0.0f ? x11Scale : drawableRatio;
+}
+
+app::MainWindowMetrics windowMetrics(SDL_Window* window) {
+    int width = 0, height = 0;
+    getDrawableSize(window, width, height);
+    return {width, height, dpiScale(window), pointerScale(window)};
 }
 
 void attachNativeChildWindow(SDL_Window* parentWindow, SDL_Window* childWindow) {
@@ -436,6 +443,7 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
                                                    SDL_Window* parentWindow,
                                                    core::render::RenderBackend& shareBackend) {
     core::window::WindowCreateRequest windowRequest;
+    windowRequest.visible = false;
     windowRequest.width = request.width;
     windowRequest.height = request.height;
     windowRequest.title = request.title.c_str();
@@ -568,6 +576,13 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool update
 
     core::render::ScopedRenderBackend scopedRenderBackend(*managed.renderBackend);
     managed.content.update(managed.window, deltaSeconds, logicalWidth, logicalHeight, pointer, dpi, updateRequested);
+    const app::MainWindowMetrics metrics{drawableWidth, drawableHeight, dpi, pointer};
+    if (!(metrics == windowMetrics(managed.window))) {
+        managed.content.requestFullPaint();
+        core::platform::requestFrame();
+        return true;
+    }
+
     if (managed.content.paintRequested()) {
         managed.renderBackend->beginFrame({
             managed.window,
@@ -577,6 +592,15 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool update
             dpi
         });
         managed.content.render(*managed.renderBackend, drawableWidth, drawableHeight, dpi);
+        if (!managed.shown) {
+            SDL_ShowWindow(managed.window);
+            managed.shown = true;
+            managed.content.requestFullPaint();
+            core::platform::requestFrame();
+            if (managed.content.request().modal) {
+                SDL_RaiseWindow(managed.window);
+            }
+        }
         managed.renderBackend->present();
     }
     return true;
@@ -601,6 +625,7 @@ int eui_app_run() {
     TimerResolutionGuard timerResolution;
 
     core::window::WindowCreateRequest windowRequest;
+    windowRequest.visible = false;
     windowRequest.width = app::initialWindowWidth();
     windowRequest.height = app::initialWindowHeight();
     windowRequest.x = app::initialWindowX();
@@ -613,9 +638,11 @@ int eui_app_run() {
     windowRequest.resizable = app::windowResizable();
     windowRequest.highDpi = app::windowHighDpi();
     windowRequest.decorated = app::windowDecorated();
+    windowRequest.transparent = app::windowTransparent();
     windowRequest.alwaysOnTop = app::windowAlwaysOnTop();
     windowRequest.maximized = app::windowMaximized();
     windowRequest.title = app::windowTitle();
+    windowRequest.appId = app::dslAppConfig().appIdValue;
     windowRequest.renderApi = core::render::windowRenderApi();
     SDL_Window* window = static_cast<SDL_Window*>(core::window::createWindow(windowRequest));
     if (window == nullptr) {
@@ -623,7 +650,7 @@ int eui_app_run() {
         return -1;
     }
 
-    auto renderBackend = core::render::createRenderBackend(window);
+    auto renderBackend = core::render::createRenderBackend(window, nullptr, app::windowTransparent());
     if (!renderBackend) {
         core::window::destroyWindow(window);
         SDL_Quit();
@@ -649,7 +676,11 @@ int eui_app_run() {
     updateFrameInterval(window, state);
     state.initializeTray();
     state.renderBackend = renderBackend.get();
-    app::MainWindowRuntime mainWindowRuntime(state);
+    app::MainWindowRuntime mainWindowRuntime(state, [&] {
+        SDL_ShowWindow(window);
+        app::detail::requestFullPaint();
+        core::platform::requestFrame();
+    });
 
     app::DslWindowManager<ManagedWindow> childWindows;
     while (state.running) {
@@ -727,8 +758,6 @@ int eui_app_run() {
             mainWindowRuntime.markUnavailableFrame(core::window::timeSeconds());
             continue;
         }
-        const float dpi = dpiScale(window);
-        const float pointer = pointerScale(window);
 #if defined(EUI_RENDER_BACKEND_OPENGL) && (defined(_WIN32) || defined(__APPLE__))
         if (state.startupFullPaintFrames > 0) {
             state.paintRequested = true;
@@ -739,7 +768,7 @@ int eui_app_run() {
         mainWindowRuntime.runFrame(
             window,
             *renderBackend,
-            {drawableWidth, drawableHeight, dpi, pointer},
+            [&] { return windowMetrics(window); },
             now,
             refreshRate(window),
             findModalWindow(childWindows) == nullptr,
@@ -758,6 +787,7 @@ int eui_app_run() {
             [&] {
                 return childWindows.anyAnimating();
             });
+
     }
 
     childWindows.destroyAll(destroyManagedWindow);

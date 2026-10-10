@@ -81,6 +81,7 @@ static const DslAppConfig config = DslAppConfig{}
     .resizable(true)
     .highDpi(true)
     .decorated(true)
+    .transparent(false)
     .alwaysOnTop(false)
     .maximized(false)
     .debugTitleInterval(1.0)
@@ -91,11 +92,18 @@ static const DslAppConfig config = DslAppConfig{}
     });
 ```
 
-`minWindowSize` 和 `maxWindowSize` 中的 `0` 表示对应方向不限制；窗口尺寸约束由 GLFW/SDL2 后端执行。`centerWindow()` 会清除显式位置并恢复居中。`highDpi` 在 SDL2 中控制 `SDL_WINDOW_ALLOW_HIGHDPI`；GLFW 的 DPI 感知由其初始化阶段按平台设置，是进程级行为，不能安全地按单个窗口关闭。全屏、透明窗口和 VSync 不属于 `DslAppConfig`，它们会改变平台窗口或渲染后端生命周期，应通过专用平台/渲染配置处理。
+`minWindowSize` 和 `maxWindowSize` 中的 `0` 表示对应方向不限制；窗口尺寸约束由 GLFW/SDL2 后端执行。`centerWindow()` 会清除显式位置并恢复居中。`highDpi` 在 SDL2 中控制 `SDL_WINDOW_ALLOW_HIGHDPI`；GLFW 的 DPI 感知由其初始化阶段按平台设置，是进程级行为，不能安全地按单个窗口关闭。全屏和 VSync 不属于 `DslAppConfig`，它们会改变平台窗口或渲染后端生命周期，应通过专用平台/渲染配置处理。
+
+`.transparent(true)` 与 `decorated` 同属创建期窗口属性：GLFW 后端以 `GLFW_TRANSPARENT_FRAMEBUFFER` 请求带 alpha 的 framebuffer，Vulkan 后端据此选择受支持的 composite-alpha 模式，用于无边框自绘圆角窗口。平台是否真的授予以 `eui::window::framebufferTransparent(window)` 为准（SDL2 后端不支持；X11 无合成器时会拒绝）。启用后应用应把 `clearColor` 的 alpha 设为 0，并自绘圆角根表面；未启用时行为与从前逐像素一致。
 
 Debug 配置只控制诊断输出，不参与业务状态。`showDebugStatsInTitle` 控制窗口标题中的 FPS、CPU/GPU 和渲染统计；`debugTitleInterval` 控制标题统计刷新间隔（秒）。`showDebugOverlay` 与 `onDebugOverlay` 用于注入布局边界、性能标记等调试框，回调在每次页面 compose 后执行；未设置回调时不会绘制任何额外内容。Debug 构建默认开启标题统计和覆盖层开关，Release 构建默认关闭。
 
 `DslAppConfig` 的标题、页面 ID、图标和字体路径、托盘文本与图标路径都由配置对象以 `std::string` 持有。setter 可以安全接收局部或临时 `std::string`；调用返回后不会保留调用方字符串的指针。
+
+`.onStart(callback)` 在主窗口和 RenderBackend 创建成功、Runtime 初始化后、首次 `compose()` 前，
+于 UI/渲染线程调用一次。适合初始化依赖当前图形设备的应用资源或启动生产者；重复 initialize
+不会重复调用，完成一次 shutdown 后重新初始化会再次调用。回调必须不抛异常，并由应用在部分初始化
+失败时自行安全清理；`onShutdown` 同样必须容忍资源尚未创建。
 
 `.onShutdown(callback)` 在 UI/渲染线程、主窗口 Runtime 和 GPU 设备销毁前调用，供应用停止自己的
 后台生产者并释放所持有的外部 GPU 图像引用。回调也可能在应用初始化失败的清理路径执行，

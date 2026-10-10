@@ -13,6 +13,7 @@ namespace app {
 struct DslAppConfig {
     std::string titleValue = "App";
     std::string pageIdValue = "app";
+    std::string appIdValue;
     eui::Color clearColorValue = {0.16f, 0.18f, 0.20f, 1.0f};
     int windowWidthValue = 800;
     int windowHeightValue = 600;
@@ -26,6 +27,7 @@ struct DslAppConfig {
     bool resizableValue = true;
     bool highDpiValue = true;
     bool decoratedValue = true;
+    bool transparentValue = false;
     bool alwaysOnTopValue = false;
     bool maximizedValue = false;
     float uiScaleValue = 1.0f;
@@ -46,10 +48,12 @@ struct DslAppConfig {
     std::string trayTitleValue;
     std::string trayIconPathValue;
     std::function<void(const eui::KeyEvent&)> keyEventHandler;
+    std::function<void()> startHandler;
     std::function<void()> shutdownHandler;
 
     DslAppConfig& title(std::string value) { titleValue = std::move(value); return *this; }
     DslAppConfig& pageId(std::string value) { pageIdValue = std::move(value); return *this; }
+    DslAppConfig& appId(std::string value) { appIdValue = std::move(value); return *this; }
     DslAppConfig& clearColor(const eui::Color& value) { clearColorValue = value; return *this; }
     DslAppConfig& background(const eui::Color& value) { return clearColor(value); }
     DslAppConfig& windowSize(int width, int height) {
@@ -82,6 +86,8 @@ struct DslAppConfig {
     DslAppConfig& resizable(bool value = true) { resizableValue = value; return *this; }
     DslAppConfig& highDpi(bool value = true) { highDpiValue = value; return *this; }
     DslAppConfig& decorated(bool value = true) { decoratedValue = value; return *this; }
+    /** @brief 请求带 alpha 的 framebuffer（自绘圆角窗口）。平台不支持时 framebufferTransparent 返回 false。 */
+    DslAppConfig& transparent(bool value = true) { transparentValue = value; return *this; }
     DslAppConfig& alwaysOnTop(bool value = true) { alwaysOnTopValue = value; return *this; }
     DslAppConfig& maximized(bool value = true) { maximizedValue = value; return *this; }
     DslAppConfig& uiScale(float value) {
@@ -127,6 +133,11 @@ struct DslAppConfig {
     }
     DslAppConfig& onKeyEvent(std::function<void(const eui::KeyEvent&)> handler) {
         keyEventHandler = std::move(handler);
+        return *this;
+    }
+    /** @brief 主窗口和 Runtime 初始化后、首次 compose 前，在 UI/渲染线程调用一次。 */
+    DslAppConfig& onStart(std::function<void()> handler) {
+        startHandler = std::move(handler);
         return *this;
     }
     /** @brief UI/渲染线程退出回调，在主窗口 GPU 设备销毁前释放应用资源引用。 */

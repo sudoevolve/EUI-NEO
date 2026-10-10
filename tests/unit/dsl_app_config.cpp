@@ -6,6 +6,7 @@
 int main() {
     const app::DslAppConfig defaults;
     assert(defaults.debugTitleIntervalValue == 1.0);
+    assert(!defaults.startHandler);
     assert(!defaults.shutdownHandler);
 #if defined(EUI_DEBUG_BUILD)
     assert(defaults.showDebugOverlayValue);
@@ -15,6 +16,7 @@ int main() {
 
     std::string title = "Owned title";
     std::string pageId = "owned_page";
+    std::string appId = "aki";
     std::string iconPath = "icons/app.png";
     std::string textFont = "fonts/text.ttf";
     std::string iconFont = "fonts/icons.ttf";
@@ -22,11 +24,13 @@ int main() {
     std::string trayIcon = "icons/tray.png";
     int keyEvents = 0;
     bool debugOverlayCalled = false;
+    bool startCalled = false;
     bool shutdownCalled = false;
 
     app::DslAppConfig config = app::DslAppConfig{}
         .title(title)
         .pageId(pageId)
+        .appId(appId)
         .windowSize(1280, 720)
         .windowPosition(120, 80)
         .minWindowSize(640, 480)
@@ -45,8 +49,12 @@ int main() {
         .trayTitle(trayTitle)
         .trayIcon(trayIcon)
         .onKeyEvent([&](const eui::KeyEvent&) { ++keyEvents; })
+        .onStart([&] { startCalled = true; })
         .onShutdown([&] { shutdownCalled = true; });
 
+    assert(config.startHandler);
+    config.startHandler();
+    assert(startCalled);
     config.shutdownHandler();
     assert(shutdownCalled);
 
@@ -79,6 +87,7 @@ int main() {
 
     title.clear();
     pageId.clear();
+    appId.clear();
     iconPath.clear();
     textFont.clear();
     iconFont.clear();
@@ -87,6 +96,7 @@ int main() {
 
     assert(config.titleValue == "Owned title");
     assert(config.pageIdValue == "owned_page");
+    assert(config.appIdValue == "aki");
     assert(config.iconPathValue == "icons/app.png");
     assert(config.textFontFileValue == "fonts/text.ttf");
     assert(config.iconFontFileValue == "fonts/icons.ttf");
@@ -104,6 +114,7 @@ int main() {
 
     config.title(std::string("Temporary title"));
     config.pageId(std::string("temporary_page"));
+    config.appId(std::string("temporary-app"));
     config.iconPath(std::string("icons/temporary.png"));
     config.textFont(std::string("fonts/temporary.ttf"));
     config.iconFont(std::string("fonts/temporary-icons.ttf"));
@@ -112,6 +123,7 @@ int main() {
 
     assert(config.titleValue == "Temporary title");
     assert(config.pageIdValue == "temporary_page");
+    assert(config.appIdValue == "temporary-app");
     assert(config.iconPathValue == "icons/temporary.png");
     assert(config.textFontFileValue == "fonts/temporary.ttf");
     assert(config.iconFontFileValue == "fonts/temporary-icons.ttf");

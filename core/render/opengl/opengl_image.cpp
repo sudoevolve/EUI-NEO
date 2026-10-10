@@ -54,6 +54,51 @@ struct LayerTextureResource {
     int contentHeight = 0;
 };
 
+struct PixelUnpackState {
+    GLint buffer = 0;
+    GLint alignment = 4;
+    GLint rowLength = 0;
+    GLint skipPixels = 0;
+    GLint skipRows = 0;
+    GLint swapBytes = GL_FALSE;
+
+    PixelUnpackState() {
+        glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING, &buffer);
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &alignment);
+        glGetIntegerv(GL_UNPACK_ROW_LENGTH, &rowLength);
+        glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &skipPixels);
+        glGetIntegerv(GL_UNPACK_SKIP_ROWS, &skipRows);
+        glGetIntegerv(GL_UNPACK_SWAP_BYTES, &swapBytes);
+        if (buffer != 0)
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        if (alignment != 1)
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        if (rowLength != 0)
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        if (skipPixels != 0)
+            glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+        if (skipRows != 0)
+            glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+        if (swapBytes != GL_FALSE)
+            glPixelStorei(GL_UNPACK_SWAP_BYTES, GL_FALSE);
+    }
+
+    ~PixelUnpackState() {
+        if (alignment != 1)
+            glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+        if (rowLength != 0)
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, rowLength);
+        if (skipPixels != 0)
+            glPixelStorei(GL_UNPACK_SKIP_PIXELS, skipPixels);
+        if (skipRows != 0)
+            glPixelStorei(GL_UNPACK_SKIP_ROWS, skipRows);
+        if (swapBytes != GL_FALSE)
+            glPixelStorei(GL_UNPACK_SWAP_BYTES, swapBytes);
+        if (buffer != 0)
+            glBindBuffer(GL_PIXEL_UNPACK_BUFFER, static_cast<GLuint>(buffer));
+    }
+};
+
 GLuint textureIdFromHandle(RenderBackend::TextureHandle handle) {
     auto* resource = static_cast<TextureResourceHeader*>(handle);
     return resource != nullptr ? resource->texture : 0;
@@ -85,7 +130,6 @@ bool uploadPlane(GLuint& texture,
     } else {
         glBindTexture(GL_TEXTURE_2D, texture);
     }
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glPixelStorei(GL_UNPACK_ROW_LENGTH, static_cast<GLint>(stride / static_cast<std::uint32_t>(bytesPerPixel)));
     if (recreateStorage) {
         glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, pixels);
@@ -352,6 +396,7 @@ OpenGLRenderBackend::TextureHandle OpenGLRenderBackend::createTexture(const unsi
         return nullptr;
     }
 
+    const PixelUnpackState unpackState;
     auto* resource = new ImageTextureResource();
     glGenTextures(1, &resource->texture);
     if (resource->texture == 0) {
@@ -366,7 +411,6 @@ OpenGLRenderBackend::TextureHandle OpenGLRenderBackend::createTexture(const unsi
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     glBindTexture(GL_TEXTURE_2D, 0);
     resetStateCache();
@@ -380,8 +424,8 @@ bool OpenGLRenderBackend::updateTexture(TextureHandle handle, const unsigned cha
         return false;
     }
 
+    const PixelUnpackState unpackState;
     glBindTexture(GL_TEXTURE_2D, resource->texture);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     if (resource->width != width || resource->height != height) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
         resource->width = width;
@@ -418,6 +462,7 @@ bool OpenGLRenderBackend::updateDynamicTexture(TextureHandle handle, const Image
          frame.format != ImagePixelFormat::P010)) {
         return false;
     }
+    const PixelUnpackState unpackState;
     const int width = static_cast<int>(frame.width);
     const int height = static_cast<int>(frame.height);
     const int chromaWidth = static_cast<int>((frame.width + 1u) / 2u);

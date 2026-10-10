@@ -12,6 +12,10 @@
 #include <filesystem>
 #include <vector>
 
+#if !defined(_WIN32)
+#include <unistd.h>
+#endif
+
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 #elif defined(_WIN32)
@@ -23,7 +27,6 @@
 #endif
 #include <windows.h>
 #elif defined(__linux__)
-#include <unistd.h>
 #endif
 
 namespace app {
@@ -43,6 +46,7 @@ inline std::vector<DslWindowRequest>& dslWindowRequests() {
 struct DslAppState {
     bool composed = false;
     bool iconApplied = false;
+    bool started = false;
     float logicalWidth = 0.0f;
     float logicalHeight = 0.0f;
 };
@@ -233,6 +237,10 @@ bool windowDecorated() {
     return dslAppConfig().decoratedValue;
 }
 
+bool windowTransparent() {
+    return dslAppConfig().transparentValue;
+}
+
 bool windowAlwaysOnTop() {
     return dslAppConfig().alwaysOnTopValue;
 }
@@ -283,7 +291,16 @@ bool initialize(core::window::Handle window) {
         detail::applyWindowIcon(window);
         state.iconApplied = true;
     }
-    return detail::dslRuntime().initialize(window);
+    if (!detail::dslRuntime().initialize(window)) {
+        return false;
+    }
+    if (!state.started) {
+        if (config.startHandler) {
+            config.startHandler();
+        }
+        state.started = true;
+    }
+    return true;
 }
 
 bool update(core::window::Handle window, float deltaSeconds, int windowWidth, int windowHeight, float dpiScale, float pointerScale) {
@@ -365,6 +382,7 @@ void shutdown() {
     core::async::shutdown();
     if (dslAppConfig().shutdownHandler) dslAppConfig().shutdownHandler();
     detail::dslRuntime().shutdown();
+    detail::dslAppState().started = false;
     eui::network::shutdown();
 }
 

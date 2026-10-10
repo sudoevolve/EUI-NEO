@@ -150,6 +150,7 @@ struct LayoutInstance {
 
 struct ScrollStateInstance {
     float offset = 0.0f;
+    float configuredOffset = 0.0f;
     float maxOffset = 0.0f;
     float step = 48.0f;
     float velocity = 0.0f;

@@ -424,7 +424,11 @@ inline void Runtime::syncScrollStateElement(const Element& element) {
         return;
     }
 
+    const float previousOffset = instance.offset;
     syncOwnedScrollState(element, instance);
+    if (previousOffset != instance.offset) {
+        addScrollDirtyRect(instance);
+    }
 }
 
 inline void Runtime::syncSliderStateElement(const Element& element) {

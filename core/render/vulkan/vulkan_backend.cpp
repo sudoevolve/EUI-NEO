@@ -246,7 +246,8 @@ bool VulkanRenderBackend::applyDrawViewportAndScissor(int windowWidth, int windo
     return true;
 }
 
-VulkanRenderBackend::VulkanRenderBackend(core::window::Handle window, RenderBackend*) : window_(window) {}
+VulkanRenderBackend::VulkanRenderBackend(core::window::Handle window, RenderBackend*, bool transparent)
+    : window_(window), transparent_(transparent) {}
 
 VulkanRenderBackend::~VulkanRenderBackend() {
     destroy();
@@ -670,7 +671,16 @@ bool VulkanRenderBackend::recreateSwapchain(const RenderSurface& surface) {
     }
     swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     swapchainInfo.preTransform = capabilities.currentTransform;
-    swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    // Transparent windows need a composite mode that honors the framebuffer
+    // alpha; the renderer's content is premultiplied, so prefer
+    // POST_MULTIPLIED and degrade gracefully instead of failing creation.
+    if (transparent_ && (capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR)) {
+        swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR;
+    } else if (transparent_ && (capabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR)) {
+        swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+    } else {
+        swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    }
     swapchainInfo.presentMode = presentMode;
     swapchainInfo.clipped = VK_TRUE;
     // 保留旧交换链至新链创建调用结束，使 WSI 能复用呈现资源；调用失败也会使旧链退役。
