@@ -13,7 +13,7 @@ namespace core::render::vulkan {
 
 class VulkanRenderBackend final : public RenderBackend {
 public:
-    explicit VulkanRenderBackend(core::window::Handle window, RenderBackend* shareBackend = nullptr);
+    explicit VulkanRenderBackend(core::window::Handle window, RenderBackend* shareBackend = nullptr, bool transparent = false);
     ~VulkanRenderBackend() override;
 
     VulkanRenderBackend(const VulkanRenderBackend&) = delete;
@@ -304,6 +304,7 @@ private:
     core::Rect scissorRect_{};
     core::Rect cacheRenderArea_{};
     core::Color clearColor_{0.0f, 0.0f, 0.0f, 1.0f};
+    bool transparent_ = false;
 
     VkDescriptorSetLayout roundedRectDescriptorSetLayout_ = VK_NULL_HANDLE;
     VkDescriptorPool roundedRectDescriptorPool_ = VK_NULL_HANDLE;

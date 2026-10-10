@@ -343,7 +343,7 @@ protected:
     const std::uint64_t deviceIdentity_ = nextDeviceIdentity_.fetch_add(1, std::memory_order_relaxed);
 };
 
-std::unique_ptr<RenderBackend> createRenderBackend(core::window::Handle window, RenderBackend* shareBackend = nullptr);
+std::unique_ptr<RenderBackend> createRenderBackend(core::window::Handle window, RenderBackend* shareBackend = nullptr, bool transparent = false);
 core::window::RenderApi windowRenderApi();
 void initializeRenderBackendLoader();
 

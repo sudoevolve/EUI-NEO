@@ -55,6 +55,42 @@ int main() {
         return 1;
     }
 
+    // 回归测试：多像素 BGRA8/RGBA8 转换必须逐像素前进，不能只写行首 4 字节。
+    // 历史 bug：内层循环的 destination 指针从不前进，导致每行只剩最后一个像素。
+    {
+        // 4x1 BGRA8：源 4 个像素 B/G/R/A 各不相同
+        const auto bgraWide = std::make_shared<const std::vector<std::uint8_t>>(
+            std::vector<std::uint8_t>{
+                1, 2, 3, 255,     // BGRA -> RGBA (3,2,1,255)
+                4, 5, 6, 255,     // BGRA -> RGBA (6,5,4,255)
+                7, 8, 9, 255,     // BGRA -> RGBA (9,8,7,255)
+                10, 11, 12, 255,  // BGRA -> RGBA (12,11,10,255)
+            });
+        const core::render::ImageFrame bgraWideFrame{
+            bgraWide, 4, 1, 16, core::render::ImagePixelFormat::BGRA8, 0};
+        if (!bgraWideFrame.convertToRgba8(converted) ||
+            converted != std::vector<std::uint8_t>{
+                            3, 2, 1, 255, 6, 5, 4, 255, 9, 8, 7, 255, 12, 11, 10, 255}) {
+            return 1;
+        }
+    }
+    {
+        // 2x2 RGBA8：源 4 个像素 R/G/B/A 各不相同
+        const auto rgbaWide = std::make_shared<const std::vector<std::uint8_t>>(
+            std::vector<std::uint8_t>{
+                10, 20, 30, 255, 40, 50, 60, 255,
+                70, 80, 90, 255, 100, 110, 120, 255,
+            });
+        const core::render::ImageFrame rgbaWideFrame{
+            rgbaWide, 2, 2, 8, core::render::ImagePixelFormat::RGBA8, 0};
+        if (!rgbaWideFrame.convertToRgba8(converted) ||
+            converted != std::vector<std::uint8_t>{
+                            10, 20, 30, 255, 40, 50, 60, 255,
+                            70, 80, 90, 255, 100, 110, 120, 255}) {
+            return 1;
+        }
+    }
+
     const auto nv12Y = bytes({128});
     const auto nv12UV = bytes({128, 128});
     core::render::ImageFrame nv12{nv12Y, 1, 1, 1, core::render::ImagePixelFormat::NV12, 0,
