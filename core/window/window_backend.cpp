@@ -1,5 +1,6 @@
 #include "core/window/window_backend.h"
 #include "core/platform/native_bridge.h"
+#include "core/window/x11_moveresize.h"
 
 #include <algorithm>
 #include <cmath>
@@ -273,6 +274,27 @@ const X11ResourceApi& x11ResourceApi() {
     static const X11ResourceApi api = loadX11ResourceApi();
     return api;
 }
+
+bool sendX11MoveResizeForWindow(Handle window, int direction) {
+    SDL_Window* sdlWindow = static_cast<SDL_Window*>(window);
+    if (!sdlWindow) {
+        return false;
+    }
+#if defined(__linux__) && !defined(__ANDROID__) && defined(SDL_VIDEO_DRIVER_X11)
+    SDL_SysWMinfo info{};
+    SDL_VERSION(&info.version);
+    if (SDL_GetWindowWMInfo(sdlWindow, &info) != SDL_TRUE ||
+        info.subsystem != SDL_SYSWM_X11 ||
+        info.info.x11.display == nullptr) {
+        return false;
+    }
+    return detail::sendX11MoveResize(info.info.x11.display,
+                                     static_cast<std::uint64_t>(info.info.x11.window), direction);
+#else
+    (void)direction;
+    return false;
+#endif
+}
 #endif
 
 
@@ -535,6 +557,14 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 #endif
 }
 
+bool beginWindowMove(Handle window) {
+    return sendX11MoveResizeForWindow(window, kNetWmMoveResizeMove);
+}
+
+bool beginWindowResize(Handle window, WindowResizeEdge edge) {
+    return sendX11MoveResizeForWindow(window, static_cast<int>(edge));
+}
+
 } // namespace core::window
 
 #else
@@ -543,6 +573,11 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 #define GLFW_INCLUDE_NONE
 #endif
 #include <GLFW/glfw3.h>
+
+#if defined(__linux__) && !defined(__ANDROID__)
+#define GLFW_EXPOSE_NATIVE_X11
+#include <GLFW/glfw3native.h>
+#endif
 
 #include "core/platform/ime_bridge.h"
 
@@ -562,6 +597,29 @@ void configureOpenGLWindowHints() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+}
+
+bool sendX11MoveResizeForWindow(Handle window, int direction) {
+#if defined(__linux__) && !defined(__ANDROID__)
+    GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window);
+    if (!glfwWindow) {
+        return false;
+    }
+#if defined(GLFW_PLATFORM_X11)
+    // Runtime platform selection (GLFW 3.4+): only X11 windows can be moved
+    // via the EWMH message.
+    if (glfwGetPlatform() != GLFW_PLATFORM_X11) {
+        return false;
+    }
+#endif
+    return detail::sendX11MoveResize(glfwGetX11Display(),
+                                     static_cast<std::uint64_t>(glfwGetX11Window(glfwWindow)),
+                                     direction);
+#else
+    (void)window;
+    (void)direction;
+    return false;
+#endif
 }
 
 } // namespace
@@ -678,6 +736,14 @@ void setWindowIcon(Handle window, int width, int height, unsigned char* pixels) 
 
 void setImeCursorRect(Handle window, float x, float y, float width, float height) {
     eui_ime_set_cursor_rect_with_font(static_cast<GLFWwindow*>(window), x, y, width, height, height);
+}
+
+bool beginWindowMove(Handle window) {
+    return sendX11MoveResizeForWindow(window, kNetWmMoveResizeMove);
+}
+
+bool beginWindowResize(Handle window, WindowResizeEdge edge) {
+    return sendX11MoveResizeForWindow(window, static_cast<int>(edge));
 }
 
 } // namespace core::window

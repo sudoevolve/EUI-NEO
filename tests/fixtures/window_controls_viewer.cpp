@@ -116,6 +116,22 @@ struct WindowControls {
         resize(1000, 720);
     }
 
+    void beginMove() {
+        if (!window || fullscreen) return;
+        status = eui::window::beginWindowMove(window)
+            ? "Compositor move started: drag the window past the screen edges."
+            : "Compositor move is unavailable on this platform/backend.";
+        requestUpdate();
+    }
+
+    void beginResize(eui::window::WindowResizeEdge edge, const char* name) {
+        if (!window || fullscreen) return;
+        status = eui::window::beginWindowResize(window, edge)
+            ? (std::string("Compositor resize started (") + name + "); move the pointer.")
+            : "Compositor resize is unavailable on this platform/backend.";
+        requestUpdate();
+    }
+
     void close() {
         if (!window) return;
 #if defined(EUI_WINDOW_BACKEND_SDL2)
@@ -190,6 +206,14 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                 components::button(ui, "border").size(180, 38).text(controls.decorated ? "Borderless" : "Show border")
                     .disabled(controls.fullscreen).onClick([] { controls.toggleBorder(); }).build();
                 components::button(ui, "restore").size(160, 38).text("Restore (Esc)").onClick([] { controls.restore(); }).build();
+            }).build();
+            ui.row("native").gap(12.f).content([&] {
+                components::button(ui, "native.move").size(170, 38).text("Compositor move")
+                    .onClick([] { controls.beginMove(); }).build();
+                components::button(ui, "native.resize.left").size(140, 38).text("Resize left")
+                    .onClick([] { controls.beginResize(eui::window::WindowResizeEdge::Left, "left"); }).build();
+                components::button(ui, "native.resize.bottomright").size(190, 38).text("Resize bottom right")
+                    .onClick([] { controls.beginResize(eui::window::WindowResizeEdge::BottomRight, "bottom right"); }).build();
             }).build();
             label(ui, "hint", "F11: toggle fullscreen. Esc: restore window and border.", 14.f);
             label(ui, "status", controls.window ? controls.status : "This fixture requires a current OpenGL window.", 14.f);
