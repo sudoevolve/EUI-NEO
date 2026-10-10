@@ -13,6 +13,19 @@ enum class CursorType {
     Hand
 };
 
+// Edge or corner that starts a compositor-mediated resize. The values match
+// the EWMH _NET_WM_MOVERESIZE SIZE_* directions (0-7); move is 8.
+enum class WindowResizeEdge {
+    TopLeft,
+    Top,
+    TopRight,
+    Right,
+    BottomRight,
+    Bottom,
+    BottomLeft,
+    Left
+};
+
 enum class RenderApi {
     OpenGL,
     Vulkan

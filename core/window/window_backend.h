@@ -32,6 +32,13 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 // Reports whether the created framebuffer actually carries alpha (GLFW
 // honors the transparent request; SDL2 and compositor-less X11 do not).
 bool framebufferTransparent(Handle window);
+// Hand an interactive move/resize to the window manager (EWMH
+// _NET_WM_MOVERESIZE on X11). Per-frame programmatic moves arrive as
+// ConfigureRequests and can be clamped back into the workarea, so undecorated
+// windows should delegate title-bar drags this way. Returns false when the
+// current platform/backend cannot delegate; callers keep their own fallback.
+bool beginWindowMove(Handle window);
+bool beginWindowResize(Handle window, WindowResizeEdge edge);
 void installInputCallbacks(Handle window);
 void uninstallInputCallbacks(Handle window);
 bool queryImeComposition(Handle window, std::string& text, bool& composing);
