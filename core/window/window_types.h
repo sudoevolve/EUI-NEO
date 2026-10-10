@@ -43,6 +43,8 @@ struct WindowCreateRequest {
     int maxHeight = 0;
     const char* title = "";
     std::string appId;
+    // App runners defer visibility until their first valid frame is ready.
+    bool visible = true;
     bool resizable = true;
     bool highDpi = true;
     bool decorated = true;

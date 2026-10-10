@@ -361,7 +361,7 @@ Handle createWindow(const WindowCreateRequest& request) {
         configureOpenGLWindowAttributes();
     }
 
-    Uint32 flags = 0;
+    Uint32 flags = request.visible ? 0 : SDL_WINDOW_HIDDEN;
     if (request.highDpi) {
         flags |= SDL_WINDOW_ALLOW_HIGHDPI;
     }
@@ -632,6 +632,7 @@ Handle createWindow(const WindowCreateRequest& request) {
         configureOpenGLWindowHints();
         shareContext = static_cast<GLFWwindow*>(request.parent);
     }
+    glfwWindowHint(GLFW_VISIBLE, request.visible ? GLFW_TRUE : GLFW_FALSE);
     glfwWindowHint(GLFW_RESIZABLE, request.resizable ? GLFW_TRUE : GLFW_FALSE);
     glfwWindowHint(GLFW_DECORATED, request.decorated ? GLFW_TRUE : GLFW_FALSE);
     glfwWindowHint(GLFW_FLOATING, request.alwaysOnTop ? GLFW_TRUE : GLFW_FALSE);
