@@ -1142,6 +1142,21 @@ static LRESULT CALLBACK windowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         case WM_PAINT:
         {
             _glfwInputWindowDamage(window);
+            // Backport glfw/glfw#2815 (jeweg): initialize the DWM
+            // redirection surface's alpha independently of the GL buffer.
+            if (window->win32.transparent)
+            {
+                PAINTSTRUCT ps;
+                HDC hdc = BeginPaint(hWnd, &ps);
+                PatBlt(hdc,
+                       ps.rcPaint.left,
+                       ps.rcPaint.top,
+                       ps.rcPaint.right - ps.rcPaint.left,
+                       ps.rcPaint.bottom - ps.rcPaint.top,
+                       BLACKNESS);
+                EndPaint(hWnd, &ps);
+                return 0;
+            }
             break;
         }
 
