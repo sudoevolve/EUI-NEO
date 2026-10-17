@@ -19,6 +19,7 @@
 #include FT_FREETYPE_H
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -40,6 +41,12 @@ constexpr int kGrayAtlasSize = 2048;
 constexpr int kColorAtlasSize = 1024;
 constexpr FT_Int32 kGlyphLoadFlags = FT_LOAD_DEFAULT | FT_LOAD_COLOR | FT_LOAD_NO_SVG | FT_LOAD_TARGET_LIGHT;
 
+struct GlyphAdvance {
+    unsigned int index = std::numeric_limits<unsigned int>::max();
+    float advance = 0.0f;
+    float height = 0.0f;
+};
+
 struct FontFace {
     std::string path;
     FT_Face face = nullptr;
@@ -49,6 +56,9 @@ struct FontFace {
     float lineGap = 0.0f;
     float glyphScale = 1.0f;
     bool colored = false;
+    // Direct mapped, 6 KiB per fixed-size face. Collisions replace one slot;
+    // unusual character sets cannot grow a cache or trigger an eviction scan.
+    std::array<GlyphAdvance, 512> advances;
 
     FontFace() = default;
     FontFace(const FontFace&) = delete;
@@ -73,6 +83,7 @@ struct FontFace {
         lineGap = other.lineGap;
         glyphScale = other.glyphScale;
         colored = other.colored;
+        advances = std::move(other.advances);
         other.face = nullptr;
         return *this;
     }
@@ -835,7 +846,7 @@ size_t findEmojiFaceForCodepoint(FontInfoHolder& holder, unsigned int codepoint,
     return findFaceForCodepoint(holder, codepoint, fontSize);
 }
 
-float loadGlyphAdvance(const FontFace& face,
+float loadGlyphAdvance(FontFace& face,
                        unsigned int glyphIndex,
                        unsigned int codepoint,
                        float fontSize,
@@ -846,19 +857,26 @@ float loadGlyphAdvance(const FontFace& face,
     if (isCombiningMark(codepoint)) {
         return 0.0f;
     }
-    if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0) {
-        return fontSize * 0.5f;
+    auto& cached = face.advances[glyphIndex % face.advances.size()];
+    if (cached.index != glyphIndex) {
+        if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0) {
+            return fontSize * 0.5f;
+        }
+        cached.index = glyphIndex;
+        cached.height = static_cast<float>(face.face->glyph->metrics.height) / 64.0f;
+        cached.advance = FT_IS_SCALABLE(face.face)
+            ? static_cast<float>(face.face->glyph->linearHoriAdvance) / 65536.0f
+            : static_cast<float>(face.face->glyph->advance.x) / 64.0f;
     }
 
+    // Store unscaled metrics: emoji fallback can be capped by the primary
+    // face's height. Keep that context-dependent scaling outside the cache.
     float glyphScale = face.glyphScale;
-    const float glyphHeight = static_cast<float>(face.face->glyph->metrics.height) / 64.0f;
+    const float glyphHeight = cached.height;
     if (face.colored && glyphHeight > 0.0f) {
         glyphScale = std::min(glyphScale, maxGlyphHeight / glyphHeight);
     }
-    if (FT_IS_SCALABLE(face.face)) {
-        return static_cast<float>(face.face->glyph->linearHoriAdvance) / 65536.0f * glyphScale;
-    }
-    return static_cast<float>(face.face->glyph->advance.x) / 64.0f * glyphScale;
+    return cached.advance * glyphScale;
 }
 
 std::vector<TextPrimitive::ShapedGlyph> shapeWithFallback(FontInfoHolder& holder,
@@ -874,7 +892,7 @@ std::vector<TextPrimitive::ShapedGlyph> shapeWithFallback(FontInfoHolder& holder
         const size_t faceIndex = preferEmoji
             ? findEmojiFaceForCodepoint(holder, codepoint, fontSize)
             : findFaceForCodepoint(holder, codepoint, fontSize);
-        const FontFace& face = holder.faces[faceIndex];
+        FontFace& face = holder.faces[faceIndex];
         const unsigned int glyphIndex = codepoint == '\t' ? 0 : FT_Get_Char_Index(face.face, codepoint);
         const float advance = loadGlyphAdvance(face, glyphIndex, codepoint, fontSize, maxGlyphHeight);
         shaped.push_back({glyphIndex == 0 && codepoint == '\t' ? 0 : makeGlyphKey(faceIndex, glyphIndex),
