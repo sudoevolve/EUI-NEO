@@ -274,6 +274,7 @@ const X11ResourceApi& x11ResourceApi() {
     static const X11ResourceApi api = loadX11ResourceApi();
     return api;
 }
+#endif
 
 bool sendX11MoveResizeForWindow(Handle window, int direction) {
     SDL_Window* sdlWindow = static_cast<SDL_Window*>(window);
@@ -295,7 +296,6 @@ bool sendX11MoveResizeForWindow(Handle window, int direction) {
     return false;
 #endif
 }
-#endif
 
 
 } // namespace
