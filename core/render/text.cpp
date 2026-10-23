@@ -295,6 +295,11 @@ std::string firstExistingPath(std::initializer_list<const char*> paths) {
     return {};
 }
 
+std::uint64_t& defaultFontConfigurationRevision() {
+    static std::uint64_t value = 0;
+    return value;
+}
+
 std::string& defaultUiFontFileOverride() {
     static std::string value;
     return value;
@@ -1450,6 +1455,7 @@ void TextPrimitive::Impl::setDefaultFontFiles(const std::string& textFontFile, c
         defaultIconFontFileOverride() == iconFontFile) {
         return;
     }
+    ++defaultFontConfigurationRevision();
     defaultUiFontFileOverride() = textFontFile;
     defaultIconFontFileOverride() = iconFontFile;
     clearSharedFontStackCache();
@@ -2013,6 +2019,8 @@ TextPrimitive::TextMetrics TextPrimitive::measureTextMetrics(const std::string& 
 Vec2 TextPrimitive::measureTextSize(const TextStyle& style) {
     return Impl::measureTextSize(style);
 }
+std::uint64_t TextPrimitive::fontConfigurationRevision() { return core::defaultFontConfigurationRevision(); }
+
 void TextPrimitive::setDefaultFontFiles(const std::string& textFontFile, const std::string& iconFontFile) {
     Impl::setDefaultFontFiles(textFontFile, iconFontFile);
 }
