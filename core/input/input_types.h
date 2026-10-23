@@ -158,6 +158,7 @@ struct PointerEvent {
     PointerButton button = PointerButton::None;
     PointerButtons buttons;
     KeyModifiers modifiers;
+    bool touch = false;
 
     bool isDown(PointerButton value) const { return buttons.contains(value); }
     bool isPress(PointerButton value) const {
@@ -171,8 +172,10 @@ struct PointerEvent {
 struct ScrollEvent {
     double x = 0.0;
     double y = 0.0;
+    double pixelX = 0.0;
+    double pixelY = 0.0;
 
-    bool active() const { return x != 0.0 || y != 0.0; }
+    bool active() const { return x != 0.0 || y != 0.0 || pixelX != 0.0 || pixelY != 0.0; }
 };
 
 struct InteractionState {

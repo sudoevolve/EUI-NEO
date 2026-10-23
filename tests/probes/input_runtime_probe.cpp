@@ -71,6 +71,7 @@ int main() {
     int focusedKeys = 0;
     int defaultFocusedKeys = 0;
     int applicationKeys = 0;
+    int clicks = 0;
 
     core::dsl::Runtime runtime;
     runtime.setKeyEventHandler([&](const core::KeyEvent&) { ++applicationKeys; });
@@ -87,6 +88,7 @@ int main() {
                 .onPress([&](const core::PointerEvent&, const core::Rect&) {
                     ++presses;
                 })
+                .onClick([&] { ++clicks; })
                 .onRelease([&](const core::PointerEvent&, const core::Rect&) {
                     ++releases;
                 })
@@ -150,19 +152,36 @@ int main() {
                              core::PointerAction::Release, modifiers);
     runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
 
+    core::queuePointerButton(window, 20.0, 20.0, core::PointerButton::Left,
+                             core::PointerAction::Press, modifiers, true);
+    runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
+    core::queueTouchScrollInput(window, 0.0, -20.0);
+    core::queuePointerMotion(window, 20.0, 40.0, core::PointerButton::Left, modifiers, true);
+    runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
+    core::queuePointerButton(window, 20.0, 40.0, core::PointerButton::Left,
+                             core::PointerAction::Release, modifiers, true);
+    runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
+
+    core::queuePointerButton(window, 20.0, 20.0, core::PointerButton::Left,
+                             core::PointerAction::Press, modifiers, true);
+    core::queuePointerButton(window, 20.0, 20.0, core::PointerButton::Left,
+                             core::PointerAction::Release, modifiers, true);
+    runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
+
     core::queueKeyInput(window, {core::InputKey::F1, core::KeyAction::Press, {}});
     core::queueKeyInput(window, {core::InputKey::F2, core::KeyAction::Press, {}});
     runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
 
-    bool passed = presses == 4 && releases == 4 &&
+    bool passed = presses == 6 && releases == 6 &&
         middleDrags > 0 && rightDrags > 0 && contextMenus == 1 &&
-        focusedKeys == 2 && defaultFocusedKeys == 0 && applicationKeys == 1;
+        focusedKeys == 2 && defaultFocusedKeys == 0 && applicationKeys == 1 && clicks == 5;
     if (!passed) {
         std::cerr << "Input Runtime dispatch failed: presses=" << presses
                   << " releases=" << releases
                   << " middleDrags=" << middleDrags
                   << " rightDrags=" << rightDrags
                   << " contextMenus=" << contextMenus
+                  << " clicks=" << clicks
                   << " focusedKeys=" << focusedKeys
                   << " defaultFocusedKeys=" << defaultFocusedKeys
                   << " applicationKeys=" << applicationKeys << "\n";

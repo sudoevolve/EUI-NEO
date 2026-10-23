@@ -159,6 +159,16 @@ bool verifyPointerOutsideWithoutPosition() {
     return entered.size() == 1 && entered[0].deltaX == 0.0 && entered[0].deltaY == 0.0;
 }
 
+bool verifyTouchScrollQueue() {
+    int windowTag = 0;
+    const auto window = reinterpret_cast<core::window::Handle>(&windowTag);
+    core::queueTouchScrollInput(window, 3.0, -24.0);
+    const core::ScrollEvent scroll = core::consumeScrollInput(window);
+    core::releaseInputQueue(window);
+    return scroll.x == 0.0 && scroll.y == 0.0 &&
+           scroll.pixelX == 3.0 && scroll.pixelY == -24.0 && scroll.active();
+}
+
 bool verifyInteractionCapture() {
     const core::Rect bounds{0.0f, 0.0f, 100.0f, 100.0f};
     const core::PointerButtons accepted =
@@ -231,6 +241,10 @@ int main() {
     }
     if (!verifyPointerOutsideWithoutPosition()) {
         std::cerr << "Unknown pointer position produced a false hover position\n";
+        return 1;
+    }
+    if (!verifyTouchScrollQueue()) {
+        std::cerr << "Touch scroll deltas were not preserved\n";
         return 1;
     }
     if (!verifyComposingKeyOrder()) {

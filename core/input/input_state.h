@@ -19,6 +19,7 @@ struct QueuedPointerEvent {
     PointerButton button = PointerButton::None;
     PointerButtons buttons;
     KeyModifiers modifiers;
+    bool touch = false;
 };
 
 struct InputQueue {
@@ -30,6 +31,8 @@ struct InputQueue {
     KeyModifiers modifiers;
     double scrollX = 0.0;
     double scrollY = 0.0;
+    double touchScrollX = 0.0;
+    double touchScrollY = 0.0;
     bool compositionChanged = false;
 };
 
@@ -143,7 +146,8 @@ inline void queuePointerMotion(window::Handle window,
                                double x,
                                double y,
                                PointerButtons buttons,
-                               const KeyModifiers& modifiers) {
+                               const KeyModifiers& modifiers,
+                               bool touch = false) {
     detail::PointerState& state = detail::pointerState(window);
     state.x = x;
     state.y = y;
@@ -151,7 +155,7 @@ inline void queuePointerMotion(window::Handle window,
     state.modifiers = modifiers;
     state.hasPosition = true;
     state.inside = true;
-    detail::pushPointerEvent(state, {x, y, PointerAction::Move, PointerButton::None, buttons, modifiers});
+    detail::pushPointerEvent(state, {x, y, PointerAction::Move, PointerButton::None, buttons, modifiers, touch});
 }
 
 inline void queuePointerButton(window::Handle window,
@@ -159,7 +163,8 @@ inline void queuePointerButton(window::Handle window,
                                double y,
                                PointerButton button,
                                PointerAction action,
-                               const KeyModifiers& modifiers) {
+                               const KeyModifiers& modifiers,
+                               bool touch = false) {
     if (button == PointerButton::None ||
         (action != PointerAction::Press && action != PointerAction::Release)) {
         return;
@@ -171,7 +176,7 @@ inline void queuePointerButton(window::Handle window,
     state.modifiers = modifiers;
     state.hasPosition = true;
     state.inside = true;
-    detail::pushPointerEvent(state, {x, y, action, button, state.buttons, modifiers});
+    detail::pushPointerEvent(state, {x, y, action, button, state.buttons, modifiers, touch});
 }
 
 inline void queuePointerPresence(window::Handle window, bool inside) {
@@ -219,6 +224,12 @@ inline void queueScrollInput(window::Handle window, double x, double y) {
     queue.scrollY += y;
 }
 
+inline void queueTouchScrollInput(window::Handle window, double x, double y) {
+    detail::InputQueue& queue = detail::inputQueue(window);
+    queue.touchScrollX += x;
+    queue.touchScrollY += y;
+}
+
 inline void queueKeyInput(window::Handle window, const KeyEvent& event) {
     detail::InputQueue& queue = detail::inputQueue(window);
     queue.modifiers = event.modifiers;
@@ -252,6 +263,11 @@ inline void cancelKeyboardInput(window::Handle window) {
 
 inline void cancelInput(window::Handle window) {
     cancelPointerInput(window);
+    detail::InputQueue& queue = detail::inputQueue(window);
+    queue.scrollX = 0.0;
+    queue.scrollY = 0.0;
+    queue.touchScrollX = 0.0;
+    queue.touchScrollY = 0.0;
     cancelKeyboardInput(window);
 }
 
@@ -302,9 +318,11 @@ inline TextInputEvent consumeTextInput(window::Handle window) {
 
 inline ScrollEvent consumeScrollInput(window::Handle window) {
     detail::InputQueue& queue = detail::inputQueue(window);
-    ScrollEvent scroll{queue.scrollX, queue.scrollY};
+    ScrollEvent scroll{queue.scrollX, queue.scrollY, queue.touchScrollX, queue.touchScrollY};
     queue.scrollX = 0.0;
     queue.scrollY = 0.0;
+    queue.touchScrollX = 0.0;
+    queue.touchScrollY = 0.0;
     return scroll;
 }
 
@@ -341,6 +359,7 @@ inline std::vector<PointerEvent> consumePointerEvents(window::Handle window, flo
         event.button = raw.button;
         event.buttons = raw.buttons;
         event.modifiers = raw.modifiers;
+        event.touch = raw.touch;
         if (positionValid) {
             state.dispatchedX = event.x;
             state.dispatchedY = event.y;
