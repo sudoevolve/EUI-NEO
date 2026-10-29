@@ -73,7 +73,7 @@ struct GalleryAboutPage {
                         .x(infoX)
                         .y(infoY)
                         .size(infoWidth, 36.0f)
-                        .text("EUI Neo")
+                        .text("EUI NEO")
                         .fontSize(32.0f)
                         .lineHeight(36.0f)
                         .color(textPrimary())
