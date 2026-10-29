@@ -55,11 +55,23 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
     }
     if (!inputEnabled) {
         cancelInput(window);
+        touchScrollMoved_ = false;
+        touchScrollDistance_ = 0.0;
     }
     std::vector<PointerEvent> pointerEvents = consumePointerEvents(window, pointerScale);
     std::vector<KeyEvent> keyEvents = consumeKeyEvents(window);
     TextInputEvent textInputEvent = consumeTextInput(window);
     ScrollEvent scrollEvent = consumeScrollInput(window);
+    for (const PointerEvent& event : pointerEvents) {
+        if (event.touch && event.isPress(PointerButton::Left)) {
+            touchScrollMoved_ = false;
+            touchScrollDistance_ = 0.0;
+        }
+    }
+    if (scrollEvent.pixelX != 0.0 || scrollEvent.pixelY != 0.0) {
+        touchScrollDistance_ += std::hypot(scrollEvent.pixelX, scrollEvent.pixelY);
+        touchScrollMoved_ = touchScrollDistance_ >= 6.0 * (dpiScale > 0.0f ? dpiScale : 1.0f);
+    }
     if (!inputEnabled) {
         for (PointerEvent& event : pointerEvents) {
             event.x = -1000000.0;
@@ -86,7 +98,7 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
 
     syncScrollStateBindings();
     if (scrollEvent.active()) {
-        updateScroll(scrollEvent, hitTestScrollable(pointerEvents.back(), dpiScale));
+        updateScroll(scrollEvent, hitTestScrollable(pointerEvents.back(), dpiScale), dpiScale);
         hoverTargetCacheValid_ = false;
     }
     updateScrollMotion(deltaSeconds);
@@ -99,6 +111,13 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
         const std::string hoverTargetId = resolveHoverTarget(event, dpiScale, inputEnabled);
         const float eventDeltaSeconds = index + 1 == pointerEvents.size() ? deltaSeconds : 0.0f;
         updateElementTree(event, eventDeltaSeconds, dpiScale, hoverTargetId);
+    }
+    for (const PointerEvent& event : pointerEvents) {
+        if (event.touch && (event.action == PointerAction::Release || event.action == PointerAction::Cancel)) {
+            touchScrollMoved_ = false;
+            touchScrollDistance_ = 0.0;
+            break;
+        }
     }
     updateDependentVisualDirtyRegions(dpiScale);
 

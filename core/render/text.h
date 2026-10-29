@@ -81,6 +81,8 @@ public:
                                           float fontSize = 16.0f,
                                           int fontWeight = 400);
     static Vec2 measureTextSize(const TextStyle& style);
+    // Changes when the default font configuration changes; metric caches may key on it.
+    static std::uint64_t fontConfigurationRevision();
     static void setDefaultFontFiles(const std::string& textFontFile, const std::string& iconFontFile);
 
     void prepare();

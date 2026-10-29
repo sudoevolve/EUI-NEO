@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 namespace core::render::opengl {
 
@@ -207,17 +208,26 @@ bool ensureAtlasTexture(TextAtlasTexture& texture, const TextAtlasPageData& page
                      0,
                      format,
                      GL_UNSIGNED_BYTE,
-                     page.pixels);
-    } else {
+                     nullptr);
+    }
+    if (page.usedWidth > 0 && page.usedHeight > 0) {
+        const std::size_t sourceStride = static_cast<std::size_t>(page.width) * page.channels;
+        const std::size_t packedStride = static_cast<std::size_t>(page.usedWidth) * page.channels;
+        std::vector<unsigned char> packedPixels(packedStride * static_cast<std::size_t>(page.usedHeight));
+        for (int row = 0; row < page.usedHeight; ++row) {
+            std::copy_n(page.pixels + static_cast<std::size_t>(row) * sourceStride,
+                        packedStride,
+                        packedPixels.data() + static_cast<std::size_t>(row) * packedStride);
+        }
         glTexSubImage2D(GL_TEXTURE_2D,
                         0,
                         0,
                         0,
-                        page.width,
-                        page.height,
+                        page.usedWidth,
+                        page.usedHeight,
                         format,
                         GL_UNSIGNED_BYTE,
-                        page.pixels);
+                        packedPixels.data());
     }
     glBindTexture(GL_TEXTURE_2D, 0);
     texture.generation = page.generation;

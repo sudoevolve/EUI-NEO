@@ -67,6 +67,11 @@ bool pollOnce(core::window::Handle window) {
 #if defined(EUI_WINDOW_BACKEND_SDL2)
 bool verifySdlWindowInput(core::window::Handle firstWindow,
                           const core::window::WindowCreateRequest& request) {
+    // Non-X11 builds must compile and honestly decline WM move/resize.
+    if (core::window::beginWindowMove(nullptr) ||
+        core::window::beginWindowResize(nullptr, core::window::WindowResizeEdge::TopLeft)) {
+        return false;
+    }
     core::window::Handle secondWindow = core::window::createWindow(request);
     if (secondWindow == nullptr) {
         return false;
