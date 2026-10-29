@@ -404,16 +404,25 @@ bool VulkanRenderBackend::ensureTextAtlas(const TextAtlasPageData& page) {
         textDescriptorDirty_ = true;
     }
 
-    const VkDeviceSize uploadSize = static_cast<VkDeviceSize>(page.width) *
-                                    static_cast<VkDeviceSize>(page.height) *
+    const VkDeviceSize uploadSize = static_cast<VkDeviceSize>(page.usedWidth) *
+                                    static_cast<VkDeviceSize>(page.usedHeight) *
                                     static_cast<VkDeviceSize>(page.channels);
+    if (page.usedWidth <= 0 || page.usedHeight <= 0) {
+        return true;
+    }
     VkBuffer stagingBuffer = VK_NULL_HANDLE;
     VkDeviceSize stagingOffset = 0;
     void* mapped = nullptr;
     if (!allocateUploadRegion(uploadSize, stagingBuffer, stagingOffset, mapped)) {
         return false;
     }
-    std::memcpy(mapped, page.pixels, static_cast<std::size_t>(uploadSize));
+    const std::size_t sourceStride = static_cast<std::size_t>(page.width) * page.channels;
+    const std::size_t packedStride = static_cast<std::size_t>(page.usedWidth) * page.channels;
+    for (int row = 0; row < page.usedHeight; ++row) {
+        std::memcpy(static_cast<unsigned char*>(mapped) + static_cast<std::size_t>(row) * packedStride,
+                    page.pixels + static_cast<std::size_t>(row) * sourceStride,
+                    packedStride);
+    }
 
     VkCommandBuffer commandBuffer = currentCommandBuffer();
     transitionImageLayout(commandBuffer, texture.image, texture.layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -423,7 +432,7 @@ bool VulkanRenderBackend::ensureTextAtlas(const TextAtlasPageData& page) {
     copyRegion.bufferOffset = stagingOffset;
     copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     copyRegion.imageSubresource.layerCount = 1;
-    copyRegion.imageExtent = {static_cast<std::uint32_t>(page.width), static_cast<std::uint32_t>(page.height), 1};
+    copyRegion.imageExtent = {static_cast<std::uint32_t>(page.usedWidth), static_cast<std::uint32_t>(page.usedHeight), 1};
     vkCmdCopyBufferToImage(commandBuffer, stagingBuffer, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
     transitionImageLayout(commandBuffer, texture.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

@@ -19,6 +19,7 @@
 #include FT_FREETYPE_H
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -40,6 +41,12 @@ constexpr int kGrayAtlasSize = 2048;
 constexpr int kColorAtlasSize = 1024;
 constexpr FT_Int32 kGlyphLoadFlags = FT_LOAD_DEFAULT | FT_LOAD_COLOR | FT_LOAD_NO_SVG | FT_LOAD_TARGET_LIGHT;
 
+struct GlyphAdvance {
+    unsigned int index = std::numeric_limits<unsigned int>::max();
+    float advance = 0.0f;
+    float height = 0.0f;
+};
+
 struct FontFace {
     std::string path;
     FT_Face face = nullptr;
@@ -49,6 +56,9 @@ struct FontFace {
     float lineGap = 0.0f;
     float glyphScale = 1.0f;
     bool colored = false;
+    // Direct mapped, 6 KiB per fixed-size face. Collisions replace one slot;
+    // unusual character sets cannot grow a cache or trigger an eviction scan.
+    std::array<GlyphAdvance, 512> advances;
 
     FontFace() = default;
     FontFace(const FontFace&) = delete;
@@ -73,6 +83,7 @@ struct FontFace {
         lineGap = other.lineGap;
         glyphScale = other.glyphScale;
         colored = other.colored;
+        advances = std::move(other.advances);
         other.face = nullptr;
         return *this;
     }
@@ -175,6 +186,8 @@ struct AtlasPage {
     int x = 1;
     int y = 1;
     int rowHeight = 0;
+    int usedWidth = 0;
+    int usedHeight = 0;
     std::uint64_t generation = 0;
     std::vector<unsigned char> pixels;
     std::unordered_map<std::string, TextPrimitive::Glyph> glyphs;
@@ -218,18 +231,14 @@ bool ensureAtlasPage(AtlasPage& page, int width, int height, int channels) {
     page.y = 1;
     page.rowHeight = 0;
     page.generation = ++textAtlasGenerationCounter();
-    page.pixels.assign(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * static_cast<std::size_t>(channels), 0);
-    return !page.pixels.empty();
+    page.pixels.clear();
+    return true;
 }
 
 bool retainSharedTextAtlas() {
     SharedTextAtlas& atlas = sharedTextAtlas();
     ++atlas.references;
-    if (ensureAtlasPage(atlas.gray, kGrayAtlasSize, kGrayAtlasSize, 1)) {
-        return true;
-    }
-    atlas.references = std::max(0, atlas.references - 1);
-    return false;
+    return true;
 }
 
 void releaseAtlasPage(AtlasPage& page) {
@@ -284,6 +293,11 @@ std::string firstExistingPath(std::initializer_list<const char*> paths) {
         }
     }
     return {};
+}
+
+std::uint64_t& defaultFontConfigurationRevision() {
+    static std::uint64_t value = 0;
+    return value;
 }
 
 std::string& defaultUiFontFileOverride() {
@@ -835,7 +849,7 @@ size_t findEmojiFaceForCodepoint(FontInfoHolder& holder, unsigned int codepoint,
     return findFaceForCodepoint(holder, codepoint, fontSize);
 }
 
-float loadGlyphAdvance(const FontFace& face,
+float loadGlyphAdvance(FontFace& face,
                        unsigned int glyphIndex,
                        unsigned int codepoint,
                        float fontSize,
@@ -846,19 +860,26 @@ float loadGlyphAdvance(const FontFace& face,
     if (isCombiningMark(codepoint)) {
         return 0.0f;
     }
-    if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0) {
-        return fontSize * 0.5f;
+    auto& cached = face.advances[glyphIndex % face.advances.size()];
+    if (cached.index != glyphIndex) {
+        if (FT_Load_Glyph(face.face, glyphIndex, kGlyphLoadFlags) != 0) {
+            return fontSize * 0.5f;
+        }
+        cached.index = glyphIndex;
+        cached.height = static_cast<float>(face.face->glyph->metrics.height) / 64.0f;
+        cached.advance = FT_IS_SCALABLE(face.face)
+            ? static_cast<float>(face.face->glyph->linearHoriAdvance) / 65536.0f
+            : static_cast<float>(face.face->glyph->advance.x) / 64.0f;
     }
 
+    // Store unscaled metrics: emoji fallback can be capped by the primary
+    // face's height. Keep that context-dependent scaling outside the cache.
     float glyphScale = face.glyphScale;
-    const float glyphHeight = static_cast<float>(face.face->glyph->metrics.height) / 64.0f;
+    const float glyphHeight = cached.height;
     if (face.colored && glyphHeight > 0.0f) {
         glyphScale = std::min(glyphScale, maxGlyphHeight / glyphHeight);
     }
-    if (FT_IS_SCALABLE(face.face)) {
-        return static_cast<float>(face.face->glyph->linearHoriAdvance) / 65536.0f * glyphScale;
-    }
-    return static_cast<float>(face.face->glyph->advance.x) / 64.0f * glyphScale;
+    return cached.advance * glyphScale;
 }
 
 std::vector<TextPrimitive::ShapedGlyph> shapeWithFallback(FontInfoHolder& holder,
@@ -874,7 +895,7 @@ std::vector<TextPrimitive::ShapedGlyph> shapeWithFallback(FontInfoHolder& holder
         const size_t faceIndex = preferEmoji
             ? findEmojiFaceForCodepoint(holder, codepoint, fontSize)
             : findFaceForCodepoint(holder, codepoint, fontSize);
-        const FontFace& face = holder.faces[faceIndex];
+        FontFace& face = holder.faces[faceIndex];
         const unsigned int glyphIndex = codepoint == '\t' ? 0 : FT_Get_Char_Index(face.face, codepoint);
         const float advance = loadGlyphAdvance(face, glyphIndex, codepoint, fontSize, maxGlyphHeight);
         shaped.push_back({glyphIndex == 0 && codepoint == '\t' ? 0 : makeGlyphKey(faceIndex, glyphIndex),
@@ -933,7 +954,7 @@ bool appendToAtlas(AtlasPage& page,
                    int height,
                    int channels,
                    TextPrimitive::Glyph& glyph) {
-    if (width <= 0 || height <= 0 || pixels == nullptr || channels <= 0 || page.pixels.empty()) {
+    if (width <= 0 || height <= 0 || pixels == nullptr || channels <= 0) {
         return true;
     }
 
@@ -944,6 +965,13 @@ bool appendToAtlas(AtlasPage& page,
     }
     if (page.y + height + 1 >= page.height) {
         return false;
+    }
+
+    const std::size_t requiredBytes = static_cast<std::size_t>(page.y + height) *
+                                      static_cast<std::size_t>(page.width) *
+                                      static_cast<std::size_t>(page.channels);
+    if (page.pixels.size() < requiredBytes) {
+        page.pixels.resize(requiredBytes, 0);
     }
 
     const int copyChannels = std::min(channels, page.channels);
@@ -968,6 +996,8 @@ bool appendToAtlas(AtlasPage& page,
 
     page.x += width + 1;
     page.rowHeight = std::max(page.rowHeight, height);
+    page.usedWidth = std::max(page.usedWidth, page.x);
+    page.usedHeight = std::max(page.usedHeight, page.y + page.rowHeight);
     page.generation = ++textAtlasGenerationCounter();
     return true;
 }
@@ -1425,6 +1455,7 @@ void TextPrimitive::Impl::setDefaultFontFiles(const std::string& textFontFile, c
         defaultIconFontFileOverride() == iconFontFile) {
         return;
     }
+    ++defaultFontConfigurationRevision();
     defaultUiFontFileOverride() = textFontFile;
     defaultIconFontFileOverride() = iconFontFile;
     clearSharedFontStackCache();
@@ -1460,6 +1491,8 @@ void TextPrimitive::Impl::render(int windowWidth, int windowHeight) {
         core::render::TextAtlasPageKind::Gray,
         atlas.gray.width,
         atlas.gray.height,
+        atlas.gray.usedWidth,
+        atlas.gray.usedHeight,
         atlas.gray.channels,
         atlas.gray.generation,
         atlas.gray.pixels.empty() ? nullptr : atlas.gray.pixels.data()
@@ -1468,6 +1501,8 @@ void TextPrimitive::Impl::render(int windowWidth, int windowHeight) {
         core::render::TextAtlasPageKind::Color,
         atlas.color.width,
         atlas.color.height,
+        atlas.color.usedWidth,
+        atlas.color.usedHeight,
         atlas.color.channels,
         atlas.color.generation,
         atlas.color.pixels.empty() ? nullptr : atlas.color.pixels.data()
@@ -1576,6 +1611,16 @@ bool TextPrimitive::Impl::ensureGlyph(const ShapedGlyph& shaped) {
     }
 
     if (colorBitmap) {
+        if (!ensureAtlasPage(atlas.gray, kGrayAtlasSize, kGrayAtlasSize, 1)) {
+            cacheGlyph(shaped.key, glyph);
+            return true;
+        }
+        if (atlas.gray.usedWidth == 0 || atlas.gray.usedHeight == 0) {
+            atlas.gray.pixels.resize(static_cast<std::size_t>(atlas.gray.width) * atlas.gray.channels, 0);
+            atlas.gray.usedWidth = 1;
+            atlas.gray.usedHeight = 1;
+            atlas.gray.generation = ++textAtlasGenerationCounter();
+        }
         if (!ensureAtlasPage(atlas.color, kColorAtlasSize, kColorAtlasSize, 4)) {
             cacheGlyph(shaped.key, glyph);
             return true;
@@ -1591,6 +1636,10 @@ bool TextPrimitive::Impl::ensureGlyph(const ShapedGlyph& shaped) {
         }
         atlas.color.glyphs[cacheKey] = glyph;
     } else if (bitmap.pixel_mode == FT_PIXEL_MODE_GRAY) {
+        if (!ensureAtlasPage(atlas.gray, kGrayAtlasSize, kGrayAtlasSize, 1)) {
+            cacheGlyph(shaped.key, glyph);
+            return true;
+        }
         std::vector<unsigned char> gray = copyGrayBitmap(bitmap);
         if (gray.empty()) {
             cacheGlyph(shaped.key, glyph);
@@ -1970,6 +2019,8 @@ TextPrimitive::TextMetrics TextPrimitive::measureTextMetrics(const std::string& 
 Vec2 TextPrimitive::measureTextSize(const TextStyle& style) {
     return Impl::measureTextSize(style);
 }
+std::uint64_t TextPrimitive::fontConfigurationRevision() { return core::defaultFontConfigurationRevision(); }
+
 void TextPrimitive::setDefaultFontFiles(const std::string& textFontFile, const std::string& iconFontFile) {
     Impl::setDefaultFontFiles(textFontFile, iconFontFile);
 }

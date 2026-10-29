@@ -817,7 +817,9 @@ inline std::shared_ptr<const MarkdownDocument> cachedMarkdownDocument(const std:
 } // namespace detail
 
 class MarkdownBuilder {
-public:
+    struct ViewportLayout;
+
+  public:
     MarkdownBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
 
@@ -882,7 +884,21 @@ public:
     MarkdownBuilder& theme(const theme::ThemeColorTokens& tokens) { style_ = MarkdownStyle(tokens); return *this; }
     MarkdownBuilder& zIndex(int value) { zIndex_ = value; return *this; }
 
+    // Document-local logical coordinates. This only limits construction; the caller
+    // clips its scroll viewport. Omit this option for the original complete tree.
+    MarkdownBuilder& viewport(float top, float height, float overscan = 32.0f) {
+        viewportEnabled_ = std::isfinite(top) && std::isfinite(height) && std::isfinite(overscan);
+        viewportTop_ = top;
+        viewportHeight_ = std::max(0.0f, height);
+        viewportOverscan_ = std::max(0.0f, overscan);
+        return *this;
+    }
+
     void build() {
+        if (viewportEnabled_) {
+            buildViewport();
+            return;
+        }
         const std::shared_ptr<const detail::MarkdownDocument> document = parsedDocument();
         const std::vector<detail::MarkdownBlock>& blocks = document->blocks;
         auto root = ui_.column(id_)
@@ -1004,6 +1020,9 @@ private:
                                        const MarkdownStyle& style) {
         std::string key;
         key.reserve(32 + style.fontFamily.size() + style.codeFontFamily.size());
+        const auto revision = core::TextPrimitive::fontConfigurationRevision();
+        appendInlineLayoutKey(key, static_cast<std::uint32_t>(revision));
+        appendInlineLayoutKey(key, static_cast<std::uint32_t>(revision >> 32));
         appendInlineLayoutKey(key, width);
         appendInlineLayoutKey(key, fontSize);
         appendInlineLayoutKey(key, lineHeight);
@@ -1069,7 +1088,7 @@ private:
             return detail::measureMarkdownTextWidth(text, fontFamily, runFontSize, weight) + padding;
         };
 
-        auto pushFittingSegment = [&](detail::MarkdownRun run, std::string text) {
+        auto pushFittingSegment = [&](const detail::MarkdownRun& run, std::string text) {
             if (text.empty()) {
                 return;
             }
@@ -1089,7 +1108,10 @@ private:
             if (hasLineItem) {
                 cursorX += gap;
             }
-            segments.push_back({std::move(run), std::move(text), cursorX, cursorY, segmentWidth, chip});
+            // A segment needs run metadata, not a copy of the entire source run.
+            // Keeping run.text here made one long paragraph quadratic in memory.
+            detail::MarkdownRun metadata{run.kind, run.style, {}, {}, {}};
+            segments.push_back({std::move(metadata), std::move(text), cursorX, cursorY, segmentWidth, chip});
             cursorX += segmentWidth;
             hasLineItem = true;
         };
@@ -1182,31 +1204,153 @@ private:
         return inserted.first->second.layout;
     }
 
-    static float estimateInlineRunsHeight(const std::vector<detail::MarkdownRun>& runs,
-                                          float width,
-                                          float fontSize,
-                                          float lineHeight,
-                                          bool heading,
-                                          const MarkdownStyle& style) {
-        return cachedInlineLayout(runs, width, fontSize, lineHeight, heading,
-                                  core::HorizontalAlign::Left, style)->measuredHeight;
+    struct PositionedBlock {
+        std::size_t begin = 0, end = 0;
+        float top = 0.0f, height = 0.0f;
+        std::vector<float> rows;
+    };
+    struct ViewportLayout {
+        std::shared_ptr<const detail::MarkdownDocument> document;
+        std::vector<PositionedBlock> blocks;
+        std::unordered_map<const std::vector<detail::MarkdownRun>*, std::shared_ptr<const InlineLayoutEntry>> inlines;
+        float height = 0.0f;
+        bool collecting = true;
+    };
+    static std::shared_ptr<const InlineLayoutEntry>
+    plannedInlineLayout(const std::vector<detail::MarkdownRun>& runs, float width, float fontSize, float lineHeight,
+                        bool heading, core::HorizontalAlign align, const MarkdownStyle& style, ViewportLayout* plan) {
+        if (plan) {
+            const auto found = plan->inlines.find(&runs);
+            if (found != plan->inlines.end()) return found->second;
+        }
+        auto layout = cachedInlineLayout(runs, width, fontSize, lineHeight, heading, align, style);
+        if (plan && plan->collecting) plan->inlines.emplace(&runs, layout);
+        return layout;
+    }
+    std::shared_ptr<ViewportLayout> viewportLayout() {
+        struct Entry {
+            std::shared_ptr<ViewportLayout> plan;
+            std::size_t tick, bytes;
+        };
+        struct Cache {
+            std::unordered_map<std::string, Entry> entries;
+            std::size_t tick = 0, bytes = 0;
+        };
+        static thread_local Cache cache;
+        std::string key = inlineLayoutKey({}, width_, style_.bodySize, style_.bodyLineHeight, false,
+                                          core::HorizontalAlign::Left, style_);
+        for (float value : {style_.h1Size, style_.h2Size, style_.h3Size, style_.codeSize, style_.blockGap,
+                            style_.listIndent, style_.codePadding, style_.quotePadding, style_.tableCellPadding})
+            appendInlineLayoutKey(key, value);
+        key += markdown_;
+        const auto found = cache.entries.find(key);
+        if (found != cache.entries.end()) {
+            found->second.tick = ++cache.tick;
+            return found->second.plan;
+        }
+        auto plan = std::make_shared<ViewportLayout>();
+        plan->document = parsedDocument();
+        const auto& blocks = plan->document->blocks;
+        for (std::size_t i = 0; i < blocks.size();) {
+            PositionedBlock item{i, i + 1, plan->height, 0.0f, {}};
+            if (blocks[i].kind == detail::MarkdownBlockKind::TableRow) {
+                const float width = std::max(0.0f, width_ - std::max(0, blocks[i].quoteDepth) * 8.0f -
+                                                       std::max(0, blocks[i].listDepth - 1) * style_.listIndent);
+                item.rows.push_back(0.0f);
+                while (item.end < blocks.size() && blocks[item.end].kind == detail::MarkdownBlockKind::TableRow)
+                    ++item.end;
+                for (std::size_t row = i; row < item.end; ++row) {
+                    item.height += estimateTableRowHeight(blocks[row], width, style_, plan.get());
+                    item.rows.push_back(item.height);
+                }
+            } else
+                item.height = estimateBlockHeight(blocks[i], width_, style_, plan.get());
+            plan->height += item.height + (item.end < blocks.size() ? style_.blockGap : 0.0f);
+            i = item.end;
+            plan->blocks.push_back(std::move(item));
+        }
+        plan->collecting = false;
+        std::size_t bytes =
+            sizeof(ViewportLayout) + key.capacity() + detail::markdownDocumentCacheBytes(markdown_, *plan->document) +
+            plan->blocks.capacity() * sizeof(PositionedBlock) + plan->inlines.bucket_count() * sizeof(void*);
+        for (const auto& block : plan->blocks)
+            detail::addMarkdownCacheBytes(bytes, block.rows.capacity() * sizeof(float));
+        for (const auto& entry : plan->inlines)
+            detail::addMarkdownCacheBytes(bytes,
+                                          inlineLayoutCacheBytes(*entry.second, 0) + sizeof(entry) + 3 * sizeof(void*));
+        constexpr std::size_t budget = 8 * 1024 * 1024;
+        if (bytes > budget / 2) return plan;
+        while (!cache.entries.empty() && (cache.entries.size() >= 8 || bytes > budget - cache.bytes)) {
+            const auto oldest =
+                std::min_element(cache.entries.begin(), cache.entries.end(),
+                                 [](const auto& a, const auto& b) { return a.second.tick < b.second.tick; });
+            cache.bytes -= oldest->second.bytes;
+            cache.entries.erase(oldest);
+        }
+        cache.entries.emplace(std::move(key), Entry{plan, ++cache.tick, bytes});
+        cache.bytes += bytes;
+        return plan;
+    }
+    bool viewportIntersects(float top, float height) const {
+        return viewportHeight_ > 0 && top + height >= viewportTop_ - viewportOverscan_ &&
+               top <= viewportTop_ + viewportHeight_ + viewportOverscan_;
+    }
+    void buildViewport() {
+        auto plan = viewportLayout();
+        activePlan_ = plan.get();
+        auto root =
+            ui_.stack(id_)
+                .width(width_)
+                .height(height_.mode == core::SizeMode::WrapContent ? core::SizeValue::fixed(plan->height) : height_)
+                .margin(margin_.left, margin_.top, margin_.right, margin_.bottom)
+                .zIndex(zIndex_);
+        if (hasX_) root.x(x_);
+        if (hasY_) root.y(y_);
+        root.content([&] {
+                const auto first =
+                    std::lower_bound(plan->blocks.begin(), plan->blocks.end(), viewportTop_ - viewportOverscan_,
+                                     [](const auto& block, float top) { return block.top + block.height < top; });
+                for (auto it = first; it != plan->blocks.end() && viewportIntersects(it->top, it->height); ++it) {
+                    activeBlockTop_ = it->top;
+                    activeBlock_ = &*it;
+                    ui_.stack(id_ + ".viewport." + std::to_string(it->begin))
+                        .position(0, it->top)
+                        .size(width_, it->height)
+                        .content([&] {
+                            if (plan->document->blocks[it->begin].kind == detail::MarkdownBlockKind::TableRow)
+                                renderTable(plan->document->blocks, it->begin, it->end);
+                            else
+                                renderBlock(plan->document->blocks[it->begin], it->begin);
+                        })
+                        .build();
+                }
+            })
+            .build();
+        activeBlock_ = nullptr;
+        activePlan_ = nullptr;
     }
 
-    static float estimateTableRowHeight(const detail::MarkdownBlock& block,
-                                        float contentWidth,
-                                        const MarkdownStyle& style) {
+    static float estimateInlineRunsHeight(const std::vector<detail::MarkdownRun>& runs, float width, float fontSize,
+                                          float lineHeight, bool heading, const MarkdownStyle& style,
+                                          ViewportLayout* plan = nullptr) {
+        return plannedInlineLayout(runs, width, fontSize, lineHeight, heading, core::HorizontalAlign::Left, style, plan)
+            ->measuredHeight;
+    }
+
+    static float estimateTableRowHeight(const detail::MarkdownBlock& block, float contentWidth,
+                                        const MarkdownStyle& style, ViewportLayout* plan = nullptr) {
         const std::size_t cellCount = std::max<std::size_t>(1, block.cells.size());
         const float cellWidth = contentWidth / static_cast<float>(cellCount);
         const float textWidth = std::max(0.0f, cellWidth - style.tableCellPadding * 2.0f);
         float height = 0.0f;
+        static const std::vector<detail::MarkdownRun> empty;
         for (std::size_t cell = 0; cell < cellCount; ++cell) {
-            height = std::max(height, estimateInlineRunsHeight(
-                cell < block.cells.size() ? block.cells[cell].runs : std::vector<detail::MarkdownRun>{},
-                textWidth,
-                style.bodySize,
-                style.bodyLineHeight,
-                false,
-                style));
+            const auto& runs = cell < block.cells.size() ? block.cells[cell].runs : empty;
+            const auto align = plan && cell < block.cells.size() ? detail::horizontalAlign(block.cells[cell].align)
+                                                                 : core::HorizontalAlign::Left;
+            height = std::max(height, plannedInlineLayout(runs, textWidth, style.bodySize, style.bodyLineHeight,
+                                                          plan && block.tableHeader, align, style, plan)
+                                          ->measuredHeight);
         }
         return height + style.tableCellPadding * 2.0f;
     }
@@ -1230,9 +1374,8 @@ private:
         return height;
     }
 
-    static float estimateBlockHeight(const detail::MarkdownBlock& block,
-                                     float width,
-                                     const MarkdownStyle& style) {
+    static float estimateBlockHeight(const detail::MarkdownBlock& block, float width, const MarkdownStyle& style,
+                                     ViewportLayout* plan = nullptr) {
         const float quoteInset = static_cast<float>(std::max(0, block.quoteDepth)) * 8.0f;
         const float listInset = static_cast<float>(std::max(0, block.listDepth - 1)) * style.listIndent;
         const float contentWidth = std::max(0.0f, width - quoteInset - listInset);
@@ -1250,7 +1393,8 @@ private:
         if (block.kind == detail::MarkdownBlockKind::ListItem) {
             const float markerWidth = block.task ? 34.0f : 24.0f;
             const float textWidth = std::max(0.0f, contentWidth - markerWidth - 8.0f);
-            return std::max(style.bodyLineHeight, estimateInlineRunsHeight(block.runs, textWidth, style.bodySize, style.bodyLineHeight, false, style));
+            return std::max(style.bodyLineHeight, estimateInlineRunsHeight(block.runs, textWidth, style.bodySize,
+                                                                           style.bodyLineHeight, false, style, plan));
         }
 
         const bool heading = block.kind == detail::MarkdownBlockKind::Heading;
@@ -1260,9 +1404,11 @@ private:
             const float barWidth = 3.0f;
             const float barGap = 8.0f;
             const float textWidth = std::max(0.0f, contentWidth - barWidth - barGap - style.quotePadding * 2.0f);
-            return estimateInlineRunsHeight(block.runs, textWidth, fontSize, lineHeight, heading, style) + style.quotePadding * 2.0f;
+            return estimateInlineRunsHeight(block.runs, textWidth, fontSize, lineHeight, heading, style, plan) +
+                   style.quotePadding * 2.0f;
         }
-        const float textHeight = estimateInlineRunsHeight(block.runs, contentWidth, fontSize, lineHeight, heading, style);
+        const float textHeight =
+            estimateInlineRunsHeight(block.runs, contentWidth, fontSize, lineHeight, heading, style, plan);
         return textHeight;
     }
 
@@ -1412,7 +1558,8 @@ private:
                             float lineHeight,
                             bool heading,
                             core::HorizontalAlign align = core::HorizontalAlign::Left) {
-        return cachedInlineLayout(runs, width, fontSize, lineHeight, heading, align, style_)->measuredHeight;
+        return plannedInlineLayout(runs, width, fontSize, lineHeight, heading, align, style_, activePlan_)
+            ->measuredHeight;
     }
 
     void renderInlineRuns(const std::string& partId,
@@ -1425,13 +1572,20 @@ private:
                            float x = 0.0f,
                            float y = 0.0f,
                            core::HorizontalAlign align = core::HorizontalAlign::Left) {
-        const std::shared_ptr<const InlineLayoutEntry> layout = cachedInlineLayout(
-            runs, width, fontSize, lineHeight, heading, align, style_);
+        const std::shared_ptr<const InlineLayoutEntry> layout =
+            plannedInlineLayout(runs, width, fontSize, lineHeight, heading, align, style_, activePlan_);
         ui_.stack(partId)
             .position(x, y)
             .size(width, height)
             .content([&] {
-                for (std::size_t index = 0; index < layout->segments.size(); ++index) {
+                auto first = layout->segments.begin();
+                if (activePlan_)
+                    first = std::lower_bound(first, layout->segments.end(),
+                                             viewportTop_ - viewportOverscan_ - activeBlockTop_ - y - lineHeight,
+                                             [](const auto& segment, float top) { return segment.y < top; });
+                for (auto it = first; it != layout->segments.end(); ++it) {
+                    if (activePlan_ && !viewportIntersects(activeBlockTop_ + y + it->y, lineHeight)) break;
+                    const auto index = static_cast<std::size_t>(it - layout->segments.begin());
                     renderInlineSegment(partId + ".seg." + std::to_string(index), layout->segments[index], fontSize, lineHeight, heading);
                 }
             })
@@ -1591,6 +1745,34 @@ private:
         const float quoteInset = static_cast<float>(std::max(0, first.quoteDepth)) * 8.0f;
         const float listInset = static_cast<float>(std::max(0, first.listDepth - 1)) * style_.listIndent;
         const float contentWidth = std::max(0.0f, width_ - quoteInset - listInset);
+        if (activePlan_ && activeBlock_) {
+            const auto& item = *activeBlock_;
+            ui_.stack(tableId)
+                .size(contentWidth, item.height)
+                .margin(quoteInset + listInset, 0, 0, 0)
+                .content([&] {
+                    const auto first = std::lower_bound(item.rows.begin() + 1, item.rows.end(),
+                        viewportTop_ - viewportOverscan_ - item.top);
+                    for (std::size_t row = begin + (first - item.rows.begin() - 1); row < end; ++row) {
+                        const auto index = row - begin;
+                        const float top = item.top + item.rows[index];
+                        if (top > viewportTop_ + viewportHeight_ + viewportOverscan_) break;
+                        const float height = item.rows[index + 1] - item.rows[index];
+                        if (!viewportIntersects(top, height)) continue;
+                        activeBlockTop_ = top;
+                        ui_.stack(tableId + ".viewport.row." + std::to_string(index))
+                            .position(0, item.rows[index])
+                            .size(contentWidth, height)
+                            .content([&] {
+                                renderTableRow(tableId + ".row." + std::to_string(index), blocks[row], contentWidth);
+                            })
+                            .build();
+                    }
+                })
+                .build();
+            activeBlockTop_ = item.top;
+            return;
+        }
         float tableHeight = 0.0f;
 
         for (std::size_t row = begin; row < end; ++row) {
@@ -1698,6 +1880,10 @@ private:
                          align);
     }
 
+    bool viewportEnabled_ = false;
+    float viewportTop_ = 0, viewportHeight_ = 0, viewportOverscan_ = 32, activeBlockTop_ = 0;
+    ViewportLayout* activePlan_ = nullptr;
+    const PositionedBlock* activeBlock_ = nullptr;
     core::dsl::Ui& ui_;
     std::string id_;
     std::string markdown_;

@@ -166,7 +166,7 @@ private:
 
     void setFocusedId(const std::string& id);
 
-    void updateScroll(const ScrollEvent& event, const std::string& targetId);
+    void updateScroll(const ScrollEvent& event, const std::string& targetId, float dpiScale);
 
     void updateTextInput(const TextInputEvent& event);
 
@@ -299,6 +299,8 @@ private:
     core::window::Handle imeCursorWindow_ = nullptr;
     Rect imeCursorRect_;
     bool imeCursorRectValid_ = false;
+    bool touchScrollMoved_ = false;
+    double touchScrollDistance_ = 0.0;
 };
 
 } // namespace core::dsl

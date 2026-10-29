@@ -462,7 +462,7 @@ void composeContent(eui::Ui& ui, float width, float height) {
 
 const DslAppConfig& dslAppConfig() {
     static DslAppConfig config = DslAppConfig{}
-        .title("EUI Gallery")
+        .title("eui-neo")
         .pageId("gallery")
         .clearColor({0.07f, 0.08f, 0.10f, 1.0f})
         .windowSize(1600, 1100)

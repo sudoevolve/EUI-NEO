@@ -173,15 +173,18 @@ void compose(eui::Ui& ui, const eui::Screen& screen) {
                         .scrollbarGap(20.0f)
                         .onChange([&viewer](float value) {
                             viewer.scrollOffset = value;
+                            app::requestUpdate();
                         })
                         .content([&](eui::Ui& contentUi, float contentWidth, float) {
-                            components::markdown(contentUi, "markdown")
+                            auto markdown = components::markdown(contentUi, "markdown")
                                 .theme(tokens)
                                 .width(contentWidth)
                                 .wrapContentHeight()
                                 .markdown(markdownSample())
-                                .zIndex(1)
-                                .build();
+                                .zIndex(1);
+                            if (const auto* viewport = contentUi.find("markdown.scroll"))
+                                markdown.viewport(viewport->scrollOffset, viewportHeight);
+                            markdown.build();
                         })
                         .build();
                 })

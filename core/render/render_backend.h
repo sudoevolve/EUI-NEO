@@ -32,6 +32,8 @@ struct TextAtlasPageData {
     TextAtlasPageKind kind = TextAtlasPageKind::Gray;
     int width = 0;
     int height = 0;
+    int usedWidth = 0;
+    int usedHeight = 0;
     int channels = 0;
     std::uint64_t generation = 0;
     const unsigned char* pixels = nullptr;

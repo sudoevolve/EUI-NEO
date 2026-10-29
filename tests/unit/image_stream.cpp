@@ -91,6 +91,41 @@ int main() {
         }
     }
 
+    // Non-tight rows must ignore padding and preserve straight alpha byte-for-byte.
+    // The last column is transparent, matching images where the historical bug
+    // erased all visible columns despite convertToRgba8 returning true.
+    for (const auto format : {core::render::ImagePixelFormat::RGBA8,
+                              core::render::ImagePixelFormat::BGRA8}) {
+        const std::vector<std::uint8_t> expected{
+            1, 2, 3, 255, 4, 5, 6, 128, 7, 8, 9, 0,
+            10, 11, 12, 64, 13, 14, 15, 255, 16, 17, 18, 0};
+        std::vector<std::uint8_t> padded(32, 0xee);
+        for (std::size_t y = 0; y < 2; ++y) {
+            for (std::size_t x = 0; x < 3; ++x) {
+                const auto input = (y * 3 + x) * 4;
+                const auto output = y * 16 + x * 4;
+                const bool bgra = format == core::render::ImagePixelFormat::BGRA8;
+                padded[output] = expected[input + (bgra ? 2 : 0)];
+                padded[output + 1] = expected[input + 1];
+                padded[output + 2] = expected[input + (bgra ? 0 : 2)];
+                padded[output + 3] = expected[input + 3];
+            }
+        }
+        const core::render::ImageFrame frame{
+            std::make_shared<const std::vector<std::uint8_t>>(padded), 3, 2, 16, format, 8};
+        converted.assign(64, 0xaa); // reuse an output buffer, including truncation
+        if (!frame.convertToRgba8(converted) || converted != expected || *frame.pixels != padded) {
+            return 1;
+        }
+        if (!stream->submit(frame)) {
+            return 1;
+        }
+        const auto consumed = stream->consumeLatest();
+        if (!consumed || !consumed->convertToRgba8(converted) || converted != expected) {
+            return 1;
+        }
+    }
+
     const auto nv12Y = bytes({128});
     const auto nv12UV = bytes({128, 128});
     core::render::ImageFrame nv12{nv12Y, 1, 1, 1, core::render::ImagePixelFormat::NV12, 0,

@@ -248,7 +248,7 @@ inline void Runtime::setFocusedId(const std::string& id) {
     paintRequested_ = true;
 }
 
-inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& targetId) {
+inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& targetId, float dpiScale) {
     const Element* element = targetId.empty() ? nullptr : ui_.find(targetId);
     const std::string activeScrollStateId = element != nullptr && !element->disabled
         ? element->scrollStateId
@@ -261,7 +261,18 @@ inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& t
 
     if (element != nullptr) {
         if (!element->scrollStateId.empty() && !element->disabled) {
-            applyRuntimeScroll(*element, -static_cast<float>(event.y) * scrollStepFor(*element));
+            if (event.pixelY != 0.0) {
+                auto state = instances_.scrollStates.find(element->scrollStateId);
+                if (state != instances_.scrollStates.end()) {
+                    state->second.velocity = 0.0f;
+                    setScrollOffset(element->scrollStateId,
+                                    state->second.offset - static_cast<float>(event.pixelY /
+                                                                              (dpiScale > 0.0f ? dpiScale : 1.0f)));
+                }
+            }
+            if (event.y != 0.0) {
+                applyRuntimeScroll(*element, -static_cast<float>(event.y) * scrollStepFor(*element));
+            }
             return;
         }
         if (element->onScroll && !element->disabled) {
@@ -462,7 +473,8 @@ inline void Runtime::updateInteraction(
         paintRequested_ = true;
     }
 
-    if (enabled && instance.state.clicked && element.onClick) {
+    if (enabled && instance.state.clicked && element.onClick &&
+        !(event.touch && touchScrollMoved_)) {
         element.onClick();
         composeRequested_ = true;
         paintRequested_ = true;

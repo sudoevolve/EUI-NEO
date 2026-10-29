@@ -33,6 +33,7 @@
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -163,6 +164,9 @@ Uint32 windowIdForEvent(const SDL_Event& event) {
     case SDL_MOUSEMOTION: return event.motion.windowID;
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP: return event.button.windowID;
+    case SDL_FINGERDOWN:
+    case SDL_FINGERMOTION:
+    case SDL_FINGERUP: return event.tfinger.windowID;
     default: return 0;
     }
 }
@@ -274,12 +278,110 @@ core::PointerButton pointerButton(Uint8 button) {
     }
 }
 
+struct TouchState {
+    SDL_TouchID device = 0;
+    SDL_FingerID id = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    bool active = false;
+};
+
+std::unordered_map<SDL_Window*, TouchState>& touchStates() {
+    static std::unordered_map<SDL_Window*, TouchState> states;
+    return states;
+}
+
+bool touchPosition(SDL_Window* window, float normalizedX, float normalizedY, double& x, double& y) {
+    int width = 0;
+    int height = 0;
+    SDL_GetWindowSize(window, &width, &height);
+    if (width <= 0 || height <= 0) {
+        return false;
+    }
+    x = static_cast<double>(normalizedX) * width;
+    y = static_cast<double>(normalizedY) * height;
+    return true;
+}
+
 bool processInputEvent(SDL_Window* window,
                        const SDL_Event& event,
                        bool inputEnabled,
                        bool& repaintRequested) {
     repaintRequested = false;
     switch (event.type) {
+    case SDL_FINGERDOWN: {
+        if (!inputEnabled) {
+            touchStates().erase(window);
+            core::cancelInput(window);
+            return true;
+        }
+        TouchState& touch = touchStates()[window];
+        if (touch.active) {
+            return true;
+        }
+        double x = 0.0;
+        double y = 0.0;
+        if (!touchPosition(window, event.tfinger.x, event.tfinger.y, x, y)) {
+            return true;
+        }
+        touch = {event.tfinger.touchId, event.tfinger.fingerId,
+                 event.tfinger.x, event.tfinger.y, true};
+        core::queuePointerButton(window, x, y, core::PointerButton::Left,
+                                 core::PointerAction::Press,
+                                 core::detail::currentModifiers(window), true);
+        repaintRequested = true;
+        return true;
+    }
+    case SDL_FINGERMOTION: {
+        if (!inputEnabled) {
+            touchStates().erase(window);
+            core::cancelInput(window);
+            return true;
+        }
+        auto state = touchStates().find(window);
+        if (state == touchStates().end() || !state->second.active ||
+            state->second.device != event.tfinger.touchId ||
+            state->second.id != event.tfinger.fingerId) {
+            return true;
+        }
+        const float previousX = state->second.x;
+        const float previousY = state->second.y;
+        state->second.x = event.tfinger.x;
+        state->second.y = event.tfinger.y;
+        double x = 0.0;
+        double y = 0.0;
+        if (touchPosition(window, state->second.x, state->second.y, x, y)) {
+            int width = 0;
+            int height = 0;
+            SDL_GetWindowSize(window, &width, &height);
+            const float scale = pointerScale(window);
+            core::queueTouchScrollInput(window,
+                                        static_cast<double>(state->second.x - previousX) * width * scale,
+                                        static_cast<double>(state->second.y - previousY) * height * scale);
+            core::queuePointerMotion(window, x, y, core::PointerButton::Left,
+                                     core::detail::currentModifiers(window), true);
+            repaintRequested = true;
+        }
+        return true;
+    }
+    case SDL_FINGERUP: {
+        auto state = touchStates().find(window);
+        if (state != touchStates().end() && state->second.device == event.tfinger.touchId &&
+            state->second.id == event.tfinger.fingerId) {
+            double x = 0.0;
+            double y = 0.0;
+            if (inputEnabled && touchPosition(window, event.tfinger.x, event.tfinger.y, x, y)) {
+                core::queuePointerButton(window, x, y, core::PointerButton::Left,
+                                         core::PointerAction::Release,
+                                         core::detail::currentModifiers(window), true);
+            } else if (inputEnabled) {
+                core::cancelPointerInput(window);
+            }
+            touchStates().erase(state);
+        }
+        repaintRequested = inputEnabled;
+        return true;
+    }
     case SDL_MOUSEMOTION:
         core::queuePointerMotion(window,
                                  event.motion.x,
@@ -357,6 +459,7 @@ bool processInputEvent(SDL_Window* window,
             event.window.event == SDL_WINDOWEVENT_MINIMIZED ||
             event.window.event == SDL_WINDOWEVENT_CLOSE) {
             core::cancelInput(window);
+            touchStates().erase(window);
         }
         return false;
     default:
@@ -492,6 +595,7 @@ void destroyManagedWindow(std::unique_ptr<ManagedWindow>& managed) {
             managed->renderBackend->releaseRenderCache();
         }
         core::releaseInputQueue(managed->window);
+        touchStates().erase(managed->window);
         if (managed->renderBackend) {
             core::render::ScopedRenderBackend scopedRenderBackend(*managed->renderBackend);
             managed->content.shutdown(false);
@@ -619,6 +723,8 @@ int eui_app_run() {
     SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
     SDL_SetHint(SDL_HINT_IME_INTERNAL_EDITING, "1");
 #endif
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+    SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
         return -1;
     }
@@ -792,6 +898,7 @@ int eui_app_run() {
 
     childWindows.destroyAll(destroyManagedWindow);
     core::releaseInputQueue(window);
+    touchStates().erase(window);
     core::platform::shutdownTray();
     renderBackend->makeCurrent();
     renderBackend->releaseRenderCache();
