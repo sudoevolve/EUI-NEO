@@ -18,10 +18,12 @@
 #endif
 #endif
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 #ifdef _WIN32
@@ -44,7 +46,8 @@ void pumpEvents() {
 #endif
 }
 
-void checkDisplayedPixel(core::window::Handle window, int x, int y) {
+void checkDisplayedPixel(core::window::Handle window, int x, int y,
+                         std::array<int, 3> expected = {255, 0, 0}) {
 #if defined(EUI_WINDOW_BACKEND_SDL2)
     const auto native = core::window::nativeWindowInfo(window);
     const HWND handle = static_cast<HWND>(native.platformWindow);
@@ -65,10 +68,14 @@ void checkDisplayedPixel(core::window::Handle window, int x, int y) {
         DeleteObject(bitmap);
         DeleteDC(capture);
         ReleaseDC(handle, dc);
-        if (GetRValue(pixel) > 220 && GetGValue(pixel) < 30 && GetBValue(pixel) < 30)
+        if (std::abs(int(GetRValue(pixel)) - expected[0]) <= 2 &&
+            std::abs(int(GetGValue(pixel)) - expected[1]) <= 2 &&
+            std::abs(int(GetBValue(pixel)) - expected[2]) <= 2)
             return;
     }
-    require(false, "Vulkan plot triangle was not visible in the window capture");
+    std::cerr << "pixel (" << x << ',' << y << ") actual " << int(GetRValue(pixel)) << ','
+              << int(GetGValue(pixel)) << ',' << int(GetBValue(pixel)) << '\n';
+    require(false, "Vulkan displayed pixel differs from expected output");
 }
 #endif
 } // namespace
@@ -103,6 +110,10 @@ int main() {
         core::render::ScopedRenderBackend scope(*backend);
         core::dsl::Runtime runtime;
         require(runtime.initialize(window), "runtime initialization");
+        struct Shutdown {
+            core::dsl::Runtime& runtime;
+            ~Shutdown() { runtime.shutdown(false); }
+        } shutdown{runtime};
         modules::plot::Renderer renderer;
         modules::plot::Batch triangle{{{4, 4}, {52, 4}, {4, 36}}, {1, 0, 0, 1}};
         renderer.render({triangle}, 64, 48, 1);
@@ -121,8 +132,68 @@ int main() {
         require(renderer.image()->descriptor().width == 80, "2D plot resize did not recreate image");
         require(renderer.image()->descriptor().imageView != firstView,
             "plot resize reused an incompatible Vulkan image");
+        VkPhysicalDeviceProperties properties{};
+        vkGetPhysicalDeviceProperties(
+            reinterpret_cast<VkPhysicalDevice>(backend->gpuDeviceInfo().physicalDevice), &properties);
+        std::cout << "Vulkan device: " << properties.deviceName << " API "
+                  << VK_VERSION_MAJOR(properties.apiVersion) << '.' << VK_VERSION_MINOR(properties.apiVersion)
+                  << " maxImageDimension2D " << properties.limits.maxImageDimension2D << '\n';
+        if (properties.limits.maxImageDimension2D < 32768) {
+            const auto width = properties.limits.maxImageDimension2D + 1;
+            bool rejected = false;
+            try {
+                renderer.uploadRgba(width, 1, std::vector<std::uint8_t>(std::size_t(width) * 4));
+            } catch (const std::length_error&) {
+                rejected = true;
+            }
+            require(rejected, "device image limit not rejected before Vulkan allocation");
+        }
+        const auto stableView = renderer.image()->descriptor().imageView;
+        const auto stableRevision = renderer.revision();
+        bool tinyRejected = false;
+        try {
+            renderer.render({}, std::numeric_limits<double>::denorm_min(), 1,
+                            std::numeric_limits<double>::denorm_min());
+        } catch (const std::invalid_argument&) {
+            tinyRejected = true;
+        }
+        require(tinyRejected, "underflowed physical image dimensions accepted");
+        bool rejected = false;
+        try {
+            renderer.render({{{{0, 0}}, {1, 0, 0, 1}}}, 80, 48);
+        } catch (const std::invalid_argument&) {
+            rejected = true;
+        }
+        require(rejected && renderer.revision() == stableRevision &&
+                    renderer.image()->descriptor().imageView == stableView,
+                "invalid batch changed committed renderer state");
+        for (int i = 0; i < 64; ++i) {
+            modules::plot::Renderer temporary;
+            temporary.render({triangle}, 64 + (i % 3), 48, 1);
+            auto retained = temporary.image();
+            temporary.release();
+            require(retained->valid(), "released renderer invalidated retained image");
+            retained.reset();
+        }
 
         modules::plot::Plot3D spatial;
+        modules::plot::Renderer pixels;
+        std::vector<std::uint8_t> rgba(16 * 16 * 4);
+        for (int y = 0; y < 16; ++y)
+            for (int x = 0; x < 16; ++x) {
+                const auto p = (y * 16 + x) * 4;
+                rgba[p + 1] = y < 8 ? 255 : 0;
+                rgba[p + 2] = y < 8 ? 0 : 255;
+                rgba[p + 3] = 255;
+            }
+        pixels.uploadRgba(16, 16, rgba);
+        const auto pixelsView = pixels.image()->descriptor().imageView;
+        pixels.uploadRgba(16, 16, rgba);
+        require(pixels.image()->descriptor().imageView == pixelsView,
+                "same-size RGBA upload recreated image");
+        modules::plot::Renderer alpha;
+        modules::plot::Batch square{{{0, 0}, {16, 0}, {16, 16}, {0, 0}, {16, 16}, {0, 16}}, {1, 0, 0, .5f}};
+        alpha.render({square}, 16, 16, 1);
         auto geometry = std::make_shared<modules::plot::Geometry3D>();
         geometry->positions = {{-1, -1, 0}, {1, -1, 0}, {0, 1, 0}};
         geometry->triangles = {{0, 1, 2}};
@@ -138,6 +209,18 @@ int main() {
                 .position(4, 4)
                 .size(80, 48)
                 .texture(renderer.image(), renderer.revision())
+                .flipVertically()
+                .build();
+            ui.image("plot-vulkan.rows")
+                .position(4, 64)
+                .size(16, 16)
+                .texture(pixels.image(), pixels.revision())
+                .build();
+            ui.image("plot-vulkan.alpha")
+                .position(32, 64)
+                .size(16, 16)
+                .texture(alpha.image(), alpha.revision())
+                .flipVertically()
                 .build();
             ui.stack("plot-vulkan.spatial-wrapper")
                 .position(90, 8)
@@ -152,12 +235,41 @@ int main() {
         require(vkDeviceWaitIdle(reinterpret_cast<VkDevice>(backend->gpuDeviceInfo().device)) == VK_SUCCESS,
             "wait for presented plot frame");
     #ifdef _WIN32
-        checkDisplayedPixel(window, 14, 41);
-    #endif
+        checkDisplayedPixel(window, 14, 14);
+        checkDisplayedPixel(window, 10, 66, {0, 255, 0});
+        checkDisplayedPixel(window, 10, 77, {0, 0, 255});
+        checkDisplayedPixel(window, 36, 68, {133, 7, 9});
+        checkDisplayedPixel(window, 36, 69, {133, 7, 9});
+#endif
         require(image->valid(), "imported plot image lost its resource owner");
+        // 已呈现图像再次上传，覆盖同队列读取到下一次写入的同步与内容失效。
+        for (int frame = 0; frame < 4; ++frame) {
+            for (std::size_t p = 0; p < rgba.size(); p += 4) {
+                rgba[p] = frame % 2 ? 255 : 0;
+                rgba[p + 1] = frame % 2 ? 0 : 255;
+                rgba[p + 2] = 0;
+            }
+            pixels.uploadRgba(16, 16, rgba);
+            runtime.compose("plot-vulkan", 160, 120, [&](core::dsl::Ui& ui, const core::dsl::Screen&) {
+                ui.image("plot-vulkan.rows")
+                    .position(4, 64)
+                    .size(16, 16)
+                    .texture(pixels.image(), pixels.revision())
+                    .build();
+            });
+            runtime.update(window, 0.f, 1.f, 1.f, false);
+            backend->beginFrame({window, core::window::nativeWindowInfo(window), 160, 120, 1.f});
+            runtime.render(160, 120, 1.f, {0, 0, 0, 1});
+            backend->present();
+#ifdef _WIN32
+            checkDisplayedPixel(window, 10, 66,
+                                frame % 2 ? std::array<int, 3>{255, 0, 0} : std::array<int, 3>{0, 255, 0});
+#endif
+        }
         spatial.releaseGpu();
+        pixels.release();
+        alpha.release();
         renderer.release();
-        runtime.shutdown(false);
         std::cout << "Vulkan 2D upload/revision/resize and 3D CPU fallback composition passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

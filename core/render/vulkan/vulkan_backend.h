@@ -202,10 +202,8 @@ private:
     bool applyDrawViewportAndScissor(int windowWidth, int windowHeight);
     void writeColor(float (&target)[4], const core::Color& color);
     VkShaderModule createShaderModule(VkDevice device, const std::uint32_t* code, std::size_t codeSize);
-    void transitionImageLayout(VkCommandBuffer commandBuffer,
-                               VkImage image,
-                               VkImageLayout oldLayout,
-                               VkImageLayout newLayout);
+    void transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout oldLayout,
+                               VkImageLayout newLayout, VkPipelineStageFlags sourceStage = 0);
     bool updateShaderToyTexture(TextureResource& texture,
                                 const unsigned char* pixels,
                                 int width,

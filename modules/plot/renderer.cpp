@@ -1,4 +1,5 @@
 #include "modules/plot/renderer.h"
+#include "modules/plot/software_raster.h"
 
 #include <algorithm>
 #include <array>
@@ -215,6 +216,11 @@ std::shared_ptr<VulkanTexture> createVulkanTexture(const eui::GpuDeviceInfo& inf
     if (texture->device == VK_NULL_HANDLE || texture->physicalDevice == VK_NULL_HANDLE ||
         texture->queue == VK_NULL_HANDLE)
         throw std::runtime_error("plot: Vulkan device information is incomplete");
+    VkPhysicalDeviceProperties deviceProperties{};
+    vkGetPhysicalDeviceProperties(texture->physicalDevice, &deviceProperties);
+    if (width > deviceProperties.limits.maxImageDimension2D ||
+        height > deviceProperties.limits.maxImageDimension2D)
+        throw std::length_error("plot: Vulkan image dimension limit exceeded");
 
     VkFormatProperties formatProperties{};
     vkGetPhysicalDeviceFormatProperties(texture->physicalDevice, VK_FORMAT_R8G8B8A8_UNORM,
@@ -302,21 +308,12 @@ void ensureStaging(VulkanTexture& texture, VkDeviceSize required) {
     texture.stagingCapacity = requirements.size;
 }
 
-void uploadVulkanTexture(VulkanTexture& texture, const std::uint8_t* rgba, std::size_t byteCount,
-                         bool flipRows) {
+void uploadVulkanTexture(VulkanTexture& texture, const std::uint8_t* rgba, std::size_t byteCount) {
     ensureStaging(texture, static_cast<VkDeviceSize>(byteCount));
     void* mapped = nullptr;
     checkVk(vkMapMemory(texture.device, texture.stagingMemory, 0, texture.stagingCapacity, 0, &mapped),
             "staging memory map");
-    if (flipRows) {
-        auto* destination = static_cast<std::uint8_t*>(mapped);
-        const std::size_t rowBytes = static_cast<std::size_t>(texture.width) * 4;
-        for (std::uint32_t row = 0; row < texture.height; ++row)
-            std::memcpy(destination + static_cast<std::size_t>(texture.height - 1 - row) * rowBytes,
-                        rgba + static_cast<std::size_t>(row) * rowBytes, rowBytes);
-    } else {
-        std::memcpy(mapped, rgba, byteCount);
-    }
+    std::memcpy(mapped, rgba, byteCount);
     if ((texture.stagingProperties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
         VkMappedMemoryRange range{VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE};
         range.memory = texture.stagingMemory;
@@ -393,82 +390,6 @@ std::uint64_t imageViewHandle(VkImageView view) {
     return result;
 }
 
-std::vector<std::uint8_t> rasterize(const std::vector<Batch>& batches, int width, int height, double dpi) {
-    const std::size_t pixels = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
-    std::vector<std::uint8_t> rgba(pixels * 4);
-    for (std::size_t index = 0; index < pixels; ++index) {
-        rgba[index * 4] = 10;
-        rgba[index * 4 + 1] = 13;
-        rgba[index * 4 + 2] = 18;
-        rgba[index * 4 + 3] = 255;
-    }
-    const auto edge = [](double ax, double ay, double bx, double by, double x, double y) {
-        return (x - ax) * (by - ay) - (y - ay) * (bx - ax);
-    };
-    for (const auto& batch : batches) {
-        const double alpha = batch.color[3];
-        if (alpha <= 0)
-            continue;
-        const double inverseAlpha = 1.0 - alpha;
-        const double sourceRed = batch.color[0] * alpha * 255.0;
-        const double sourceGreen = batch.color[1] * alpha * 255.0;
-        const double sourceBlue = batch.color[2] * alpha * 255.0;
-        for (std::size_t triangle = 0; triangle < batch.vertices.size(); triangle += 3) {
-            const auto& a = batch.vertices[triangle];
-            const auto& b = batch.vertices[triangle + 1];
-            const auto& c = batch.vertices[triangle + 2];
-            const double ax = double(a.x) * dpi, ay = double(a.y) * dpi;
-            const double bx = double(b.x) * dpi, by = double(b.y) * dpi;
-            const double cx = double(c.x) * dpi, cy = double(c.y) * dpi;
-            const double area = edge(ax, ay, bx, by, cx, cy);
-            if (std::abs(area) < 1e-12)
-                continue;
-            const double orientation = area > 0 ? 1.0 : -1.0;
-            const double edgeTolerance = std::abs(area) * 1e-9;
-            const int left = static_cast<int>(std::clamp(std::floor(std::min({ax, bx, cx})), 0.0,
-                                                         double(width - 1)));
-            const int right = static_cast<int>(std::clamp(std::ceil(std::max({ax, bx, cx})), 0.0,
-                                                            double(width)));
-            const int top = static_cast<int>(std::clamp(std::floor(std::min({ay, by, cy})), 0.0,
-                                                        double(height - 1)));
-            const int bottom = static_cast<int>(std::clamp(std::ceil(std::max({ay, by, cy})), 0.0,
-                                                           double(height)));
-            const double startX = left + 0.5;
-            const double startY = top + 0.5;
-            double rowEdge0 = orientation * edge(bx, by, cx, cy, startX, startY);
-            double rowEdge1 = orientation * edge(cx, cy, ax, ay, startX, startY);
-            double rowEdge2 = orientation * edge(ax, ay, bx, by, startX, startY);
-            const double edge0StepX = orientation * (cy - by);
-            const double edge1StepX = orientation * (ay - cy);
-            const double edge2StepX = orientation * (by - ay);
-            const double edge0StepY = orientation * (bx - cx);
-            const double edge1StepY = orientation * (cx - ax);
-            const double edge2StepY = orientation * (ax - bx);
-            for (int y = top; y < bottom; ++y) {
-                double e0 = rowEdge0;
-                double e1 = rowEdge1;
-                double e2 = rowEdge2;
-                for (int x = left; x < right; ++x) {
-                    if (e0 >= -edgeTolerance && e1 >= -edgeTolerance && e2 >= -edgeTolerance) {
-                        const std::size_t offset = (static_cast<std::size_t>(y) * width + x) * 4;
-                        rgba[offset] = static_cast<std::uint8_t>(sourceRed + rgba[offset] * inverseAlpha + 0.5);
-                        rgba[offset + 1] =
-                            static_cast<std::uint8_t>(sourceGreen + rgba[offset + 1] * inverseAlpha + 0.5);
-                        rgba[offset + 2] =
-                            static_cast<std::uint8_t>(sourceBlue + rgba[offset + 2] * inverseAlpha + 0.5);
-                    }
-                    e0 += edge0StepX;
-                    e1 += edge1StepX;
-                    e2 += edge2StepX;
-                }
-                rowEdge0 += edge0StepY;
-                rowEdge1 += edge1StepY;
-                rowEdge2 += edge2StepY;
-            }
-        }
-    }
-    return rgba;
-}
 } // namespace
 #endif
 
@@ -571,7 +492,7 @@ void Renderer::uploadRgba(std::uint32_t width, std::uint32_t height, const std::
         impl_->image->descriptor().width != static_cast<int>(width) ||
         impl_->image->descriptor().height != static_cast<int>(height);
     auto texture = recreate ? createVulkanTexture(device, width, height) : impl_->vulkanTexture;
-    uploadVulkanTexture(*texture, rgba.data(), rgba.size(), true);
+    uploadVulkanTexture(*texture, rgba.data(), rgba.size());
     if (recreate) {
         eui::GpuImageDescriptor descriptor;
         descriptor.device = device;
@@ -599,7 +520,7 @@ void Renderer::render(const std::vector<Batch>& batches, double width, double he
     if (impl_->device && impl_->device != device.identity)
         throw std::runtime_error("plot: renderer cannot cross window devices");
     if (!std::isfinite(width) || !std::isfinite(height) || !std::isfinite(dpi) || width <= 0 || height <= 0 ||
-        dpi <= 0 || width * dpi > 32768 || height * dpi > 32768)
+        dpi <= 0 || width * dpi <= 0 || height * dpi <= 0 || width * dpi > 32768 || height * dpi > 32768)
         throw std::invalid_argument("plot: invalid render dimensions");
     const int pixelsX = static_cast<int>(std::ceil(width * dpi));
     const int pixelsY = static_cast<int>(std::ceil(height * dpi));
@@ -718,7 +639,7 @@ void Renderer::render(const std::vector<Batch>& batches, double width, double he
         (impl_->device && impl_->device != device.identity))
         throw std::runtime_error("plot: render requires the owning Vulkan device");
     if (!std::isfinite(width) || !std::isfinite(height) || !std::isfinite(dpi) || width <= 0 || height <= 0 ||
-        dpi <= 0 || width * dpi > 32768 || height * dpi > 32768)
+        dpi <= 0 || width * dpi <= 0 || height * dpi <= 0 || width * dpi > 32768 || height * dpi > 32768)
         throw std::invalid_argument("plot: invalid render dimensions");
     const int pixelsX = static_cast<int>(std::ceil(width * dpi));
     const int pixelsY = static_cast<int>(std::ceil(height * dpi));
@@ -739,7 +660,8 @@ void Renderer::render(const std::vector<Batch>& batches, double width, double he
             if (!std::isfinite(vertex.x) || !std::isfinite(vertex.y))
                 throw std::invalid_argument("plot: nonfinite vertex");
     }
-    auto rgba = rasterize(batches, pixelsX, pixelsY, dpi);
+    // 二维离屏图沿用 OpenGL 的下起点纹理；直接 uploadRgba 则保留左上起点输入。
+    auto rgba = detail::rasterize(batches, pixelsX, pixelsY, dpi, true);
     uploadRgba(static_cast<std::uint32_t>(pixelsX), static_cast<std::uint32_t>(pixelsY), rgba);
 #else
     (void)batches;
