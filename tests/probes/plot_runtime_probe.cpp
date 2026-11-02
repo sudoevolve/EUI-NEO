@@ -143,11 +143,16 @@ int main() {
                                    renderer.image()->descriptor().texture, 0);
             std::vector<unsigned char> heatmapPixels(100 * 100 * 4);
             glReadPixels(0, 0, 100, 100, GL_RGBA, GL_UNSIGNED_BYTE, heatmapPixels.data());
-            std::size_t colorbarRed = 0;
-            for (std::size_t row = 0; row < 100; ++row)
-                for (std::size_t column = 80; column < 90; ++column)
-                    colorbarRed += heatmapPixels[(row * 100 + column) * 4] > 230;
-            require(colorbarRed > 0, "colorbar produced no high color pixels");
+            for (std::size_t segment = 0; segment < 8; ++segment) {
+                const double fraction = (segment + .5) / 8;
+                const auto expected = heatmapScale.map(fraction);
+                const auto row = static_cast<std::size_t>(fraction * 100);
+                const auto offset = (row * 100 + 85) * 4;
+                for (std::size_t channel = 0; channel < 4; ++channel)
+                    require(std::abs(int(heatmapPixels[offset + channel]) -
+                                     int(std::lround(expected[channel] * 255))) <= 1,
+                            "colorbar pixel differs from mapped segment color");
+            }
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
             glDeleteFramebuffers(1, &readback);
             Axes fieldAxes;

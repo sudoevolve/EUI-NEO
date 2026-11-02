@@ -5,11 +5,13 @@
 #include FT_FREETYPE_H
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <locale>
 #include <sstream>
 #include <stdexcept>
 
@@ -23,6 +25,14 @@ void validateScene(const ExportScene& scene) {
             if (!std::isfinite(c) || c < 0 || c > 1) throw std::invalid_argument("plot: invalid export color");
     };
     validColor(scene.background);
+    for (const auto& path : scene.paths) {
+        validColor(path.color);
+        if (!std::isfinite(path.lineWidth) || path.lineWidth < 0)
+            throw std::invalid_argument("plot: invalid export line width");
+        for (const auto point : path.points)
+            if (!std::isfinite(point.x) || !std::isfinite(point.y))
+                throw std::invalid_argument("plot: invalid export path coordinate");
+    }
     for (const auto& text : scene.texts) {
         validColor(text.color);
         if (!std::isfinite(text.fontSize) || text.fontSize <= 0 || !std::isfinite(text.position.x) || !std::isfinite(text.position.y))
@@ -74,8 +84,38 @@ std::string escapePdf(const std::string& value) {
     }
     return result;
 }
+std::string pdfNumber(double value) {
+    if (!std::isfinite(value))
+        throw std::invalid_argument("plot: unrepresentable PDF coordinate");
+    char buffer[64];
+    const auto end = std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::general,
+                                   std::numeric_limits<double>::max_digits10);
+    if (end.ec != std::errc{})
+        throw std::runtime_error("plot: PDF number serialization failed");
+    std::string result(buffer, end.ptr);
+    const auto e = result.find('e');
+    if (e == std::string::npos)
+        return result;
+    const int exponent = std::stoi(result.substr(e + 1));
+    std::string digits = result.substr(0, e);
+    const std::string sign = digits.front() == '-' ? "-" : "";
+    if (!sign.empty())
+        digits.erase(0, 1);
+    const auto dot = digits.find('.');
+    const int point = static_cast<int>(dot == std::string::npos ? digits.size() : dot) + exponent;
+    if (dot != std::string::npos)
+        digits.erase(dot, 1);
+    // PDF 不允许指数记法；展开十进制点而不是固定小数位截断微小坐标。
+    if (point <= 0)
+        return sign + "0." + std::string(-point, '0') + digits;
+    if (point >= static_cast<int>(digits.size()))
+        return sign + digits + std::string(point - digits.size(), '0');
+    digits.insert(static_cast<std::size_t>(point), 1, '.');
+    return sign + digits;
+}
 std::string color(std::array<float, 4> value) {
     std::ostringstream stream;
+    stream.imbue(std::locale::classic());
     stream << "rgb(" << int(std::clamp(value[0], 0.f, 1.f) * 255) << "," << int(std::clamp(value[1], 0.f, 1.f) * 255)
            << "," << int(std::clamp(value[2], 0.f, 1.f) * 255) << ")";
     return stream.str();
@@ -101,6 +141,8 @@ void writeSvg(const ExportScene& scene, const std::string& filename) {
     validateScene(scene);
     std::ofstream file(filename, std::ios::binary);
     checkFile(file, "plot: cannot open SVG output");
+    file.imbue(std::locale::classic());
+    file << std::setprecision(std::numeric_limits<double>::max_digits10);
     file << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << scene.width << "\" height=\"" << scene.height
          << "\" viewBox=\"0 0 " << scene.width << " " << scene.height << "\">\n";
     file << "<rect width=\"100%\" height=\"100%\" fill=\"" << color(scene.background)
@@ -115,41 +157,56 @@ void writeSvg(const ExportScene& scene, const std::string& filename) {
         for (std::size_t index = 1; index < path.points.size(); ++index)
             file << " L " << path.points[index].x << " " << path.points[index].y;
         if (path.closed) file << " Z";
-        file << "\" fill=\"" << (path.filled ? color(path.color) : "none") << "\" stroke=\"" << color(path.color)
-             << "\" stroke-width=\"" << path.lineWidth << "\"/>\n";
+        file << "\" fill=\"" << (path.filled ? color(path.color) : "none") << "\" stroke=\""
+             << color(path.color) << "\" stroke-width=\"" << path.lineWidth << "\" opacity=\""
+             << path.color[3] << "\"/>\n";
     }
     for (const auto& text : scene.texts)
-        file << "<text x=\"" << text.position.x << "\" y=\"" << text.position.y << "\" font-size=\"" << text.fontSize
-             << "\" fill=\"" << color(text.color) << "\">" << escapeXml(text.text) << "</text>\n";
+        file << "<text x=\"" << text.position.x << "\" y=\"" << text.position.y << "\" font-size=\""
+             << text.fontSize << "\" fill=\"" << color(text.color) << "\" fill-opacity=\"" << text.color[3]
+             << "\">" << escapeXml(text.text) << "</text>\n";
     file << "</svg>\n";
     checkFile(file, "plot: failed writing SVG output");
 }
 void writePdf(const ExportScene& scene, const std::string& filename) {
     validateScene(scene);
     std::ostringstream content;
-    content << "q /Background gs " << scene.background[0] << " " << scene.background[1] << " " << scene.background[2] << " rg 0 0 "
-            << scene.width << " " << scene.height << " re f Q\n";
+    content.imbue(std::locale::classic());
+    content << "q /Background gs " << pdfNumber(scene.background[0]) << " " << pdfNumber(scene.background[1])
+            << " " << pdfNumber(scene.background[2]) << " rg 0 0 " << pdfNumber(scene.width) << " "
+            << pdfNumber(scene.height) << " re f Q\n";
     for (std::size_t i = 0; i < scene.rasters.size(); ++i) {
         const auto& r = scene.rasters[i];
-        content << "q " << r.width << " 0 0 " << r.height << " " << r.position.x << " "
-                << scene.height - r.position.y - r.height << " cm /Im" << i << " Do Q\n";
+        content << "q " << pdfNumber(r.width) << " 0 0 " << pdfNumber(r.height) << " "
+                << pdfNumber(r.position.x) << " " << pdfNumber(scene.height - r.position.y - r.height)
+                << " cm /Im" << i << " Do Q\n";
     }
-    for (const auto& path : scene.paths) {
+    for (std::size_t i = 0; i < scene.paths.size(); ++i) {
+        const auto& path = scene.paths[i];
         if (path.points.empty()) continue;
-        content << path.color[0] << " " << path.color[1] << " " << path.color[2] << " RG " << path.lineWidth << " w\n"
-                << path.color[0] << " " << path.color[1] << " " << path.color[2] << " rg\n"
-                << path.points.front().x << " " << scene.height - path.points.front().y << " m\n";
+        content << "q /Path" << i << " gs " << pdfNumber(path.color[0]) << " " << pdfNumber(path.color[1])
+                << " " << pdfNumber(path.color[2]) << " RG " << pdfNumber(path.lineWidth) << " w\n"
+                << pdfNumber(path.color[0]) << " " << pdfNumber(path.color[1]) << " "
+                << pdfNumber(path.color[2]) << " rg\n"
+                << pdfNumber(path.points.front().x) << " " << pdfNumber(scene.height - path.points.front().y)
+                << " m\n";
         for (std::size_t index = 1; index < path.points.size(); ++index)
-            content << path.points[index].x << " " << scene.height - path.points[index].y << " l\n";
+            content << pdfNumber(path.points[index].x) << " "
+                    << pdfNumber(scene.height - path.points[index].y) << " l\n";
         if (path.closed) content << "h\n";
-        content << (path.filled ? "B\n" : "S\n");
+        content << (path.filled ? "B\nQ\n" : "S\nQ\n");
     }
-    for (const auto& text : scene.texts)
-        content << text.color[0] << " " << text.color[1] << " " << text.color[2] << " rg BT /F1 " << text.fontSize << " Tf " << text.position.x << " " << scene.height - text.position.y
-                << " Td (" << escapePdf(text.text) << ") Tj ET\n";
+    for (std::size_t i = 0; i < scene.texts.size(); ++i) {
+        const auto& text = scene.texts[i];
+        content << "q /Text" << i << " gs " << pdfNumber(text.color[0]) << " " << pdfNumber(text.color[1])
+                << " " << pdfNumber(text.color[2]) << " rg BT /F1 " << pdfNumber(text.fontSize) << " Tf "
+                << pdfNumber(text.position.x) << " " << pdfNumber(scene.height - text.position.y) << " Td ("
+                << escapePdf(text.text) << ") Tj ET Q\n";
+    }
     const std::string stream = content.str();
     std::ofstream file(filename, std::ios::binary);
     checkFile(file, "plot: cannot open PDF output");
+    file.imbue(std::locale::classic());
     const auto objectCount = 5 + scene.rasters.size() * 2;
     std::vector<std::streamoff> offsets(objectCount + 1);
     file << "%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";
@@ -162,9 +219,21 @@ void writePdf(const ExportScene& scene, const std::string& filename) {
     std::string resources = " /XObject <<";
     for (std::size_t i = 0; i < scene.rasters.size(); ++i)
         resources += " /Im" + std::to_string(i) + " " + std::to_string(6 + i * 2) + " 0 R";
-    resources += " >> /ExtGState << /Background << /Type /ExtGState /ca " + std::to_string(scene.background[3]) + " >> >>";
-    object(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + std::to_string(scene.width) + " " +
-                  std::to_string(scene.height) + "] /Resources << /Font << /F1 4 0 R >>" + resources + " >> /Contents 5 0 R >>");
+    const auto number = pdfNumber;
+    resources +=
+        " >> /ExtGState << /Background << /Type /ExtGState /ca " + number(scene.background[3]) + " >>";
+    const auto alphaState = [&](const std::string& name, float alpha) {
+        resources +=
+            " /" + name + " << /Type /ExtGState /CA " + number(alpha) + " /ca " + number(alpha) + " >>";
+    };
+    for (std::size_t i = 0; i < scene.paths.size(); ++i)
+        alphaState("Path" + std::to_string(i), scene.paths[i].color[3]);
+    for (std::size_t i = 0; i < scene.texts.size(); ++i)
+        alphaState("Text" + std::to_string(i), scene.texts[i].color[3]);
+    resources += " >>";
+    object(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + number(scene.width) + " " +
+                  number(scene.height) + "] /Resources << /Font << /F1 4 0 R >>" + resources +
+                  " >> /Contents 5 0 R >>");
     object(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
     object(5, "<< /Length " + std::to_string(stream.size()) + " >>\nstream\n" + stream + "endstream");
     for (std::size_t i = 0; i < scene.rasters.size(); ++i) {

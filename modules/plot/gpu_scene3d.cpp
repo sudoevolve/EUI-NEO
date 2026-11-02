@@ -1,11 +1,15 @@
 #include "modules/plot/gpu_scene3d.h"
+#include "modules/plot/colormaps.h"
 #include "modules/plot/gpu_scene3d_shader.h"
 #include "modules/plot/volume.h"
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <limits>
+#include <locale>
 #include <map>
+#include <sstream>
 #include <stdexcept>
 
 #if defined(EUI_RENDER_BACKEND_OPENGL)
@@ -114,7 +118,25 @@ std::shared_ptr<Program> program(std::uint64_t device) {
     auto p = std::make_shared<Program>();
     GLuint vs = compile(GL_VERTEX_SHADER, detail::sceneVertexShader), fs = 0;
     try {
-        fs = compile(GL_FRAGMENT_SHADER, detail::sceneFragmentShader);
+        // CPU 与 GPU 从同一份标准表生成，避免两条渲染路径的色彩定义漂移。
+        std::ostringstream tables;
+        tables.imbue(std::locale::classic());
+        tables << std::setprecision(std::numeric_limits<float>::max_digits10) << std::showpoint;
+        const auto append = [&](const char* name, const auto& colors) {
+            tables << "const vec3 " << name << "[256]=vec3[256](";
+            for (std::size_t i = 0; i < colors.size(); ++i) {
+                if (i)
+                    tables << ',';
+                tables << "vec3(" << colors[i][0] << ',' << colors[i][1] << ',' << colors[i][2] << ')';
+            }
+            tables << " );\n";
+        };
+        append("viridis", detail::viridis);
+        append("plasma", detail::plasma);
+        append("turbo", detail::turbo);
+        std::string fragment = detail::sceneFragmentShader;
+        fragment.insert(fragment.find('\n') + 1, tables.str());
+        fs = compile(GL_FRAGMENT_SHADER, fragment.c_str());
         p->value = glCreateProgram();
         glAttachShader(p->value, vs);
         glAttachShader(p->value, fs);

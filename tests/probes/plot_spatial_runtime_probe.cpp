@@ -131,6 +131,32 @@ int main() {
             GLuint readback = 0;
             glGenFramebuffers(1, &readback);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, readback);
+            geometry->scalars = {0, 1, 1, 0};
+            material.color = {1, 1, 1, 1};
+            material.scalarColors = true;
+            material.colorScale.setRange({0, 1});
+            for (auto map : {ColorMap::Viridis, ColorMap::Plasma, ColorMap::Turbo}) {
+                material.colorScale.setColorMap(map);
+                scene.objects = {{geometry, material, true}};
+                SceneRenderer3D colored(scene);
+                const auto expected = colored.render(camera, 64, 64);
+                require(gpu.render(colored, 10 + static_cast<int>(map), camera, 64, 64),
+                        "colormap GPU fallback");
+                glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                       gpu.image()->descriptor().texture, 0);
+                std::vector<std::uint8_t> actual(expected.rgba.size());
+                glReadPixels(0, 0, 64, 64, GL_RGBA, GL_UNSIGNED_BYTE, actual.data());
+                int maxError = 0;
+                for (std::size_t i = 0; i < actual.size(); ++i)
+                    maxError = std::max(maxError, std::abs(int(actual[i]) - int(expected.rgba[i])));
+                require(maxError <= 2, "CPU/GPU standard colormap mismatch");
+                std::cout << "GPU colormap " << static_cast<int>(map) << " max channel error " << maxError
+                          << '\n';
+                gpu.release();
+            }
+            material.color = {1, 0, 0, 1};
+            material.scalarColors = false;
+            scene.objects = {{geometry, material, true}};
             glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                                    uploader.image()->descriptor().texture, 0);
             unsigned char pixel[4]{};

@@ -12,7 +12,7 @@ struct ContourSegment {
     Point from;
     Point to;
 };
-/** @brief 一个指定等值的全部线段；鞍点按单元中心值确定连接关系。 */
+/** @brief 一个指定等值的全部线段；鞍点使用双线性渐近判别，判别为零时采用固定连接。 */
 struct ContourLines {
     double level = 0;
     std::vector<ContourSegment> segments;
@@ -35,7 +35,7 @@ struct ContourBand {
  * levels 必须严格递增且有限。任何含 NaN 或 Inf 顶点的单元均不输出，避免跨越缺失区域。
  */
 std::vector<ContourLines> marchingSquares(const ScalarField& field, const std::vector<double>& levels);
-/** @brief 从有限场范围等距生成指定数量的内部等值；空场或常量场返回空。 */
+/** @brief 从有限场范围等距生成至多 count 个内部等值；舍入后的端点和重复值省略，空场或常量场返回空。 */
 std::vector<double> automaticContourLevels(const ScalarField& field, std::size_t count = 10);
 /** @brief 为每个有线段的等值选择不超过 maxPerLevel 个标签锚点。 */
 std::vector<ContourLabel> contourLabels(const std::vector<ContourLines>& lines, std::size_t maxPerLevel = 1);

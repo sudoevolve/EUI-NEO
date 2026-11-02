@@ -41,9 +41,10 @@ float capsule(vec3 ro,vec3 rd,vec3 a,vec3 b,float radius,out float weight){
 vec4 colormap(float t,int map){
     if(map==0)return vec4(0.2,0.65,1,1);
     if(map==1)return vec4(t,t,t,1);
-    if(map==3)return mix(vec4(0.05,0.03,0.53,1),vec4(0.94,0.98,0.13,1),t);
-    if(map==4)return mix(vec4(0.19,0.07,0.23,1),vec4(0.48,0.02,0.01,1),t);
-    return mix(vec4(0.27,0,0.33,1),vec4(0.99,0.91,0.14,1),t);
+    float index=clamp(t,0.0,1.0)*255.0;int a=int(index),b=min(a+1,255);float f=index-float(a);
+    if(map==3)return vec4(mix(plasma[a],plasma[b],f),1);
+    if(map==4)return vec4(mix(turbo[a],turbo[b],f),1);
+    return vec4(mix(viridis[a],viridis[b],f),1);
 }
 bool intersect(int p,vec3 ro,vec3 rd,float low,float high,float previous,int previousObject,
                out float t,out int object,out vec4 color){

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iomanip>
 #include <limits>
+#include <locale>
 #include <sstream>
 #include <stdexcept>
 
@@ -29,10 +30,10 @@ double logDistance(double value, double origin) {
 double interpolate(double a, double b, double t) {
     return std::signbit(a) == std::signbit(b) ? a + (b - a) * t : a * (1 - t) + b * t;
 }
-std::string formatNumber(double value) {
+std::string formatNumber(double value, int precision = 6) {
     std::ostringstream stream;
     stream.imbue(std::locale::classic());
-    stream << std::setprecision(6) << value;
+    stream << std::setprecision(precision) << value;
     return stream.str();
 }
 void include(std::optional<Range>& extent, double value) {
@@ -191,6 +192,22 @@ std::vector<Tick> Axis::ticks(int targetCount) const {
     result.erase(std::unique(result.begin(), result.end(),
                              [](const Tick& a, const Tick& b) { return a.value == b.value; }),
                  result.end());
+    if (!formatter) {
+        // 仅在默认短格式发生重名时提高精度；自定义 formatter 的语义由调用者决定。
+        for (int precision = 6; precision <= std::numeric_limits<double>::max_digits10; ++precision) {
+            bool unique = true;
+            std::vector<std::string> labels;
+            for (auto& tick : result)
+                if (tick.major) {
+                    tick.label = formatNumber(tick.value, precision);
+                    if (std::find(labels.begin(), labels.end(), tick.label) != labels.end())
+                        unique = false;
+                    labels.push_back(tick.label);
+                }
+            if (unique)
+                break;
+        }
+    }
     return result;
 }
 void Axes::fit(const std::vector<Data>& data) {

@@ -38,7 +38,9 @@ struct ExportScene {
     std::vector<ExportRaster> rasters;
 };
 
+/** @brief 导出 SVG 路径、UTF-8 文本及内嵌栅格，保留 RGBA 透明度；非法数值抛出 std::invalid_argument。 */
 void writeSvg(const ExportScene& scene, const std::string& filename);
+/** @brief 导出 PDF 路径、Helvetica 文本及栅格，保留透明度；不嵌入 Unicode 字体。 */
 void writePdf(const ExportScene& scene, const std::string& filename);
 /** @brief Raster layers and UTF-8 text to PNG; requires an explicit font file, rejects paths.
  * Coordinates/font sizes are pixels at the requested export size. No complex-script shaping.

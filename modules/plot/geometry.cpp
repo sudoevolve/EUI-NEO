@@ -1,4 +1,5 @@
 #include "modules/plot/geometry.h"
+#include "modules/plot/numeric.h"
 
 #include <algorithm>
 #include <cmath>
@@ -139,6 +140,124 @@ void marker(std::vector<Vertex>& output, Point p, double size, Marker shape, Vie
         polygon(output, std::move(points), v);
     }
 }
+void polyline(std::vector<Vertex>& output, std::vector<Point> points, const Style& style, Viewport v) {
+    points.erase(
+        std::unique(points.begin(), points.end(), [](Point a, Point b) { return a.x == b.x && a.y == b.y; }),
+        points.end());
+    if (points.size() < 2 || style.lineWidth == 0)
+        return;
+    if (style.pattern != LinePattern::Solid) {
+        for (std::size_t i = 1; i < points.size(); ++i)
+            patternedSegment(output, points[i - 1], points[i], style, v);
+        return;
+    }
+    struct Edge {
+        Point direction, normal;
+        std::array<Point, 4> corners;
+        bool valid;
+    };
+    const double radius = style.lineWidth / 2;
+    std::vector<Edge> edges;
+    edges.reserve(points.size() - 1);
+    for (std::size_t i = 1; i < points.size(); ++i) {
+        const auto a = points[i - 1], b = points[i];
+        const double length = std::hypot(b.x - a.x, b.y - a.y);
+        if (!std::isfinite(length) || length == 0) {
+            edges.push_back({{}, {}, {}, false});
+            continue;
+        }
+        const Point d{(b.x - a.x) / length, (b.y - a.y) / length};
+        const Point n{-d.y * radius, d.x * radius};
+        edges.push_back({d,
+                         n,
+                         {{{a.x + n.x, a.y + n.y},
+                           {b.x + n.x, b.y + n.y},
+                           {b.x - n.x, b.y - n.y},
+                           {a.x - n.x, a.y - n.y}}},
+                         true});
+    }
+    const bool closed =
+        points.size() > 3 && points.front().x == points.back().x && points.front().y == points.back().y;
+    for (std::size_t i = closed ? 0 : 1; i < edges.size(); ++i) {
+        auto& a = edges[i ? i - 1 : edges.size() - 1];
+        auto& b = edges[i];
+        if (!a.valid || !b.valid)
+            continue;
+        const auto p = points[i];
+        const double cross = a.direction.x * b.direction.y - a.direction.y * b.direction.x;
+        const double dot =
+            std::clamp(a.direction.x * b.direction.x + a.direction.y * b.direction.y, -1.0, 1.0);
+        if (std::abs(cross) < 1e-12)
+            continue;
+        const double denominator = std::max(1 + dot, 1e-15);
+        const Point offset{(a.normal.x + b.normal.x) / denominator, (a.normal.y + b.normal.y) / denominator};
+        const double ratio = std::hypot(offset.x, offset.y) / radius;
+        // 四倍半线宽的 miter limit 同时限制近反向折线的内侧交点。
+        const double bound = ratio > 4 ? 4 / ratio : 1;
+        const double innerSign = cross > 0 ? 1 : -1;
+        const Point inner{p.x + innerSign * offset.x * bound, p.y + innerSign * offset.y * bound};
+        const int aInner = cross > 0 ? 1 : 2, bInner = cross > 0 ? 0 : 3;
+        a.corners[aInner] = b.corners[bInner] = inner;
+        const int aOuter = cross > 0 ? 2 : 1, bOuter = cross > 0 ? 3 : 0;
+        const auto from = a.corners[aOuter], to = b.corners[bOuter];
+        if (style.join == LineJoin::Miter && ratio <= 4) {
+            const Point outer{p.x - innerSign * offset.x, p.y - innerSign * offset.y};
+            a.corners[aOuter] = b.corners[bOuter] = outer;
+        } else if (style.join == LineJoin::Round) {
+            const double start = std::atan2(from.y - p.y, from.x - p.x);
+            const double sweep = std::atan2(cross, dot);
+            const int count = std::max(1, static_cast<int>(std::ceil(std::abs(sweep) * 8)));
+            Point previous = from;
+            for (int j = 1; j <= count; ++j) {
+                const double angle = start + sweep * j / count;
+                const Point next =
+                    j == count ? to : Point{p.x + radius * std::cos(angle), p.y + radius * std::sin(angle)};
+                polygon(output, {inner, previous, next}, v);
+                previous = next;
+            }
+        } else
+            polygon(output, {inner, from, to}, v);
+    }
+    for (std::size_t i = 0; i < edges.size(); ++i) {
+        auto& edge = edges[i];
+        if (!edge.valid)
+            continue;
+        if (!closed && style.cap == LineCap::Square) {
+            if (i == 0)
+                for (int j : {0, 3}) {
+                    edge.corners[j].x -= edge.direction.x * radius;
+                    edge.corners[j].y -= edge.direction.y * radius;
+                }
+            if (i + 1 == edges.size())
+                for (int j : {1, 2}) {
+                    edge.corners[j].x += edge.direction.x * radius;
+                    edge.corners[j].y += edge.direction.y * radius;
+                }
+        }
+        if (std::all_of(edge.corners.begin(), edge.corners.end(), [&](Point p) { return inside(p, v); })) {
+            for (int j : {0, 1, 2, 0, 2, 3})
+                output.push_back({float(edge.corners[j].x - v.x), float(edge.corners[j].y - v.y)});
+        } else
+            polygon(output, {edge.corners.begin(), edge.corners.end()}, v);
+    }
+    if (!closed && style.cap == LineCap::Round) {
+        const auto cap = [&](Point p, Point direction, bool beginning) {
+            const double start =
+                std::atan2(direction.y, direction.x) + (beginning ? .5 : -.5) * std::acos(-1);
+            Point previous{p.x + radius * std::cos(start), p.y + radius * std::sin(start)};
+            for (int j = 1; j <= 16; ++j) {
+                const double angle = start + std::acos(-1) * j / 16;
+                const Point next{p.x + radius * std::cos(angle), p.y + radius * std::sin(angle)};
+                polygon(output, {p, previous, next}, v);
+                previous = next;
+            }
+        };
+        if (edges.front().valid)
+            cap(points.front(), edges.front().direction, true);
+        if (edges.back().valid)
+            cap(points.back(), edges.back().direction, false);
+    }
+}
 Data curveData(const Series& series) {
     if (series.curve == CurveKind::Raw || series.data.size() < 2)
         return series.data;
@@ -153,8 +272,8 @@ Data curveData(const Series& series) {
             x.push_back(a.x);
             y.push_back(a.y);
             if (std::isfinite(a.x) && std::isfinite(a.y) && std::isfinite(b.x) && std::isfinite(b.y)) {
-                x.push_back((a.x + b.x) * 0.5);
-                y.push_back((a.y + b.y) * 0.5);
+                x.push_back(detail::interpolateFinite(a.x, b.x, .5));
+                y.push_back(detail::interpolateFinite(a.y, b.y, .5));
             }
         }
         x.push_back(series.data.at(series.data.size() - 1).x);
@@ -167,16 +286,16 @@ Data curveData(const Series& series) {
                 y.push_back(point.y);
                 continue;
             }
-            double sum = 0;
+            double mean = 0;
             int count = 0;
             for (std::size_t j = (i > 2 ? i - 2 : 0); j <= std::min(series.data.size() - 1, i + 2); ++j) {
                 const auto neighbor = series.data.at(j);
                 if (std::isfinite(neighbor.y)) {
-                    sum += neighbor.y;
                     ++count;
+                    mean = detail::interpolateFinite(mean, neighbor.y, 1.0 / count);
                 }
             }
-            y.push_back(count ? sum / count : point.y);
+            y.push_back(count ? mean : point.y);
         }
     }
     return Data(x, y);
@@ -363,10 +482,17 @@ std::vector<Vertex> tessellate(const Series& series, const Axes& axes, Viewport 
         return bars(series.data, series.baselines, style.barWidth, axes, viewport);
     if (series.graph == Graph::Line || series.graph == Graph::Step || series.graph == Graph::Area) {
         const Data displayData = curveData(series);
-        Series displaySeries = series;
-        displaySeries.data = displayData;
-        displaySeries.curve = CurveKind::Raw;
         for (const auto& run : selectDisplay(displayData, axes, viewport)) {
+            if (series.graph == Graph::Line || series.graph == Graph::Step) {
+                std::vector<Point> points;
+                for (const auto& point : run) {
+                    if (series.graph == Graph::Step && !points.empty())
+                        points.push_back({point.screen.x, points.back().y});
+                    points.push_back(point.screen);
+                }
+                polyline(output, std::move(points), style, viewport);
+                continue;
+            }
             for (std::size_t i = 1; i < run.size(); ++i) {
                 const auto a = run[i - 1].screen, b = run[i].screen;
                 if (series.graph == Graph::Step) {
@@ -387,8 +513,6 @@ std::vector<Vertex> tessellate(const Series& series, const Axes& axes, Viewport 
                     }
                 } else
                     patternedSegment(output, a, b, style, viewport);
-                if (style.join == LineJoin::Round)
-                    marker(output, b, style.lineWidth, Marker::Circle, viewport);
             }
         }
         if (!style.markers && displayData.size() != 1)

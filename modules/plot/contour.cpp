@@ -1,5 +1,7 @@
 #include "modules/plot/contour.h"
+#include "modules/plot/numeric.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>
@@ -15,13 +17,14 @@ Point position(const ScalarField& field, std::size_t row, std::size_t column) {
                                   : (double(column) + 0.5) / field.columns();
     const double vertical = field.sampling() == FieldSampling::GridPoints ? double(row) / (field.rows() - 1)
                                                                             : (double(row) + 0.5) / field.rows();
-    return {x.min + (x.max - x.min) * horizontal,
-            field.origin() == FieldOrigin::LowerLeft ? y.min + (y.max - y.min) * vertical
-                                                      : y.max - (y.max - y.min) * vertical};
+    return {detail::interpolateFinite(x.min, x.max, horizontal),
+            detail::interpolateFinite(y.min, y.max,
+                                      field.origin() == FieldOrigin::LowerLeft ? vertical : 1 - vertical)};
 }
 Point intersection(Point from, double fromValue, Point to, double toValue, double level) {
-    const double fraction = (level - fromValue) / (toValue - fromValue);
-    return {from.x + (to.x - from.x) * fraction, from.y + (to.y - from.y) * fraction};
+    const double fraction = detail::intervalFraction(level, fromValue, toValue);
+    return {detail::interpolateFinite(from.x, to.x, fraction),
+            detail::interpolateFinite(from.y, to.y, fraction)};
 }
 void validateLevels(const std::vector<double>& levels) {
     for (std::size_t index = 0; index < levels.size(); ++index)
@@ -41,10 +44,8 @@ std::vector<ScalarPoint> clip(const std::vector<ScalarPoint>& input, double limi
     for (const auto current : input) {
         const bool currentInside = keepAbove ? current.value >= limit : current.value <= limit;
         if (currentInside != previousInside) {
-            const double fraction = (limit - previous.value) / (current.value - previous.value);
-            output.push_back({{previous.point.x + (current.point.x - previous.point.x) * fraction,
-                               previous.point.y + (current.point.y - previous.point.y) * fraction},
-                              limit});
+            output.push_back(
+                {intersection(previous.point, previous.value, current.point, current.value, limit), limit});
         }
         if (currentInside)
             output.push_back(current);
@@ -84,8 +85,31 @@ std::vector<ContourLines> marchingSquares(const ScalarField& field, const std::v
                 if (crossings.size() == 2)
                     lines.segments.push_back({crossings[0], crossings[1]});
                 else if (crossings.size() == 4) {
-                    const double center = (values[0] + values[1] + values[2] + values[3]) / 4;
-                    if (center > level) {
+                    // 分别保留尾数和指数，避免共同缩放使极小角值下溢，错误改变鞍点拓扑。
+                    std::array<double, 4> mantissa;
+                    std::array<int, 4> exponent;
+                    for (int i = 0; i < 4; ++i) {
+                        double distance = values[i] - level;
+                        const bool overflow = !std::isfinite(distance);
+                        if (overflow)
+                            distance = values[i] / 2 - level / 2;
+                        mantissa[i] = std::frexp(std::abs(distance), &exponent[i]);
+                        exponent[i] += overflow ? 1 : 0;
+                    }
+                    int shiftA = 0, shiftB = 0;
+                    const double productA = std::frexp(mantissa[0] * mantissa[2], &shiftA);
+                    const double productB = std::frexp(mantissa[1] * mantissa[3], &shiftB);
+                    const int exponentA = exponent[0] + exponent[2] + shiftA;
+                    const int exponentB = exponent[1] + exponent[3] + shiftB;
+                    const double residualA =
+                        std::ldexp(std::fma(mantissa[0], mantissa[2], -mantissa[0] * mantissa[2]), -shiftA);
+                    const double residualB =
+                        std::ldexp(std::fma(mantissa[1], mantissa[3], -mantissa[1] * mantissa[3]), -shiftB);
+                    if (productB == 0 ||
+                        (productA != 0 &&
+                         (exponentA > exponentB ||
+                          (exponentA == exponentB &&
+                           (productA > productB || (productA == productB && residualA >= residualB)))))) {
                         lines.segments.push_back({crossings[0], crossings[1]});
                         lines.segments.push_back({crossings[2], crossings[3]});
                     } else {
@@ -106,8 +130,11 @@ std::vector<double> automaticContourLevels(const ScalarField& field, std::size_t
         return {};
     std::vector<double> result;
     result.reserve(count);
-    for (std::size_t index = 1; index <= count; ++index)
-        result.push_back(range->min + (range->max - range->min) * index / (count + 1));
+    for (std::size_t index = 1; index <= count; ++index) {
+        const double value = detail::interpolateFinite(range->min, range->max, double(index) / (count + 1));
+        if (value > range->min && value < range->max && (result.empty() || value > result.back()))
+            result.push_back(value);
+    }
     return result;
 }
 std::vector<ContourLabel> contourLabels(const std::vector<ContourLines>& lines, std::size_t maxPerLevel) {
@@ -118,7 +145,9 @@ std::vector<ContourLabel> contourLabels(const std::vector<ContourLines>& lines, 
         const auto count = std::min(maxPerLevel, line.segments.size());
         for (std::size_t index = 0; index < count; ++index) {
             const auto& segment = line.segments[index * line.segments.size() / count];
-            result.push_back({line.level, {(segment.from.x + segment.to.x) / 2, (segment.from.y + segment.to.y) / 2}});
+            result.push_back({line.level,
+                              {detail::interpolateFinite(segment.from.x, segment.to.x, .5),
+                               detail::interpolateFinite(segment.from.y, segment.to.y, .5)}});
         }
     }
     return result;

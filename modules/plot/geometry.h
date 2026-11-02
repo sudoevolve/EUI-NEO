@@ -29,11 +29,11 @@ enum class Marker { Square, Circle, Diamond, Cross };
 enum class LinePattern { Solid, Dashed, Dotted };
 /** @brief 线段端点样式。 */
 enum class LineCap { Butt, Square, Round };
-/** @brief 折线拐角样式。 */
+/** @brief 实线折线/阶梯拐角样式；Miter 超过四倍半线宽时回退 Bevel，虚线按独立短线段处理。 */
 enum class LineJoin { Miter, Bevel, Round };
 /** @brief 颜色映射命名，供统一样式和后端扩展使用。 */
 enum class ColorMap { Solid, Grayscale, Viridis, Plasma, Turbo };
-/** @brief 曲线数据表达方式；非 Raw 模式只改变显示快照，不改变原始 Data。 */
+/** @brief 显示快照模式；Interpolated 添加线性中点，Fitted 为至多五点移动平均，原始 Data 不变。 */
 enum class CurveKind { Raw, Interpolated, Fitted };
 
 struct ColorRange {

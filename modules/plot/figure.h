@@ -21,9 +21,9 @@ class Figure {
     /** @brief 设置布局列数；必须大于零。 */
     void setColumns(std::size_t columns);
     std::size_t columns() const noexcept;
-    /** @brief 将列出的子图链接到同一个 X 范围；少于两个索引时移除该组。 */
+    /** @brief 将列出的子图链接到同一个 X 范围；少于两个不同索引抛出 std::invalid_argument。 */
     void linkX(std::vector<std::size_t> plots);
-    /** @brief 将列出的子图链接到同一个 Y 范围；少于两个索引时移除该组。 */
+    /** @brief 将列出的子图链接到同一个 Y 范围；少于两个不同索引抛出 std::invalid_argument。 */
     void linkY(std::vector<std::size_t> plots);
     /** @brief 将列出的子图链接到同一个数据坐标十字光标。 */
     void linkCursor(std::vector<std::size_t> plots);

@@ -1,4 +1,6 @@
 #include "modules/plot/field.h"
+#include "modules/plot/colormaps.h"
+#include "modules/plot/numeric.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,11 +31,14 @@ std::array<float, 4> color(ColorMap map, double fraction) {
         return {static_cast<float>(fraction), static_cast<float>(fraction), static_cast<float>(fraction), 1};
     if (map == ColorMap::Solid)
         return {0.2f, 0.65f, 1, 1};
-    if (map == ColorMap::Plasma)
-        return interpolate({0.05f, 0.03f, 0.53f, 1}, {0.94f, 0.98f, 0.13f, 1}, fraction);
-    if (map == ColorMap::Turbo)
-        return interpolate({0.19f, 0.07f, 0.23f, 1}, {0.48f, 0.02f, 0.01f, 1}, fraction);
-    return interpolate({0.27f, 0.0f, 0.33f, 1}, {0.99f, 0.91f, 0.14f, 1}, fraction);
+    const auto& table = map == ColorMap::Plasma  ? detail::plasma
+                        : map == ColorMap::Turbo ? detail::turbo
+                                                 : detail::viridis;
+    const double index = fraction * (table.size() - 1);
+    const auto low = static_cast<std::size_t>(index);
+    const auto high = std::min(low + 1, table.size() - 1);
+    return interpolate({table[low][0], table[low][1], table[low][2], 1},
+                       {table[high][0], table[high][1], table[high][2], 1}, index - low);
 }
 FieldTile tile(double left, double top, double right, double bottom, Viewport viewport,
                std::array<float, 4> color) {
@@ -143,10 +148,10 @@ std::optional<double> RectilinearField::interpolate(Point point) const {
     for (const double value : values)
         if (!std::isfinite(value))
             return std::nullopt;
-    const double horizontal = (point.x - x_[*column]) / (x_[*column + 1] - x_[*column]);
-    const double vertical = (point.y - y_[*row]) / (y_[*row + 1] - y_[*row]);
-    return values[0] * (1 - horizontal) * (1 - vertical) + values[1] * horizontal * (1 - vertical) +
-           values[2] * (1 - horizontal) * vertical + values[3] * horizontal * vertical;
+    const double horizontal = detail::intervalFraction(point.x, x_[*column], x_[*column + 1]);
+    const double vertical = detail::intervalFraction(point.y, y_[*row], y_[*row + 1]);
+    return detail::interpolateFinite(detail::interpolateFinite(values[0], values[1], horizontal),
+                                     detail::interpolateFinite(values[2], values[3], horizontal), vertical);
 }
 TriangulatedField::TriangulatedField(std::vector<Point> points, std::vector<double> values,
                                      std::vector<std::array<std::size_t, 3>> triangles)
@@ -198,6 +203,8 @@ void ColorScale::setMode(ColorScaleMode mode) {
     if (!automatic_ && mode == ColorScaleMode::Log10 && range_.min <= 0)
         throw std::invalid_argument("plot: logarithmic color range must be positive");
     mode_ = mode;
+    if (automatic_ && mode_ == ColorScaleMode::Log10 && range_.min <= 0)
+        range_ = {1, 10};
 }
 ColorScaleMode ColorScale::mode() const noexcept { return mode_; }
 void ColorScale::setRange(Range range) {
@@ -216,16 +223,10 @@ void ColorScale::fit(const std::optional<Range>& range) {
         range_ = mode_ == ColorScaleMode::Log10 ? Range{1, 10} : Range{0, 1};
         return;
     }
-    range_ = *range;
-    if (range_.min == range_.max) {
-        const double padding = mode_ == ColorScaleMode::Log10
-                                   ? range_.min * 0.5
-                                   : (range_.min == 0 ? 1 : std::abs(range_.min) * 0.05);
-        range_.min -= padding;
-        range_.max += padding;
-        if (mode_ == ColorScaleMode::Log10)
-            range_.min = std::max(range_.min, std::numeric_limits<double>::min());
-    }
+    Axis axis;
+    axis.setScale(mode_ == ColorScaleMode::Log10 ? Scale::Log10 : Scale::Linear);
+    axis.fit(range);
+    range_ = axis.range();
 }
 void ColorScale::fit(const ScalarField& field) {
     if (!automatic_)
@@ -258,14 +259,13 @@ std::array<float, 4> ColorScale::missingColor() const noexcept { return missingC
 std::array<float, 4> ColorScale::map(double value) const {
     if (!accepts(value, mode_))
         return missingColor_;
-    double fraction;
-    if (mode_ == ColorScaleMode::Log10)
-        fraction = (std::log(value) - std::log(range_.min)) / (std::log(range_.max) - std::log(range_.min));
-    else
-        fraction = (value - range_.min) / (range_.max - range_.min);
-    if (!std::isfinite(fraction))
+    Axis axis;
+    axis.setScale(mode_ == ColorScaleMode::Log10 ? Scale::Log10 : Scale::Linear);
+    axis.setRange(range_);
+    const auto mapped = axis.normalize(std::clamp(value, range_.min, range_.max));
+    if (!mapped)
         return missingColor_;
-    fraction = std::clamp(fraction, 0.0, 1.0);
+    double fraction = std::clamp(*mapped, 0.0, 1.0);
     if (discreteLevels_)
         fraction = std::round(fraction * (discreteLevels_ - 1)) / (discreteLevels_ - 1);
     return color(map_, fraction);
@@ -320,13 +320,13 @@ std::vector<FieldTile> heatmapTiles(const ScalarField& field, const ColorScale& 
             if (field.sampling() == FieldSampling::GridPoints) {
                 const double samples[] = {field.value(row, column), field.value(row, column + 1),
                                           field.value(row + 1, column), field.value(row + 1, column + 1)};
-                value = 0;
+                value = detail::interpolateFinite(detail::interpolateFinite(samples[0], samples[1], .5),
+                                                  detail::interpolateFinite(samples[2], samples[3], .5), .5);
                 for (const double sample : samples) {
                     if (!std::isfinite(sample)) {
                         value = std::numeric_limits<double>::quiet_NaN();
                         break;
                     }
-                    value += sample / 4;
                 }
             }
             const auto xr = field.xRange(), yr = field.yRange();
@@ -353,9 +353,12 @@ std::vector<FieldTile> rectilinearTiles(const RectilinearField& field, const Col
         for (std::size_t column = 0; column + 1 < field.columns(); ++column) {
             const double values[] = {field.value(row, column), field.value(row, column + 1),
                                      field.value(row + 1, column), field.value(row + 1, column + 1)};
-            double average = 0;
+            double average =
+                detail::interpolateFinite(detail::interpolateFinite(values[0], values[1], .5),
+                                          detail::interpolateFinite(values[2], values[3], .5), .5);
             for (const double value : values)
-                average += std::isfinite(value) ? value / 4 : std::numeric_limits<double>::quiet_NaN();
+                if (!std::isfinite(value))
+                    average = std::numeric_limits<double>::quiet_NaN();
             const std::array<Point, 4> points{{{field.x()[column], field.y()[row]},
                                                {field.x()[column + 1], field.y()[row]},
                                                {field.x()[column + 1], field.y()[row + 1]},
@@ -379,7 +382,8 @@ std::vector<FieldTile> triangulatedTiles(const TriangulatedField& field, const C
                                  field.values()[indices[2]]};
         const double average =
             std::isfinite(values[0]) && std::isfinite(values[1]) && std::isfinite(values[2])
-                ? (values[0] + values[1] + values[2]) / 3
+                ? detail::interpolateFinite(detail::interpolateFinite(values[0], values[1], .5), values[2],
+                                            1.0 / 3)
                 : std::numeric_limits<double>::quiet_NaN();
         auto tile =
             triangleTile({field.points()[indices[0]], field.points()[indices[1]], field.points()[indices[2]]},
@@ -400,14 +404,14 @@ std::vector<FieldTile> colorbarTiles(const ColorScale& scale, Viewport viewport,
     std::vector<FieldTile> result;
     result.reserve(segments);
     const auto range = scale.range();
+    Axis axis;
+    axis.setScale(scale.mode() == ColorScaleMode::Log10 ? Scale::Log10 : Scale::Linear);
+    axis.setRange(range);
     for (std::size_t index = 0; index < segments; ++index) {
         const double low = double(index) / segments;
         const double high = double(index + 1) / segments;
         const double fraction = (low + high) / 2;
-        const double value =
-            scale.mode() == ColorScaleMode::Log10
-                ? std::exp(std::log(range.min) + (std::log(range.max) - std::log(range.min)) * fraction)
-                : range.min + (range.max - range.min) * fraction;
+        const double value = *axis.denormalize(fraction);
         const double top = viewport.y + viewport.height * (1 - high);
         const double bottom = viewport.y + viewport.height * (1 - low);
         result.push_back(

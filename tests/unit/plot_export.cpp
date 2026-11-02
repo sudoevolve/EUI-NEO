@@ -2,9 +2,11 @@
 #include "3rd/stb_image.h"
 
 #include <cstdio>
-#include <fstream>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <limits>
+#include <locale>
 #include <stdexcept>
 
 namespace {
@@ -42,6 +44,56 @@ int main() {
                 "PDF structure");
         require(png.size() > 24 && png.compare(1, 3, "PNG") == 0 && png[16] == 0 && png[19] == 2 && png[23] == 3,
                 "PNG signature and dimensions");
+        scene.paths[0].color[3] = .5f;
+        scene.paths[0].points[0].x = 10.123456789012345;
+        scene.texts[0].color[3] = .25f;
+        struct Comma : std::numpunct<char> {
+            char do_decimal_point() const override { return ','; }
+        };
+        const auto previousLocale = std::locale();
+        std::locale::global(std::locale(std::locale::classic(), new Comma));
+        writeSvg(scene, "plot_export_test.svg");
+        writePdf(scene, "plot_export_test.pdf");
+        std::locale::global(previousLocale);
+        const auto alphaSvg = read("plot_export_test.svg"), alphaPdf = read("plot_export_test.pdf");
+        require(alphaSvg.find("opacity=\"0.5\"") != std::string::npos &&
+                    alphaSvg.find("fill-opacity=\"0.25\"") != std::string::npos,
+                "SVG path/text alpha");
+        require(alphaSvg.find("10.123456789012") != std::string::npos &&
+                    alphaPdf.find("10.123456789012") != std::string::npos,
+                "export coordinate precision/locale");
+        require(alphaPdf.find("/CA 0.5 /ca 0.5") != std::string::npos &&
+                    alphaPdf.find("/ca 0.25") != std::string::npos &&
+                    alphaPdf.find("q /Path0 gs") != std::string::npos &&
+                    alphaPdf.find("q /Text0 gs") != std::string::npos,
+                "PDF isolated alpha states");
+        for (int invalid = 0; invalid < 4; ++invalid) {
+            auto broken = scene;
+            if (invalid == 0)
+                broken.paths[0].points[0].x = std::numeric_limits<double>::quiet_NaN();
+            if (invalid == 1)
+                broken.paths[0].lineWidth = -1;
+            if (invalid == 2)
+                broken.paths[0].color[0] = 2;
+            if (invalid == 3)
+                broken.paths[0].lineWidth = std::numeric_limits<float>::infinity();
+            for (bool pdfOutput : {false, true}) {
+                bool rejected = false;
+                try {
+                    if (pdfOutput)
+                        writePdf(broken, "plot_export_test.pdf");
+                    else
+                        writeSvg(broken, "plot_export_test.svg");
+                } catch (const std::invalid_argument&) {
+                    rejected = true;
+                }
+                require(rejected, "invalid export path accepted");
+            }
+        }
+        scene.paths[0].points[0].x = 1e-25;
+        writePdf(scene, "plot_export_test.pdf");
+        require(read("plot_export_test.pdf").find("0.0000000000000000000000001") != std::string::npos,
+                "tiny PDF coordinate truncated or scientific notation emitted");
         ExportScene raster;
         raster.width = 100;
         raster.height = 80;
