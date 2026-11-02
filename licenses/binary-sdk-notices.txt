@@ -1,0 +1,30 @@
+EUI-NEO binary SDK third-party notices
+
+EUI-NEO is distributed under Apache License 2.0; see LICENSE.
+This file describes the bundled GLFW/Vulkan build, not every possible build.
+The SDK distributor must retain notices for the actual dependencies shipped.
+
+FreeType: see freetype/LICENSE.TXT, FTL.TXT, BDF-README and PCF-README.
+This binary distribution uses the FreeType License (FTL) option:
+Portions of this software are copyright (c) The FreeType Project
+(www.freetype.org). All rights reserved.
+
+GLFW, zlib, libpng, MD4C, yyjson and tray: see their accompanying license subdirectories.
+stb_image, NanoSVG, NanoSVG rasterizer and miniaudio: their complete original
+copyright/license text is retained in the installed public third-party headers
+under include/eui-neo/3rd. These notices must also accompany redistribution of
+applications containing these libraries, even if the SDK headers are omitted.
+Plot color tables: see plot-colormaps.txt when plot is included.
+
+The default OpenGL build additionally uses glad; the SDL2 build uses SDL2.
+Distributors of these variants must include their matching upstream notices.
+Vulkan development headers and loader are supplied by the consumer's Vulkan
+development environment or operating system/driver, not by this SDK installer.
+The Microsoft Visual C++ runtime is supplied under Microsoft's redistribution
+terms; the SDK installer does not bundle a runtime redistributable.
+
+Demo assets (including music, illustrations, icons and fonts) are independent
+works, not relicensed by this notice. The Vulkan release gate configures
+EUI_INSTALL_DEMO_ASSETS=OFF and installs into a new empty prefix so these files
+are not shipped by accident. Applications may supply appropriately licensed
+assets/fonts or use the available system font fallback.

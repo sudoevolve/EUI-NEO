@@ -19,6 +19,7 @@ option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_BUILD_FFMPEG_VIDEO_EXAMPLE "Build the optional FFmpeg video playback example." OFF)
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
+option(EUI_INSTALL_DEMO_ASSETS "Include demo media and fonts in the installed SDK; review redistribution rights before shipping." ON)
 option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 option(EUI_ENABLE_TRAY "Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; turn this OFF to build without tray support." ON)
@@ -811,9 +812,10 @@ if(EUI_ENABLE_INSTALL)
         DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/app"
         RENAME app_main.cpp
     )
-    install(DIRECTORY assets/
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/assets"
-    )
+    if(EUI_INSTALL_DEMO_ASSETS)
+        install(DIRECTORY assets/
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/assets")
+    endif()
     if(TARGET eui_shadertoy_wrap)
         install(TARGETS eui_shadertoy_wrap
             EXPORT EuiNeoTargets
@@ -854,7 +856,58 @@ if(EUI_ENABLE_INSTALL)
     install(DIRECTORY ${EUI_NEO_INSTALL_HEADER_DIRS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo
         FILES_MATCHING PATTERN "*.h"
+        PATTERN "plot/numeric.h" EXCLUDE
+        PATTERN "plot/colormaps.h" EXCLUDE
+        PATTERN "plot/data_storage.h" EXCLUDE
+        PATTERN "plot/gpu_scene3d_shader.h" EXCLUDE
+        PATTERN "plot/software_raster.h" EXCLUDE
     )
+    install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses)
+    install(FILES licenses/binary-sdk-notices.txt
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses)
+    install(FILES "${EUI_FREETYPE_DIR}/LICENSE.TXT"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype)
+    install(FILES licenses/freetype-FTL.txt
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype RENAME FTL.TXT)
+    install(FILES "${EUI_FREETYPE_DIR}/src/bdf/README"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype RENAME BDF-README)
+    install(FILES "${EUI_FREETYPE_DIR}/src/pcf/README"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype RENAME PCF-README)
+    install(FILES 3rd/yyjson-0.12.0/LICENSE
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/yyjson)
+    install(FILES "${EUI_ZLIB_DIR}/LICENSE"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/zlib)
+    install(FILES "${EUI_LIBPNG_DIR}/LICENSE"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/libpng)
+    install(FILES "${TRAY_INCLUDE_DIR}/LICENSE"
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/tray)
+    if(EUI_OWNS_GLFW_TARGET AND TARGET glfw)
+        install(FILES "${EUI_GLFW_DIR}/LICENSE.md"
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/glfw)
+    endif()
+    if(TARGET eui_md4c)
+        install(FILES "${EUI_MD4C_DIR}/LICENSE.md"
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/md4c)
+    endif()
+    if(TARGET eui_neo_module_plot)
+        install(FILES licenses/plot-colormaps.txt DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses)
+        install(FILES
+            docs/科学绘图.md docs/科学绘图快速开始.md docs/科学绘图应用开发.md
+            docs/科学绘图三维与体数据.md docs/科学绘图三维验收.md
+            docs/科学绘图精度与数值契约.md docs/科学绘图二进制SDK与商业交付.md
+            docs/科学绘图Vulkan发布验收.md
+            docs/科学绘图TODO.md docs/二维波形高吞吐优化.md
+            docs/plot-spatial-baseline.json docs/plot-gallery-gpu-baseline.json
+            docs/plot-application-throughput.json
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/docs)
+        install(FILES modules/plot/README.md
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/modules/plot)
+        install(FILES examples/scientific_plot_minimal.cpp examples/scientific_plot_acquisition.cpp
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/examples)
+        install(DIRECTORY examples/plot_binary_sdk/
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/examples/plot_binary_sdk
+            FILES_MATCHING PATTERN "*.cpp" PATTERN "CMakeLists.txt")
+    endif()
     if(EUI_OWNS_GLFW_TARGET AND TARGET glfw)
         install(DIRECTORY "${EUI_GLFW_DIR}/include/GLFW"
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
