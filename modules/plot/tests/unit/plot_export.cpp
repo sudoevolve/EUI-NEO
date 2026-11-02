@@ -111,7 +111,7 @@ int main() {
                 rasterPdf.find("/SMask 7 0 R") != std::string::npos &&
                 rasterPdf.find("/Im0 6 0 R") != std::string::npos &&
                 rasterPdf.find("alpha \\(a\\) \\\\ beta") != std::string::npos, "PDF raster/alpha/text resources");
-        const auto font = std::filesystem::path(__FILE__).parent_path().parent_path().parent_path() /
+        const auto font = std::filesystem::path(EUI_TEST_SOURCE_DIR) /
                           "assets/JingNanJunJunTi-JinNanJunJunTi-Bold-2.ttf";
         writeRasterPng(raster, "plot_export_test.png", font.string(), 192);
         const auto annotatedPng = read("plot_export_test.png");

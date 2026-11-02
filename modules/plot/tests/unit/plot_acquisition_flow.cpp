@@ -1,5 +1,5 @@
 // Exercise the actual starter's acquisition/mailbox/pause flow across multiple history wraps.
-#include "examples/scientific_plot_acquisition.cpp"
+#include "modules/plot/examples/scientific_plot_acquisition.cpp"
 #include <iostream>
 
 int main() {

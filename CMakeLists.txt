@@ -111,12 +111,6 @@ if(APPLE)
 endif()
 
 function(eui_apply_compile_options target_name)
-    set(eui_disable_exceptions TRUE)
-    if(target_name STREQUAL "vcd_viewer" OR target_name STREQUAL "gpu_image_probe" OR
-       target_name STREQUAL "eui_neo_module_plot" OR
-       target_name MATCHES "^plot_" OR target_name MATCHES "^scientific_plot")
-        set(eui_disable_exceptions FALSE)
-    endif()
     if(MSVC)
         target_compile_options(${target_name} PRIVATE
             /utf-8
@@ -129,13 +123,13 @@ function(eui_apply_compile_options target_name)
     elseif(APPLE)
         target_compile_options(${target_name} PRIVATE
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-Os>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<BOOL:${eui_disable_exceptions}>>:-fno-exceptions>
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<NOT:$<STREQUAL:${target_name},vcd_viewer>>,$<NOT:$<STREQUAL:${target_name},gpu_image_probe>>>:-fno-exceptions>
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-rtti>
         )
     else()
         target_compile_options(${target_name} PRIVATE
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-Os>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<BOOL:${eui_disable_exceptions}>>:-fno-exceptions>
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>,$<NOT:$<STREQUAL:${target_name},vcd_viewer>>,$<NOT:$<STREQUAL:${target_name},gpu_image_probe>>>:-fno-exceptions>
             $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:-fno-rtti>
         )
     endif()
@@ -296,8 +290,6 @@ target_compile_definitions(eui_neo PRIVATE YYJSON_DISABLE_WRITER=1)
 target_compile_definitions(eui_neo INTERFACE
     $<$<CONFIG:Debug>:EUI_DEBUG_BUILD=1>)
 eui_apply_compile_options(eui_neo)
-# 公共头包含 UTF-8 注释和字符串；直接链接 SDK 的消费方也必须按 UTF-8 解析。
-target_compile_options(eui_neo INTERFACE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
 
 if(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
     add_executable(eui_shadertoy_wrap
@@ -494,9 +486,7 @@ function(eui_neo_configure_app target_name)
 endfunction()
 
 function(eui_neo_configure_named_app target_name)
-     if(target_name MATCHES "^scientific_plot($|_)")
-        target_link_libraries(${target_name} PRIVATE eui::module_plot)
-    elseif(target_name STREQUAL "shadertoy")
+    if(target_name STREQUAL "shadertoy")
         set(shadertoy_demo_spirv
             "${EUI_APP_RUNTIME_DIR}/${EUI_SHADERTOY_RUNTIME_ASSET_DIR}/demo.frag.spv")
         set(shadertoy_demo_source
@@ -562,10 +552,6 @@ if(EUI_BUILD_APPS)
     file(GLOB APP_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp")
     foreach(app_source ${APP_SOURCES})
         get_filename_component(app_name "${app_source}" NAME_WE)
-        if(app_name MATCHES "^scientific_plot($|_)" AND
-             NOT TARGET eui::module_plot)
-            continue()
-        endif()
         if(app_name STREQUAL "ffmpeg_video_player")
             message(STATUS "Skipping ffmpeg_video_player; enable EUI_BUILD_FFMPEG_VIDEO_EXAMPLE to build it.")
             continue()
@@ -652,18 +638,8 @@ if(EUI_BUILD_TEST_FIXTURES)
     file(GLOB TEST_PROBE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/probes/*.cpp")
     foreach(probe_source ${TEST_PROBE_SOURCES})
         get_filename_component(probe_name "${probe_source}" NAME_WE)
-        if(probe_name MATCHES "^plot_" AND
-           (NOT TARGET eui::module_plot OR
-                (NOT EUI_RESOLVED_RENDER_BACKEND STREQUAL "opengl" AND
-                 NOT probe_name STREQUAL "plot_vulkan_probe" AND
-                 NOT probe_name STREQUAL "plot_interaction_benchmark")))
-            continue()
-        endif()
         add_executable(${probe_name} "${probe_source}")
         target_link_libraries(${probe_name} PRIVATE eui::neo)
-        if(probe_name MATCHES "^plot_")
-            target_link_libraries(${probe_name} PRIVATE eui::module_plot)
-        endif()
         eui_apply_compile_options(${probe_name})
         eui_neo_copy_assets(${probe_name})
         eui_neo_copy_runtime_dependencies(${probe_name})
@@ -673,24 +649,13 @@ if(EUI_BUILD_TEST_FIXTURES)
             target_link_options(${probe_name} PRIVATE -mconsole)
         endif()
         target_compile_definitions(${probe_name} PRIVATE EUI_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-        if(probe_name STREQUAL "plot_interaction_benchmark")
-            add_test(NAME ${probe_name} COMMAND ${probe_name})
-        else()
-            add_test(NAME ${probe_name} COMMAND ${probe_name} --frames 3)
-        endif()
+        add_test(NAME ${probe_name} COMMAND ${probe_name} --frames 3)
         set_tests_properties(${probe_name} PROPERTIES LABELS "probe")
-        if(probe_name MATCHES "^plot_gallery_")
-            set_tests_properties(${probe_name} PROPERTIES LABELS "probe;benchmark" RUN_SERIAL TRUE)
-        endif()
         if(probe_name STREQUAL "markdown_viewport_probe")
             set_tests_properties(${probe_name} PROPERTIES SKIP_RETURN_CODE 77)
         endif()
-        if(probe_name STREQUAL "gpu_image_probe" OR probe_name STREQUAL "plot_vulkan_probe")
+        if(probe_name STREQUAL "gpu_image_probe")
             set_tests_properties(${probe_name} PROPERTIES FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
-        endif()
-        if(probe_name STREQUAL "plot_interaction_benchmark")
-            add_test(NAME plot_interaction_benchmark_125k COMMAND plot_interaction_benchmark 125000)
-            set_tests_properties(plot_interaction_benchmark_125k PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
         endif()
     endforeach()
 
@@ -740,14 +705,8 @@ if(EUI_BUILD_TEST_FIXTURES)
     file(GLOB TEST_UNIT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/unit/*.cpp")
     foreach(unit_source ${TEST_UNIT_SOURCES})
         get_filename_component(unit_name "${unit_source}" NAME_WE)
-        if(unit_name MATCHES "^plot_" AND NOT TARGET eui::module_plot)
-            continue()
-        endif()
         add_executable(${unit_name} "${unit_source}")
         target_link_libraries(${unit_name} PRIVATE eui::neo)
-        if(unit_name MATCHES "^plot_")
-            target_link_libraries(${unit_name} PRIVATE eui::module_plot)
-        endif()
         eui_apply_compile_options(${unit_name})
         if(unit_name STREQUAL "shadertoy_packaged_assets")
             eui_neo_copy_assets(${unit_name})
@@ -761,29 +720,17 @@ if(EUI_BUILD_TEST_FIXTURES)
         endif()
         add_test(NAME ${unit_name} COMMAND ${unit_name})
         set_tests_properties(${unit_name} PROPERTIES LABELS "unit")
-        if(unit_name STREQUAL "plot_benchmark")
-            set_tests_properties(plot_benchmark PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
-            foreach(plot_count IN ITEMS 100000 1000000)
-                add_test(NAME plot_benchmark_${plot_count} COMMAND plot_benchmark ${plot_count})
-                set_tests_properties(plot_benchmark_${plot_count} PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
-            endforeach()
-        endif()
-        if(unit_name STREQUAL "plot_spatial_benchmark")
-            set_tests_properties(plot_spatial_benchmark PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
-            foreach(plot_step IN ITEMS 0.16 0.04)
-                add_test(NAME plot_spatial_benchmark_${plot_step} COMMAND plot_spatial_benchmark ${plot_step})
-                set_tests_properties(plot_spatial_benchmark_${plot_step} PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
-            endforeach()
-            foreach(plot_scene IN ITEMS slice isosurface)
-                add_test(NAME plot_spatial_benchmark_${plot_scene} COMMAND plot_spatial_benchmark 0.08 ${plot_scene})
-                set_tests_properties(plot_spatial_benchmark_${plot_scene} PROPERTIES LABELS "benchmark" RUN_SERIAL TRUE)
-            endforeach()
-            endif()
         if(unit_name STREQUAL "platform_dialog" AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
             set_tests_properties(${unit_name} PROPERTIES SKIP_RETURN_CODE 77)
         endif()
     endforeach()
 endif()
+
+# 模块在发现阶段登记脚本，在 app/test helpers 就绪后注册自己的示例与测试。
+get_property(EUI_NEO_MODULE_BUILD_SCRIPTS GLOBAL PROPERTY EUI_NEO_MODULE_BUILD_SCRIPTS)
+foreach(module_build_script IN LISTS EUI_NEO_MODULE_BUILD_SCRIPTS)
+    include("${module_build_script}")
+endforeach()
 
 if(Python3_Interpreter_FOUND)
     add_custom_target(eui_check_vulkan_shaders
@@ -853,61 +800,17 @@ if(EUI_ENABLE_INSTALL)
     if(EUI_ENABLE_MODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules")
         list(APPEND EUI_NEO_INSTALL_HEADER_DIRS modules)
     endif()
+    # 自行安装公开头文件的模块从通用目录扫描中排除，避免实现头或测试头泄漏。
+    get_property(EUI_NEO_MODULE_OWN_HEADER_DIRS GLOBAL PROPERTY EUI_NEO_MODULE_OWN_HEADER_DIRS)
+    set(EUI_NEO_MODULE_HEADER_EXCLUSIONS)
+    foreach(module_header_dir IN LISTS EUI_NEO_MODULE_OWN_HEADER_DIRS)
+        list(APPEND EUI_NEO_MODULE_HEADER_EXCLUSIONS PATTERN "modules/${module_header_dir}" EXCLUDE)
+    endforeach()
     install(DIRECTORY ${EUI_NEO_INSTALL_HEADER_DIRS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo
         FILES_MATCHING PATTERN "*.h"
-        PATTERN "plot/numeric.h" EXCLUDE
-        PATTERN "plot/colormaps.h" EXCLUDE
-        PATTERN "plot/data_storage.h" EXCLUDE
-        PATTERN "plot/gpu_scene3d_shader.h" EXCLUDE
-        PATTERN "plot/software_raster.h" EXCLUDE
+        ${EUI_NEO_MODULE_HEADER_EXCLUSIONS}
     )
-    install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses)
-    install(FILES licenses/binary-sdk-notices.txt
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses)
-    install(FILES "${EUI_FREETYPE_DIR}/LICENSE.TXT"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype)
-    install(FILES licenses/freetype-FTL.txt
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype RENAME FTL.TXT)
-    install(FILES "${EUI_FREETYPE_DIR}/src/bdf/README"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype RENAME BDF-README)
-    install(FILES "${EUI_FREETYPE_DIR}/src/pcf/README"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/freetype RENAME PCF-README)
-    install(FILES 3rd/yyjson-0.12.0/LICENSE
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/yyjson)
-    install(FILES "${EUI_ZLIB_DIR}/LICENSE"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/zlib)
-    install(FILES "${EUI_LIBPNG_DIR}/LICENSE"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/libpng)
-    install(FILES "${TRAY_INCLUDE_DIR}/LICENSE"
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/tray)
-    if(EUI_OWNS_GLFW_TARGET AND TARGET glfw)
-        install(FILES "${EUI_GLFW_DIR}/LICENSE.md"
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/glfw)
-    endif()
-    if(TARGET eui_md4c)
-        install(FILES "${EUI_MD4C_DIR}/LICENSE.md"
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses/md4c)
-    endif()
-    if(TARGET eui_neo_module_plot)
-        install(FILES licenses/plot-colormaps.txt DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/licenses)
-        install(FILES
-            docs/科学绘图.md docs/科学绘图快速开始.md docs/科学绘图应用开发.md
-            docs/科学绘图三维与体数据.md docs/科学绘图三维验收.md
-            docs/科学绘图精度与数值契约.md docs/科学绘图二进制SDK与商业交付.md
-            docs/科学绘图Vulkan发布验收.md
-            docs/科学绘图TODO.md docs/二维波形高吞吐优化.md
-            docs/plot-spatial-baseline.json docs/plot-gallery-gpu-baseline.json
-            docs/plot-application-throughput.json
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/docs)
-        install(FILES modules/plot/README.md
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/modules/plot)
-        install(FILES examples/scientific_plot_minimal.cpp examples/scientific_plot_acquisition.cpp
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/examples)
-        install(DIRECTORY examples/plot_binary_sdk/
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/examples/plot_binary_sdk
-            FILES_MATCHING PATTERN "*.cpp" PATTERN "CMakeLists.txt")
-    endif()
     if(EUI_OWNS_GLFW_TARGET AND TARGET glfw)
         install(DIRECTORY "${EUI_GLFW_DIR}/include/GLFW"
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}

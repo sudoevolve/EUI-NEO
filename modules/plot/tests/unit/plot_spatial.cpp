@@ -372,7 +372,7 @@ void stateTests() {
     const auto highResolution=plot.exportScene(1200,900,2);
     require(highResolution.rasters[0].pixelWidth==1200&&highResolution.rasters[0].pixelHeight==900,
             "high resolution export dimensions");
-    const auto font=std::filesystem::path(__FILE__).parent_path().parent_path().parent_path()/
+    const auto font=std::filesystem::path(EUI_TEST_SOURCE_DIR)/
                     "assets/JingNanJunJunTi-JinNanJunJunTi-Bold-2.ttf";
     writeRasterPng(highResolution,"plot_spatial_export.png",font.string(),192);
     writeSvg(highResolution,"plot_spatial_export.svg");

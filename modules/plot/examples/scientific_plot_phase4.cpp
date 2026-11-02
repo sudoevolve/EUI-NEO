@@ -1,4 +1,4 @@
-#include "examples/scientific_plot_gallery.h"
+#include "modules/plot/examples/scientific_plot_gallery.h"
 
 namespace app {
 namespace {

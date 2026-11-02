@@ -14,7 +14,7 @@
 #include <chrono>
 #include <iostream>
 #include <algorithm>
-#include "tests/probes/plot_gallery_controls.h"
+#include "modules/plot/tests/probes/plot_gallery_controls.h"
 
 namespace {
 void requireGallery(bool condition, const char* message) {

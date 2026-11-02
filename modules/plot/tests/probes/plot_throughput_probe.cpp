@@ -19,7 +19,7 @@
 #include <functional>
 #include <iostream>
 #include <thread>
-#include "tests/probes/plot_stream_experiment.h"
+#include "modules/plot/tests/probes/plot_stream_experiment.h"
 
 namespace {
 using Clock = std::chrono::steady_clock;

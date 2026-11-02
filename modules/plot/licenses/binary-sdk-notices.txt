@@ -1,8 +1,11 @@
 EUI-NEO binary SDK third-party notices
 
-EUI-NEO is distributed under Apache License 2.0; see LICENSE.
+EUI-NEO is distributed under Apache License 2.0; see the repository LICENSE
+or share/eui-neo/licenses/LICENSE in the installed SDK.
 This file describes the bundled GLFW/Vulkan build, not every possible build.
 The SDK distributor must retain notices for the actual dependencies shipped.
+In the installed SDK, dependency license paths below are relative to
+share/eui-neo/licenses/.
 
 FreeType: see freetype/LICENSE.TXT, FTL.TXT, BDF-README and PCF-README.
 This binary distribution uses the FreeType License (FTL) option:
@@ -14,7 +17,8 @@ stb_image, NanoSVG, NanoSVG rasterizer and miniaudio: their complete original
 copyright/license text is retained in the installed public third-party headers
 under include/eui-neo/3rd. These notices must also accompany redistribution of
 applications containing these libraries, even if the SDK headers are omitted.
-Plot color tables: see plot-colormaps.txt when plot is included.
+Plot color tables: see modules/plot/licenses/plot-colormaps.txt in the source
+tree, or share/eui-neo/modules/plot/licenses/plot-colormaps.txt in the SDK.
 
 The default OpenGL build additionally uses glad; the SDL2 build uses SDL2.
 Distributors of these variants must include their matching upstream notices.

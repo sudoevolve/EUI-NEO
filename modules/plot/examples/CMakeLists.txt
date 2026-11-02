@@ -1,0 +1,10 @@
+file(GLOB plot_example_sources CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scientific_plot*.cpp")
+get_target_property(plot_framework_binary eui_neo BINARY_DIR)
+foreach(source IN LISTS plot_example_sources)
+    get_filename_component(name "${source}" NAME_WE)
+    add_executable(${name} "${source}")
+    # 与框架共享的 assets 部署目录保持一致，不因源文件迁移改变运行路径。
+    set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${plot_framework_binary}")
+    eui_neo_configure_app(${name})
+    target_link_libraries(${name} PRIVATE eui::module_plot)
+endforeach()

@@ -39,12 +39,12 @@ cmake --install build-sdk --config Release --prefix dist/plot-sdk
 
 install 是开发 SDK 基础输出；发布方仍需核对依赖、字体和资产的再分发权利，附上实际使用的
 许可/NOTICE，填写构建矩阵。项目 LICENSE 和新色表许可随安装包提供，后者位于
-share/eui-neo/licenses/plot-colormaps.txt。plot 实现头 numeric.h、colormaps.h、
+share/eui-neo/modules/plot/licenses/plot-colormaps.txt。plot 实现头 numeric.h、colormaps.h、
 data_storage.h、gpu_scene3d_shader.h、software_raster.h 不安装；其他核心/模块头仍按现有规则提供，
 当前包不等于完全隔离的独立 plot 产品。
 
 Vulkan 已增加可复现的[发布门禁](科学绘图Vulkan发布验收.md)，执行
-scripts/TestPlotVulkanRelease.ps1 会构建、验证、安装并编译独立消费者，输出文件 SHA256 清单。
+modules/plot/scripts/TestPlotVulkanRelease.ps1 会构建、验证、安装并编译独立消费者，输出文件 SHA256 清单。
 该流程设置 EUI_INSTALL_DEMO_ASSETS=OFF；普通 install 默认仍包含演示资产，切勿混同。
 务必使用新安装前缀，关闭选项不会删除旧包已有的资源。Vulkan SDK 开发文件仍是客户编译依赖；
 最终应用运行需要驱动/loader 和相匹配的 MSVC 运行库。字体可以使用系统回退或自行提供已授权资源。
@@ -56,7 +56,7 @@ binary-sdk-notices.txt。stb_image、NanoSVG、miniaudio 的原许可随完整�
 
 ## 客户接入
 
-可直接构建仓库 examples/plot_binary_sdk，安装后也位于 share/eui-neo/examples/plot_binary_sdk。
+可直接构建仓库 modules/plot/examples/plot_binary_sdk，安装后也位于 share/eui-neo/modules/plot/examples/plot_binary_sdk。
 其中数据样例可以运行 CTest；窗口样例使用 PlotSession 管理关闭和 GPU 资源生命周期。
 
 ```cmake

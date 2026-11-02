@@ -1,15 +1,22 @@
 # 科学绘图模块
 
+模块代码、文档、示例、测试、许可及发布工具集中在本目录：`docs/`、`examples/`、`tests/`、
+`licenses/`、`scripts/` 和 `tools/`。顶层只通过通用模块发现与构建挂接机制接入，不硬编码 plot。
+在包含通用 Vulkan 同步修复和模块挂接点的主分支上，增加或移除此目录即可增减绘图模块。
+根目录 `docs/科学绘图TODO.md` 是主分支已有的规划；本模块的实际完成情况以
+[模块 TODO](docs/科学绘图TODO.md)和验收文档为准。
+目录和构建边界详见[模块目录与主分支约定](docs/模块目录与主分支约定.md)。
+
 `eui::module_plot` 提供独立 XY 数据、笛卡尔与极坐标轴、二维图形和原始数据拾取。
 `PolarPlot` 接收 $(\theta,r)$ 数据，支持度/弧度、可配置零角及顺逆时针
 方向，并绘制曲线和散点。`ScalarField`、`ColorScale` 和 `HeatmapPlot` 提供行优先矩阵、
 连续/离散线性或对数色阶及 colorbar。`marchingSquares`、`filledContours` 和 `contourLabels`
-提供缺失单元跳过的等高线、填充带和标签锚点。首次构建与接入见[快速开始](../../docs/科学绘图快速开始.md)；
-完整 API、生命周期、限制和测试入口见[科学绘图](../../docs/科学绘图.md)。
+提供缺失单元跳过的等高线、填充带和标签锚点。首次构建与接入见[快速开始](docs/科学绘图快速开始.md)；
+完整 API、生命周期、限制和测试入口见[科学绘图](docs/科学绘图.md)。
 `VectorField`、`vectorArrows` 和 `streamlines` 提供共享规则网格上的箭头与固定步 RK4 流线。
 数学公式排版暂未实现；当前标注使用普通 UTF-8 文本。后续应接入成熟 TeX/MathML 引擎生成 SVG，
 而不是在 FreeType 字符层手工拼接分式和根式。`ExportScene` 提供 PNG、SVG 和 PDF 输出。
-`examples/scientific_plot_phase2.cpp` 将阶段二能力合并为一个可手测的 4×2 面板示例。
+`modules/plot/examples/scientific_plot_phase2.cpp` 将阶段二能力合并为一个可手测的 4×2 面板示例。
 
 ```cmake
 set(EUI_ENABLE_MODULES ON CACHE BOOL "Build EUI-NEO optional modules")
@@ -19,9 +26,10 @@ target_link_libraries(my_app PRIVATE eui::module_plot)
 ```
 
 不要用 `FORCE` 覆盖宿主项目已有的 cache 选择；完整源码接入和安装包步骤见
-[快速开始](../../docs/科学绘图快速开始.md)。
+[快速开始](docs/科学绘图快速开始.md)。
 
-安装包使用相同 target。模块没有额外第三方依赖，不反向引入到 `eui::neo`。
+安装包使用相同 target，模块交付材料位于 `share/eui-neo/modules/plot/`。
+模块没有额外第三方运行时依赖，不反向引入到 `eui::neo`。
 `EUI_ENABLE_PLOT=OFF` 或删除模块目录后，绘图示例与测试自动跳过。
 数值部分不使用 GPU 类型。OpenGL 使用离屏 GPU 绘图；Vulkan 通过 CPU 光栅化二维批次并上传到
 Vulkan 图像，视口功能可用但不是 GPU 加速路径。Vulkan 下三维交互也使用 CPU 参考光栅器；
@@ -30,16 +38,16 @@ Vulkan 图像，视口功能可用但不是 GPU 加速路径。Vulkan 下三维�
 512×384 视口 orbit 拖动中位约 9.9 ms，松手完整重绘约 119 ms。数据为单机基准，不是帧率保证；
 大体数据在 Vulkan 下仍可能明显停顿。
 上述为历史测量；当前验证环境、同步验证结果、SDK 发布门禁和性能样本见
-[Vulkan 发布验收](../../docs/科学绘图Vulkan发布验收.md)。
+[Vulkan 发布验收](docs/科学绘图Vulkan发布验收.md)。
 OpenGL 仍使用 GPU BVH 与体光线投射。
 
 `Plot3D`、`SceneRenderer3D`、`VolumeData` 提供三维几何、相机、深度拾取、切片、等值面及体积分。
 OpenGL 交互视口使用 OpenGL 3.3 的 GPU BVH 求交与体光线投射；相机更新复用几何与体纹理。
 Vulkan 交互视口以 CPU 双精度参考渲染结果上传显示；CPU 路径也负责拾取和离线导出。
-用法、预算、透明合成和输出限制见 [三维与体数据](../../docs/科学绘图三维与体数据.md)。
+用法、预算、透明合成和输出限制见 [三维与体数据](docs/科学绘图三维与体数据.md)。
 
-`examples/scientific_plot_phase3.cpp` 提供 3×2 三维集成展示；
-`examples/scientific_plot_phase4.cpp` 提供 4×2 体数据与高级输出集成展示。
+`modules/plot/examples/scientific_plot_phase3.cpp` 提供 3×2 三维集成展示；
+`modules/plot/examples/scientific_plot_phase4.cpp` 提供 4×2 体数据与高级输出集成展示。
 各面板可独立交互，整页可导出 PNG/SVG/PDF，第四阶段可保存恢复整页状态。
 
 ## 高频二维波形
@@ -59,5 +67,5 @@ Vulkan 交互视口以 CPU 双精度参考渲染结果上传显示；CPU 路径�
 ## 应用接入
 
 `PlotSession` 统一注册图表关闭处理，`LatestValue<T>` 在采集线程和 UI 之间传递最新显示快照。
-`examples/scientific_plot_acquisition.cpp` 是可独立构建的 Int16 上位机模板，包含暂停、跟随、
-热力图拖拽缩放和探针。完整写法见 [科学绘图应用开发](../../docs/科学绘图应用开发.md)。
+`modules/plot/examples/scientific_plot_acquisition.cpp` 是可独立构建的 Int16 上位机模板，包含暂停、跟随、
+热力图拖拽缩放和探针。完整写法见 [科学绘图应用开发](docs/科学绘图应用开发.md)。

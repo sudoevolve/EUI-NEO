@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.14)
+project(PlotFindPackageConsumer LANGUAGES CXX)
+enable_testing()
+find_package(EuiNeo CONFIG REQUIRED)
+add_executable(eui_find_package_plot plot.cpp)
+target_link_libraries(eui_find_package_plot PRIVATE eui::module_plot)
+add_test(NAME eui_find_package_plot COMMAND eui_find_package_plot)

@@ -11,7 +11,7 @@
 
 ```powershell
 $env:VULKAN_SDK='C:/VulkanSDK/1.4.350.0'
-powershell -ExecutionPolicy Bypass -File scripts/TestPlotVulkanRelease.ps1
+powershell -ExecutionPolicy Bypass -File modules/plot/scripts/TestPlotVulkanRelease.ps1
 ```
 
 默认生成器为 Visual Studio 18 2026，可用 -Generator 指定实际安装版本。脚本构建全部 plot 单元
@@ -85,4 +85,19 @@ Vulkan 已通过。大体数据、松手完整重绘和同步上传仍可能阻�
 复核覆盖交换链等待与布局转换、上传行顺序、alpha 公共边、错误输入状态保留、资源所有权及
 SDK 安装边界。没有新增第三方运行时依赖，没有新增业务接口；光栅实现头保持私有。同步修复
 影响核心 Vulkan 呈现，因此同时运行外部 GPU 图像探针及其故障注入，而不只检查 plot 首帧。
-git diff --check 通过。修改尚未提交或推送；长期资源增长和其他设备矩阵仍是明确的后续验收项。
+2026-11-01 验收时 git diff --check 通过，修改当时尚未提交或推送；长期资源增长和其他设备矩阵
+仍是明确的后续验收项。
+
+## 2026-11-02 模块目录迁移回归
+
+文档、示例、测试和发布脚本迁入 `modules/plot/` 后，重新通过全部 22 项 Vulkan 回归，两个
+图形探针各重复 5 次通过，没有 Validation Error、VUID 或 SYNC-HAZARD。安装包示例消费者
+和独立 API 消费者分别通过 CTest 1/1，窗口消费者编译链接通过；此次没有重做上述窗口手测。
+SDK 模块材料位于 `share/eui-neo/modules/plot/`，公开头文件数量为 16，文档本地链接检查通过。
+
+同轮 OpenGL 全部 27 项 plot 测试和 6 个示例构建通过。主分支独立通过 `gpu_image_probe` 的
+Khronos 同步验证，框架同步修复与通用构建能力已提交到主分支；详见
+[模块目录与主分支约定](模块目录与主分支约定.md)。
+
+原始 Vulkan 门禁记录位于 `temp/plot-module-final-gate-20261102/`，记录基于 `c5c55be` 及当时
+待提交的迁移修改；不是对基础提交本身的认证。历史性能样本和未验证矩阵保持原有范围。
