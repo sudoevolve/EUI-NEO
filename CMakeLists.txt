@@ -19,6 +19,7 @@ option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_BUILD_FFMPEG_VIDEO_EXAMPLE "Build the optional FFmpeg video playback example." OFF)
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
+option(EUI_INSTALL_DEMO_ASSETS "Include demo media and fonts in the installed SDK; review redistribution rights before shipping." ON)
 option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 option(EUI_ENABLE_TRAY "Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; turn this OFF to build without tray support." ON)
@@ -725,6 +726,12 @@ if(EUI_BUILD_TEST_FIXTURES)
     endforeach()
 endif()
 
+# 模块在发现阶段登记脚本，在 app/test helpers 就绪后注册自己的示例与测试。
+get_property(EUI_NEO_MODULE_BUILD_SCRIPTS GLOBAL PROPERTY EUI_NEO_MODULE_BUILD_SCRIPTS)
+foreach(module_build_script IN LISTS EUI_NEO_MODULE_BUILD_SCRIPTS)
+    include("${module_build_script}")
+endforeach()
+
 if(Python3_Interpreter_FOUND)
     add_custom_target(eui_check_vulkan_shaders
         COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/generate_vulkan_shaders.py" --check
@@ -752,9 +759,10 @@ if(EUI_ENABLE_INSTALL)
         DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/app"
         RENAME app_main.cpp
     )
-    install(DIRECTORY assets/
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/assets"
-    )
+    if(EUI_INSTALL_DEMO_ASSETS)
+        install(DIRECTORY assets/
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/assets")
+    endif()
     if(TARGET eui_shadertoy_wrap)
         install(TARGETS eui_shadertoy_wrap
             EXPORT EuiNeoTargets
@@ -792,9 +800,16 @@ if(EUI_ENABLE_INSTALL)
     if(EUI_ENABLE_MODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules")
         list(APPEND EUI_NEO_INSTALL_HEADER_DIRS modules)
     endif()
+    # 自行安装公开头文件的模块从通用目录扫描中排除，避免实现头或测试头泄漏。
+    get_property(EUI_NEO_MODULE_OWN_HEADER_DIRS GLOBAL PROPERTY EUI_NEO_MODULE_OWN_HEADER_DIRS)
+    set(EUI_NEO_MODULE_HEADER_EXCLUSIONS)
+    foreach(module_header_dir IN LISTS EUI_NEO_MODULE_OWN_HEADER_DIRS)
+        list(APPEND EUI_NEO_MODULE_HEADER_EXCLUSIONS PATTERN "modules/${module_header_dir}" EXCLUDE)
+    endforeach()
     install(DIRECTORY ${EUI_NEO_INSTALL_HEADER_DIRS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo
         FILES_MATCHING PATTERN "*.h"
+        ${EUI_NEO_MODULE_HEADER_EXCLUSIONS}
     )
     if(EUI_OWNS_GLFW_TARGET AND TARGET glfw)
         install(DIRECTORY "${EUI_GLFW_DIR}/include/GLFW"
