@@ -1,5 +1,6 @@
 #include "modules/plot/renderer.h"
 #include "modules/plot/software_raster.h"
+#include "modules/plot/vulkan_renderer.h"
 
 #include <algorithm>
 #include <array>
@@ -414,11 +415,13 @@ struct Renderer::Impl {
             glDeleteProgram(program);
     }
 #elif defined(EUI_RENDER_BACKEND_VULKAN)
-    std::shared_ptr<VulkanTexture> vulkanTexture;
+    std::unique_ptr<detail::VulkanPlotRenderer> vulkanRenderer;
+    std::shared_ptr<detail::VulkanPlotRenderer::Texture> vulkanTexture;
     std::uint64_t device = 0;
     ~Impl() {
         image.reset();
         vulkanTexture.reset();
+        vulkanRenderer.reset();
     }
 #endif
 };
@@ -488,17 +491,19 @@ void Renderer::uploadRgba(std::uint32_t width, std::uint32_t height, const std::
     if (device.api != eui::GpuApi::Vulkan || !device.identity ||
         (impl_->device && impl_->device != device.identity))
         throw std::runtime_error("plot: RGBA upload requires the owning Vulkan device");
+    if (!impl_->vulkanRenderer)
+        impl_->vulkanRenderer = std::make_unique<detail::VulkanPlotRenderer>(device);
     const bool recreate = !impl_->vulkanTexture || !impl_->image ||
         impl_->image->descriptor().width != static_cast<int>(width) ||
         impl_->image->descriptor().height != static_cast<int>(height);
-    auto texture = recreate ? createVulkanTexture(device, width, height) : impl_->vulkanTexture;
-    uploadVulkanTexture(*texture, rgba.data(), rgba.size());
+    auto texture = recreate ? impl_->vulkanRenderer->createTexture(width, height) : impl_->vulkanTexture;
+    impl_->vulkanRenderer->upload(texture, rgba);
     if (recreate) {
         eui::GpuImageDescriptor descriptor;
         descriptor.device = device;
         descriptor.width = static_cast<int>(width);
         descriptor.height = static_cast<int>(height);
-        descriptor.imageView = imageViewHandle(texture->view);
+        descriptor.imageView = impl_->vulkanRenderer->imageViewHandle(texture);
         auto image = eui::image::importGpuImage(descriptor, texture);
         if (!image)
             throw std::runtime_error("plot: Vulkan GPU image import failed");
@@ -660,9 +665,35 @@ void Renderer::render(const std::vector<Batch>& batches, double width, double he
             if (!std::isfinite(vertex.x) || !std::isfinite(vertex.y))
                 throw std::invalid_argument("plot: nonfinite vertex");
     }
-    // 二维离屏图沿用 OpenGL 的下起点纹理；直接 uploadRgba 则保留左上起点输入。
-    auto rgba = detail::rasterize(batches, pixelsX, pixelsY, dpi, true);
-    uploadRgba(static_cast<std::uint32_t>(pixelsX), static_cast<std::uint32_t>(pixelsY), rgba);
+    if (!impl_->vulkanRenderer)
+        impl_->vulkanRenderer = std::make_unique<detail::VulkanPlotRenderer>(device);
+    if (!impl_->vulkanRenderer->supportsSubpixelPrecision()) {
+        // Preserve the 1/256-pixel coverage contract on devices with coarser raster precision.
+        auto rgba = detail::rasterize(batches, pixelsX, pixelsY, dpi, true);
+        uploadRgba(static_cast<std::uint32_t>(pixelsX), static_cast<std::uint32_t>(pixelsY), rgba);
+        return;
+    }
+    const bool recreate = !impl_->vulkanTexture || !impl_->image ||
+        impl_->image->descriptor().width != pixelsX || impl_->image->descriptor().height != pixelsY;
+    auto texture = recreate
+                       ? impl_->vulkanRenderer->createTexture(static_cast<std::uint32_t>(pixelsX),
+                                                              static_cast<std::uint32_t>(pixelsY))
+                       : impl_->vulkanTexture;
+    impl_->vulkanRenderer->render(texture, batches, pixelsX, pixelsY, dpi);
+    if (recreate) {
+        eui::GpuImageDescriptor descriptor;
+        descriptor.device = device;
+        descriptor.width = pixelsX;
+        descriptor.height = pixelsY;
+        descriptor.imageView = impl_->vulkanRenderer->imageViewHandle(texture);
+        auto image = eui::image::importGpuImage(descriptor, texture);
+        if (!image)
+            throw std::runtime_error("plot: Vulkan GPU image import failed");
+        impl_->vulkanTexture = std::move(texture);
+        impl_->image = std::move(image);
+    }
+    impl_->device = device.identity;
+    ++impl_->revision;
 #else
     (void)batches;
     (void)width;

@@ -22,7 +22,8 @@ struct Batch {
 /**
  * @brief 可选模块的离屏渲染器；仅在创建它的窗口 UI/渲染线程使用。
  *
- * GPU 类型隐藏在实现内。OpenGL 使用 GPU 光栅化；Vulkan 使用 CPU 光栅化并上传结果。
+ * GPU 类型隐藏在实现内。OpenGL 与 Vulkan 均 GPU 光栅化二维三角批次；Vulkan 对不足 8 位
+ * 子像素精度的设备使用 CPU 参考光栅器保持覆盖契约。三维/体数据当前仍使用 CPU 参考渲染。
  * 必须在窗口设备销毁前 release()；UI 持有的图像引用由核心外部图像接口延迟退休。
  */
 class Renderer {

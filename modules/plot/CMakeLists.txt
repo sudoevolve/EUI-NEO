@@ -5,7 +5,7 @@ if(NOT EUI_ENABLE_PLOT)
     return()
 endif()
 
-add_library(eui_neo_module_plot data.cpp waveform.cpp axes.cpp field.cpp contour.cpp geometry.cpp vector.cpp export.cpp renderer.cpp plot.cpp figure.cpp
+add_library(eui_neo_module_plot data.cpp waveform.cpp axes.cpp field.cpp contour.cpp geometry.cpp vector.cpp export.cpp renderer.cpp vulkan_renderer.cpp plot.cpp figure.cpp
     scene3d.cpp volume.cpp plot3d.cpp gpu_scene3d.cpp)
 add_library(eui::module_plot ALIAS eui_neo_module_plot)
 set_target_properties(eui_neo_module_plot PROPERTIES EXPORT_NAME module_plot)
@@ -22,6 +22,12 @@ endif()
 
 set_property(GLOBAL APPEND PROPERTY EUI_NEO_MODULE_BUILD_SCRIPTS
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Build.cmake")
+
+if(Python3_Interpreter_FOUND)
+    add_custom_target(eui_check_plot_vulkan_shaders
+        COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_plot_vulkan_shaders.py" --check
+        VERBATIM)
+endif()
 
 if(EUI_ENABLE_INSTALL)
     install(TARGETS eui_neo_module_plot EXPORT EuiNeoTargets

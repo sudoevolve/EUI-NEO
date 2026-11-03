@@ -1,20 +1,20 @@
 # 科学绘图 Vulkan 发布验收
 
-本记录限定 Windows x64、MSVC、GLFW 的 Vulkan 配置。Vulkan 绘图当前由 CPU 生成二维光栅和
-三维图像，再上传 Vulkan 纹理合成；不承诺原生 Vulkan GPU 绘图加速。
+本记录中的实测环境为 Windows x64、MSVC、GLFW。2026-11-01 的基线二维与三维视口均由 CPU
+渲染后上传；2026-11-03 起二维三角批次使用 Vulkan GPU 光栅化，三维/体视口仍为 CPU 参考路径。
+验收脚本使用 Python 3 标准库和 CMake，不绑定操作系统或 CMake 生成器；当前实测证据仍只覆盖上述环境，不能据此承诺所有设备、平台及长期运行可靠性。
 2026-11-01 的结论是当前配置技术门禁通过，可以交付限定支持范围的候选 SDK；现有证据不足以
 宣称全部 Vulkan 设备、所有操作系统或长期运行可靠性均已认证。
 
 ## 可复现验收
 
-安装 Vulkan SDK，设置 VULKAN_SDK，确保 vulkaninfo 和 CMake 在 PATH 中，在交互桌面运行：
+安装 Vulkan SDK 和 Khronos 验证层，确保 `vulkaninfo`、CMake 与 Python 3 在 PATH 中，在交互桌面运行：
 
-```powershell
-$env:VULKAN_SDK='C:/VulkanSDK/1.4.350.0'
-powershell -ExecutionPolicy Bypass -File modules/plot/scripts/TestPlotVulkanRelease.ps1
+```sh
+python3 modules/plot/scripts/test_plot_vulkan_release.py
 ```
 
-默认生成器为 Visual Studio 18 2026，可用 -Generator 指定实际安装版本。脚本构建全部 plot 单元
+可使用 `--build-dir`、`--output-dir`、`--parallel` 和 `--probe-repeats` 配置构建、证据目录、并行度与探针重复次数。脚本构建全部 plot 单元
 与性能测试、Vulkan 和外部图像 probe，强制启用 Khronos 验证层和同步验证，重复运行两个图形
 probe，并构建安装包消费者。OutputDir 必须是新路径，脚本不清理已有目录。
 
@@ -68,15 +68,16 @@ CMake 导出未引用源目录，五个 plot 私有实现头未安装。sdk-mani
 | 同规模显式 125k 用例 | 10.0412 | 12.8968 | 与上一行分别运行 |
 | 21³ 体数据，512×384，步长 0.16 | 9.5905 | 10.3733 | 拖动四分之一分辨率；松手全分辨率重绘 90.1584 ms |
 
-建议产品说明写为：提供科学绘图基础接口，支持 Windows x64 的 GLFW/Vulkan CPU 绘图上传
-兼容路径，已在上述驱动组合验收。数值精度以[数值契约](科学绘图精度与数值契约.md)为准。
+建议产品说明写为：提供科学绘图基础接口；Windows x64 / GLFW / Vulkan 的二维三角图层已支持
+GPU 光栅化，数据映射和三角化由 CPU 完成，三维/体数据视口仍使用 CPU 参考渲染。数值精度以
+[数值契约](科学绘图精度与数值契约.md)为准。
 
 当前未完成 NVIDIA/AMD、多版本 Intel 驱动、SDL2/Vulkan、Linux/macOS 的同等验收；也没有
 数小时/数天的进程内存、GPU 内存及句柄增长报告。Vulkan 三维已检查 CPU 回退合成和交互
 基准，但没有把所有三维/体场景逐像素读回对照；不能把 OpenGL 的图像对照结果直接算作
 Vulkan 已通过。大体数据、松手完整重绘和同步上传仍可能阻塞 UI。
 
-销售材料不得把兼容路径描述为原生 Vulkan GPU 计算/绘图加速、任意精度或恒定实时帧率。
+销售材料不得把三维 CPU 回退描述为 GPU 加速，也不得承诺任意精度或恒定实时帧率。
 现有 Apache-2.0 权利、额外商业授权权属、第三方再分发义务和 ABI 交付要求见
 [二进制 SDK 与商业交付](科学绘图二进制SDK与商业交付.md)。尚未签发商业合同或添加激活机制。
 
@@ -87,6 +88,27 @@ SDK 安装边界。没有新增第三方运行时依赖，没有新增业务接�
 影响核心 Vulkan 呈现，因此同时运行外部 GPU 图像探针及其故障注入，而不只检查 plot 首帧。
 2026-11-01 验收时 git diff --check 通过，修改当时尚未提交或推送；长期资源增长和其他设备矩阵
 仍是明确的后续验收项。
+
+## 2026-11-03 Vulkan 二维 GPU 光栅化
+
+`Renderer` 的 Vulkan 分支新增离屏图形管线：CPU 双精度数据映射与 CPU 三角化保持不变，顶点经
+host-visible Vulkan buffer 上传，由 GPU 混合绘制至同时用于 color attachment 和 UI sampling 的 RGBA8
+图像；同尺寸复用图像和顶点缓冲。绘制前后通过图像布局转换与访问屏障同步 color attachment 和 UI sampling。
+设备
+`subPixelPrecisionBits < 8` 时回退原软件光栅器，保留 1/256 像素量化和 top-left 覆盖契约。
+`uploadRgba()` 仍是独立 CPU 图像上传 API。Plot3D、体数据、拾取和导出路径未改为 Vulkan GPU 执行。
+
+同机 Windows x64 / MSVC / GLFW Release / Intel Arc Graphics（驱动 101.8826，API 1.4.348）下，
+Vulkan 发布门禁 22 项通过，两个同步/绘图探针各重复 5 次；OpenGL 27 项 plot 回归通过。
+验证层未报告 Validation Error、VUID 或 SYNC-HAZARD。SDK 示例和独立 API 消费者测试各 1/1 通过，
+安装包含 16 个 plot 公开头文件，文档链接检查通过。
+
+125k 点/序列、1920×1080、20 轮同机基准中，Vulkan pan compose 中位/P95 为 5.3827/5.8845 ms，
+present+GPU wait 为 2.9273/3.703 ms，端到端拖动为 8.3526/9.2005 ms；OpenGL 对照分别为
+5.3146/6.7416、2.3600/4.0562、7.7521/9.5619 ms。此测量不证明 Vulkan 整体更快；它记录新 GPU
+执行路径的代价，CPU 几何生成仍占显著时间。原始日志为仓库忽略目录
+`temp/plot-vulkan-gpu-gate-final2-20261103/`、`temp/plot-vulkan-gpu-opengl-test.log` 与两个
+`temp/plot-vulkan-gpu-*-benchmark.json` 文件。结果只适用于该设备组合。
 
 ## 2026-11-02 模块目录迁移回归
 

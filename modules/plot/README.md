@@ -31,19 +31,18 @@ target_link_libraries(my_app PRIVATE eui::module_plot)
 安装包使用相同 target，模块交付材料位于 `share/eui-neo/modules/plot/`。
 模块没有额外第三方运行时依赖，不反向引入到 `eui::neo`。
 `EUI_ENABLE_PLOT=OFF` 或删除模块目录后，绘图示例与测试自动跳过。
-数值部分不使用 GPU 类型。OpenGL 使用离屏 GPU 绘图；Vulkan 通过 CPU 光栅化二维批次并上传到
-Vulkan 图像，视口功能可用但不是 GPU 加速路径。Vulkan 下三维交互也使用 CPU 参考光栅器；
+数值部分不使用 GPU 类型。OpenGL 与 Vulkan 都在 GPU 上光栅化二维三角批次并写入离屏图像；
+Vulkan 仍在 CPU 上进行数据映射、裁剪和几何三角化。子像素精度不足 8 位的设备回退 CPU
+参考光栅器以保持边缘覆盖契约。Vulkan 下三维/体数据交互仍使用 CPU 参考光栅器；
 拖动时二维临时以二分之一分辨率预览，三维使用四分之一分辨率，松手后恢复完整分辨率。
-本机 Vulkan 实测中，二维每条序列 125k 点、1920×1080 视口拖动中位约 12 ms；21³ 体数据、
-512×384 视口 orbit 拖动中位约 9.9 ms，松手完整重绘约 119 ms。数据为单机基准，不是帧率保证；
-大体数据在 Vulkan 下仍可能明显停顿。
-上述为历史测量；当前验证环境、同步验证结果、SDK 发布门禁和性能样本见
+2026-11-02 的 Vulkan 二维数值是 CPU 光栅路径的历史结果，不代表当前 GPU 路径性能。当前后端
+验收、同步验证与新旧性能对照见
 [Vulkan 发布验收](docs/科学绘图Vulkan发布验收.md)。
-OpenGL 仍使用 GPU BVH 与体光线投射。
+OpenGL 三维仍使用 GPU BVH 与体光线投射；Vulkan 三维目前是 CPU 回退。
 
 `Plot3D`、`SceneRenderer3D`、`VolumeData` 提供三维几何、相机、深度拾取、切片、等值面及体积分。
 OpenGL 交互视口使用 OpenGL 3.3 的 GPU BVH 求交与体光线投射；相机更新复用几何与体纹理。
-Vulkan 交互视口以 CPU 双精度参考渲染结果上传显示；CPU 路径也负责拾取和离线导出。
+Vulkan 三维交互视口以 CPU 双精度参考渲染结果上传显示；CPU 路径也负责拾取和离线导出。
 用法、预算、透明合成和输出限制见 [三维与体数据](docs/科学绘图三维与体数据.md)。
 
 `modules/plot/examples/scientific_plot_phase3.cpp` 提供 3×2 三维集成展示；

@@ -43,8 +43,8 @@ share/eui-neo/modules/plot/licenses/plot-colormaps.txt。plot 实现头 numeric.
 data_storage.h、gpu_scene3d_shader.h、software_raster.h 不安装；其他核心/模块头仍按现有规则提供，
 当前包不等于完全隔离的独立 plot 产品。
 
-Vulkan 已增加可复现的[发布门禁](科学绘图Vulkan发布验收.md)，执行
-modules/plot/scripts/TestPlotVulkanRelease.ps1 会构建、验证、安装并编译独立消费者，输出文件 SHA256 清单。
+Vulkan 已增加可复现的[发布门禁](科学绘图Vulkan发布验收.md)。运行
+`python3 modules/plot/scripts/test_plot_vulkan_release.py` 可使用 Python 3 标准库构建、验证、安装和测试独立消费者，并输出文件 SHA256 清单。脚本不固定 CMake 生成器；目标平台仍需具备 Vulkan SDK、验证层和图形桌面。
 该流程设置 EUI_INSTALL_DEMO_ASSETS=OFF；普通 install 默认仍包含演示资产，切勿混同。
 务必使用新安装前缀，关闭选项不会删除旧包已有的资源。Vulkan SDK 开发文件仍是客户编译依赖；
 最终应用运行需要驱动/loader 和相匹配的 MSVC 运行库。字体可以使用系统回退或自行提供已授权资源。

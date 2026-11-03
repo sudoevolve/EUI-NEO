@@ -270,7 +270,7 @@ int main() {
         pixels.release();
         alpha.release();
         renderer.release();
-        std::cout << "Vulkan 2D upload/revision/resize and 3D CPU fallback composition passed\n";
+        std::cout << "Vulkan 2D GPU draw/revision/resize and 3D CPU fallback composition passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         result = 1;
