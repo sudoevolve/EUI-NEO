@@ -1,5 +1,7 @@
 # EUI-NEO
 
+> **Open to work:** I am looking for opportunities in embedded systems, Linux application development, or Qt development. Referrals and opportunities are welcome!
+
 <p align="center">
   <img src="assets/icon.svg" width="104" alt="EUI icon">
 </p>

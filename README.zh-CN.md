@@ -1,5 +1,7 @@
 # EUI-NEO
 
+> **求职中：** 我正在寻找嵌入式开发、Linux 应用开发或 Qt 开发相关岗位，欢迎交流与推荐！
+
 <p align="center">
   <img src="assets/icon.svg" width="104" alt="EUI icon">
 </p>
