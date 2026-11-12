@@ -277,6 +277,11 @@ inline Rect imageVisualRect(const LayoutRect& frame, const Transform& transform 
     return transformRect({frame.x, frame.y, frame.width, frame.height}, frame, transform);
 }
 
+inline Rect polygonVisualRect(const LayoutRect& frame, float strokeWidth, const Transform& transform = {}) {
+    const Rect bounds{frame.x, frame.y, frame.width, frame.height};
+    return transformRect(strokeWidth > 0 ? inflateRect(bounds, strokeWidth * .5f + 2) : bounds, frame, transform);
+}
+
 inline bool containsRect(const Rect& outer, const Rect& inner) {
     return inner.x >= outer.x &&
            inner.y >= outer.y &&

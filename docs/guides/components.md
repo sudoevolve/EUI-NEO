@@ -34,7 +34,7 @@
 | `datePicker` | dialog 式日期选择器，受控 `open/date` |
 | `timePicker` | dialog 式时间选择器，受控 `open/time` |
 | `colorPicker` | dialog 式颜色选择器，受控 `open/value` |
-| `dataTable` | 简单数据表格 |
+| `dataTable` | 虚拟表格、排序筛选和列宽调整 |
 | `dialog` | 模态对话框 |
 | `sidebar` | 右侧抽屉式侧边栏容器 |
 | `toast` | 右上角 toast，支持自动消失 |
@@ -59,7 +59,7 @@
 
 组件、示例和公开文档遵循以下命名规则。
 
-状态归属、受控组件、`ui.state<T>`、Runtime state binding 和 `Signal<T>` 双向绑定见 [状态模型](状态.md)。
+状态归属、受控组件、`ui.state<T>`、Runtime state binding 和 `Signal<T>` 双向绑定见 [状态模型](state.md)。
 
 标准组件入口：
 
@@ -118,14 +118,14 @@
 | `datePicker` | 日期选择 | `open`、`date`、`screen`、`onChange`、`onOpenChange` | 页面持有 open/date，组件 draft 走 `ui.state` | 本文、gallery |
 | `timePicker` | 时间选择 | `open`、`time`、`minuteStep`、`screen`、`onChange`、`onOpenChange` | 页面持有 open/time，组件 draft 走 `ui.state` | 本文、gallery |
 | `colorPicker` | 颜色选择 | `open`、`value`、`colors`、`screen`、`onChange`、`onOpenChange` | 页面持有 open/value，组件 draft 走 `ui.state` | 本文、gallery |
-| `dataTable` | 表格展示 | `columns`、`rows`、`theme` | 页面持有数据 | 本文、gallery |
+| `dataTable` | 虚拟表格 | `columns`、`data`、`filter`、`sort`、`columnWidths` | 页面持有数据 | 本文、data_tools_viewer |
 | `dialog` | 模态确认 | `open`、`screen`、`title`、`message`、`onOpenChange`、回调 | 页面持有 open | 本文、gallery |
 | `sidebar` | 抽屉容器 | `open`、`size`、`drawerWidth`、`title`、`onOpenChange`、`content` | 页面持有 open，内部内容由页面声明 | 本文、gallery |
 | `toast` | 临时反馈 | `visible`、`screen`、`title`、`message`、`duration` | 页面持有 visible | 本文、gallery |
 | `tooltip` | 提示浮层 | `anchor`、`value`、`source`、`bounds` | 无业务状态，可绑定 hover 透明度 | 本文、图表内部使用 |
 | `contextMenu` | 右键菜单 | `open`、`position`、`items`、`onSelect`、`onSelectPath`、`onOpenChange` | 页面持有 open/position，组件持有子菜单路径 | 本文、gallery |
 | `carousel` | 轮播展示 | `items`、`index`、`onChange` | 页面持有 index，拖拽动画态走 `ui.state` | 本文、gallery |
-| `lineChart` | 折线图 | `values`、`labels`、`title` | 页面持有数据 | 本文、gallery |
+| `lineChart` | 展示与实时曲线 | `values`、`data`、`range`、`visibleRange` | 页面持有数据 | 本文、data_tools_viewer |
 | `barChart` | 柱状图 | `values`、`labels`、`colors`、`title` | 页面持有数据 | 本文、gallery |
 | `pieChart` | 饼图 | `values`、`labels`、`colors`、`title` | 页面持有数据，过渡动画态走 `ui.state` | 本文、gallery |
 | `mouseArea` | 输入热区 | `size`、`onTap`、`onMove`、`onDrag`、`onScroll`、`onContextMenu` | 页面处理业务状态，组件手势态走 `ui.state` | 本文，carousel / tiltCard 内部使用 |
@@ -392,7 +392,7 @@ components::markdown(ui, "doc")
 
 `mouseArea` 是通用输入热区，不负责业务状态，也不画默认 UI。它适合给 canvas、图片、卡片、carousel、时间轴这类区域补一层统一的鼠标/触摸板输入 API。
 
-普通按钮、菜单项等简单点击直接在可视图元上绑定 DSL 回调，不必额外包一层 `mouseArea`。只有独立/透明热区，或需要局部坐标、拖拽、滚轮、右键和 click-after-drag 抑制时才使用它。弹窗、下拉菜单、侧栏等仅用于阻止事件穿透的透明面板使用 `.blockPointer()`，不要写空的 `.onClick([] {})`；完整规则见 [事件](事件.md#热区选型与命名规范)。
+普通按钮、菜单项等简单点击直接在可视图元上绑定 DSL 回调，不必额外包一层 `mouseArea`。只有独立/透明热区，或需要局部坐标、拖拽、滚轮、右键和 click-after-drag 抑制时才使用它。弹窗、下拉菜单、侧栏等仅用于阻止事件穿透的透明面板使用 `.blockPointer()`，不要写空的 `.onClick([] {})`；完整规则见 [事件](events.md#热区选型与命名规范)。
 
 ```cpp
 components::mouseArea(ui, "stage.input")
@@ -469,7 +469,7 @@ components::input(ui, "editor")
 
 多行绘制只创建可见行的文本元素。编辑时只重新测量受影响的硬换行段落，其余段落保留原有 metrics；字体、字号或可用宽度改变时重新排版。IME 预编辑文字在展示副本中替换选区、参与换行，提交前不修改文档或撤销历史，提交/取消后释放展示副本并回收其排版缓存。这样在行中间输入时，后面的文字会让出空间，不再叠画。
 
-当前仍使用完整字符串和最多 128 个撤销快照，初次加载、调整宽度和超长单段落仍需完整测量对应文本；不是 VS Code 的 piece table/分页编辑器，也不保证任意大小文件无延迟。样式的颜色可使用 HEX，例如 `style.background = "#1E293B"`；格式和校验方式见 [DSL 颜色](DSL.md#颜色)。
+撤销与重做历史默认合计限制为 8 MiB，并保持每个栈最多 128 个快照。可用 `.undoByteBudget(2 * 1024 * 1024)` 调整，0 关闭历史；按快照对象与字符串容量计费，不含当前文档和 vector 预留槽位。超预算先淘汰另一方向的旧记录，单个快照超预算时不保留。当前仍使用完整字符串，初次加载、调整宽度和超长单段落仍需完整测量对应文本；不是 VS Code 的 piece table/分页编辑器，也不保证任意大小文件无延迟。样式的颜色可使用 HEX，例如 `style.background = "#1E293B"`；格式和校验方式见 [DSL 颜色](dsl.md#颜色)。
 
 当前 input 支持 focus、点击定位光标、拖动选择、Shift+方向键选择、Ctrl+A/C/X/V/Z、Cmd+A/C/X/V/Z、Ctrl+Y、Ctrl+Shift+Z、Cmd+Shift+Z、Backspace、Delete、Enter、单行和多行模式，并会把系统 IME 候选框锚定到当前光标位置。Windows/SDL 文本编辑事件会把 IME 预编辑文字透传给 input，并在光标处按输入框字体自绘组合串；Windows 下会抑制系统组合窗口，保留系统候选窗口。光标、选择、删除、撤销、重做和横向滚动基于 `TextPrimitive::measureTextMetrics(...)` 的 shaped caret stops；这些 stops 使用 UTF-8 byte offset，并与实际渲染的 fallback、emoji 缩放和 glyph advance 保持一致，适配 emoji、CJK、阿拉伯连字和组合符号。多行模式依据滚动位置计算可见行范围，每行使用相对文本 viewport 的 frame，再由 viewport clip 裁剪。默认字体族是跨平台 `monospace`；如果系统等宽字体路径不存在，会继续尝试默认 UI 字体和系统 UI 字体兜底。默认占位文本是 `Hello EUI-NEO 😉`。
 
@@ -645,7 +645,9 @@ components::virtualList(ui, "logs.virtual")
     .build();
 ```
 
-支持 `x`、`y`、`position`、`size`、`itemCount`、`rowHeight`、`offset`、`bind`、`step`、`overscanViewports`、`scrollbarWidth`、`scrollbarGap`、`zIndex`、`style`、`theme`、`transition`、`onChange`、`row(...)`。
+支持 `x`、`y`、`position`、`size`、`itemCount`、`rowHeight`、`offset`、`bind`、`step`、`overscanViewports`、`scrollbarWidth`、`scrollbarGap`、`scrollbarInset`、`composeOnScrollOffsetChange`、`zIndex`、`style`、`theme`、`transition`、`onChange`、`row(...)`。
+
+`scrollbarInset` 为滚动条上下留白，不改变数据视口。行绘制依赖视口坐标时可启用 `composeOnScrollOffsetChange(true)`，在每次 offset 更新后重建可见槽位；默认只在跨槽位时重建。
 
 使用建议：
 
@@ -752,7 +754,7 @@ components::workshop::tiltCard(ui, "demo.tilt")
 
 `tiltCard` 使用 `Stack + Rect + Text + mouseArea` 组合卡片。组件内部用 `mouseArea` 提供稳定命中区，再通过 Runtime 级 `.runtimePointerTiltFrom(...)` 读取当前指针位置并直接驱动 `.rotateX(...)` / `.rotateY(...)` / `.perspective(...)` 变换，避免 hover 移动时反复触发组件重组。更通用的高频 pointer-follow 视觉变换可用 `.runtimePointerTransformFrom(...)` 直接驱动 rotate / translate / hover scale；只有 Runtime 暂时无法表达，或确实需要回调更新业务状态时，才应在组件内使用 `mouseArea.onMove(...)`。
 
-工坊组件允许持有少量纯视觉交互态，例如按下时切换内外阴影，但业务状态仍应留在页面或业务层。迁移网页组件时参考 [components/workshop/SKILL.md](../components/workshop/SKILL.md)。
+工坊组件允许持有少量纯视觉交互态，例如按下时切换内外阴影，但业务状态仍应留在页面或业务层。迁移网页组件时参考 [components/workshop/SKILL.md](../../components/workshop/SKILL.md)。
 
 ### toast
 
@@ -911,6 +913,12 @@ picker 的拖动、滚轮和 slider 交互只捕获 Loader scope 下的 draft / 
 
 ### dataTable
 
+表体默认按固定行高虚拟化。大数据使用 `.data(shared_ptr<const DataTableRows>, revision)`，原地修改数据后递增 revision，compose 期间不可并发写入。`.rows(...)` 仍适合小表格；每次调用会建立新数据源。
+
+点击列头切换升降序，也可 `.sort(column, descending)` 受控排序并配合 `.onSort(...)` 更新页面状态。默认稳定字典排序，`.numericSort()` 启用数值比较；`.filter("keyword")` 对所有单元格进行区分大小写的子串匹配。排序和筛选只修改索引，`.onRowClick(...)` 返回原始数据行号。
+
+`.columnWidths({180, 120})` 设置相对列宽并适配表格宽度；拖动列边界调整相邻列，键盘聚焦边界后左右方向键每次调整 8 个逻辑像素。`.minColumnWidth(40)` 设置最小值，窄窗口下按可用空间收缩；`.resizable(false)`、`.sortable(false)` 可关闭交互。受控列宽使用 `.onColumnWidthsChange(...)` 保存并回传最新列宽。
+
 ```cpp
 components::dataTable(ui, "metrics.table")
     .size(420.0f, 174.0f)
@@ -926,7 +934,7 @@ components::dataTable(ui, "metrics.table")
 
 支持 `size`、`columns`、`rows`、`style`、`theme`、`transition`。
 
-表格内部会裁剪内容区，表头和末行圆角用 patch rect 衔接，避免圆角和分割线断开。
+表头与行底色绘制为外层圆角面板在对应区域的交集，边框最后绘制，滚动条在上下端留出圆角空间。圆角表格在滚动 offset 变化后重建可见槽位以固定视口边界，节点数仍由视口和 overscan 决定；不会为全部数据行创建节点。
 
 ### carousel
 
@@ -955,9 +963,15 @@ components::carousel(ui, "hero.carousel")
 
 三个图表都是通用组件，使用 DSL 图元绘制，不使用 SVG 图片。tooltip 由独立 `components::tooltip` 组件绘制，并通过 `hoverOpacityFrom(sourceId)` 绑定到对应数据点、柱或扇区。
 
-科学坐标轴、复杂二维图、三维及体数据的功能规划与验收清单见 [科学绘图 TODO](科学绘图TODO.md)。该清单不表示当前图表组件已支持这些能力。
+科学坐标轴、任意 X 坐标、复杂二维图、三维及体数据尚未提供。当前图表适用于轻量展示和等间距实时采样。
 
 ### lineChart
+
+实时数据使用 `.data(shared_ptr<const std::vector<float>>, revision).range(min, max)`，按等间距采样绘制。原地更新数据后递增 revision，compose 期间不可并发写入；`.visibleRange(first, last)` 限定半开采样区间。也可 `.values(...).realtime()`，但每次会复制/重建源数据。
+
+实时模式采用线性折线，每个横向逻辑像素桶保留首、最小、最大、尾采样并按原顺序输出，点数最多约为绘图区宽度的 4 倍。NaN/Inf 所在的桶断开路径，因此不会连接缺失数据两侧；缺失桶内的有效采样也会被省略。范围外的值裁到范围边界，空数据不绘线，单点绘圆点。
+
+整条折线只占一个 Polygon Runtime 节点，线段复用 OpenGL/Vulkan 的圆角矩形批次；实际 GPU 提交次数由后端批次容量决定。实时模式省略逐点动画、标签和 Tooltip，原有 `.values(...).labels(...)` 展示模式保留。详细测量见 [数据工具验证记录](https://github.com/sudoevolve/EUI-NEO/blob/main/internal/validation/2026-11-12-data-tools.md)，交互示例为 `data_tools_viewer`。
 
 ```cpp
 components::lineChart(ui, "usage.line")

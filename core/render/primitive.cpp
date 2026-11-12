@@ -194,6 +194,7 @@ void RoundedRectPrimitive::render(int windowWidth, int windowHeight) const {
 struct PolygonPrimitive::Impl {
     Rect bounds{};
     std::vector<Vec2> points;
+    float strokeWidth = 0.0f;
     Color color{};
     Transform transform{};
     TransformMatrix transformMatrix{};
@@ -213,6 +214,7 @@ bool PolygonPrimitive::initialize() { return true; }
 void PolygonPrimitive::destroy() {}
 void PolygonPrimitive::setBounds(float x, float y, float width, float height) { impl_->bounds = {x, y, width, height}; }
 void PolygonPrimitive::setPoints(const std::vector<Vec2>& points) { impl_->points = points; }
+void PolygonPrimitive::setStrokeWidth(float width) { impl_->strokeWidth = std::max(0.0f, width); }
 void PolygonPrimitive::setRadius(float radius) { impl_->radius = std::max(0.0f, radius); }
 void PolygonPrimitive::setColor(const Color& color) { impl_->color = color; }
 void PolygonPrimitive::setOpacity(float opacity) { impl_->opacity = std::clamp(opacity, 0.0f, 1.0f); }
@@ -225,11 +227,40 @@ void PolygonPrimitive::setTransformMatrix(const TransformMatrix& matrix) {
     impl_->hasTransformMatrix = true;
 }
 void PolygonPrimitive::render(int windowWidth, int windowHeight) const {
-    if (impl_->points.size() < 3 || impl_->opacity <= 0.001f || impl_->color.a <= 0.001f) {
+    if (impl_->points.size() < (impl_->strokeWidth > 0 ? 2u : 3u) || impl_->opacity <= 0.001f || impl_->color.a <= 0.001f) {
         return;
     }
     auto* backend = activeBackend();
     if (backend == nullptr) {
+        return;
+    }
+
+    if (impl_->strokeWidth > 0.0f) {
+        // 同一折线只占一个 Runtime 节点；胶囊线段复用两后端已有的 rounded rect batch。
+        const float radius = impl_->strokeWidth * 0.5f;
+        core::render::RoundedRectDrawCommand command;
+        command.fillColor = impl_->color;
+        command.opacity = impl_->opacity;
+        command.radius = radius;
+        command.vertices.resize(6);
+        for (std::size_t i = 1; i < impl_->points.size(); ++i) {
+            const auto a = impl_->points[i - 1], b = impl_->points[i];
+            if (!std::isfinite(a.x) || !std::isfinite(a.y) || !std::isfinite(b.x) || !std::isfinite(b.y)) continue;
+            const float dx = b.x - a.x, dy = b.y - a.y;
+            const float length = std::hypot(dx, dy);
+            if (length <= 0.0001f) continue;
+            command.rect = {-radius, -radius, length + radius * 2, radius * 2};
+            const auto vertices = core::render::roundedRectGeometryVertices(command.rect, {}, {}, false,
+                core::render::expandPrimitiveRect(command.rect, 2));
+            for (std::size_t v = 0; v < vertices.size(); ++v) {
+                const auto p = vertices[v].local;
+                command.vertices[v] = {core::render::transformPrimitivePoint(impl_->bounds, impl_->transform,
+                    impl_->transformMatrix, impl_->hasTransformMatrix,
+                    impl_->bounds.x + a.x + (dx * p.x - dy * p.y) / length,
+                    impl_->bounds.y + a.y + (dy * p.x + dx * p.y) / length), p};
+            }
+            backend->drawRoundedRect(command, windowWidth, windowHeight);
+        }
         return;
     }
 

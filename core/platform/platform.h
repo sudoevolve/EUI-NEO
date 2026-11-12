@@ -12,12 +12,18 @@ struct TrayOptions {
     std::string iconPath;
 };
 
+/** @brief 文件系统对话框模式。 */
+enum class FileDialogMode { OpenFile, SaveFile, Directory };
+
 struct FileDialogOptions {
     std::string prompt;
     std::vector<std::string> allowedExtensions;
     std::string initialDirectory;
     std::string filterName;
     bool allowMultiple = false;
+    FileDialogMode mode = FileDialogMode::OpenFile;
+    std::string defaultFileName;
+    window::Handle parent = nullptr;
 };
 
 enum class FileDialogStatus {
@@ -40,6 +46,12 @@ bool repairCurrentWorkingDirectory();
 std::string resolveResourcePath(const std::string& path);
 bool openUrl(const std::string& url);
 FileDialogResult openFileDialog(const FileDialogOptions& options = {});
+/** @brief 保存路径选择；确认后仍由调用方写入文件。 */
+FileDialogResult saveFileDialog(const FileDialogOptions& options = {});
+/** @brief 选择本地目录。 */
+FileDialogResult selectDirectoryDialog(const FileDialogOptions& options = {});
+std::string chooseSaveFile(const FileDialogOptions& options = {});
+std::string chooseDirectory(const FileDialogOptions& options = {});
 std::string chooseFile(const FileDialogOptions& options = {});
 std::vector<std::string> chooseFiles(const FileDialogOptions& options = {});
 bool initializeTray(const TrayOptions& options);

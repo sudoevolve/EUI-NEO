@@ -73,6 +73,8 @@ inline bool samePoints(const std::vector<Vec2>& left, const std::vector<Vec2>& r
         return false;
     }
     for (std::size_t index = 0; index < left.size(); ++index) {
+        if ((!std::isfinite(left[index].x) || !std::isfinite(left[index].y)) &&
+            (!std::isfinite(right[index].x) || !std::isfinite(right[index].y))) continue;
         if (!closeEnough(left[index], right[index])) {
             return false;
         }

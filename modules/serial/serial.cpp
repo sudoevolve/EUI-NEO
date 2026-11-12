@@ -1,6 +1,7 @@
 #include "serial.h"
 
 #include <cstring>
+#include <utility>
 
 #if defined(_WIN32) || defined(_WIN64)
 #if defined(__GNUC__)
@@ -84,6 +85,24 @@ SerialPort::~SerialPort() {
     close();
 }
 
+SerialPort::SerialPort(SerialPort&& other) noexcept : SerialPort() {
+    *this = std::move(other);
+}
+
+SerialPort& SerialPort::operator=(SerialPort&& other) noexcept {
+    if (this == &other) return *this;
+    close();
+    currentStateRts_ = other.currentStateRts_;
+    currentStateDtr_ = other.currentStateDtr_;
+#if defined(_WIN32) || defined(_WIN64)
+    handle_ = std::exchange(other.handle_, INVALID_HANDLE_VALUE);
+    timeouts_ = other.timeouts_;
+#else
+    fd_ = std::exchange(other.fd_, -1);
+#endif
+    return *this;
+}
+
 // =============================================================================
 // Configuration and initialization
 // =============================================================================
@@ -91,23 +110,25 @@ SerialPort::~SerialPort() {
 OpenResult SerialPort::open(const char* device, unsigned int bauds,
                             DataBits databits, Parity parity,
                             StopBits stopbits) {
+    if (device == nullptr || *device == '\0') return {false, OpenError::DeviceNotFound};
+    SerialPort candidate;
 #if defined(_WIN32) || defined(_WIN64)
     // Open serial port
-    handle_ = CreateFileA(device,
+    candidate.handle_ = CreateFileA(device,
                           GENERIC_READ | GENERIC_WRITE,
                           0, nullptr,
                           OPEN_EXISTING,
                           0, nullptr);
-    if (handle_ == INVALID_HANDLE_VALUE) {
+    if (candidate.handle_ == INVALID_HANDLE_VALUE) {
         if (GetLastError() == ERROR_FILE_NOT_FOUND)
             return {false, OpenError::DeviceNotFound};
         return {false, OpenError::OpenFailed};
     }
 
     // Get current port parameters
-    DCB dcbSerialParams;
+    DCB dcbSerialParams{};
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
-    if (!GetCommState(handle_, &dcbSerialParams))
+    if (!GetCommState(candidate.handle_, &dcbSerialParams))
         return {false, OpenError::PortParamsFailed};
 
     // Set baud rate
@@ -166,34 +187,35 @@ OpenResult SerialPort::open(const char* device, unsigned int bauds,
     dcbSerialParams.Parity = parityBits;
 
     // Write parameters
-    if (!SetCommState(handle_, &dcbSerialParams))
+    if (!SetCommState(candidate.handle_, &dcbSerialParams))
         return {false, OpenError::WriteParamsFailed};
 
     // Set timeout parameters
-    timeouts_.ReadIntervalTimeout = 0;
-    timeouts_.ReadTotalTimeoutConstant = MAXDWORD;
-    timeouts_.ReadTotalTimeoutMultiplier = 0;
-    timeouts_.WriteTotalTimeoutConstant = MAXDWORD;
-    timeouts_.WriteTotalTimeoutMultiplier = 0;
+    candidate.timeouts_.ReadIntervalTimeout = 0;
+    candidate.timeouts_.ReadTotalTimeoutConstant = MAXDWORD;
+    candidate.timeouts_.ReadTotalTimeoutMultiplier = 0;
+    candidate.timeouts_.WriteTotalTimeoutConstant = MAXDWORD;
+    candidate.timeouts_.WriteTotalTimeoutMultiplier = 0;
 
-    if (!SetCommTimeouts(handle_, &timeouts_))
+    if (!SetCommTimeouts(candidate.handle_, &candidate.timeouts_))
         return {false, OpenError::TimeoutParamsFailed};
 
+    *this = std::move(candidate);
     return {true, OpenError::None};
 #endif
 #if defined(__linux__) || defined(__APPLE__)
     // Open device
-    fd_ = ::open(device, O_RDWR | O_NOCTTY | O_NDELAY);
-    if (fd_ == -1)
+    candidate.fd_ = ::open(device, O_RDWR | O_NOCTTY | O_NDELAY);
+    if (candidate.fd_ == -1)
         return {false, OpenError::OpenFailed};
 
     // Set nonblocking mode
-    fcntl(fd_, F_SETFL, FNDELAY);
+    if (fcntl(candidate.fd_, F_SETFL, FNDELAY) == -1) return {false, OpenError::PortParamsFailed};
 
     // Get and clear current options
     struct termios options;
-    tcgetattr(fd_, &options);
-    bzero(&options, sizeof(options));
+    if (tcgetattr(candidate.fd_, &options) != 0) return {false, OpenError::PortParamsFailed};
+    std::memset(&options, 0, sizeof(options));
 
     // Set baud rate
     speed_t speed;
@@ -285,8 +307,9 @@ OpenResult SerialPort::open(const char* device, unsigned int bauds,
     options.c_iflag |= (IGNPAR | IGNBRK);
     options.c_cc[VTIME] = 0;
     options.c_cc[VMIN] = 0;
-    tcsetattr(fd_, TCSANOW, &options);
+    if (tcsetattr(candidate.fd_, TCSANOW, &options) != 0) return {false, OpenError::WriteParamsFailed};
 
+    *this = std::move(candidate);
     return {true, OpenError::None};
 #endif
 }

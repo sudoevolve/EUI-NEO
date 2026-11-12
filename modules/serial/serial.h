@@ -80,6 +80,11 @@ class SerialPort {
 public:
     SerialPort();
     ~SerialPort();
+    SerialPort(const SerialPort&) = delete;
+    SerialPort& operator=(const SerialPort&) = delete;
+    /** @brief 转移串口所有权；源对象变为关闭状态。 */
+    SerialPort(SerialPort&& other) noexcept;
+    SerialPort& operator=(SerialPort&& other) noexcept;
 
     // Open a serial device
     // Returns OpenResult with ok=true on success, or an error code on failure.
@@ -156,7 +161,7 @@ private:
 
 #if defined(_WIN32) || defined(_WIN64)
     HANDLE handle_ = INVALID_HANDLE_VALUE;
-    COMMTIMEOUTS timeouts_;
+    COMMTIMEOUTS timeouts_{};
 #endif
 #if defined(__linux__) || defined(__APPLE__)
     int fd_ = -1;

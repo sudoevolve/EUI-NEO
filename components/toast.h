@@ -133,6 +133,7 @@ public:
                     .build();
 
                 ui_.rect(id_ + ".close.hit")
+                    .accessible(core::AccessibleRole::Button, "Dismiss notification")
                     .x(std::max(0.0f, width - closeSize - metrics_.spacing.content))
                     .y(metrics_.spacing.content)
                     .size(closeSize, closeSize)

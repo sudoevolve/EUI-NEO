@@ -58,6 +58,8 @@ public:
         return *this;
     }
     CheckboxBuilder& text(std::string value) { text_ = std::move(value); return *this; }
+    CheckboxBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
+    CheckboxBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
     CheckboxBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     CheckboxBuilder& boxSize(float value) { boxSize_ = std::max(10.0f, value); return *this; }
     CheckboxBuilder& style(const CheckboxStyle& value) { style_ = value; return *this; }
@@ -128,9 +130,12 @@ public:
         const std::function<void(bool)> onChange = onChange_;
 
         ui_.stack(id_)
+            .disabled(disabled_)
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".hit")
+                    .accessible(core::AccessibleRole::CheckBox, accessibleName_.empty() ? text_ : accessibleName_)
+                    .accessibleChecked(checked_)
                     .size(hitWidth, height_)
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f), style_.rowHover, style_.rowPressed)
                     .radius(std::max(metrics_.radius.small, height_ * 0.20f))
@@ -207,6 +212,8 @@ private:
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(bool)> onChange_;
     std::string text_;
+    std::string accessibleName_;
+    bool disabled_ = false;
     bool checked_ = false;
     float width_ = 180.0f;
     float height_ = 30.0f;

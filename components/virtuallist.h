@@ -43,7 +43,11 @@ public:
     VirtualListBuilder& overscanViewports(float value) { overscanViewports_ = std::max(0.0f, value); return *this; }
     VirtualListBuilder& scrollbarWidth(float value) { scrollbarWidth_ = std::max(0.0f, value); return *this; }
     VirtualListBuilder& scrollbarGap(float value) { scrollbarGap_ = std::max(0.0f, value); return *this; }
+    /** @brief 滚动条上下留白；不改变行视口高度或可滚动的数据范围。 */
+    VirtualListBuilder& scrollbarInset(float value) { scrollbarInset_ = std::max(0.0f, value); return *this; }
     VirtualListBuilder& zIndex(int value) { zIndex_ = value; return *this; }
+    /** @brief 行内容依赖视口位置时，在每次滚动偏移变化后重新 compose；默认仅跨可见槽位时重建。 */
+    VirtualListBuilder& composeOnScrollOffsetChange(bool value = true) { composeOnScroll_ = value; return *this; }
     VirtualListBuilder& style(const ScrollStyle& value) { scrollStyle_ = value; return *this; }
     VirtualListBuilder& theme(const theme::ThemeColorTokens& tokens) {
         scrollStyle_ = ScrollStyle(tokens);
@@ -78,6 +82,7 @@ public:
         const float scrollbarGap = scrollbarGap_ >= 0.0f ? scrollbarGap_ : metrics_.spacing.section;
         const float scrollWidth = scrollable ? scrollbarWidth : 0.0f;
         const float scrollGap = scrollable ? scrollbarGap : 0.0f;
+        const float scrollInset = std::min(scrollbarInset_, viewportHeight * 0.5f);
         const float contentWidth = std::max(0.0f, viewportWidth - scrollWidth - scrollGap);
         const std::function<void(float)> onChange = onChange_;
         const float scrollStep = step_ > 0.0f ? step_ : metrics_.spacing.overlay;
@@ -116,6 +121,7 @@ public:
             .size(viewportWidth, viewportHeight)
             .zIndex(zIndex_)
             .clip()
+            .composeOnScrollOffsetChange(composeOnScroll_)
             .scrollState(id_, currentOffset, maxOffset, scrollStep)
             .onScrollOffsetChanged([onChange, firstIndex, firstIndexForOffset](float value) {
                 if (onChange) {
@@ -164,7 +170,8 @@ public:
                         .style(scrollStyle_)
                         .scrollStateId(id_)
                         .x(std::max(0.0f, viewportWidth - scrollWidth))
-                        .size(scrollWidth, viewportHeight)
+                        .y(scrollInset)
+                        .size(scrollWidth, std::max(0.0f, viewportHeight - 2.0f * scrollInset))
                         .viewport(viewportHeight)
                         .content(totalHeight)
                         .offset(currentOffset)
@@ -195,11 +202,13 @@ private:
     float overscanViewports_ = 1.0f;
     float scrollbarWidth_ = -1.0f;
     float scrollbarGap_ = -1.0f;
+    float scrollbarInset_ = 0.0f;
     float x_ = 0.0f;
     float y_ = 0.0f;
     bool hasX_ = false;
     bool hasY_ = false;
     int zIndex_ = 0;
+    bool composeOnScroll_ = false;
 };
 
 inline VirtualListBuilder virtualList(core::dsl::Ui& ui, const std::string& id) {

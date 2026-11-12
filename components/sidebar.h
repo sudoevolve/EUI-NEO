@@ -54,11 +54,14 @@ public:
         const std::function<void()> requestClose = closeCallback();
 
         ui_.stack(id_)
+            .accessible(core::AccessibleRole::Dialog, "Sidebar").accessibleHidden(!open_).focusScope(open_)
+            .onDismiss(requestClose)
             .size(width_, height_)
             .zIndex(zIndex_)
             .clip()
             .content([&] {
                 ui_.rect(id_ + ".scrim")
+                    .tabStop(false).preserveFocusOnPress()
                     .size(panelX, height_)
                     .color(transparentColor())
                     .disabled(!open_)
@@ -198,6 +201,7 @@ private:
                     .size(closeSize, closeSize)
                     .content([&] {
                         ui_.rect(id_ + ".close.hit")
+                            .accessible(core::AccessibleRole::Button, "Close sidebar")
                             .size(closeSize, closeSize)
                             .states({0.0f, 0.0f, 0.0f, 0.0f}, softSurfaceColor(), tokens_.surfaceActive)
                             .radius(metrics.radius.popup)

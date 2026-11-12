@@ -9,6 +9,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <memory>
+#include <limits>
+#include <cstdint>
 
 namespace components {
 
@@ -54,6 +57,52 @@ enum class LineStyle {
     Step
 };
 
+namespace linechart_detail {
+// 每个横向桶最多保留首、谷、峰、尾，按原始顺序输出；含缺失值的桶断开路径。
+inline std::vector<core::Vec2> downsample(const std::vector<float>& values, std::size_t first,
+    std::size_t last, float width, float height, float minimum, float maximum) {
+    std::vector<core::Vec2> points;
+    last = std::min(last, values.size());
+    first = std::min(first, last);
+    const auto count = last - first;
+    if (!count || !std::isfinite(width) || width <= 0 || !std::isfinite(minimum) ||
+        !std::isfinite(maximum) || maximum <= minimum) return points;
+    const auto buckets = std::min(count, static_cast<std::size_t>(std::max(1.0f, std::ceil(width))));
+    points.reserve(buckets * 4);
+    for (std::size_t bucket = 0; bucket < buckets; ++bucket) {
+        const auto begin = first + count * bucket / buckets;
+        const auto end = first + count * (bucket + 1) / buckets;
+        auto low = begin, high = begin;
+        bool gap = false;
+        for (auto i = begin; i < end; ++i) {
+            if (!std::isfinite(values[i])) { gap = true; continue; }
+            if (values[i] < values[low]) low = i;
+            if (values[i] > values[high]) high = i;
+        }
+        if (gap) { points.push_back({std::numeric_limits<float>::quiet_NaN(), 0}); continue; }
+        std::size_t indices[] = {begin, low, high, end - 1};
+        std::sort(std::begin(indices), std::end(indices));
+        std::size_t previous = last;
+        for (auto index : indices) {
+            if (index == previous) continue;
+            previous = index;
+            const float normalized = static_cast<float>((static_cast<double>(values[index]) - minimum) /
+                (static_cast<double>(maximum) - minimum));
+            points.push_back({count > 1 ? width * static_cast<float>(index - first) / static_cast<float>(count - 1) : width * .5f,
+                height * (1 - std::clamp(normalized, 0.0f, 1.0f))});
+        }
+    }
+    return points;
+}
+struct Cache {
+    std::shared_ptr<const std::vector<float>> source;
+    std::uint64_t revision = 0;
+    std::size_t first = 0, last = 0;
+    float width = -1, height = -1, minimum = 0, maximum = 1;
+    std::vector<core::Vec2> points;
+};
+} // namespace linechart_detail
+
 class LineChartBuilder {
     struct TooltipItem {
         std::string sourceId;
@@ -69,6 +118,14 @@ public:
     LineChartBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     LineChartBuilder& title(const std::string& value) { title_ = value; return *this; }
     LineChartBuilder& values(std::vector<float> value) { values_ = std::move(value); return *this; }
+    /** @brief 实时模式避免复制源数据；原地修改后递增 revision，compose 期间不得并发写入。 */
+    LineChartBuilder& data(std::shared_ptr<const std::vector<float>> value, std::uint64_t revision = 0) {
+        data_ = std::move(value); revision_ = revision; realtime_ = true; return *this;
+    }
+    LineChartBuilder& realtime(bool value = true) { realtime_ = value; return *this; }
+    /** @brief 等间距采样的可见半开区间 [first, last)。 */
+    LineChartBuilder& visibleRange(std::size_t first, std::size_t last) { first_ = first; last_ = last; return *this; }
+    LineChartBuilder& range(float minimum, float maximum) { minimum_ = minimum; maximum_ = maximum; return *this; }
     LineChartBuilder& labels(std::vector<std::string> value) { labels_ = std::move(value); return *this; }
     LineChartBuilder& style(const LineChartStyle& value) { style_ = value; return *this; }
     LineChartBuilder& style(LineStyle value) { lineStyle_ = value; return *this; }
@@ -80,6 +137,7 @@ public:
     LineChartBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
 
     void build() {
+        if (realtime_) { buildRealtime(); return; }
         if (values_.empty()) {
             values_ = {0.22f, 0.30f, 0.20f, 0.55f, 0.42f, 0.86f};
         }
@@ -225,6 +283,33 @@ public:
     }
 
 private:
+    void buildRealtime() {
+        auto& cache = ui_.state<linechart_detail::Cache>(id_ + ".samples");
+        auto source = data_ ? data_ : std::make_shared<const std::vector<float>>(std::move(values_));
+        const float w = std::max(1.0f, width_ - 56), h = std::max(1.0f, height_ - 112);
+        if (cache.source != source || cache.revision != revision_ || cache.first != first_ || cache.last != last_ ||
+            cache.width != w || cache.height != h || cache.minimum != minimum_ || cache.maximum != maximum_) {
+            cache.source = source; cache.revision = revision_; cache.first = first_; cache.last = last_;
+            cache.width = w; cache.height = h; cache.minimum = minimum_; cache.maximum = maximum_;
+            cache.points = linechart_detail::downsample(*source, first_, last_, w, h, minimum_, maximum_);
+        }
+        ui_.stack(id_).size(width_, height_).clip().content([&] {
+            ui_.rect(id_ + ".bg").size(width_, height_).color(style_.background).radius(style_.radius)
+                .border(1, style_.border).build();
+            ui_.text(id_ + ".title").x(28).y(20).size(w, 30).text(title_)
+                .fontSize(tokens_.metrics.typography.title).color(style_.title).build();
+            for (int i = 0; i < 4; ++i) ui_.rect(id_ + ".grid." + std::to_string(i)).x(28).y(70 + h * i / 3)
+                .size(w, 1).color(style_.grid).build();
+            ui_.stack(id_ + ".plot").x(26).y(68).size(w + 4, h + 4).clip().content([&] {
+                ui_.polygon(id_ + ".line").x(2).y(2).size(w, h).points(cache.points).strokeWidth(2)
+                    .color(style_.line).build();
+                if (cache.points.size() == 1 && std::isfinite(cache.points.front().x)) {
+                    const auto p = cache.points.front();
+                    ui_.rect(id_ + ".single").x(p.x).y(p.y).size(4, 4).radius(2).color(style_.line).build();
+                }
+            }).build();
+        }).build();
+    }
     struct AnimState {
         std::vector<float> display;
         std::vector<float> target;
@@ -414,6 +499,11 @@ private:
     std::string id_;
     std::string title_ = "LineChart";
     std::vector<float> values_;
+    std::shared_ptr<const std::vector<float>> data_;
+    std::uint64_t revision_ = 0;
+    std::size_t first_ = 0, last_ = std::numeric_limits<std::size_t>::max();
+    float minimum_ = 0, maximum_ = 1;
+    bool realtime_ = false;
     std::vector<std::string> labels_ = {"Jan", "Feb", "Mar", "Apr", "May", "Jun"};
     LineChartStyle style_;
     theme::ThemeColorTokens tokens_ = theme::dark();

@@ -309,10 +309,9 @@ inline void RuntimeRenderer::renderElement(
             renderRect(element, windowWidth, windowHeight, dpiScale, renderTransform);
         }
     } else if (element.kind == ElementKind::Polygon) {
-        Rect visual = toPixelRect(visualRect(instances_.polygon(element.id).frame.value(),
-                                            Shadow{},
-                                            0.0f,
-                                            instances_.polygon(element.id).transform.value()), dpiScale);
+        Rect visual = toPixelRect(polygonVisualRect(instances_.polygon(element.id).frame.value(),
+                                           instances_.polygon(element.id).strokeWidth,
+                                           instances_.polygon(element.id).transform.value()), dpiScale);
         visual = applyRenderTransform(visual, renderTransform);
         if ((!dirtyRect || intersects(visual, *dirtyRect)) &&
             (!effectiveHasScissor || intersects(visual, effectiveScissor))) {
@@ -719,6 +718,11 @@ inline std::uint64_t RuntimeRenderer::retainedElementPaintSignature(const Elemen
     mixColorValue(element.gradient.start);
     mixColorValue(element.gradient.end);
     seed = mix(seed, quant(element.radius));
+    seed = mix(seed, quant(element.strokeWidth));
+    for (const auto& point : element.polygonPoints) {
+        seed = mix(seed, std::isfinite(point.x) ? quant(point.x) : ~std::uint64_t{0});
+        seed = mix(seed, std::isfinite(point.y) ? quant(point.y) : ~std::uint64_t{0});
+    }
     seed = mix(seed, quant(element.blur));
     seed = mix(seed, quant(element.opacity));
     seed = mix(seed, quant(element.border.width));
@@ -976,6 +980,7 @@ inline void RuntimeRenderer::renderPolygon(
 
     instance.primitive->setBounds(frame.x, frame.y, frame.width, frame.height);
     instance.primitive->setPoints(scaledPolygonPoints(instance.points, dpiScale));
+    instance.primitive->setStrokeWidth(toPixels(instance.strokeWidth, dpiScale));
     instance.primitive->setRadius(toPixels(instance.radius.value(), dpiScale));
     instance.primitive->setColor(instance.color.value());
     instance.primitive->setOpacity(instance.opacity.value() * renderTransform.opacity);

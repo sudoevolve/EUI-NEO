@@ -282,4 +282,4 @@ cmake --build build --config Release --target dynamic_texture --parallel 4
 
 仓库提供可选的 `ffmpeg_video_player`，用于验证 FFmpeg 解码后以 NV12 提交至 `ImageStream`
 的完整链路。它不属于核心库，也不增加核心库依赖；构建、运行及网络测试媒体说明见
-[FFmpeg 视频播放示例](../examples/ffmpeg_video_player.md)。
+[FFmpeg 视频播放示例](../../examples/ffmpeg_video_player.md)。

@@ -18,13 +18,20 @@ struct TaskState {
     std::shared_ptr<std::atomic<bool>> cancelFlag;
 };
 
+struct Completion {
+    std::string key;
+    std::uint64_t generation;
+    std::function<void()> callback;
+};
+
 std::mutex gMutex;
 std::condition_variable gWorkerCv;
 std::deque<std::function<void()>> gWorkerQueue;
-std::deque<std::function<void()>> gMainQueue;
+std::deque<Completion> gMainQueue;
 std::unordered_map<std::string, TaskState> gTasks;
 std::vector<std::thread> gWorkers;
 bool gStopping = false;
+std::uint64_t gNextGeneration = 0;
 
 unsigned int workerCount() {
     const unsigned int hardware = std::thread::hardware_concurrency();
@@ -95,7 +102,8 @@ TaskStart beginTask(const std::string& key, bool restart) {
 
     state.status = Status::Running;
     state.cancelFlag = std::make_shared<std::atomic<bool>>(false);
-    ++state.generation;
+    // 全局身份避免 forget 后复用 key 命中仍在队列中的旧结果。
+    state.generation = ++gNextGeneration;
 
     return {true, state.generation, CancelToken{state.cancelFlag}};
 }
@@ -140,7 +148,7 @@ bool finishTask(const std::string& key, std::uint64_t generation, Status finalSt
         }
 
         if (then && finalStatus != Status::Canceled) {
-            gMainQueue.push_back(std::move(then));
+            gMainQueue.push_back({key, generation, std::move(then)});
             shouldPost = true;
         }
     }
@@ -177,11 +185,9 @@ bool cancel(const std::string& key) {
     if (state.cancelFlag) {
         state.cancelFlag->store(true);
     }
-    if (state.status == Status::Running) {
-        state.status = Status::Canceled;
-        ++state.generation;
-        state.cancelFlag.reset();
-    }
+    state.status = Status::Canceled;
+    state.generation = ++gNextGeneration;
+    state.cancelFlag.reset();
     return true;
 }
 
@@ -189,7 +195,8 @@ bool forget(const std::string& key) {
     std::lock_guard<std::mutex> lock(gMutex);
     const auto it = gTasks.find(key);
     if (it == gTasks.end() ||
-        (it->second.status != Status::Done && it->second.status != Status::Failed)) {
+        (it->second.status != Status::Done && it->second.status != Status::Failed &&
+         it->second.status != Status::Canceled)) {
         return false;
     }
     gTasks.erase(it);
@@ -197,18 +204,30 @@ bool forget(const std::string& key) {
 }
 
 bool dispatchReady() {
-    std::deque<std::function<void()>> callbacks;
+    std::deque<Completion> callbacks;
     {
         std::lock_guard<std::mutex> lock(gMutex);
         callbacks.swap(gMainQueue);
     }
 
-    for (std::function<void()>& callback : callbacks) {
-        if (callback) {
-            callback();
+    bool dispatched = false;
+    for (Completion& completion : callbacks) {
+        {
+            std::lock_guard<std::mutex> lock(gMutex);
+            const auto it = gTasks.find(completion.key);
+            if (gStopping || it == gTasks.end() ||
+                it->second.generation != completion.generation ||
+                it->second.status == Status::Canceled) {
+                continue;
+            }
+        }
+        // 不持锁调用用户代码，允许回调取消同批次中尚未派发的任务。
+        if (completion.callback) {
+            completion.callback();
+            dispatched = true;
         }
     }
-    return !callbacks.empty();
+    return dispatched;
 }
 
 void shutdown() {

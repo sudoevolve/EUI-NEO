@@ -31,6 +31,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <commdlg.h>
+#include <shobjidl.h>
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
 #include <sys/wait.h>
@@ -339,13 +340,15 @@ std::wstring utf8ToWide(const std::string& value) {
         if (size <= 0) {
             return {};
         }
-        std::wstring result(static_cast<std::size_t>(size - 1), L'\0');
+        std::wstring result(static_cast<std::size_t>(size), L'\0');
         MultiByteToWideChar(CP_ACP, 0, value.c_str(), -1, result.data(), size);
+        result.pop_back();
         return result;
     }
 
-    std::wstring result(static_cast<std::size_t>(size - 1), L'\0');
+    std::wstring result(static_cast<std::size_t>(size), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, result.data(), size);
+    result.pop_back();
     return result;
 }
 
@@ -357,8 +360,9 @@ std::string wideToUtf8(const std::wstring& value) {
     if (size <= 0) {
         return {};
     }
-    std::string result(static_cast<std::size_t>(size - 1), '\0');
+    std::string result(static_cast<std::size_t>(size), '\0');
     WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size, nullptr, nullptr);
+    result.pop_back();
     return result;
 }
 
@@ -410,7 +414,7 @@ std::string windowsDialogError(DWORD errorCode) {
     if (errorCode == 0) {
         return {};
     }
-    return "GetOpenFileNameW failed with error code " + std::to_string(errorCode) + ".";
+    return "Native file dialog failed with error code " + std::to_string(errorCode) + ".";
 }
 #else
 std::string osascriptCommand(const std::vector<std::string>& lines) {
@@ -424,11 +428,14 @@ std::string osascriptCommand(const std::vector<std::string>& lines) {
 
 std::string appleFileDialogCommand(const FileDialogOptions& options, const std::vector<std::string>& extensionNames) {
     const std::string prompt = options.prompt.empty() ? "Select file" : options.prompt;
-    std::string choose = "set eui_selection to choose file with prompt \"" + appleScriptString(prompt) + "\"";
+    const bool save = options.mode == FileDialogMode::SaveFile;
+    const bool directory = options.mode == FileDialogMode::Directory;
+    std::string choose = "set eui_selection to choose " + std::string(directory ? "folder" : (save ? "file name" : "file")) + " with prompt \"" + appleScriptString(prompt) + "\"";
+    if (save && !options.defaultFileName.empty()) choose += " default name \"" + appleScriptString(options.defaultFileName) + "\"";
     if (!options.initialDirectory.empty()) {
         choose += " default location POSIX file \"" + appleScriptString(options.initialDirectory) + "\"";
     }
-    if (!extensionNames.empty()) {
+    if (!extensionNames.empty() && !directory && !save) {
         choose += " of type {";
         for (std::size_t i = 0; i < extensionNames.size(); ++i) {
             if (i > 0) {
@@ -438,7 +445,7 @@ std::string appleFileDialogCommand(const FileDialogOptions& options, const std::
         }
         choose += "}";
     }
-    if (options.allowMultiple) {
+    if (options.allowMultiple && !save) {
         choose += " with multiple selections allowed";
     }
 
@@ -502,15 +509,19 @@ std::string linuxFilterArgument(const FileDialogOptions& options, const std::vec
 FileDialogResult runZenityFileDialog(const FileDialogOptions& options, const std::vector<std::string>& extensionNames) {
     const std::string prompt = options.prompt.empty() ? "Select file" : options.prompt;
     std::string command = "if command -v zenity >/dev/null 2>&1; then zenity --file-selection";
+    if (options.mode == FileDialogMode::SaveFile) command += " --save --confirm-overwrite";
+    if (options.mode == FileDialogMode::Directory) command += " --directory";
     command += " --title=" + shellQuote(prompt);
-    if (!options.initialDirectory.empty()) {
-        command += " --filename=" + shellQuote(options.initialDirectory);
+    if (!options.initialDirectory.empty() || !options.defaultFileName.empty()) {
+        std::filesystem::path initial(options.initialDirectory);
+        if (options.mode == FileDialogMode::SaveFile) initial /= options.defaultFileName;
+        command += " --filename=" + shellQuote(initial.string());
     }
-    if (options.allowMultiple) {
+    if (options.allowMultiple && options.mode != FileDialogMode::SaveFile) {
         command += " --multiple --separator=" + shellQuote("\n");
     }
     const std::string filter = linuxFilterArgument(options, extensionNames);
-    if (!filter.empty()) {
+    if (!filter.empty() && options.mode != FileDialogMode::Directory) {
         command += " --file-filter=" + shellQuote(filter);
         command += " --file-filter=" + shellQuote("All files | *");
     }
@@ -533,14 +544,16 @@ std::string kdialogFilterArgument(const FileDialogOptions& options, const std::v
 
 FileDialogResult runKdialogFileDialog(const FileDialogOptions& options, const std::vector<std::string>& extensionNames) {
     const std::string prompt = options.prompt.empty() ? "Select file" : options.prompt;
-    const std::string startDirectory = options.initialDirectory.empty() ? "." : options.initialDirectory;
+    std::filesystem::path startDirectory = options.initialDirectory.empty() ? "." : options.initialDirectory;
+    if (options.mode == FileDialogMode::SaveFile) startDirectory /= options.defaultFileName;
     std::string command = "if command -v kdialog >/dev/null 2>&1; then kdialog";
     command += " --title " + shellQuote(prompt);
-    if (options.allowMultiple) {
+    if (options.allowMultiple && options.mode != FileDialogMode::SaveFile) {
         command += " --multiple --separate-output";
     }
-    command += " --getopenfilename " + shellQuote(startDirectory);
-    command += " " + shellQuote(kdialogFilterArgument(options, extensionNames));
+    command += std::string(options.mode == FileDialogMode::Directory ? " --getexistingdirectory " :
+        (options.mode == FileDialogMode::SaveFile ? " --getsavefilename " : " --getopenfilename ")) + shellQuote(startDirectory.string());
+    if (options.mode != FileDialogMode::Directory) command += " " + shellQuote(kdialogFilterArgument(options, extensionNames));
     command += "; else exit 127; fi";
 
     const CommandResult result = runCommand(command);
@@ -688,13 +701,67 @@ bool openUrl(const std::string& url) {
 FileDialogResult openFileDialog(const FileDialogOptions& options) {
     const std::vector<std::string> names = extensionNames(options.allowedExtensions);
 #if defined(_WIN32)
+    const HWND owner = options.parent ? static_cast<HWND>(window::nativeWindowInfo(options.parent).platformWindow) : nullptr;
+    if (options.mode == FileDialogMode::Directory) {
+        // Shell 文件夹选择需要 COM apartment；已有 apartment 由宿主负责释放。
+        const HRESULT initialized = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        if (FAILED(initialized) && initialized != RPC_E_CHANGED_MODE) return failedFileDialog("COM initialization failed.");
+        IFileOpenDialog* dialog = nullptr;
+        HRESULT result = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog));
+        std::vector<std::string> paths;
+        if (SUCCEEDED(result)) {
+            DWORD flags = FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST;
+            if (options.allowMultiple) flags |= FOS_ALLOWMULTISELECT;
+            result = dialog->SetOptions(flags);
+            const auto title = utf8ToWide(options.prompt.empty() ? "Select directory" : options.prompt);
+            if (SUCCEEDED(result)) result = dialog->SetTitle(title.c_str());
+            if (!options.initialDirectory.empty()) {
+                IShellItem* initial = nullptr;
+                const auto directory = utf8ToWide(options.initialDirectory);
+                if (SUCCEEDED(SHCreateItemFromParsingName(directory.c_str(), nullptr, IID_PPV_ARGS(&initial)))) {
+                    dialog->SetFolder(initial);
+                    initial->Release();
+                }
+            }
+            if (SUCCEEDED(result)) result = dialog->Show(owner);
+            if (SUCCEEDED(result)) {
+                IShellItemArray* items = nullptr;
+                result = dialog->GetResults(&items);
+                if (SUCCEEDED(result)) {
+                    DWORD count = 0;
+                    result = items->GetCount(&count);
+                    for (DWORD i = 0; SUCCEEDED(result) && i < count; ++i) {
+                        IShellItem* item = nullptr;
+                        result = items->GetItemAt(i, &item);
+                        if (SUCCEEDED(result)) {
+                            PWSTR path = nullptr;
+                            result = item->GetDisplayName(SIGDN_FILESYSPATH, &path);
+                            if (SUCCEEDED(result)) { paths.push_back(wideToUtf8(path)); CoTaskMemFree(path); }
+                            item->Release();
+                        }
+                    }
+                    items->Release();
+                }
+            }
+            dialog->Release();
+        }
+        if (SUCCEEDED(initialized)) CoUninitialize();
+        if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED)) return cancelledFileDialog();
+        return FAILED(result) ? failedFileDialog("Directory dialog failed: " + std::to_string(result)) : selectedFiles(std::move(paths));
+    }
     std::vector<wchar_t> buffer(65536, L'\0');
+    if (options.mode == FileDialogMode::SaveFile) {
+        const auto filename = utf8ToWide(options.defaultFileName);
+        if (filename.size() >= buffer.size()) return failedFileDialog("Default filename is too long.");
+        std::copy(filename.begin(), filename.end(), buffer.begin());
+    }
     const std::wstring title = utf8ToWide(options.prompt.empty() ? "Select file" : options.prompt);
     const std::wstring initialDirectory = utf8ToWide(options.initialDirectory);
     const std::wstring filterStorage = windowsFilterStorage(options, names);
 
     OPENFILENAMEW dialog{};
     dialog.lStructSize = sizeof(dialog);
+    dialog.hwndOwner = owner;
     dialog.lpstrFile = buffer.data();
     dialog.nMaxFile = static_cast<DWORD>(buffer.size());
     dialog.lpstrTitle = title.c_str();
@@ -703,11 +770,14 @@ FileDialogResult openFileDialog(const FileDialogOptions& options) {
     if (!initialDirectory.empty()) {
         dialog.lpstrInitialDir = initialDirectory.c_str();
     }
-    dialog.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
-    if (options.allowMultiple) {
+    const bool save = options.mode == FileDialogMode::SaveFile;
+    const std::wstring defaultExtension = names.empty() ? std::wstring{} : utf8ToWide(names.front());
+    if (save && !defaultExtension.empty()) dialog.lpstrDefExt = defaultExtension.c_str();
+    dialog.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | (save ? OFN_OVERWRITEPROMPT : OFN_FILEMUSTEXIST);
+    if (options.allowMultiple && !save) {
         dialog.Flags |= OFN_ALLOWMULTISELECT;
     }
-    if (!GetOpenFileNameW(&dialog)) {
+    if (!(save ? GetSaveFileNameW(&dialog) : GetOpenFileNameW(&dialog))) {
         const DWORD error = CommDlgExtendedError();
         if (error == 0) {
             return cancelledFileDialog();
@@ -732,6 +802,27 @@ FileDialogResult openFileDialog(const FileDialogOptions& options) {
     }
     return !zenityResult.error.empty() ? zenityResult : kdialogResult;
 #endif
+}
+
+FileDialogResult saveFileDialog(const FileDialogOptions& options) {
+    auto save = options; save.mode = FileDialogMode::SaveFile; save.allowMultiple = false;
+    return openFileDialog(save);
+}
+
+FileDialogResult selectDirectoryDialog(const FileDialogOptions& options) {
+    auto directory = options; directory.mode = FileDialogMode::Directory;
+    return openFileDialog(directory);
+}
+
+std::string chooseSaveFile(const FileDialogOptions& options) {
+    const auto result = saveFileDialog(options);
+    return result.selected() ? result.paths.front() : std::string{};
+}
+
+std::string chooseDirectory(const FileDialogOptions& options) {
+    auto single = options; single.allowMultiple = false;
+    const auto result = selectDirectoryDialog(single);
+    return result.selected() ? result.paths.front() : std::string{};
 }
 
 std::string chooseFile(const FileDialogOptions& options) {

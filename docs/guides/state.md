@@ -591,7 +591,7 @@ class MyPageModel { /* business state and actions */ };
 
 - Flutter：控件接收当前 value，交互通过 changed callback 让父级更新状态。
 - Qt QML：对象暴露 property，属性变化通过 handler 表达。
-- EUI-NEO 组件规范：见 [组件](组件.md)。
-- Loader scope 和 DSL 生命周期：见 [DSL](DSL.md)。
-- Runtime 事件和更新请求：见 [事件](事件.md)。
-- 后台任务和 UI 线程回调：见 [异步](异步.md)。
+- EUI-NEO 组件规范：见 [组件](components.md)。
+- Loader scope 和 DSL 生命周期：见 [DSL](dsl.md)。
+- Runtime 事件和更新请求：见 [事件](events.md)。
+- 后台任务和 UI 线程回调：见 [异步](async.md)。

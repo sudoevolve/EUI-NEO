@@ -52,6 +52,7 @@ public:
     ButtonBuilder& icon(const std::string& value) { icon_ = value; return *this; }
     ButtonBuilder& fontSize(float value) { fontSize_ = value; return *this; }
     ButtonBuilder& iconSize(float value) { iconSize_ = value; return *this; }
+    ButtonBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
     ButtonBuilder& textColor(const core::Color& value) { style_.text = value; return *this; }
     ButtonBuilder& iconColor(const core::Color& value) { style_.icon = value; return *this; }
     ButtonBuilder& style(const ButtonStyle& value) { style_ = value; return *this; }
@@ -142,6 +143,7 @@ public:
                     .disabled(disabled_)
                     .preserveFocusOnPress(preserveFocusOnPress_)
                     .onClick(onClick_)
+                    .accessible(core::AccessibleRole::Button, accessibleName_.empty() ? text_ : accessibleName_)
                     .onContextMenu(onContextMenu_);
                 if (onPress) {
                     bg.onPress([onPress](const core::PointerEvent&, const core::Rect&) { onPress(); });
@@ -195,6 +197,7 @@ private:
     core::dsl::Ui& ui_;
     std::string id_;
     std::string text_ = "Button";
+    std::string accessibleName_;
     std::string icon_;
     ButtonStyle style_;
     theme::ThemeMetricTokens metrics_;

@@ -69,6 +69,7 @@ struct PolygonInstance {
     AnimatedValue<float> opacity;
     AnimatedValue<Transform> transform;
     std::vector<Vec2> points;
+    float strokeWidth = 0.0f;
 };
 
 struct TextInstance {

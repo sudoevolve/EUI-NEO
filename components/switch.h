@@ -63,6 +63,8 @@ public:
         return *this;
     }
     SwitchBuilder& onChange(std::function<void(bool)> callback) { onChange_ = std::move(callback); return *this; }
+    SwitchBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
+    SwitchBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
 
     void build() {
         const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.control;
@@ -87,9 +89,12 @@ public:
         const std::function<void(bool)> onChange = onChange_;
 
         ui_.stack(id_)
+            .disabled(disabled_)
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".hit")
+                    .accessible(core::AccessibleRole::Switch, accessibleName_.empty() ? label_ : accessibleName_)
+                    .accessibleChecked(checked_)
                     .size(hitWidth, height_)
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f), style_.rowHover, style_.rowPressed)
                     .radius(std::max(metrics_.radius.small, height_ * 0.20f))
@@ -144,6 +149,8 @@ private:
 
     core::dsl::Ui& ui_;
     std::string id_;
+    std::string accessibleName_;
+    bool disabled_ = false;
     SwitchStyle style_;
     theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.18f, core::Ease::OutCubic);

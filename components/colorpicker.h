@@ -93,10 +93,13 @@ public:
         syncDraft(*draft, open_, value_);
 
         ui_.stack(id_)
+            .accessible(core::AccessibleRole::Dialog, "Color picker").accessibleHidden(!open_).focusScope(open_)
+            .onDismiss([onOpenChange] { if (onOpenChange) onOpenChange(false); })
             .size(screenWidth_, screenHeight_)
             .zIndex(zIndex_)
             .content([&] {
                 ui_.rect(id_ + ".backdrop")
+                    .tabStop(false).preserveFocusOnPress()
                     .size(screenWidth_, screenHeight_)
                     .states(style_.backdrop, style_.backdrop, style_.backdrop)
                     .opacity(visible)
@@ -264,6 +267,7 @@ private:
             .build();
 
         ui_.rect(id_ + ".done.bg")
+            .accessible(core::AccessibleRole::Button, "Confirm color")
             .x(std::max(0.0f, width - metrics_.spacing.overlay - metrics_.control.segmented))
             .y(metrics_.typography.control)
             .size(metrics_.spacing.overlay + metrics_.spacing.content, metrics_.spacing.header)
@@ -342,6 +346,8 @@ private:
                     .build();
 
                 ui_.rect(id_ + ".swatch." + std::to_string(index))
+                    .accessible(core::AccessibleRole::Radio, "Color " + std::to_string(index + 1))
+                    .accessibleChecked(sameColor(swatch, current)).focusGroup(id_ + ".swatches")
                     .x(swatchX)
                     .y(swatchesY)
                     .size(swatchSize, swatchSize)

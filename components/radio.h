@@ -47,6 +47,10 @@ public:
         return *this;
     }
     RadioBuilder& text(std::string value) { text_ = std::move(value); return *this; }
+    RadioBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
+    RadioBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
+    /** @brief 同组单选项使用方向键移动并选中。 */
+    RadioBuilder& group(std::string value) { group_ = std::move(value); return *this; }
     RadioBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
     RadioBuilder& dotSize(float value) { dotSize_ = std::max(10.0f, value); return *this; }
     RadioBuilder& style(const RadioStyle& value) { style_ = value; return *this; }
@@ -86,9 +90,13 @@ public:
         const std::function<void(bool)> onChange = onChange_;
 
         ui_.stack(id_)
+            .disabled(disabled_)
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".hit")
+                    .accessible(core::AccessibleRole::Radio, accessibleName_.empty() ? text_ : accessibleName_)
+                    .focusGroup(group_)
+                    .accessibleChecked(selected_)
                     .size(hitWidth, height_)
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f), style_.rowHover, style_.rowPressed)
                     .radius(std::max(metrics_.radius.small, height_ * 0.20f))
@@ -150,6 +158,9 @@ private:
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);
     std::function<void(bool)> onChange_;
     std::string text_;
+    std::string accessibleName_;
+    std::string group_;
+    bool disabled_ = false;
     bool selected_ = false;
     float width_ = 180.0f;
     float height_ = 30.0f;

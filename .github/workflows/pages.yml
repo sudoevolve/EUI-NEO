@@ -11,6 +11,7 @@ on:
       - "assets/**"
       - "README.md"
       - "README.zh-CN.md"
+      - "scripts/check_docs.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -37,17 +38,22 @@ jobs:
       - name: prepare static site
         shell: bash
         run: |
+          python3 scripts/check_docs.py
           rm -rf _site
-          mkdir -p _site
+          mkdir -p _site/docs
           cp -R site/. _site/
-          cp -R docs _site/docs
+          cp docs/README.md _site/docs/
+          for section in guides architecture development platform skills assets; do
+            cp -R "docs/$section" _site/docs/
+          done
           cp -R assets _site/assets
           touch _site/.nojekyll
           perl -0pi -e 's#\.\./docs/#./docs/#g; s#\.\./assets/#./assets/#g' _site/index.html _site/app.js
           test -f _site/index.html
           test -f _site/llms.txt
-          test -f _site/docs/集成指南.md
+          test -f _site/docs/guides/integration.md
           test -f _site/assets/icon.svg
+          python3 scripts/check_docs.py --site-dir _site
 
       - name: configure pages
         uses: actions/configure-pages@v6

@@ -56,7 +56,10 @@ public:
         return *this;
     }
     InputBuilder& placeholder(std::string value) { placeholder_ = std::move(value); return *this; }
+    InputBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
     InputBuilder& multiline(bool value = true) { multiline_ = value; return *this; }
+    /** @brief 撤销和重做历史的合计字节预算，0 关闭历史；默认 8 MiB。 */
+    InputBuilder& undoByteBudget(std::size_t value) { undoByteBudget_ = value; return *this; }
     /** @brief 多行输入溢出时显示垂直滚动条，默认关闭；不影响滚轮和光标跟随。 */
     InputBuilder& scrollbar(bool value = true) { scrollbar_ = value; return *this; }
     InputBuilder& fontSize(float value) { fontSize_ = std::max(1.0f, value); return *this; }
@@ -108,6 +111,8 @@ public:
         const float controlWidth = width_;
         const std::string fontFamily = fontFamily_;
         InputState& state = ui_.state<InputState>(id_);
+        state.undoByteBudget = undoByteBudget_;
+        InputModel::trimHistory(state);
         if (state.text != text_) {
             const bool wasFocused = focused;
             state.text = text_;
@@ -158,6 +163,7 @@ public:
         }
         root.content([&] {
                 auto hit = ui_.rect(hitId)
+                    .accessible(core::AccessibleRole::TextInput, accessibleName_.empty() ? placeholder_ : accessibleName_, state.text)
                     .size(width_, height_)
                     .color(style_.background)
                     .radius(style_.radius)
@@ -488,6 +494,8 @@ private:
 
     core::dsl::Ui& ui_;
     std::string id_;
+    std::string accessibleName_;
+    std::size_t undoByteBudget_ = 8u * 1024u * 1024u;
     InputStyle style_;
     ScrollStyle scrollStyle_;
     theme::ThemeMetricTokens metrics_;

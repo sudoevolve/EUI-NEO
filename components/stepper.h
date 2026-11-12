@@ -103,6 +103,7 @@ public:
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".minus.bg")
+                    .accessible(core::AccessibleRole::Button, "Decrease", valueText)
                     .size(buttonWidth, height_)
                     .states(canDecrease ? style_.button : style_.buttonDisabled,
                             canDecrease ? style_.buttonHover : style_.buttonDisabled,
@@ -156,6 +157,7 @@ public:
                     .build();
 
                 ui_.rect(id_ + ".plus.bg")
+                    .accessible(core::AccessibleRole::Button, "Increase", valueText)
                     .x(displayX + displayWidth + gap)
                     .size(buttonWidth, height_)
                     .states(canIncrease ? style_.button : style_.buttonDisabled,
