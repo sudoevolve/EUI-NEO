@@ -645,7 +645,9 @@ components::virtualList(ui, "logs.virtual")
     .build();
 ```
 
-支持 `x`、`y`、`position`、`size`、`itemCount`、`rowHeight`、`offset`、`bind`、`step`、`overscanViewports`、`scrollbarWidth`、`scrollbarGap`、`zIndex`、`style`、`theme`、`transition`、`onChange`、`row(...)`。
+支持 `x`、`y`、`position`、`size`、`itemCount`、`rowHeight`、`offset`、`bind`、`step`、`overscanViewports`、`scrollbarWidth`、`scrollbarGap`、`scrollbarInset`、`composeOnScrollOffsetChange`、`zIndex`、`style`、`theme`、`transition`、`onChange`、`row(...)`。
+
+`scrollbarInset` 为滚动条上下留白，不改变数据视口。行绘制依赖视口坐标时可启用 `composeOnScrollOffsetChange(true)`，在每次 offset 更新后重建可见槽位；默认只在跨槽位时重建。
 
 使用建议：
 
@@ -932,7 +934,7 @@ components::dataTable(ui, "metrics.table")
 
 支持 `size`、`columns`、`rows`、`style`、`theme`、`transition`。
 
-表格内部会裁剪内容区，表头和末行圆角用 patch rect 衔接，避免圆角和分割线断开。
+表头与行底色绘制为外层圆角面板在对应区域的交集，边框最后绘制，滚动条在上下端留出圆角空间。圆角表格在滚动 offset 变化后重建可见槽位以固定视口边界，节点数仍由视口和 overscan 决定；不会为全部数据行创建节点。
 
 ### carousel
 

@@ -150,9 +150,11 @@ public:
         const float bodyWidth = std::max(0.0f, width_ - 2.0f);
         const float headerHeight = std::min(height_, metrics_.control.control);
         const float bodyHeight = std::max(0.0f, height_ - headerHeight - 2.0f);
+        const float radius = std::clamp(style_.radius, 0.0f, std::min(width_, height_) * 0.5f);
         if (hasSort_) { state.sort = sort_; state.descending = descending_; }
         if (state.sort >= static_cast<int>(count)) state.sort = -1;
         state.refresh(data_, revision_, filter_, numeric_);
+        state.offset = std::clamp(state.offset, 0.0f, std::max(0.0f, state.order.size() * rowHeight_ - bodyHeight));
         const float usable = std::max(0.0f, bodyWidth - (state.order.size() * rowHeight_ > bodyHeight ? metrics_.control.scrollbar + 4.0f : 0.0f));
         if (state.widths.size() != count || state.suppliedWidths != widths_ || state.available != usable) {
             state.widths.resize(count, count ? usable / count : 0);
@@ -172,13 +174,16 @@ public:
         ui_.stack(id_).size(width_, height_).clip()
             .accessible(core::AccessibleRole::Table, id_)
             .content([&] {
-                ui_.rect(id_ + ".bg").size(width_, height_).color(style_.background).radius(style_.radius).border(1, style_.border).build();
-                ui_.rect(id_ + ".header").size(bodyWidth, headerHeight).color(style_.header).build();
+                ui_.rect(id_ + ".bg").size(width_, height_).color(style_.background).radius(radius).build();
+                // clip() 是矩形裁剪；在表头带内绘制整张圆角面板，避免直角底色盖住外框。
+                ui_.stack(id_ + ".header.clip").size(width_, headerHeight).clip().content([&] {
+                    ui_.rect(id_ + ".header").size(width_, height_).color(style_.header).radius(radius).build();
+                }).build();
                 float x = 1;
                 for (std::size_t column = 0; column < count; ++column) {
                     const std::string prefix = id_ + ".column." + std::to_string(column);
                     auto header = ui_.rect(prefix).x(x).size(widths[column], headerHeight).transition(transition_)
-                        .color(style_.header).accessible(core::AccessibleRole::ColumnHeader, columns_[column],
+                        .color({0, 0, 0, 0}).radius(radius).accessible(core::AccessibleRole::ColumnHeader, columns_[column],
                             state.sort == static_cast<int>(column) ? (state.descending ? "descending" : "ascending") : "unsorted");
                     if (sortable_) header.onClick([&state, column, onSort] {
                         state.descending = state.sort == static_cast<int>(column) && !state.descending;
@@ -211,12 +216,20 @@ public:
                 const auto onRow = onRow_;
                 const auto style = style_;
                 const auto metrics = metrics_;
+                const float tableWidth = width_, tableHeight = height_, rowHeight = rowHeight_, offset = state.offset;
                 components::virtualList(ui_, id_ + ".body").x(1).y(headerHeight).size(bodyWidth, bodyHeight)
-                    .theme(tokens_).scrollbarGap(4).rowHeight(rowHeight_).itemCount(static_cast<std::int64_t>(state.order.size()))
+                    .theme(tokens_).scrollbarGap(4).scrollbarInset(radius).rowHeight(rowHeight_).itemCount(static_cast<std::int64_t>(state.order.size()))
+                    .composeOnScrollOffsetChange(radius > 0)
                     .offset(state.offset).onChange([&state](float value) { state.offset = value; })
-                    .row([&state, source, widths, onRow, style, metrics](core::dsl::Ui& ui, const std::string& slot, std::int64_t view, float w, float h) {
+                    .row([&state, source, widths, onRow, style, metrics, tableWidth, tableHeight, headerHeight, rowHeight, offset, radius](core::dsl::Ui& ui, const std::string& slot, std::int64_t view, float w, float h) {
                         const auto row = state.order[static_cast<std::size_t>(view)];
-                        auto background = ui.rect(slot + ".bg").size(w, h).color(view % 2 ? style.rowAlt : style.row);
+                        const auto color = view % 2 ? style.rowAlt : style.row;
+                        // 每行只显示整张圆角面板与本行的交集，圆角始终锚定视口而非数据行。
+                        if (radius > 0) ui.stack(slot + ".paint.clip").size(w, h).clip().content([&] {
+                            ui.rect(slot + ".paint").x(-1).y(offset - headerHeight - static_cast<float>(view * static_cast<double>(rowHeight)))
+                                .size(tableWidth, tableHeight).radius(radius).color(color).build();
+                        }).build();
+                        auto background = ui.rect(slot + ".bg").size(w, h).color(radius > 0 ? core::Color{0, 0, 0, 0} : color);
                         if (onRow) background.onClick([onRow, row] { onRow(row); }).accessible(core::AccessibleRole::ListItem, "Row " + std::to_string(row + 1));
                         background.build();
                         float x = 0;
@@ -228,6 +241,7 @@ public:
                             x += widths[col];
                         }
                     }).build();
+                ui_.rect(id_ + ".border").size(width_, height_).radius(radius).color({0, 0, 0, 0}).border(1, style_.border).build();
             }).build();
     }
 
