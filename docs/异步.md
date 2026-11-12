@@ -132,6 +132,8 @@ components::button(ui, "cancel.scan")
 
 如果任务被 `cancel` 或新的 `restart` 替换，旧任务完成后的回调不会再更新 UI。
 
+这也适用于后台已经完成、但 UI 尚未派发的回调：派发前会核对任务身份。`cancel` 不会中断已经开始执行的回调；`forget` 可释放 Done、Failed、Canceled 状态，之后相同 key 可以重新启动，旧身份不会复用。取消、重启与 UI 回调的执行顺序应由 UI 线程协调。
+
 ## 框架内部复用
 
 `core/network` 的文本请求、`core/image` 的网络图片和 Bing daily 下载都复用同一个异步线程池。任务完成后会唤醒 GLFW 主循环，主循环派发完成回调并触发重新 compose 或重绘。
