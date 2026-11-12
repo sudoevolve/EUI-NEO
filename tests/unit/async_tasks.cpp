@@ -15,6 +15,7 @@ bool done(const char* key) {
 }
 
 int main() {
+    // 不初始化窗口后端，覆盖后台任务先于 SDL 事件系统运行的唤醒路径。
     using namespace core::async;
     bool ok = true;
     int old = 0, current = 0, canceled = 0, forgotten = 0, later = 0;
