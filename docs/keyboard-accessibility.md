@@ -6,6 +6,8 @@
 - tabs、segmented：方向键切换并选中同组项目。
 - slider：方向键微调，PageUp / PageDown 大步调整，Home / End 到两端。
 - dropdown：上下方向键选择，Home / End 到首尾，Enter / Space 展开或收起，Escape 收起。
+- datePicker、timePicker：打开后约束焦点，选择列使用方向键或 PageUp / PageDown 调整，Tab 到确认按钮提交；Escape 取消。colorPicker 的色板使用方向键切换，通道复用 slider 键盘行为。
+- contextMenu、sidebar：打开时约束焦点，Escape 收起并恢复原焦点；菜单项可用 Tab 或方向键切换，Enter 激活。
 - dialog：打开时保存原焦点并约束 Tab，Escape 关闭，关闭后恢复仍有效的原焦点。自定义弹层可组合 `.focusScope(open).onDismiss(...)`。
 - 自定义控件：用 `.onKeyEvent(...)` 实现特定按键，返回 true 表示已处理；用 `.accessible(role, name, value)`、`.accessibleChecked(...)`、`.accessibleExpanded(...)` 声明语义。
 

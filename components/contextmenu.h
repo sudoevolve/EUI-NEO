@@ -129,6 +129,7 @@ public:
         }
 
         ui_.stack(id_)
+            .accessibleHidden(!open_).focusScope(open_).onDismiss(requestDismiss)
             .size(screenWidth_, screenHeight_)
             .zIndex(zIndex_)
             .content([&] {
@@ -138,7 +139,7 @@ public:
                         .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f))
-                        .onClick(requestDismiss)
+                        .onClick(requestDismiss).tabStop(false).preserveFocusOnPress()
                         .onScroll([](const core::ScrollEvent&) {})
                         .build();
                 }
@@ -247,6 +248,8 @@ private:
                     std::vector<int> path = prefix;
                     path.push_back(index);
                     ui_.rect(levelId + ".item." + std::to_string(index))
+                        .accessible(core::AccessibleRole::ListItem, item.text).accessibleExpanded(item.hasChildren())
+                        .focusGroup(levelId)
                         .x(inset).y(itemY).size(std::max(0.0f, width - inset * 2.0f), itemHeight)
                         .states(theme::color(0, 0, 0, 0), style_.hover, style_.pressed)
                         .radius(std::max(metrics_.radius.tiny, style_.radius - metrics_.radius.tiny)).instantStates()

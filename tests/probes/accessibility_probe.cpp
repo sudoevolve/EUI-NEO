@@ -126,8 +126,32 @@ int main() {
     if (choice != 2) return 13;
     groupKey(core::InputKey::Enter);
     if (!dropdownOpen) return 14;
+    groupKey(core::InputKey::Tab);
+    if (!currentUi->isFocused("choices.item.0")) return 16;
     groupKey(core::InputKey::Escape);
-    if (dropdownOpen) return 15;
+    if (dropdownOpen || !currentUi->isFocused("choices.field")) return 15;
+    bool pickerOpen = true;
+    int month = 1;
+    const auto date = [&] {
+        runtime.compose("date", 640, 480, [&](core::dsl::Ui& ui, const core::dsl::Screen&) {
+            currentUi = &ui;
+            components::datePicker(ui, "date").screen(640, 480).open(pickerOpen).date(2026, month, 15)
+                .onOpenChange([&](bool value) { pickerOpen = value; })
+                .onChange([&](int, int value, int) { month = value; }).build();
+        });
+    };
+    const auto dateKey = [&](core::InputKey key, bool shift = false) {
+        core::KeyModifiers modifiers; modifiers.shift = shift;
+        core::queueKeyInput(window, {key, core::KeyAction::Press, modifiers});
+        runtime.update(window, .016f, 1, 1); date();
+    };
+    date();
+    dateKey(core::InputKey::Tab);
+    if (!currentUi->isFocused("date.column.0.hit")) return 17;
+    dateKey(core::InputKey::Right);
+    dateKey(core::InputKey::Tab, true);
+    dateKey(core::InputKey::Enter);
+    if (pickerOpen || month != 2) return 18;
     runtime.shutdown();
     core::releaseInputQueue(window);
     if (!found) std::cerr << "checkbox semantics missing\n";

@@ -204,6 +204,7 @@ private:
             .iconSize(compact_ ? metrics.spacing.large : metrics.spacing.section)
             .fontSize(metrics.typography.input)
             .text(compact_ ? "" : item.label)
+            .accessibleName(item.label)
             .colors(base, buttonHoverColor(base), buttonPressedColor(base))
             .textColor(active || tokens_.dark ? core::Color{0.94f, 0.97f, 1.0f, 1.0f} : textColor())
             .iconColor(active ? core::Color{0.94f, 0.97f, 1.0f, 1.0f} : (compact_ ? textColor() : tokens_.primary))

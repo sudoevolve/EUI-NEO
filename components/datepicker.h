@@ -90,10 +90,13 @@ public:
         syncDraft(*draft, open_, year_, month_, day_);
 
         ui_.stack(id_)
+            .accessible(core::AccessibleRole::Dialog, "Date picker").accessibleHidden(!open_).focusScope(open_)
+            .onDismiss([onOpenChange] { if (onOpenChange) onOpenChange(false); })
             .size(screenWidth_, screenHeight_)
             .zIndex(zIndex_)
             .content([&] {
                 ui_.rect(id_ + ".backdrop")
+                    .tabStop(false).preserveFocusOnPress()
                     .size(screenWidth_, screenHeight_)
                     .states(style_.backdrop, style_.backdrop, style_.backdrop)
                     .opacity(visible)
@@ -311,6 +314,7 @@ private:
             .build();
 
         ui_.rect(id_ + ".done.bg")
+            .accessible(core::AccessibleRole::Button, "Confirm date")
             .x(std::max(0.0f, width - metrics_.spacing.overlay - metrics_.control.segmented))
             .y(metrics_.typography.control)
             .size(metrics_.spacing.overlay + metrics_.spacing.content, metrics_.spacing.header)
@@ -372,6 +376,18 @@ private:
             .build();
 
         ui_.rect(columnId + ".hit")
+            .accessible(core::AccessibleRole::Slider, column == 0 ? "Month" : (column == 1 ? "Day" : "Year"), std::to_string(value))
+            .onKeyEvent([draft, column](const core::KeyEvent& event) {
+                if (!event.isDown() || !draft) return false;
+                int delta = 0;
+                if (event.key == core::InputKey::Up || event.key == core::InputKey::Left) delta = -1;
+                else if (event.key == core::InputKey::Down || event.key == core::InputKey::Right) delta = 1;
+                else if (event.key == core::InputKey::PageUp) delta = -10;
+                else if (event.key == core::InputKey::PageDown) delta = 10;
+                else return false;
+                applyColumnValue(column, columnValue(column, draft->year, draft->month, draft->day) + delta, draft);
+                return true;
+            })
             .x(x)
             .y(y)
             .size(width, height)

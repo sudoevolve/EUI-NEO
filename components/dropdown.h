@@ -118,6 +118,11 @@ public:
 
         ui_.stack(id_)
             .disabled(disabled_)
+            .focusScope(open_)
+            .onDismiss([onOpenChange, retainedOpen] {
+                if (onOpenChange) onOpenChange(false);
+                else if (retainedOpen) retainedOpen->open = false;
+            })
             .size(width_, rootHeight)
             .zIndex(zIndex_)
             .content([&] {
