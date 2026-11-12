@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
-  <title>EUI-NEO</title>
+  <title>EUI-NEO · C++17 UI Framework</title>
+  <meta name="description" content="C++17 桌面 UI 框架：OpenGL/Vulkan、GLFW/SDL2、虚拟表格、实时曲线和键盘导航。查阅接入、组件和平台指南。">
   <link rel="icon" href="../assets/icon.svg">
   <link rel="alternate" type="text/plain" href="./llms.txt" title="EUI-NEO LLM documentation">
   <link rel="stylesheet" href="./styles.css">
@@ -85,7 +86,7 @@
           <div class="why-item">
             <span>01</span>
             <h3 data-i18n="why.performance.title">按需渲染</h3>
-            <p data-i18n="why.performance.text">静止时等待事件，有动画才推进帧；脏区缓存减少重复绘制。</p>
+            <p data-i18n="why.performance.text">静止时等待事件，有动画才推进帧；脏区、framebuffer cache 和保留层缓存减少重复绘制。</p>
           </div>
           <div class="why-item">
             <span>02</span>
@@ -99,8 +100,8 @@
           </div>
           <div class="why-item">
             <span>04</span>
-            <h3 data-i18n="why.components.title">组件齐全</h3>
-            <p data-i18n="why.components.text">输入、弹层、选择器、表格、图表和滚动容器覆盖工具型应用常见场景。</p>
+            <h3 data-i18n="why.components.title">数据与交互</h3>
+            <p data-i18n="why.components.text">虚拟表格支持排序、筛选和列宽调整；实时曲线按绘图区降采样，控件支持键盘导航与焦点反馈。</p>
           </div>
         </div>
       </section>
@@ -196,7 +197,7 @@ void compose(eui::Ui&amp; ui, const eui::Screen&amp; screen) {
               <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
 
-# Windows: .\\build\\Release\\my_app.exe
+# Windows: .\build\Release\my_app.exe
 # Linux/macOS: ./build/my_app</code></pre>
             </div>
           </article>
@@ -211,7 +212,7 @@ cmake --build build --config Release --parallel
           <span class="section-index">03 / LAYER</span>
           <p class="eyebrow" data-i18n="components.eyebrow">Component Layer</p>
           <h2 data-i18n="components.title">为工具型界面准备的组件层</h2>
-          <p data-i18n="components.lede">按钮、输入、弹层、选择器、图表和数据表都只组合 DSL 树，不穿透后端 primitive。</p>
+          <p data-i18n="components.lede">从长文本输入、虚拟列表到表格和实时曲线，复用同一套主题、键盘导航和控件语义。文件保存与目录选择调用系统对话框。</p>
         </div>
         <div class="component-list" id="componentList"></div>
       </section>
@@ -226,9 +227,9 @@ cmake --build build --config Release --parallel
           <div>
             <span class="section-index">04 / INDEX</span>
             <p class="eyebrow" data-i18n="docs.eyebrow">Documentation</p>
-            <h2 data-i18n="docs.title">查找架构、组件和集成文档</h2>
+            <h2 data-i18n="docs.title">从接入到开发，按主题查阅</h2>
           </div>
-          <p data-i18n="docs.lede">按渲染、输入、组件、平台能力或构建流程快速定位仓库文档。</p>
+          <p data-i18n="docs.lede">使用指南、架构和平台说明对应当前源码；已发布版本请查阅 Releases。</p>
         </div>
         <div class="search-panel">
           <label class="search-box">
@@ -247,7 +248,7 @@ cmake --build build --config Release --parallel
             <p class="eyebrow" data-i18n="rendering.eyebrow">Rendering Core</p>
             <h2 data-i18n="rendering.title">统一 Runtime，双渲染后端</h2>
           </div>
-          <p data-i18n="rendering.lede">窗口、输入、Runtime 和 GPU 后端各守边界，让同一套 DSL 输出到 OpenGL 或 Vulkan。</p>
+          <p data-i18n="rendering.lede">窗口、输入、Runtime 和 GPU 后端各守边界；dirty rect、render cache 和保留层缓存已覆盖 OpenGL / Vulkan。</p>
         </div>
         <div class="render-flow">
           <div class="flow-item">
@@ -258,12 +259,12 @@ cmake --build build --config Release --parallel
           <div class="flow-item">
             <span>02</span>
             <h3 data-i18n="flow.dirty.title">Dirty Rect</h3>
-            <p data-i18n="flow.dirty.text">按 id 缓存图元，变化时计算保守脏区，必要时升级 full redraw。</p>
+            <p data-i18n="flow.dirty.text">按 id 保留图元，变化时合并脏区；背景模糊会将受影响的采样区域一起重绘。</p>
           </div>
           <div class="flow-item">
             <span>03</span>
             <h3 data-i18n="flow.backend.title">Backend</h3>
-            <p data-i18n="flow.backend.text">OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture 和 frame lifecycle。</p>
+            <p data-i18n="flow.backend.text">OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture、render cache、保留层和 frame lifecycle。</p>
           </div>
         </div>
       </section>
@@ -276,7 +277,7 @@ cmake --build build --config Release --parallel
           <div class="contributor-track" id="contributorTrack"></div>
         </div>
       </div>
-      <p class="footer-copyright">© <span id="footerYear"></span> <a href="https://github.com/sudoevolve" target="_blank" rel="noopener">sudoevolve</a><span data-i18n="footer.rights"> · 保留所有权利</span></p>
+      <p class="footer-copyright">© <span id="footerYear"></span> <a href="https://github.com/sudoevolve" target="_blank" rel="noopener">sudoevolve</a><span data-i18n="footer.rights"> · Apache License 2.0</span></p>
     </footer>
   </div>
 

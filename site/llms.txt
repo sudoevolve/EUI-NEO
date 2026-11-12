@@ -1,6 +1,6 @@
 # EUI-NEO
 
-> EUI-NEO is a lightweight C++17 desktop UI framework. It provides a declarative, builder-based UI DSL, retained rendering, built-in controls, and GLFW or SDL2 window backends with OpenGL or Vulkan rendering. The current stable release is v0.5.9.
+> EUI-NEO is a lightweight C++17 desktop UI framework. It provides a declarative UI DSL, retained rendering, built-in controls, and GLFW or SDL2 window backends with OpenGL or Vulkan rendering. These docs describe the current source tree; check release tags when targeting a published SDK.
 
 Use this file as the starting point when answering questions or generating EUI-NEO applications. Prefer the public facade and current examples over inferred APIs.
 
@@ -8,7 +8,7 @@ Canonical sources:
 
 - Website: https://sudoevolve.github.io/EUI-NEO/
 - Repository: https://github.com/sudoevolve/EUI-NEO
-- Stable release: https://github.com/sudoevolve/EUI-NEO/releases/tag/v0.5.9
+- Releases and SDKs: https://github.com/sudoevolve/EUI-NEO/releases
 - Public umbrella header: https://github.com/sudoevolve/EUI-NEO/blob/main/include/eui_neo.h
 - Exported components: https://github.com/sudoevolve/EUI-NEO/blob/main/components/components.h
 
@@ -82,7 +82,7 @@ Build:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+cmake --build build --config Release --parallel
 ```
 
 For a downloaded SDK, replace `add_subdirectory(...)` with:
@@ -114,7 +114,7 @@ Composition is declarative. Do not create backend drawing objects in UI code, an
 - Use `Flow` for one continuous wrapping group such as chips or cards.
 - Prefer `.padding(...)`, `.gap(...)`, `.fill()`, `SizeValue::wrapContent()`, flex sizing, and min/max constraints over manual coordinates.
 - Use `components::scrollView` for ordinary scrollable content. It creates its own wrap-content measurement root; make its children report their real heights and do not add a viewport-height wrapper around variable content.
-- Use `components::virtualList` or `components::virtualMasonry` for very large data sets.
+- Use `components::virtualList`, `components::virtualMasonry`, or `components::dataTable` for large data sets.
 - `zIndex` changes draw and hit-test order; it does not remove an element from layout. Use `ignoreLayout()` only for genuine overlays or decoration.
 - Branch at explicit width thresholds when a multi-column layout must become a single column.
 
@@ -138,11 +138,14 @@ Prefer built-in components before assembling controls from primitives:
 
 Use `components::theme::dark()` or `components::theme::light()` as the base token set. Pass the same tokens and transition through a page for consistent visuals and motion.
 
-## Input API In v0.5.9
+## Input And Keyboard Navigation
 
 - Keyboard events use `eui::KeyEvent` with `key`, `action`, `modifiers`, and `scanCode`.
 - Text and IME input use `eui::TextInputEvent`; they are separate from key events.
 - Element-level `.onKeyEvent(...)` callbacks return `bool` to indicate whether the event was handled.
+- Clickable controls participate in Tab / Shift+Tab navigation; Enter / Space activates them. Disabled and hidden subtrees are skipped. Use `.accessibleName(...)` for icon-only buttons.
+- Modal dialogs and pickers constrain focus and restore it when closed. Custom overlays can use `.focusScope(open).onDismiss(...)`.
+- `ui.accessibilityTree()` exports control semantics and layout bounds. Native screen-reader bridges are not implemented.
 - Pointer events use `action`, `button`, `buttons`, and `modifiers`.
 - Pointer buttons are `Left`, `Middle`, `Right`, `X1`, and `X2`.
 - Standard interaction accepts only the left button by default. Enable other drag or press buttons explicitly with `.acceptedButtons(...)`.
@@ -156,6 +159,13 @@ Do not generate any of these removed APIs:
 - compatibility aliases, callback adapters, native button polling, or dual input paths
 
 Current input reference: https://sudoevolve.github.io/EUI-NEO/docs/guides/events.md
+
+## Data Controls And File Dialogs
+
+- `dataTable(...).data(sharedRows, revision)` virtualizes fixed-height rows. Use `.filter(...)`, `.sort(column, descending)`, `.numericSort()`, and `.columnWidths(...)`; callbacks preserve the original source row index. Increment revision after in-place changes. Do not mutate shared data during composition.
+- `lineChart(...).data(sharedSamples, revision).range(min, max)` selects realtime mode. `.visibleRange(first, last)` sets a half-open sample interval. Peak-preserving downsampling limits output to about four points per plot unit; missing-data buckets break the line. Realtime mode omits per-point labels, tooltips, and animation.
+- `input(...).undoByteBudget(bytes)` bounds combined undo/redo accounting; the default is 8 MiB, with at most 128 snapshots per stack. Zero disables history.
+- `eui::platform::saveFileDialog(options)` and `selectDirectoryDialog(options)` distinguish Selected / Cancelled / Failed. `defaultFileName` applies to saving. Dialogs return paths; the caller writes files and handles write failures.
 
 ## File Placement
 
@@ -181,7 +191,7 @@ CMake cache options:
 - `EUI_ENABLE_MODULES=ON|OFF`
 - `EUI_ENABLE_TRAY=ON|OFF`
 
-Use a separate build directory for each backend combination. Vulkan requires a Vulkan SDK; SDL2 requires SDL2 development files. Linux tray builds require GLib/GIO development files unless tray support is explicitly disabled.
+Use a separate build directory for each backend combination. Vulkan requires a Vulkan SDK. SDL2 can use a system package or be fetched by CMake in auto/fetch dependency mode; strict bundled mode does not provide SDL2. Linux tray builds require GLib/GIO development files unless tray support is explicitly disabled.
 
 ## Accuracy Rules For Code Generation
 
@@ -197,6 +207,11 @@ Use a separate build directory for each backend combination. Vulkan requires a V
 - Verify the exact application target after changes, then run `git diff --check`.
 
 ## Documentation
+
+- [Documentation index](https://sudoevolve.github.io/EUI-NEO/docs/README.md): public guides organized by topic; internal plans, reviews, and benchmark records are kept outside the website.
+- [Keyboard and control semantics](https://sudoevolve.github.io/EUI-NEO/docs/guides/keyboard-accessibility.md): navigation, focus, overlays, and semantic snapshots.
+- [Markdown viewport](https://sudoevolve.github.io/EUI-NEO/docs/guides/markdown-viewport.md): visible-content construction and cache contracts.
+- [Linux IME](https://sudoevolve.github.io/EUI-NEO/docs/platform/linux-ime-cursor.md): X11 positioning and troubleshooting.
 
 - [Quick Start and project overview](https://github.com/sudoevolve/EUI-NEO/blob/main/README.md): canonical app and CMake setup.
 - [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/guides/integration.md): SDK, `find_package`, FetchContent, and application entry-point boundaries.
