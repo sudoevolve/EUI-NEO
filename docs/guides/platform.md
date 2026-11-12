@@ -55,12 +55,17 @@ if (result.selected()) {
 当前公开 API：
 
 ```cpp
+enum class FileDialogMode { OpenFile, SaveFile, Directory };
+
 struct FileDialogOptions {
     std::string prompt;
     std::vector<std::string> allowedExtensions;
     std::string initialDirectory;
     std::string filterName;
     bool allowMultiple = false;
+    FileDialogMode mode = FileDialogMode::OpenFile;
+    std::string defaultFileName;
+    eui::window::Handle parent = nullptr;
 };
 
 enum class FileDialogStatus {
@@ -78,6 +83,10 @@ struct FileDialogResult {
 };
 
 eui::platform::FileDialogResult openFileDialog(const FileDialogOptions& options = {});
+eui::platform::FileDialogResult saveFileDialog(const FileDialogOptions& options = {});
+eui::platform::FileDialogResult selectDirectoryDialog(const FileDialogOptions& options = {});
+std::string chooseSaveFile(const FileDialogOptions& options = {});
+std::string chooseDirectory(const FileDialogOptions& options = {});
 std::string chooseFile(const FileDialogOptions& options = {});
 std::vector<std::string> chooseFiles(const FileDialogOptions& options = {});
 ```
@@ -89,6 +98,9 @@ std::vector<std::string> chooseFiles(const FileDialogOptions& options = {});
 - `initialDirectory`：初始目录。为空时由系统决定默认位置。
 - `filterName`：过滤器显示名称，例如 `"Images"`、`"Text files"`。为空时使用通用名称。
 - `allowMultiple`：是否允许多选。`chooseFiles(...)` 会自动打开多选；`chooseFile(...)` 会强制单选。
+- `mode`：打开文件、保存路径或选择目录；保存模式强制单选。
+- `defaultFileName`：保存模式的建议文件名；调用方仍需校验文件名和实际写入结果。
+- `parent`：Windows 的父窗口绑定；其他平台当前忽略。
 
 ### 类型过滤
 
@@ -182,11 +194,11 @@ resizeHandle.onPress([] {
 ## 平台依赖
 
 - Windows：使用系统 Common Dialog，不需要额外运行时工具。
-- macOS：使用系统 `osascript` 调用 `choose file`。
+- macOS：使用系统 `osascript` 调用 `choose file`、`choose file name` 或 `choose folder`。
 - Linux：优先使用 `zenity`，失败时尝试 `kdialog`。两者都不可用时，`openFileDialog(...)` 返回 `FileDialogStatus::Failed`。
 
 ## 当前限制
 
-- 目前只支持打开本地文件。
-- 暂不支持选择目录、保存文件、默认文件名、父窗口/modal 绑定。
+- 对话框只处理本地路径，不提供远程文件系统浏览或文件写入。
+- 父窗口绑定仅在 Windows 实现；macOS 保存模式不强制扩展名过滤。
 - 文件选择是阻塞式系统对话框。适合在按钮点击回调里调用；不要在每帧 compose/update 中调用。

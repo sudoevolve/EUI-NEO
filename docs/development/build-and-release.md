@@ -423,7 +423,7 @@ chore(deps): trim bundled third-party sources
 - 运行包会从 `examples/*.cpp`、`apps/*.cpp` 和 `apps/*/app.cpp` 自动推导可执行文件列表；新增 demo 或应用不需要手动维护 release.yml 的应用名单。
 - Release assets 上传运行包和 SDK 包，不上传正文截图。
 - Release 正文截图使用已提交的仓库图片或 GitHub 正文附件。
-- `docs/releases/` 是本地 release 草稿和素材目录，已被 `.gitignore` 忽略，不提交。
+- 正式版本说明保存为 `docs/releases/vX.Y.Z.md` 并提交，供 tag 发布流程读取；该目录默认被 `.gitignore` 忽略，新版本说明需显式加入跟踪。临时草稿和素材不提交，历史版本说明不进入官网现行文档目录。
 
 ## Release 检查
 
