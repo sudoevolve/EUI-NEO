@@ -127,6 +127,7 @@ struct Element {
     float blur = 0.0f;
     float opacity = 1.0f;
     std::vector<Vec2> polygonPoints;
+    float strokeWidth = 0.0f;
 
     std::string text;
     std::string fontFamily;
@@ -1170,6 +1171,8 @@ public:
         element_->polygonPoints.clear();
         return *this;
     }
+    /** @brief 正值以折线描边绘制点列；NaN 点断开路径，0 恢复填充多边形。 */
+    PolygonBuilder& strokeWidth(float value) { element_->strokeWidth = std::max(0.0f, value); return *this; }
 };
 
 class TextBuilder : public BuilderBase<TextBuilder> {

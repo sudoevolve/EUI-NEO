@@ -68,6 +68,7 @@ public:
 
     void setBounds(float x, float y, float width, float height);
     void setPoints(const std::vector<Vec2>& points);
+    void setStrokeWidth(float width);
     void setRadius(float radius);
     void setColor(const Color& color);
     void setOpacity(float opacity);

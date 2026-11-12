@@ -103,7 +103,8 @@ inline Rect Runtime::visualDirtyRectForElement(
         const auto instance = instances_.polygons.find(element.id);
         const LayoutRect frame = instance != instances_.polygons.end() ? instance->second.frame.value() : element.frame;
         const Transform transform = instance != instances_.polygons.end() ? instance->second.transform.value() : element.transform;
-        local = transformRect({frame.x, frame.y, frame.width, frame.height}, frame, transform);
+        const float stroke = instance != instances_.polygons.end() ? instance->second.strokeWidth : element.strokeWidth;
+        local = polygonVisualRect(frame, stroke, transform);
     } else if (element.kind == ElementKind::Text) {
         const auto instance = instances_.texts.find(element.id);
         const LayoutRect frame = instance != instances_.texts.end() ? instance->second.frame.value() : element.frame;
@@ -833,9 +834,7 @@ inline void Runtime::updatePolygon(
     runtime::PolygonInstance& instance = instances_.polygon(element.id);
     instance.interaction = instances_.interaction(element.id).state;
     const Rect beforeRect = applyRenderTransformToLogicalRect(
-        transformRect({instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height},
-                      instance.frame.value(),
-                      instance.transform.value()),
+        polygonVisualRect(instance.frame.value(), instance.strokeWidth, instance.transform.value()),
         dpiScale,
         inheritedTransform);
 
@@ -855,11 +854,13 @@ inline void Runtime::updatePolygon(
     const Color hoverColor = stateColorsVisible ? mixColor(element.color, element.hoverColor, hover) : element.color;
     const Color currentColor = stateColorsVisible ? mixColor(hoverColor, element.pressedColor, press) : element.color;
     const bool pointsChanged = !samePoints(instance.points, element.polygonPoints);
+    const bool strokeChanged = instance.strokeWidth != element.strokeWidth;
+    instance.strokeWidth = element.strokeWidth;
     if (pointsChanged) {
         instance.points = element.polygonPoints;
     }
 
-    bool changed = hoverChanged || pressChanged || pointsChanged;
+    bool changed = hoverChanged || pressChanged || pointsChanged || strokeChanged;
     changed = instance.frame.setTarget(element.frame, element.transition, !snapFrame && shouldAnimateFrame(element)) || changed;
     changed = instance.color.setTarget(currentColor, element.transition, shouldAnimate(element, AnimProperty::Color)) || changed;
     changed = instance.radius.setTarget(element.radius, element.transition, shouldAnimate(element, AnimProperty::Radius)) || changed;
@@ -874,9 +875,7 @@ inline void Runtime::updatePolygon(
 
     if (changed) {
         const Rect afterRect = applyRenderTransformToLogicalRect(
-            transformRect({instance.frame.value().x, instance.frame.value().y, instance.frame.value().width, instance.frame.value().height},
-                          instance.frame.value(),
-                          instance.transform.value()),
+            polygonVisualRect(instance.frame.value(), instance.strokeWidth, instance.transform.value()),
             dpiScale,
             inheritedTransform);
         addDirtyUnion(beforeRect, afterRect);
