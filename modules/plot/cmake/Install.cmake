@@ -15,8 +15,8 @@ install(DIRECTORY licenses/ DESTINATION "${plot_install_dir}/licenses"
 get_filename_component(plot_framework_root "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 set(plot_dependency_notices "${CMAKE_INSTALL_DATADIR}/eui-neo/licenses")
 install(FILES "${plot_framework_root}/LICENSE" DESTINATION "${plot_dependency_notices}")
-install(FILES "${plot_framework_root}/docs/组件.md" "${plot_framework_root}/docs/渲染后端架构.md"
-    "${plot_framework_root}/docs/动态纹理.md"
+install(FILES "${plot_framework_root}/docs/guides/components.md" "${plot_framework_root}/docs/architecture/rendering.md"
+    "${plot_framework_root}/docs/guides/dynamic-textures.md"
     DESTINATION ${CMAKE_INSTALL_DATADIR}/eui-neo/docs)
 install(FILES "${EUI_FREETYPE_DIR}/LICENSE.TXT" DESTINATION "${plot_dependency_notices}/freetype")
 install(FILES licenses/freetype-FTL.txt DESTINATION "${plot_dependency_notices}/freetype" RENAME FTL.TXT)

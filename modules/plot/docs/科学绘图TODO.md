@@ -12,11 +12,11 @@ Vulkan 二维视口已有 Windows GPU 三角光栅路径及 CPU 精度回退；�
 其余 Vulkan 能力与平台仍需按实际测试单独记录，不以接口存在代替后端能力验证。
 Octave 解释器接入、计算进程通信、数值求解器和 MATLAB 兼容层不属于本清单范围。
 
-现有 `lineChart`、`barChart`、`pieChart` 是轻量展示组件。折线和柱状图使用归一化值，
-没有完整的科学坐标轴；折线按点序号等间距排列，并为线段、数据点创建独立 UI 节点。
+现有 `lineChart`、`barChart`、`pieChart` 是轻量展示组件。`lineChart` 的实时模式已支持
+显式数值范围、可见采样区间、峰值保留降采样和批量折线；这些组件仍没有完整的科学坐标轴。
 科学绘图应建立共用的数据、坐标和渲染体系，保留现有组件的使用契约。
 
-相关文档：[组件](../../../docs/组件.md#图表)、[渲染后端架构](../../../docs/渲染后端架构.md)、[动态纹理](../../../docs/动态纹理.md)。
+相关文档：[组件](../../../docs/guides/components.md#图表)、[渲染后端架构](../../../docs/architecture/rendering.md)、[动态纹理](../../../docs/guides/dynamic-textures.md)。
 
 ## 架构与通用约束
 

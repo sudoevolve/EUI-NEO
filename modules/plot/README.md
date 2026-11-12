@@ -3,7 +3,7 @@
 模块代码、文档、示例、测试、许可及发布工具集中在本目录：`docs/`、`examples/`、`tests/`、
 `licenses/`、`scripts/` 和 `tools/`。顶层只通过通用模块发现与构建挂接机制接入，不硬编码 plot。
 在包含通用 Vulkan 同步修复和模块挂接点的主分支上，增加或移除此目录即可增减绘图模块。
-根目录 `docs/科学绘图TODO.md` 是主分支已有的规划；本模块的实际完成情况以
+仓库 `internal/plans/scientific-plotting.md` 保存原有规划；本模块的实际完成情况以
 [模块 TODO](docs/科学绘图TODO.md)和验收文档为准。
 目录和构建边界详见[模块目录与主分支约定](docs/模块目录与主分支约定.md)。
 
