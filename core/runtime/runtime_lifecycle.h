@@ -20,6 +20,7 @@ inline void Runtime::compose(const std::string& pageId, float logicalWidth, floa
     composeFn(ui_, screen);
     ui_.end();
     ui_.layout(screen);
+    synchronizeFocusScope();
     elementStructure_ = collectElementStructure();
     syncScrollStateBindings();
     for (const std::string& scope : ui_.consumeReleasedStateScopes()) {
@@ -29,7 +30,7 @@ inline void Runtime::compose(const std::string& pageId, float logicalWidth, floa
             ui_.setFocusedId(focusedId_);
         }
     }
-    if (!focusedId_.empty() && isElementInDisabledTree(focusedId_)) {
+    if (!focusedId_.empty() && (!ui_.find(focusedId_) || isElementInDisabledTree(focusedId_))) {
         setFocusedId({});
     }
 
@@ -278,6 +279,7 @@ inline void Runtime::render(int windowWidth, int windowHeight, float dpiScale) {
 }
 
 inline void Runtime::shutdown(bool releaseCachedImageTextures) {
+    focusScopes_.clear();
     releaseGraphicsResources(releaseCachedImageTextures);
     instances_.clear();
     elementStructure_.clear();

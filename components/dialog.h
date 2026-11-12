@@ -94,6 +94,10 @@ public:
         const std::function<void()> onSecondary = onSecondary_ ? onSecondary_ : requestClose;
 
         ui_.stack(id_)
+            .accessible(core::AccessibleRole::Dialog, title_)
+            .accessibleHidden(!open_)
+            .focusScope(open_)
+            .onDismiss(requestClose)
             .size(screenWidth_, screenHeight_)
             .zIndex(zIndex_)
             .content([&] {
@@ -105,6 +109,8 @@ public:
                     .animate(core::AnimProperty::Opacity)
                     .disabled(!open_)
                     .onClick(requestClose)
+                    .tabStop(false)
+                    .preserveFocusOnPress()
                     .onScroll([](const core::ScrollEvent&) {})
                     .build();
 

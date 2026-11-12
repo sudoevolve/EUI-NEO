@@ -4,6 +4,7 @@
 
 #include "core/layout.h"
 #include "core/animation.h"
+#include "core/accessibility.h"
 #include "core/input/input_types.h"
 #include "core/render/render_types.h"
 #include "core/render/image_stream.h"
@@ -158,6 +159,16 @@ struct Element {
 
     bool interactive = false;
     bool focusable = false;
+    bool tabStop = true;
+    bool focusScope = false;
+    bool accessibleHidden = false;
+    AccessibleRole accessibleRole = AccessibleRole::None;
+    std::string accessibleName;
+    std::string accessibleValue;
+    bool accessibleChecked = false;
+    bool accessibleExpanded = false;
+    std::string focusGroup;
+    std::function<void()> onDismiss;
     bool preserveFocusOnPress = false;
     bool disabled = false;
     PointerButtons acceptedButtons = PointerButton::Left;
@@ -540,6 +551,24 @@ public:
         return self();
     }
 
+    /** @brief 设置控件语义，name 应描述用途而非装饰图标。 */
+    Derived& accessible(AccessibleRole role, std::string name, std::string value = {}) {
+        element_->accessibleRole = role;
+        element_->accessibleName = std::move(name);
+        element_->accessibleValue = std::move(value);
+        return self();
+    }
+    Derived& accessibleChecked(bool value) { element_->accessibleChecked = value; return self(); }
+    Derived& accessibleName(std::string value) { element_->accessibleName = std::move(value); return self(); }
+    Derived& accessibleExpanded(bool value) { element_->accessibleExpanded = value; return self(); }
+    Derived& accessibleHidden(bool value = true) { element_->accessibleHidden = value; return self(); }
+    /** @brief 排除 Tab 停靠，不影响鼠标交互。 */
+    Derived& tabStop(bool value) { element_->tabStop = value; return self(); }
+    Derived& focusGroup(const std::string& id);
+    /** @brief 活动 scope 约束键盘焦点；关闭后恢复之前的焦点。 */
+    Derived& focusScope(bool value = true) { element_->focusScope = value; return self(); }
+    Derived& onDismiss(std::function<void()> callback) { element_->onDismiss = std::move(callback); return self(); }
+
     Derived& imeRect(float xValue, float yValue, float widthValue, float heightValue) {
         element_->hasImeRect = true;
         element_->imeRect = {
@@ -656,6 +685,10 @@ public:
         element_->interactive = true;
         element_->cursor = CursorShape::Hand;
         element_->onClick = std::move(callback);
+        if (element_->onClick) {
+            element_->focusable = true;
+            if (element_->accessibleRole == AccessibleRole::None) element_->accessibleRole = AccessibleRole::Button;
+        }
         return self();
     }
 
@@ -1003,6 +1036,10 @@ public:
         this->element_->interactive = true;
         this->element_->cursor = CursorShape::Hand;
         this->element_->onClick = std::move(callback);
+        if (this->element_->onClick) {
+            this->element_->focusable = true;
+            if (this->element_->accessibleRole == AccessibleRole::None) this->element_->accessibleRole = AccessibleRole::Button;
+        }
         return this->self();
     }
 
@@ -1392,6 +1429,61 @@ public:
 
     void end() {
         stack_.clear();
+        // 焦点框复用现有 Rect 渲染与 dirty/layer 失效路径，不增加后端特判。
+        Element* focused = find(focusedId_);
+        if (focused && focused->focusable && !focused->disabled) {
+            auto ring = std::make_unique<Element>();
+            ring->kind = ElementKind::Rect;
+            ring->id = focusedId_ + ".focusRing";
+            ring->width = SizeValue::fill();
+            ring->height = SizeValue::fill();
+            ring->ignoreLayout = true;
+            ring->color = {0, 0, 0, 0};
+            ring->border = {2.0f, Color{0.25f, 0.6f, 1.0f, 1.0f}};
+            ring->radius = focused->radius;
+            ring->accessibleHidden = true;
+            index_[ring->id] = ring.get();
+            focused->children.push_back(std::move(ring));
+        }
+    }
+
+    /** @brief 返回当前布局的语义树；隐藏和全透明子树不会导出。 */
+    std::vector<AccessibleNode> accessibilityTree() const {
+        std::vector<AccessibleNode> result;
+        const auto visit = [&](const auto& self, const Element& element, const std::string& parent, bool disabled) -> void {
+            if (element.accessibleHidden || element.opacity <= 0.0f) return;
+            disabled = disabled || element.disabled;
+            std::string owner = parent;
+            if (element.accessibleRole != AccessibleRole::None) {
+                AccessibleNode node;
+                node.id = element.id;
+                node.parentId = parent;
+                node.role = element.accessibleRole;
+                node.name = element.accessibleName;
+                if (node.name.empty()) {
+                    const auto label = [&](const auto& self, const Element& item) -> std::string {
+                        if (item.kind == ElementKind::Text) return item.text;
+                        for (const auto& child : item.children) {
+                            auto text = self(self, *child);
+                            if (!text.empty()) return text;
+                        }
+                        return {};
+                    };
+                    node.name = label(label, element);
+                }
+                node.value = element.accessibleValue;
+                node.bounds = {element.frame.x, element.frame.y, element.frame.width, element.frame.height};
+                node.disabled = disabled;
+                node.checked = element.accessibleChecked;
+                node.expanded = element.accessibleExpanded;
+                node.focused = element.id == focusedId_;
+                result.push_back(std::move(node));
+                owner = element.id;
+            }
+            for (const auto& child : element.children) self(self, *child, owner, disabled);
+        };
+        for (const auto& root : roots_) visit(visit, *root, {}, false);
+        return result;
     }
 
     LayoutBuilder row(const std::string& id = "") {
@@ -1824,6 +1916,12 @@ Derived& BuilderBase<Derived>::content(Fn&& compose) {
     ui_->push(element_);
     std::forward<Fn>(compose)();
     ui_->pop();
+    return self();
+}
+
+template <typename Derived>
+Derived& BuilderBase<Derived>::focusGroup(const std::string& id) {
+    element_->focusGroup = ui_->resolveId(id);
     return self();
 }
 

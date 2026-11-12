@@ -56,6 +56,7 @@ public:
         return *this;
     }
     InputBuilder& placeholder(std::string value) { placeholder_ = std::move(value); return *this; }
+    InputBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
     InputBuilder& multiline(bool value = true) { multiline_ = value; return *this; }
     /** @brief 多行输入溢出时显示垂直滚动条，默认关闭；不影响滚轮和光标跟随。 */
     InputBuilder& scrollbar(bool value = true) { scrollbar_ = value; return *this; }
@@ -158,6 +159,7 @@ public:
         }
         root.content([&] {
                 auto hit = ui_.rect(hitId)
+                    .accessible(core::AccessibleRole::TextInput, accessibleName_.empty() ? placeholder_ : accessibleName_, state.text)
                     .size(width_, height_)
                     .color(style_.background)
                     .radius(style_.radius)
@@ -488,6 +490,7 @@ private:
 
     core::dsl::Ui& ui_;
     std::string id_;
+    std::string accessibleName_;
     InputStyle style_;
     ScrollStyle scrollStyle_;
     theme::ThemeMetricTokens metrics_;

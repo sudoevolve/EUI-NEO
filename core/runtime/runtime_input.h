@@ -32,7 +32,7 @@ inline bool Runtime::findElementDisabledState(
     const std::string& id,
     bool ancestorDisabled,
     bool& disabledTree) const {
-    const bool currentDisabledTree = ancestorDisabled || element.disabled;
+    const bool currentDisabledTree = ancestorDisabled || element.disabled || element.accessibleHidden || element.opacity <= 0;
     if (element.id == id) {
         disabledTree = currentDisabledTree;
         return true;
@@ -302,20 +302,105 @@ inline void Runtime::updateTextInput(const TextInputEvent& event) {
     }
 }
 
-inline void Runtime::updateKeyInput(const std::vector<KeyEvent>& events) {
-    const Element* focused = focusedId_.empty() ? nullptr : ui_.find(focusedId_);
-    if (focused != nullptr && (focused->disabled || isElementInDisabledTree(focusedId_))) {
-        setFocusedId({});
-        focused = nullptr;
+inline std::vector<std::string> Runtime::focusOrder() const {
+    std::vector<std::string> order;
+    const std::string scope = focusScopes_.empty() ? std::string{} : focusScopes_.back().first;
+    const auto visit = [&](const auto& self, const Element& element, bool inScope) -> void {
+        if (element.disabled || element.opacity <= 0.0f || element.accessibleHidden) return;
+        inScope = inScope || element.id == scope;
+        if (inScope && element.focusable && element.tabStop && element.frame.width > 0 && element.frame.height > 0)
+            order.push_back(element.id);
+        for (const auto& child : element.children) self(self, *child, inScope);
+    };
+    for (const auto& root : ui_.roots()) visit(visit, *root, scope.empty());
+    return order;
+}
+
+inline void Runtime::moveFocus(bool backwards) {
+    const auto order = focusOrder();
+    if (order.empty()) { setFocusedId({}); return; }
+    const auto it = std::find(order.begin(), order.end(), focusedId_);
+    const auto count = static_cast<std::ptrdiff_t>(order.size());
+    const auto index = it == order.end() ? (backwards ? count - 1 : 0)
+        : (std::distance(order.begin(), it) + (backwards ? count - 1 : 1)) % count;
+    setFocusedId(order[static_cast<std::size_t>(index)]);
+}
+
+inline void Runtime::synchronizeFocusScope() {
+    std::vector<std::string> active;
+    const auto visit = [&](const auto& self, const Element& element) -> void {
+        if (element.disabled || element.opacity <= 0 || element.accessibleHidden) return;
+        if (element.focusScope) active.push_back(element.id);
+        for (const Element* child : element.orderedChildren) self(self, *child);
+    };
+    for (const Element* root : ui_.orderedRoots()) visit(visit, *root);
+    const std::string top = active.empty() ? std::string{} : active.back();
+    while (!focusScopes_.empty() && focusScopes_.back().first != top &&
+           std::find(active.begin(), active.end(), focusScopes_.back().first) == active.end()) {
+        const auto restore = focusScopes_.back().second;
+        focusScopes_.pop_back();
+        setFocusedId(ui_.find(restore) && !isElementInDisabledTree(restore) ? restore : std::string{});
     }
+    if (!top.empty() && (focusScopes_.empty() || focusScopes_.back().first != top)) {
+        focusScopes_.push_back({top, focusedId_});
+        setFocusedId({});
+        moveFocus(false);
+    }
+    const auto order = focusOrder();
+    if (!focusScopes_.empty() && std::find(order.begin(), order.end(), focusedId_) == order.end()) {
+        setFocusedId({});
+        moveFocus(false);
+    }
+}
+
+inline void Runtime::updateKeyInput(const std::vector<KeyEvent>& events) {
 
     for (const KeyEvent& key : events) {
+        const Element* focused = focusedId_.empty() ? nullptr : ui_.find(focusedId_);
+        if (focused && isElementInDisabledTree(focusedId_)) { setFocusedId({}); focused = nullptr; }
         bool handled = false;
+        if (key.isDown() && key.key == InputKey::Tab && !key.modifiers.control && !key.modifiers.alt && !key.modifiers.super) {
+            moveFocus(key.modifiers.shift);
+            continue;
+        }
+        if (key.action == KeyAction::Press && key.key == InputKey::Escape && !focusScopes_.empty()) {
+            const Element* scope = ui_.find(focusScopes_.back().first);
+            if (scope && scope->onDismiss) {
+                auto dismiss = scope->onDismiss;
+                dismiss();
+                composeRequested_ = paintRequested_ = true;
+                continue;
+            }
+        }
         if (focused != nullptr && focused->onKeyEvent) {
             handled = focused->onKeyEvent(key);
             if (handled) {
                 composeRequested_ = true;
                 paintRequested_ = true;
+            }
+        }
+        if (!handled && focused && focused->onClick && key.action == KeyAction::Press &&
+            (key.key == InputKey::Enter || key.key == InputKey::Space) &&
+            !key.modifiers.control && !key.modifiers.alt && !key.modifiers.super) {
+            auto activate = focused->onClick;
+            activate();
+            handled = true;
+            composeRequested_ = paintRequested_ = true;
+        }
+        if (!handled && focused && !focused->focusGroup.empty() && key.isDown() &&
+            (key.key == InputKey::Left || key.key == InputKey::Right || key.key == InputKey::Up || key.key == InputKey::Down)) {
+            std::vector<std::string> group;
+            for (const auto& id : focusOrder()) {
+                if (ui_.find(id)->focusGroup == focused->focusGroup) group.push_back(id);
+            }
+            const auto it = std::find(group.begin(), group.end(), focusedId_);
+            if (it != group.end()) {
+                const bool backwards = key.key == InputKey::Left || key.key == InputKey::Up;
+                const auto index = (std::distance(group.begin(), it) + (backwards ? group.size() - 1 : 1)) % group.size();
+                setFocusedId(group[index]);
+                const auto activate = ui_.find(focusedId_)->onClick;
+                if (activate) activate();
+                handled = true;
             }
         }
         if (!handled && keyEventHandler_) {

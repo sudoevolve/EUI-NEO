@@ -171,6 +171,10 @@ private:
     void updateTextInput(const TextInputEvent& event);
 
     void updateKeyInput(const std::vector<KeyEvent>& events);
+    void synchronizeFocusScope();
+    void moveFocus(bool backwards);
+    std::vector<std::string> focusOrder() const;
+    std::vector<std::pair<std::string, std::string>> focusScopes_;
 
     void updateImeCursorRect(core::window::Handle window, float dpiScale);
 

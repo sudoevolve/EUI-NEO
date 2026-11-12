@@ -1,6 +1,7 @@
 #pragma once
 
 #include "eui/dsl_app.h"
+#include "eui/accessibility.h"
 #include "eui/dsl.h"
 #include "eui/audio.h"
 #include "eui/image.h"
