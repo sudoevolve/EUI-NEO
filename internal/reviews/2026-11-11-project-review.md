@@ -2,7 +2,7 @@
 
 审查日期：2026-11-11。范围：自有 core、公共头文件、components、modules、测试、CMake、CI、发布和主要文档；第三方源码未逐行审计。本次为代码审查与定向验证，不代表全部平台和后端已经重新验收。
 
-2026-11-12 实施更新：本文保留初次审查时的发现与验证边界。P1 三项、键盘/焦点/语义、虚拟表格与排序筛选/列宽、保存与目录选择、撤销字节预算和实时曲线已经在 dev 分步实现并提交。最新四后端结果、性能原始数据和剩余平台验收范围见 [数据工具变更验证](data-tools-validation.md)。原文其他建议仍作为后续路线参考。
+2026-11-12 实施更新：本文保留初次审查时的发现与验证边界。P1 三项、键盘/焦点/语义、虚拟表格与排序筛选/列宽、保存与目录选择、撤销字节预算和实时曲线已经在 dev 分步实现并提交。最新四后端结果、性能原始数据和剩余平台验收范围见 [数据工具变更验证](../validation/2026-11-12-data-tools.md)。原文其他建议仍作为后续路线参考。
 
 ## 总体判断
 
@@ -39,7 +39,7 @@ restart: stale_callback=1 current_callback=1
 cancel: returned=1 queued_callback=1
 ```
 
-这与 `docs/异步.md` 中旧任务不会继续更新 UI 的契约不一致。搜索框快速输入、页面刷新或页面销毁时，旧回调可能更新过期状态；若回调捕获已销毁对象，还可能访问无效引用。
+这与 `docs/guides/async.md` 中旧任务不会继续更新 UI 的契约不一致。搜索框快速输入、页面刷新或页面销毁时，旧回调可能更新过期状态；若回调捕获已销毁对象，还可能访问无效引用。
 
 建议：完成队列携带 key、generation 或独立任务身份，执行前重新校验有效性；同时定义 Done 但尚未派发时的取消语义。若允许 forget 后复用 key，任务身份还应避免 generation 从头计数造成误认。测试覆盖“旧任务先完成、新任务仍运行”和“本轮派发中的前一个回调取消后一个回调”。
 
@@ -81,7 +81,7 @@ serial: copy_constructible=1 copy_assignable=1
 
 ### 5. 文本“shaping”与文档承诺不一致
 
-依据：`core/render/text.cpp:885` 的 `shapeWithFallback()` 逐 Unicode codepoint 调用 `FT_Get_Char_Index`，`:912` 的 shaping 入口直接调用它。未找到完整文字 shaping、双向文本重排及 grapheme cluster 分割实现；`docs/组件.md:474` 却声明适配阿拉伯连字。
+依据：`core/render/text.cpp:885` 的 `shapeWithFallback()` 逐 Unicode codepoint 调用 `FT_Get_Char_Index`，`:912` 的 shaping 入口直接调用它。未找到完整文字 shaping、双向文本重排及 grapheme cluster 分割实现；`docs/guides/components.md:474` 却声明适配阿拉伯连字。
 
 字体回退、单个 emoji 和组合符号的部分处理已有实现，但不能据此认定阿拉伯文、印地语、ZWJ 家庭 emoji、旗帜及混合 RTL 文本已经完整支持。当前光标边界也主要与 codepoint 的 UTF-8 字节边界对应。
 
@@ -114,8 +114,8 @@ serial: copy_constructible=1 copy_assignable=1
 
 1. **先做 ARM64 交叉编译和部署示例。** 提供 CMake toolchain/sysroot 用法、依赖裁剪、字体部署与最小运行包，并记录真实板端结果。
 2. **按硬件决定 OpenGL ES/EGL。** 常见嵌入式 GPU 更偏向 GLES；需要核对 shader、纹理格式、FBO 和扩展。无桌面部署再考虑 DRM/KMS/输入接入，不能仅改 shader 版本号就宣称支持。
-3. **保留 CPU 后端为独立方向。** `docs/软件渲染后端TODO.md` 是规划，尚无实际后端。若目标是无 GPU 设备，优先实现基本几何、文字、图片、裁剪和呈现，再明确效果降级范围。
-4. **补齐触摸产品行为。** SDL2 已有单指映射和滚动；手势仲裁、多指、方向冲突、软键盘遮挡和真实触摸屏验证仍需完善，详见 `docs/事件.md`。
+3. **保留 CPU 后端为独立方向。** `internal/plans/software-renderer.md` 是规划，尚无实际后端。若目标是无 GPU 设备，优先实现基本几何、文字、图片、裁剪和呈现，再明确效果降级范围。
+4. **补齐触摸产品行为。** SDL2 已有单指映射和滚动；手势仲裁、多指、方向冲突、软键盘遮挡和真实触摸屏验证仍需完善，详见 `docs/guides/events.md`。
 5. **验证原生 Wayland。** 当前 CI 显式关闭 GLFW Wayland，IME 记录主要针对 X11；候选框位置、窗口移动/缩放、剪贴板、DPI、弹窗与多显示器需要独立验证。
 6. **提供部署裁剪。** 音频当前始终加入 core，图片/网络等也缺少统一的按需能力组合。先测量静态链接实际裁剪效果、依赖和 assets 体积，再决定增加哪些选项，避免配置组合爆炸。
 
@@ -126,7 +126,7 @@ serial: copy_constructible=1 copy_assignable=1
 以下是值得测量的候选项，本次没有生成性能提升结论：
 
 - **输入撤销的字节预算。** `components/input_model.h:328` 保存完整文本快照，`:354` 限制 128 层，但没有按字节限制。1 MiB 文本若保留约 128 份相近大小快照，仅历史文本就约 128 MiB；该值是容量估算，不是实测峰值。先测长文本连续编辑，再考虑字节上限、编辑合并和增量历史。
-- **图表数据规模。** `components/linechart.h` 当前为每个点、线段、标签和 tooltip 建节点，数值按 0..1 映射；适合轻量仪表展示。采集曲线优先做可见范围筛选、峰值保留降采样和批量绘制。`docs/科学绘图TODO.md` 已有规划，不应将其当成现有能力。
+- **图表数据规模。** `components/linechart.h` 当前为每个点、线段、标签和 tooltip 建节点，数值按 0..1 映射；适合轻量仪表展示。采集曲线优先做可见范围筛选、峰值保留降采样和批量绘制。`internal/plans/scientific-plotting.md` 已有规划，不应将其当成现有能力。
 - **内存预算可配置。** 图片已有 64 MiB retained CPU 图片缓存上限；小内存设备可需要更低预算。统一观察字体 atlas、CPU 图片、GPU 纹理、render cache 和 retained layer 占用，并定义主动释放/空闲收缩，而非盲目删除缓存。
 - **页面重组与输入遍历。** 检查 compose/layout/命中测试的 p95 耗时和分配数，确定是否需要子树更新或索引。已有虚拟化与 hover 缓存，应在实际瓶颈上继续优化。
 - **编译和 SDK 头依赖。** 公共 facade 直接引用 core DSL，大量实现位于头文件，安装包也暴露相应 core 目录。先测最小应用的干净/增量编译时间与预处理体积，再考虑将非模板实现移入 cpp；当前属于源码 API 边界，不宜承诺稳定二进制 ABI。

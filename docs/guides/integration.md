@@ -325,6 +325,6 @@ static const DslAppConfig config = DslAppConfig{}
 
 ### 进一步阅读
 
-- [README 快速开始](../README.zh-CN.md#快速开始)
-- [开发与发布](开发与发布.md)
-- [Shadertoy 图元](Shadertoy.md)
+- [README 快速开始](../../README.zh-CN.md#快速开始)
+- [开发与发布](../development/build-and-release.md)
+- [Shadertoy 图元](shadertoy.md)

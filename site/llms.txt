@@ -155,7 +155,7 @@ Do not generate any of these removed APIs:
 - `pressedThisFrame`, `releasedThisFrame`, or other `*ThisFrame` pointer fields
 - compatibility aliases, callback adapters, native button polling, or dual input paths
 
-Current input reference: https://sudoevolve.github.io/EUI-NEO/docs/%E4%BA%8B%E4%BB%B6.md
+Current input reference: https://sudoevolve.github.io/EUI-NEO/docs/guides/events.md
 
 ## File Placement
 
@@ -199,28 +199,28 @@ Use a separate build directory for each backend combination. Vulkan requires a V
 ## Documentation
 
 - [Quick Start and project overview](https://github.com/sudoevolve/EUI-NEO/blob/main/README.md): canonical app and CMake setup.
-- [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/%E9%9B%86%E6%88%90%E6%8C%87%E5%8D%97.md): SDK, `find_package`, FetchContent, and application entry-point boundaries.
-- [DSL reference](https://sudoevolve.github.io/EUI-NEO/docs/DSL.md): builders, primitives, layout, sizing, transitions, and loaders.
-- [Components](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BB%84%E4%BB%B6.md): component APIs and examples.
-- [State](https://sudoevolve.github.io/EUI-NEO/docs/%E7%8A%B6%E6%80%81.md): persistent state and signals.
-- [Layout](https://sudoevolve.github.io/EUI-NEO/docs/%E5%B8%83%E5%B1%80.md): row, column, stack, flow, sizing, and scrolling.
-- [Events](https://sudoevolve.github.io/EUI-NEO/docs/%E4%BA%8B%E4%BB%B6.md): current keyboard, text, pointer, focus, and input dispatch.
-- [Animation](https://sudoevolve.github.io/EUI-NEO/docs/%E5%8A%A8%E7%94%BB.md): transitions, easing, and transforms.
-- [Images](https://sudoevolve.github.io/EUI-NEO/docs/%E5%9B%BE%E7%89%87.md): local/remote images, SVG, GIF, and caching.
-- [Audio](https://sudoevolve.github.io/EUI-NEO/docs/audio.md): miniaudio-backed playback, `eui::audio::Player`, resource paths, errors, and music-synchronized animation.
-- [Platform capabilities](https://sudoevolve.github.io/EUI-NEO/docs/%E5%B9%B3%E5%8F%B0%E8%83%BD%E5%8A%9B.md): windows, dialogs, URLs, clipboard, and tray.
-- [Modules](https://sudoevolve.github.io/EUI-NEO/docs/%E6%A8%A1%E5%9D%97.md): optional keyboard and serial modules.
-- [Network](https://sudoevolve.github.io/EUI-NEO/docs/%E7%BD%91%E7%BB%9C.md): asynchronous requests and caching.
-- [Async](https://sudoevolve.github.io/EUI-NEO/docs/%E5%BC%82%E6%AD%A5.md): asynchronous tasks and runtime result collection.
-- [Rendering architecture](https://sudoevolve.github.io/EUI-NEO/docs/%E6%B8%B2%E6%9F%93%E5%90%8E%E7%AB%AF%E6%9E%B6%E6%9E%84.md): renderer boundaries and backend flow.
-- [Dynamic textures and image streams](https://sudoevolve.github.io/EUI-NEO/docs/%E5%8A%A8%E6%80%81%E7%BA%B9%E7%90%86.md): RGBA8/BGRA8, NV12, I420, P010 frame submission and OpenGL/Vulkan behavior.
-- [Retained layer cache](https://sudoevolve.github.io/EUI-NEO/docs/retained_layer_cache.md): cache lifecycle, constraints, and backend behavior.
-- [ShaderToy](https://sudoevolve.github.io/EUI-NEO/docs/Shadertoy.md): pass graphs and OpenGL/Vulkan shader contracts.
+- [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/guides/integration.md): SDK, `find_package`, FetchContent, and application entry-point boundaries.
+- [DSL reference](https://sudoevolve.github.io/EUI-NEO/docs/guides/dsl.md): builders, primitives, layout, sizing, transitions, and loaders.
+- [Components](https://sudoevolve.github.io/EUI-NEO/docs/guides/components.md): component APIs and examples.
+- [State](https://sudoevolve.github.io/EUI-NEO/docs/guides/state.md): persistent state and signals.
+- [Layout](https://sudoevolve.github.io/EUI-NEO/docs/guides/layout.md): row, column, stack, flow, sizing, and scrolling.
+- [Events](https://sudoevolve.github.io/EUI-NEO/docs/guides/events.md): current keyboard, text, pointer, focus, and input dispatch.
+- [Animation](https://sudoevolve.github.io/EUI-NEO/docs/guides/animation.md): transitions, easing, and transforms.
+- [Images](https://sudoevolve.github.io/EUI-NEO/docs/guides/images.md): local/remote images, SVG, GIF, and caching.
+- [Audio](https://sudoevolve.github.io/EUI-NEO/docs/guides/audio.md): miniaudio-backed playback, `eui::audio::Player`, resource paths, errors, and music-synchronized animation.
+- [Platform capabilities](https://sudoevolve.github.io/EUI-NEO/docs/guides/platform.md): windows, dialogs, URLs, clipboard, and tray.
+- [Modules](https://sudoevolve.github.io/EUI-NEO/docs/guides/modules.md): optional keyboard and serial modules.
+- [Network](https://sudoevolve.github.io/EUI-NEO/docs/guides/network.md): asynchronous requests and caching.
+- [Async](https://sudoevolve.github.io/EUI-NEO/docs/guides/async.md): asynchronous tasks and runtime result collection.
+- [Rendering architecture](https://sudoevolve.github.io/EUI-NEO/docs/architecture/rendering.md): renderer boundaries and backend flow.
+- [Dynamic textures and image streams](https://sudoevolve.github.io/EUI-NEO/docs/guides/dynamic-textures.md): RGBA8/BGRA8, NV12, I420, P010 frame submission and OpenGL/Vulkan behavior.
+- [Retained layer cache](https://sudoevolve.github.io/EUI-NEO/docs/architecture/retained-layers.md): cache lifecycle, constraints, and backend behavior.
+- [ShaderToy](https://sudoevolve.github.io/EUI-NEO/docs/guides/shadertoy.md): pass graphs and OpenGL/Vulkan shader contracts.
 - [Runnable examples](https://github.com/sudoevolve/EUI-NEO/tree/main/examples): compact API demonstrations.
 - [Gallery application](https://github.com/sudoevolve/EUI-NEO/tree/main/apps/gallery): idiomatic multi-page composition and component usage.
 
 ## Optional
 
 - [Chinese README](https://github.com/sudoevolve/EUI-NEO/blob/main/README.zh-CN.md): Chinese project overview and Quick Start.
-- [Development and release guide](https://sudoevolve.github.io/EUI-NEO/docs/%E5%BC%80%E5%8F%91%E4%B8%8E%E5%8F%91%E5%B8%83.md): repository builds, tests, packaging, and maintenance.
+- [Development and release guide](https://sudoevolve.github.io/EUI-NEO/docs/development/build-and-release.md): repository builds, tests, packaging, and maintenance.
 - [UI design skill](https://github.com/sudoevolve/EUI-NEO/blob/main/docs/skills/eui-neo-ui-replicator/SKILL.md): detailed rules for generating or replicating polished EUI-NEO interfaces.

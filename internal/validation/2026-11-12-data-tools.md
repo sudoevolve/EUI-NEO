@@ -23,7 +23,7 @@
 
 ## 交互入口
 
-`data_tools_viewer` 展示十万行表格与实时曲线、筛选、表头排序、列宽拖动、保存、目录选择和长文本编辑。键盘操作说明见 [无障碍文档](keyboard-accessibility.md)。
+`data_tools_viewer` 展示十万行表格与实时曲线、筛选、表头排序、列宽拖动、保存、目录选择和长文本编辑。键盘操作说明见 [无障碍文档](../../docs/guides/keyboard-accessibility.md)。
 
 `data_tools_probe` 自动输入 `Sensor 3`，断言十万行筛选后为 6,250 行、输入框仍有焦点且实时曲线存在。OpenGL 可运行 `data_tools_probe output.ppm` 导出当前组合截图；默认 CTest 不写截图。实际检查了 GLFW + OpenGL 导出图中的列对齐、输入焦点、曲线峰谷和文本布局。
 

@@ -28,9 +28,9 @@ EUI-NEO is a cross-platform, high-performance, low-overhead C++17 UI framework w
 
 |  |  |
 | --- | --- |
-| ![preview 1](docs/pic/1.jpg) | ![preview 2](docs/pic/2.jpg) |
-| ![preview 3](docs/pic/3.jpg) | ![preview 4](docs/pic/4.jpg) |
-| ![example 1](docs/pic/示例1.jpg) | ![example 2](docs/pic/示例2.jpg) |
+| ![preview 1](docs/assets/images/screenshot-1.jpg) | ![preview 2](docs/assets/images/screenshot-2.jpg) |
+| ![preview 3](docs/assets/images/screenshot-3.jpg) | ![preview 4](docs/assets/images/screenshot-4.jpg) |
+| ![example 1](docs/assets/images/example-1.jpg) | ![example 2](docs/assets/images/example-2.jpg) |
 
 ## Quick Start
 
@@ -121,11 +121,11 @@ add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-See the [Integration Guide](docs/集成指南.md) for installation, `FetchContent`, and SDL2/Vulkan selection. See [Development And Release](docs/开发与发布.md) for building this repository and dependency requirements.
+See the [Integration Guide](docs/guides/integration.md) for installation, `FetchContent`, and SDL2/Vulkan selection. See [Development And Release](docs/development/build-and-release.md) for building this repository and dependency requirements.
 
 ## Optional Modules
 
-Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/模块.md).
+Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/guides/modules.md).
 
 ## Project Layout
 
@@ -133,7 +133,8 @@ Optional feature modules live under `modules/` and are documented in the [Module
 assets/       Runtime assets: fonts, PNG, SVG, and icons
 components/   Reusable UI components built on top of the DSL
 core/         DSL, Runtime, primitives, text, image, network, and platform code
-docs/         Implementation notes and API documentation
+docs/         User guides, architecture, and development documentation
+internal/     Plans, reviews, validation records, and benchmark data
 examples/     Short, single-screen API demonstrations
 modules/      Optional feature modules such as keyboard and serial
 apps/         Longer or multi-page applications; each app lives in its own folder
@@ -144,24 +145,26 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 
 ## Docs
 
+Start with the [Documentation Index](docs/README.md). It separates application guides, architecture, and development workflows. Historical reviews, plans, and benchmark data live under `internal/`.
+
 - [Contribution Guidelines](CONTRIBUTING.md)
-- [DSL Design And Current Implementation](docs/DSL.md)
-- [Components](docs/组件.md)
-- [Modules](docs/模块.md)
-- [State Model](docs/状态.md)
-- [Layout](docs/布局.md)
-- [Events](docs/事件.md)
-- [Animation](docs/动画.md)
-- [Async](docs/异步.md)
-- [Render Backend Architecture And Pipeline](docs/渲染后端架构.md)
-- [Retained Layer Cache](docs/retained_layer_cache.md)
-- [Images](docs/图片.md)
-- [Audio](docs/audio.md)
-- [Network](docs/网络.md)
-- [Platform Capabilities](docs/平台能力.md)
-- [Integration Guide](docs/集成指南.md)
-- [Shadertoy Primitive](docs/Shadertoy.md)
-- [Development And Release](docs/开发与发布.md)
+- [DSL Design And Current Implementation](docs/guides/dsl.md)
+- [Components](docs/guides/components.md)
+- [Modules](docs/guides/modules.md)
+- [State Model](docs/guides/state.md)
+- [Layout](docs/guides/layout.md)
+- [Events](docs/guides/events.md)
+- [Animation](docs/guides/animation.md)
+- [Async](docs/guides/async.md)
+- [Render Backend Architecture And Pipeline](docs/architecture/rendering.md)
+- [Retained Layer Cache](docs/architecture/retained-layers.md)
+- [Images](docs/guides/images.md)
+- [Audio](docs/guides/audio.md)
+- [Network](docs/guides/network.md)
+- [Platform Capabilities](docs/guides/platform.md)
+- [Integration Guide](docs/guides/integration.md)
+- [Shadertoy Primitive](docs/guides/shadertoy.md)
+- [Development And Release](docs/development/build-and-release.md)
 
 ## License
 

@@ -30,9 +30,9 @@ EUI-NEO 是一个基于 C++17 的跨平台高性能轻量级 UI 框架，支持 
 
 |                               |                               |
 | ----------------------------- | ----------------------------- |
-| ![preview 1](docs/pic/1.jpg)  | ![preview 2](docs/pic/2.jpg)  |
-| ![preview 3](docs/pic/3.jpg)  | ![preview 4](docs/pic/4.jpg)  |
-| ![示例 1](docs/pic/示例1.jpg) | ![示例 2](docs/pic/示例2.jpg) |
+| ![preview 1](docs/assets/images/screenshot-1.jpg)  | ![preview 2](docs/assets/images/screenshot-2.jpg)  |
+| ![preview 3](docs/assets/images/screenshot-3.jpg)  | ![preview 4](docs/assets/images/screenshot-4.jpg)  |
+| ![示例 1](docs/assets/images/example-1.jpg) | ![示例 2](docs/assets/images/example-2.jpg) |
 
 ## 快速开始
 
@@ -123,11 +123,11 @@ add_executable(my_app main.cpp)
 eui_neo_configure_app(my_app)
 ```
 
-安装、`FetchContent` 和 SDL2/Vulkan 选择见 [集成指南](docs/集成指南.md)。构建本仓库和平台依赖见 [开发与发布](docs/开发与发布.md)。
+安装、`FetchContent` 和 SDL2/Vulkan 选择见 [集成指南](docs/guides/integration.md)。构建本仓库和平台依赖见 [开发与发布](docs/development/build-and-release.md)。
 
 ## 可选模块
 
-可选功能模块位于 `modules/`，详细说明见 [模块指南](docs/模块.md)。
+可选功能模块位于 `modules/`，详细说明见 [模块指南](docs/guides/modules.md)。
 
 ## 目录结构
 
@@ -135,7 +135,8 @@ eui_neo_configure_app(my_app)
 assets/       字体、PNG、SVG 和图标等运行资源
 components/   基于 DSL 封装的通用组件
 core/         DSL、Runtime、图元、文本、图片、网络和平台能力
-docs/         项目实现文档
+docs/         使用指南、架构说明和开发文档
+internal/     计划、审查、验证记录和性能原始数据
 examples/     短小、单页面的 API 演示
 modules/      键盘、串口等可选功能模块
 apps/         代码较长或多页面应用；每个应用使用独立目录和 app.cpp
@@ -146,24 +147,26 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 
 ## 文档
 
+从[文档目录](docs/README.md)查找使用指南、架构说明和开发流程。历史审查、计划和性能数据单独保存在 `internal/`。
+
 - [贡献与提交规范](CONTRIBUTING.md)
-- [DSL 设计与当前实现](docs/DSL.md)
-- [组件](docs/组件.md)
-- [模块](docs/模块.md)
-- [状态模型](docs/状态.md)
-- [布局](docs/布局.md)
-- [事件](docs/事件.md)
-- [动画](docs/动画.md)
-- [异步](docs/异步.md)
-- [渲染后端架构与流程](docs/渲染后端架构.md)
-- [保留层缓存](docs/retained_layer_cache.md)
-- [图片](docs/图片.md)
-- [音频](docs/audio.md)
-- [网络](docs/网络.md)
-- [平台能力](docs/平台能力.md)
-- [集成指南](docs/集成指南.md)
-- [Shadertoy 底层图元](docs/Shadertoy.md)
-- [开发与发布](docs/开发与发布.md)
+- [DSL 设计与当前实现](docs/guides/dsl.md)
+- [组件](docs/guides/components.md)
+- [模块](docs/guides/modules.md)
+- [状态模型](docs/guides/state.md)
+- [布局](docs/guides/layout.md)
+- [事件](docs/guides/events.md)
+- [动画](docs/guides/animation.md)
+- [异步](docs/guides/async.md)
+- [渲染后端架构与流程](docs/architecture/rendering.md)
+- [保留层缓存](docs/architecture/retained-layers.md)
+- [图片](docs/guides/images.md)
+- [音频](docs/guides/audio.md)
+- [网络](docs/guides/network.md)
+- [平台能力](docs/guides/platform.md)
+- [集成指南](docs/guides/integration.md)
+- [Shadertoy 底层图元](docs/guides/shadertoy.md)
+- [开发与发布](docs/development/build-and-release.md)
 
 ## 许可
 

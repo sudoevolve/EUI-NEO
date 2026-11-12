@@ -69,7 +69,7 @@ The 46.336px cases show the same pattern: common text improves, while a working 
 larger than the fixed table remains effectively unchanged. All 72 paired fingerprints
 match bit for bit. The independent FreeType oracle passes for both fonts. The raw
 p50/p95 values, size, fingerprints and per-invocation peak RSS are in
-[data/text-metrics-cache-20261017.jsonl](data/text-metrics-cache-20261017.jsonl).
+[data/text-metrics-cache-20261017.jsonl](data/2026-10-17-text-metrics.jsonl).
 Peak RSS ranges: CFF 24588–24776 -> 24636–24896 KiB; TTF 23500–23556 -> 23660–23852 KiB.
 These are whole-process samples, not proof of a global memory ceiling; storage added
 by this cache is bounded per live face. There is no claim that caching removes the

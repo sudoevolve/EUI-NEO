@@ -199,7 +199,7 @@ CMake 会从该文件自动发现所有 Pass，并在 Vulkan 构建中生成对�
 必须显式提供 `spirv`。相对路径以配置文件所在目录为基准。
 
 机器可读 schema 位于
-[`assets/shaders/shadertoy/eui-shadertoy.schema.json`](../assets/shaders/shadertoy/eui-shadertoy.schema.json)。
+[`assets/shaders/shadertoy/eui-shadertoy.schema.json`](../../assets/shaders/shadertoy/eui-shadertoy.schema.json)。
 仓库内 Blackhole 和 Fish 预设均使用该契约。根对象只需要 `passes`，不得提供
 `version` 字段；旧数组格式不属于当前公共接口。
 
@@ -259,6 +259,6 @@ Shader 输出使用 straight alpha，并通过普通 UI image 路径应用圆角
 排除这些扩展可保持框架 API 精简、OpenGL/Vulkan 同步和依赖体积稳定。
 
 完整可运行示例位于
-[`examples/shadertoy.cpp`](../examples/shadertoy.cpp)，可切换 inline Demo 和内置的
+[`examples/shadertoy.cpp`](../../examples/shadertoy.cpp)，可切换 inline Demo 和内置的
 Blackhole、Fish。预设源码、图片、配置和 schema 都位于
-[`assets/shaders/shadertoy/`](../assets/shaders/shadertoy/)。
+[`assets/shaders/shadertoy/`](../../assets/shaders/shadertoy)。

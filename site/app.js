@@ -144,7 +144,7 @@ const categoryMap = {
 const docs = [
   {
     category: "workflow",
-    href: "../docs/集成指南.md",
+    href: "../docs/guides/integration.md",
     zh: {
       title: "集成指南",
       desc: "Quick Start、安装 SDK 和 FetchContent，从零接入 EUI-NEO。"
@@ -157,7 +157,7 @@ const docs = [
   },
   {
     category: "workflow",
-    href: "../docs/开发与发布.md",
+    href: "../docs/development/build-and-release.md",
     zh: {
       title: "开发与发布",
       desc: "构建、验证、release 和项目维护流程。"
@@ -170,7 +170,7 @@ const docs = [
   },
   {
     category: "components",
-    href: "../docs/组件.md",
+    href: "../docs/guides/components.md",
     zh: {
       title: "组件",
       desc: "组件命名、受控状态、输入框、选择器和图表。"
@@ -183,7 +183,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/布局.md",
+    href: "../docs/guides/layout.md",
     zh: {
       title: "布局",
       desc: "Row、Column、Stack、wrapContent 和 flex 行为。"
@@ -196,7 +196,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/状态.md",
+    href: "../docs/guides/state.md",
     zh: {
       title: "状态模型",
       desc: "Runtime 状态、受控组件、Signal 绑定和生命周期。"
@@ -209,7 +209,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/动画.md",
+    href: "../docs/guides/animation.md",
     zh: {
       title: "动画",
       desc: "Transition、缓动、状态动画和 transform。"
@@ -222,7 +222,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/图片.md",
+    href: "../docs/guides/images.md",
     zh: {
       title: "图片",
       desc: "图片源、远程图片、SVG、GIF 和纹理缓存。"
@@ -235,7 +235,7 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/事件.md",
+    href: "../docs/guides/events.md",
     zh: {
       title: "事件",
       desc: "输入队列、hover/press/click、文本输入和焦点。"
@@ -248,7 +248,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/audio.md",
+    href: "../docs/guides/audio.md",
     zh: {
       title: "音频",
       desc: "miniaudio 播放器、资源路径、错误处理和配乐卡点同步。"
@@ -261,7 +261,7 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/网络.md",
+    href: "../docs/guides/network.md",
     zh: {
       title: "网络",
       desc: "异步文本请求、图片请求和网络结果缓存。"
@@ -274,7 +274,7 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/异步.md",
+    href: "../docs/guides/async.md",
     zh: {
       title: "异步",
       desc: "异步任务、请求和 Runtime 结果回收。"
@@ -287,7 +287,7 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/平台能力.md",
+    href: "../docs/guides/platform.md",
     zh: {
       title: "平台能力",
       desc: "文件对话框、URL、托盘、剪贴板和窗口能力。"
@@ -300,7 +300,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/模块.md",
+    href: "../docs/guides/modules.md",
     zh: {
       title: "模块",
       desc: "键盘、串口等可选功能模块的构建、使用和开发约束。"
@@ -313,7 +313,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/DSL.md",
+    href: "../docs/guides/dsl.md",
     zh: {
       title: "DSL 设计与当前实现",
       desc: "进阶：元素、布局属性、交互和 DSL app 入口的底层设计。"
@@ -326,7 +326,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/渲染后端架构.md",
+    href: "../docs/architecture/rendering.md",
     zh: {
       title: "渲染后端架构与流程",
       desc: "GLFW/SDL2、OpenGL/Vulkan、Runtime 边界和渲染流程。"
@@ -339,7 +339,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/动态纹理.md",
+    href: "../docs/guides/dynamic-textures.md",
     zh: {
       title: "动态纹理与图像流",
       desc: "RGBA8/BGRA8、NV12、I420、P010 动态帧提交，以及 OpenGL/Vulkan 后端行为。"
@@ -352,7 +352,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/retained_layer_cache.md",
+    href: "../docs/architecture/retained-layers.md",
     zh: {
       title: "保留层缓存",
       desc: "稳定静态子树和相邻绘制段的离屏图层缓存，以及 OpenGL / Vulkan 后端资源和限制。"
@@ -365,7 +365,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/Shadertoy.md",
+    href: "../docs/guides/shadertoy.md",
     zh: {
       title: "Shadertoy 底层图元",
       desc: "Pass graph、通道、uniform、预设以及 OpenGL / Vulkan 双后端契约。"

@@ -106,7 +106,7 @@ Vulkan 安装包导出 `eui::shadertoy_wrap` 和这三条 helper；其中配置 
 
 适合模块化的功能包括虚拟键盘、媒体播放/录制、串口设备、硬件集成、专用工具和只服务少数应用的高级能力。核心层只提供这些模块确实需要的通用钩子，例如可选构建发现、焦点保留、builder 透传或跨组件事件能力。
 
-新增模块需要满足：模块目录缺失时不报错；不把必需依赖引入 `eui::neo`；示例和测试可选；应用侧 API 足够简单，可以通过实例化对象并填写基础属性接入。模块使用方式和开发约束见 [模块指南](模块.md)。
+新增模块需要满足：模块目录缺失时不报错；不把必需依赖引入 `eui::neo`；示例和测试可选；应用侧 API 足够简单，可以通过实例化对象并填写基础属性接入。模块使用方式和开发约束见 [模块指南](../guides/modules.md)。
 
 ## 组件分层与放置
 
@@ -137,7 +137,7 @@ Vulkan 安装包导出 `eui::shadertoy_wrap` 和这三条 helper；其中配置 
 
 新增组件最少需要同步：
 
-- 在 `docs/组件.md` 记录用途、核心 API 和一个最小示例。
+- 在 `docs/guides/components.md` 记录用途、核心 API 和一个最小示例。
 - 稳定组件加入 `components/components.h`；实验组件说明仍处在 `components/workshop/`。
 - 风险较高的布局、输入、滚动、虚拟列表、文本或图片组件，补充对应 fixture 或至少说明手动验证 target。
 - 如果组件实际需要可选依赖、平台能力或大型运行状态，重新评估是否应该改成 `modules/<name>/`。
@@ -362,7 +362,7 @@ validator 依赖。资源复制还要确认完整 `assets` 树只生成一层
 Release 前还要确认 OpenGL 配置未探测 Vulkan SDK，JSON 复用现有 yyjson，图片复用现有
 decoder，`eui::neo` 未链接 glslang、shaderc 或 SPIRV-Tools，运行包不携带 Shader 编译器，
 并记录变更前后 Release 静态库、最小应用和运行包字节数。完整契约见
-[Shadertoy 底层图元](Shadertoy.md)。
+[Shadertoy 底层图元](../guides/shadertoy.md)。
 
 Keyboard、Video、Sound、Cubemap、Volume、动态纹理/GPU import、YUV、可配置
 sampler 和每 Pass 格式/分辨率不属于当前发布范围，也不作为未完成项进入门禁。
