@@ -103,6 +103,20 @@ inline void resizeBoundary(std::vector<float>& widths, std::size_t column, float
     widths[column] = std::clamp(widths[column] + delta, low, sum - low);
     widths[column + 1] = sum - widths[column];
 }
+
+inline void fitWidths(std::vector<float>& widths, float available, float minimum) {
+    if (widths.empty()) return;
+    minimum = std::min(minimum, available / widths.size());
+    float excess = 0;
+    for (auto& width : widths) {
+        if (width < minimum) { excess += minimum - width; width = minimum; }
+    }
+    if (excess <= 0) return;
+    float spare = 0;
+    for (const auto width : widths) spare += width - minimum;
+    const float ratio = spare > 0 ? std::max(0.0f, (spare - excess) / spare) : 0;
+    for (auto& width : widths) width = minimum + (width - minimum) * ratio;
+}
 } // namespace table_detail
 
 /** @brief 固定行高虚拟表格；共享数据源只有在 identity/revision、筛选或排序改变时重建索引。 */
@@ -150,10 +164,11 @@ public:
             if (total > 0) for (auto& w : state.widths) w *= usable / total;
             state.suppliedWidths = widths_; state.available = usable;
         }
+        const float minimum = count ? std::min(minWidth_, usable / count) : 0;
+        table_detail::fitWidths(state.widths, usable, minimum);
         const auto widths = state.widths;
         const auto onSort = onSort_;
         const auto onWidths = onWidths_;
-        const float minimum = count ? std::min(minWidth_, usable / count) : 0;
         ui_.stack(id_).size(width_, height_).clip()
             .accessible(core::AccessibleRole::Table, id_)
             .content([&] {
@@ -239,4 +254,3 @@ private:
 inline DataTableBuilder dataTable(core::dsl::Ui& ui, const std::string& id) { return DataTableBuilder(ui, id); }
 
 } // namespace components
-

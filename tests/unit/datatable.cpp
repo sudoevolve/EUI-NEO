@@ -20,6 +20,9 @@ int main() {
     if (widths[0] != 260 || widths[1] != 40) return 4;
     table_detail::resizeBoundary(widths, 0, -1000, 40);
     if (widths[0] != 40 || widths[1] != 260) return 5;
+    std::vector<float> narrow{1, 299, 100};
+    table_detail::fitWidths(narrow, 400, 40);
+    if (narrow.front() != 40 || std::fabs(std::accumulate(narrow.begin(), narrow.end(), 0.f) - 400) > .01f) return 14;
     rows->clear();
     for (int i = 0; i < 100000; ++i) rows->push_back({std::to_string(i), "reading"});
     core::dsl::Ui ui;
