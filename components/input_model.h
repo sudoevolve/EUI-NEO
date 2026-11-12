@@ -68,6 +68,7 @@ struct InputModel {
         bool layoutCacheValid = false;
         std::vector<EditSnapshot> undoStack;
         std::vector<EditSnapshot> redoStack;
+        std::size_t undoByteBudget = 8u * 1024u * 1024u;
         // 预编辑只持有展示状态，不修改文档/撤销历史；提交或取消后立即释放。
         std::unique_ptr<InputState> preedit;
     };
@@ -351,22 +352,46 @@ struct InputModel {
             state.redoStack.clear();
             return;
         }
-        constexpr size_t kMaxUndoDepth = 128;
-        state.undoStack.push_back(snapshotFor(state));
-        if (state.undoStack.size() > kMaxUndoDepth) {
-            state.undoStack.erase(state.undoStack.begin());
-        }
         state.redoStack.clear();
+        if (state.text.size() + sizeof(EditSnapshot) + 1 > state.undoByteBudget) {
+            state.undoStack.clear();
+            return;
+        }
+        state.undoStack.push_back(snapshotFor(state));
+        trimHistory(state, true);
+    }
+
+    /** @brief 历史字符串容量和快照对象的预算计费，不包含当前文档与 vector 预留槽位。 */
+    static std::size_t historyBytes(const InputState& state) {
+        std::size_t bytes = 0;
+        for (const auto* stack : {&state.undoStack, &state.redoStack})
+            for (const auto& snapshot : *stack) bytes += sizeof(EditSnapshot) + snapshot.text.capacity() + 1;
+        return bytes;
+    }
+
+    static void trimHistory(InputState& state, bool preferUndo = true) {
+        constexpr std::size_t kMaxUndoDepth = 128;
+        for (auto* stack : {&state.undoStack, &state.redoStack})
+            if (stack->size() > kMaxUndoDepth) stack->erase(stack->begin(), stack->end() - kMaxUndoDepth);
+        auto& first = preferUndo ? state.redoStack : state.undoStack;
+        auto& second = preferUndo ? state.undoStack : state.redoStack;
+        while (historyBytes(state) > state.undoByteBudget) {
+            auto& stack = first.empty() ? second : first;
+            if (stack.empty()) break;
+            stack.erase(stack.begin());
+        }
     }
 
     static bool undoEdit(InputState& state) {
         if (state.undoStack.empty()) {
             return false;
         }
-        state.redoStack.push_back(snapshotFor(state));
-        const EditSnapshot snapshot = state.undoStack.back();
+        EditSnapshot snapshot = std::move(state.undoStack.back());
         state.undoStack.pop_back();
+        if (state.text.size() + sizeof(EditSnapshot) + 1 <= state.undoByteBudget)
+            state.redoStack.push_back(snapshotFor(state));
         restoreSnapshot(state, snapshot);
+        trimHistory(state, false);
         return true;
     }
 
@@ -374,10 +399,12 @@ struct InputModel {
         if (state.redoStack.empty()) {
             return false;
         }
-        state.undoStack.push_back(snapshotFor(state));
-        const EditSnapshot snapshot = state.redoStack.back();
+        EditSnapshot snapshot = std::move(state.redoStack.back());
         state.redoStack.pop_back();
+        if (state.text.size() + sizeof(EditSnapshot) + 1 <= state.undoByteBudget)
+            state.undoStack.push_back(snapshotFor(state));
         restoreSnapshot(state, snapshot);
+        trimHistory(state, true);
         return true;
     }
 

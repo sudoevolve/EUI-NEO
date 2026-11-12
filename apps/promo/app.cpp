@@ -632,7 +632,7 @@ void galleryStrip(eui::Ui& ui, float width, float height, float t, float opacity
           width * 0.84f, 30.0f, 18.0f, opacity * smoothStep(0.28f, 0.92f, local), kSubtle);
 
     const char* names[] = {"Controls", "Layout", "Animation", "Data", "Workshop", "Ship"};
-    const char* galleryPaths[] = {"docs/pic/1.jpg", "docs/pic/2.jpg", "docs/pic/3.jpg", "docs/pic/4.jpg", "docs/pic/示例1.jpg", "docs/pic/示例2.jpg"};
+    const char* galleryPaths[] = {"docs/assets/images/screenshot-1.jpg", "docs/assets/images/screenshot-2.jpg", "docs/assets/images/screenshot-3.jpg", "docs/assets/images/screenshot-4.jpg", "docs/assets/images/example-1.jpg", "docs/assets/images/example-2.jpg"};
     const eui::Color accents[] = {kBlue, kOrange, kPurple, kGreen, kBlue, kOrange};
     const int count = 6;
     const float carousel = local * 0.72f;

@@ -107,7 +107,7 @@ Debug 配置只控制诊断输出，不参与业务状态。`showDebugStatsInTit
 
 `.onShutdown(callback)` 在 UI/渲染线程、主窗口 Runtime 和 GPU 设备销毁前调用，供应用停止自己的
 后台生产者并释放所持有的外部 GPU 图像引用。回调也可能在应用初始化失败的清理路径执行，
-必须容忍资源尚未创建，不应抛异常。参见 [外部 GPU 图像的生命周期](动态纹理.md)。
+必须容忍资源尚未创建，不应抛异常。参见 [外部 GPU 图像的生命周期](dynamic-textures.md)。
 
 托盘后台运行默认关闭。需要托盘的页面可以在 `DslAppConfig` 中显式调用 `.tray(true)`，例如串口工具。启用托盘后，关闭或最小化窗口会隐藏到托盘并释放图形资源；托盘 `Show` 会重新显示窗口，`Exit` 才真正退出。
 
@@ -460,10 +460,10 @@ opacity、transform、交互和 dirty rect API。`fill()` 是布局填充，frag
 裁剪后的 Shadertoy 区域内更新，区域内开始的拖动会捕获到释放。
 
 标准 uniform、自定义 uniform、JSON/schema、Vulkan 构建期 helper、feedback 和双后端
-兼容矩阵见 [Shadertoy 底层图元](Shadertoy.md)。Keyboard、Video、Sound、
+兼容矩阵见 [Shadertoy 底层图元](shadertoy.md)。Keyboard、Video、Sound、
 Cubemap、Volume、动态纹理、可配置 sampler、每 Pass 格式/分辨率明确不属于当前范围，
 也不是待办扩展。可执行示例
-[`examples/shadertoy.cpp`](../examples/shadertoy.cpp) 展示 inline Demo 与 Blackhole、
+[`examples/shadertoy.cpp`](../../examples/shadertoy.cpp) 展示 inline Demo 与 Blackhole、
 Fish 内置预设切换。
 
 ## Polygon DSL

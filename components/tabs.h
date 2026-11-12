@@ -80,6 +80,9 @@ public:
                     const float x = static_cast<float>(index) * tabWidth;
                     const bool active = index == selected;
                     ui_.rect(id_ + ".hit." + std::to_string(index))
+                        .accessible(core::AccessibleRole::Tab, items_[index])
+                        .accessibleChecked(active)
+                        .focusGroup(id_)
                         .x(x)
                         .size(tabWidth, height_)
                         .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),

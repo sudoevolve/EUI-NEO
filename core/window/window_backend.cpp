@@ -473,6 +473,9 @@ double timeSeconds() {
 }
 
 void postEmptyEvent() {
+    // 异步任务可在窗口系统初始化前完成；此时仅保留平台帧请求标记。
+    // 未初始化的 SDL_PushEvent 会并发进入 timer 初始化路径。
+    if ((SDL_WasInit(SDL_INIT_EVENTS) & SDL_INIT_EVENTS) == 0) return;
     SDL_Event event{};
     event.type = SDL_USEREVENT;
     SDL_PushEvent(&event);

@@ -3,7 +3,7 @@
 当前项目有图片 DSL：`ui.image(id)`。它和 `ui.rect`、`ui.text` 一样由内部 Runtime 管理，不需要页面或组件直接创建后端 primitive。
 
 CPU 动态帧使用 `.stream()`；已有 OpenGL/Vulkan 纹理使用 `.texture(gpuImage, revision)`。
-导入方式、设备/同步边界和资源释放约定见 [动态纹理与外部 GPU 图像](动态纹理.md)。
+导入方式、设备/同步边界和资源释放约定见 [动态纹理与外部 GPU 图像](dynamic-textures.md)。
 
 ## DSL 写法
 

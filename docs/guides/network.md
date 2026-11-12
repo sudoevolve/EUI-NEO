@@ -5,7 +5,7 @@
 - 图片节点加载 `http/https` 图片和 Bing 每日图。
 - 页面示例请求文本 API，再把结果写入 `ui.text(...)`。
 
-后台执行由 内部 async 统一调度；页面开发自己的耗时任务推荐使用 `app::async`，见 `docs/异步.md`。
+后台执行由 内部 async 统一调度；页面开发自己的耗时任务推荐使用 `app::async`，见 `docs/guides/async.md`。
 
 ## 平台支持
 

@@ -65,7 +65,7 @@ OpenGL 要求使用同一上下文；Vulkan 要求使用同一设备和图形队
 
 主/子窗口的 active backend 作用域覆盖 update/compose/render，供应用在正确窗口线程查询设备。
 `DslAppConfig::onShutdown` 在主窗口设备销毁前供应用停止生产者并清理引用。
-具体使用限制及两端同步约定见 [动态纹理](动态纹理.md)。
+具体使用限制及两端同步约定见 [动态纹理](../guides/dynamic-textures.md)。
 
 Vulkan 呈现完成信号量按 swapchain image 索引分配，不能用单个 in-flight submit fence
 推断上一轮 presentation 已经消费信号量。同一图像重新 acquire 后才能复用其呈现信号量。
@@ -294,7 +294,7 @@ Keyboard、Video、Sound、Cubemap、Volume、动态纹理/GPU import、YUV、�
 sampler 和每 Pass 格式/分辨率不在 Shadertoy 模块的支持范围内。OpenGL
 与 Vulkan 使用相同的公共 API、shader/assets、fixture、示例和文档，公共能力需在两端保持一致。
 完整语义和兼容矩阵见
-[Shadertoy 底层图元](Shadertoy.md)。
+[Shadertoy 底层图元](../guides/shadertoy.md)。
 
 ## 后端选择
 
@@ -520,13 +520,13 @@ Retained layer cache 也是 Runtime 级底层优化，不需要组件 opt-in。�
 
 这时 blur 会把“半旧半新的 cache”采进去，就可能出现竖条、污染、错位的模糊背景。
 
-为保证正确性，Runtime 当前做了保守处理：
+Runtime 使用 `promoteBackdropBlurDirtyRegions()` 扩展受影响的脏区：
 
-- 如果 dirty rect 触碰到任意 blur 元素的保护范围；
-- 本帧会自动升级为 full paint；
-- 让 blur 采样完整、按顺序重画后的 cache。
+- 将本帧脏区合并为保守矩形。
+- 如果脏区与 blur 的 backdrop 采样范围相交，将完整采样范围加入脏区。
+- 重复检查直到不再扩展，覆盖相互影响的 blur 区域，然后按绘制顺序重画。
 
-保护范围目前按 blur rect 中心放大 1.2 倍计算。它不是完整 blur 半径的精确范围，而是性能和正确性之间的折中：减少 blur 周围普通交互触发 full paint 的次数，同时避免最明显的半旧 cache 采样污染。
+采样范围由 `backdropCaptureRect()` 根据当前 frame、blur 和 transform 计算。blur 不会仅因相交就直接要求 full paint；扩展后面积过大时，统一脏区策略仍可能转为整帧绘制。
 
 代价是：blur 附近交互会比普通 rect 更贵。`gallery` 默认关闭 Glass/blur，也是为了默认功耗更稳。
 
@@ -539,7 +539,7 @@ Retained layer cache 也是 Runtime 级底层优化，不需要组件 opt-in。�
 - Runtime cache 创建或重建。
 - retained layer 创建或重建后用于同步接管的下一帧。
 - 点击回调导致业务状态变化并重新 compose。
-- dirty rect 触碰到 blur 元素 1.2 倍保护范围。
+- 脏区合并后覆盖面积过大等情况触发整帧绘制策略。
 - 调用 `Runtime::requestFullPaint()`。
 
 ### 当前流程限制
@@ -547,7 +547,7 @@ Retained layer cache 也是 Runtime 级底层优化，不需要组件 opt-in。�
 - 脏区是保守矩形，不是像素级 diff。
 - 所有内容仍共用一个 framebuffer cache，retained layer cache 只是保守缓存静态子树，不是完整 layer tree。
 - 当前有 Runtime 级 paint order / 子树能力缓存、静态子树 early-out 和自动 retained layer cache；OpenGL/Vulkan 都支持后端 layer 资源，复杂 blur、动态 image/svg、交互和动画子树仍会走普通 dirty repaint。
-- blur 依赖 framebuffer 内容，正确性优先时会扩大到 full paint。
+- blur 依赖 framebuffer 内容，会扩展受影响的采样范围，可能扩大到整帧。
 - Vulkan 已支持 dirty-aware cache blit，但 true dirty present 仍取决于驱动是否支持 `VK_KHR_incremental_present`。
 - OpenGL 已支持 dirty-aware cache blit，但 `SwapBuffers()` 仍会把当前 backbuffer 作为整帧交给系统；要进一步优化系统合成层 present 成本，需要 EGL/ANGLE swap damage 或其他平台 native damage present 路径。
 - 已有基础矩形 clip 和 z-index；clip 通过 scissor 合成，z-index 影响同级绘制和 topmost hit-test。

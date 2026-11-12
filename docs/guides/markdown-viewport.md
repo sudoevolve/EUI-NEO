@@ -67,5 +67,5 @@ viewer in a real window or an isolated X server. Installed SDK consumers must
 also compile the new public API.
 
 Exact environment, paired results, four-backend checks and known limits are
-recorded in [the paired measurement](benchmarks/markdown-viewport-20261023.md). Software rendering and component construction
+recorded in [the paired measurement](https://github.com/sudoevolve/EUI-NEO/blob/main/internal/benchmarks/2026-10-23-markdown-viewport.md). Software rendering and component construction
 measurements do not guarantee 60 FPS for arbitrary fonts, documents or devices.

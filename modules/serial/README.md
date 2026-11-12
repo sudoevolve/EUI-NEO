@@ -2,6 +2,8 @@
 
 Cross-platform serial port communication module.
 
+`SerialPort` 独占系统串口资源，不可复制，可通过 `std::move` 转移所有权。`open()` 在新设备全部配置成功后才替换当前连接；失败时释放本次创建的资源，并保留原有连接（若存在）。移动后的源对象处于关闭状态。
+
 ## Usage
 
 ```cpp

@@ -84,6 +84,8 @@ public:
     DropdownBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DropdownBuilder& zIndex(int value) { zIndex_ = value; return *this; }
     DropdownBuilder& onChange(std::function<void(int)> callback) { onChange_ = std::move(callback); return *this; }
+    DropdownBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
+    DropdownBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
     DropdownBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
 
     void build() {
@@ -115,10 +117,35 @@ public:
         const std::function<void(bool)> onOpenChange = onOpenChange_;
 
         ui_.stack(id_)
+            .disabled(disabled_)
+            .focusScope(open_)
+            .onDismiss([onOpenChange, retainedOpen] {
+                if (onOpenChange) onOpenChange(false);
+                else if (retainedOpen) retainedOpen->open = false;
+            })
             .size(width_, rootHeight)
             .zIndex(zIndex_)
             .content([&] {
                 ui_.rect(id_ + ".field")
+                    .accessible(core::AccessibleRole::ComboBox, accessibleName_.empty() ? placeholder_ : accessibleName_, label)
+                    .accessibleExpanded(open_)
+                    .onKeyEvent([onChange, onOpenChange, retainedOpen, selected, count, open = open_](const core::KeyEvent& key) {
+                        if (!key.isDown()) return false;
+                        if (key.key == core::InputKey::Escape || key.key == core::InputKey::Enter || key.key == core::InputKey::Space) {
+                            const bool next = key.key == core::InputKey::Escape ? false : !open;
+                            if (onOpenChange) onOpenChange(next);
+                            else if (retainedOpen) retainedOpen->open = next;
+                            return true;
+                        }
+                        int next = selected;
+                        if (key.key == core::InputKey::Down) ++next;
+                        else if (key.key == core::InputKey::Up) --next;
+                        else if (key.key == core::InputKey::Home) next = 0;
+                        else if (key.key == core::InputKey::End) next = count - 1;
+                        else return false;
+                        if (count > 0 && onChange) onChange(std::clamp(next, 0, count - 1));
+                        return true;
+                    })
                     .size(width_, height)
                     .states(style_.field, style_.fieldHover, style_.fieldPressed)
                     .radius(style_.radius)
@@ -157,6 +184,7 @@ public:
                     .build();
 
                 ui_.stack(id_ + ".popup")
+                    .accessibleHidden(!open_)
                     .y(popupY)
                     .size(width_, popupHeight)
                     .opacity(visible)
@@ -187,6 +215,8 @@ public:
                             const bool active = index == selected;
                             const float itemY = popupPadding + static_cast<float>(index) * itemHeight;
                             ui_.rect(id_ + ".item." + std::to_string(index))
+                                .accessible(core::AccessibleRole::ListItem, items_[index])
+                                .accessibleChecked(active)
                                 .x(popupPadding)
                                 .y(itemY)
                                 .size(std::max(0.0f, width_ - popupPadding * 2.0f), itemHeight)
@@ -229,6 +259,8 @@ public:
 private:
     core::dsl::Ui& ui_;
     std::string id_;
+    std::string accessibleName_;
+    bool disabled_ = false;
     std::vector<std::string> items_;
     DropdownStyle style_;
     theme::ThemeMetricTokens metrics_;

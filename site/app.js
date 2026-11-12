@@ -22,11 +22,11 @@ const copy = {
     "why.backends.text": "GLFW / SDL2 窗口后端，OpenGL / Vulkan 渲染后端，同一套 DSL 输出。",
     "why.cpp.title": "C++ 直写",
     "why.cpp.text": "无需引入 WebView 或脚本运行时，直接在 C++17 项目里声明界面和状态。",
-    "why.components.title": "组件齐全",
-    "why.components.text": "输入、弹层、选择器、表格、图表、Markdown、热区和滚动容器覆盖工具型应用常见场景。",
+    "why.components.title": "数据与交互",
+    "why.components.text": "虚拟表格支持排序、筛选和列宽调整；实时曲线按绘图区降采样，控件支持键盘导航与焦点反馈。",
     "docs.eyebrow": "Documentation",
-    "docs.title": "查找架构、组件和集成文档",
-    "docs.lede": "按渲染、输入、组件、平台能力或构建流程快速定位仓库文档。",
+    "docs.title": "从接入到开发，按主题查阅",
+    "docs.lede": "使用指南、架构和平台说明对应当前源码；已发布版本请查阅 Releases。",
     "docs.searchLabel": "搜索",
     "docs.searchPlaceholder": "搜索 DSL、Vulkan、IME、组件、布局...",
     "docs.empty": "没有匹配的文档。",
@@ -38,12 +38,12 @@ const copy = {
     "flow.compose.title": "Compose",
     "flow.compose.text": "C++ DSL 构建 UI 树，Runtime 负责布局、状态同步和交互派发。",
     "flow.dirty.title": "Dirty Rect",
-    "flow.dirty.text": "按 id 缓存图元和子树能力，变化时合并保守脏区，blur 等依赖内容会升级 full paint。",
+    "flow.dirty.text": "按 id 保留图元，变化时合并脏区；背景模糊会将受影响的采样区域一起重绘。",
     "flow.backend.title": "Backend",
     "flow.backend.text": "OpenGL 与 Vulkan 各自管理 pipeline、atlas、texture、render cache、保留层和 frame lifecycle。",
     "components.eyebrow": "Component Layer",
     "components.title": "为工具型界面准备的组件层",
-    "components.lede": "按钮、输入、弹层、选择器、图表、Markdown 和数据表都只组合 DSL 树，不穿透后端 primitive。",
+    "components.lede": "从长文本输入、虚拟列表到表格和实时曲线，复用同一套主题、键盘导航和控件语义。文件保存与目录选择调用系统对话框。",
     "start.eyebrow": "Quick Start",
     "start.title": "快速开始",
     "start.lede": "只需一个 CMakeLists.txt 和一个 main.cpp，CMake 会自动拉取 EUI-NEO。",
@@ -56,7 +56,7 @@ const copy = {
     "start.guide": "安装与进阶接入",
     "filter.all": "全部",
     "footer.contributors": "贡献者",
-    "footer.rights": " · 保留所有权利"
+    "footer.rights": " · Apache License 2.0"
   },
   en: {
     "nav.docs": "Docs",
@@ -81,11 +81,11 @@ const copy = {
     "why.backends.text": "Use GLFW or SDL2 for windows, OpenGL or Vulkan for rendering, with one shared DSL.",
     "why.cpp.title": "Native C++ workflow",
     "why.cpp.text": "No WebView or scripting runtime. Declare UI and state directly inside a C++17 project.",
-    "why.components.title": "Practical components",
-    "why.components.text": "Inputs, popups, pickers, tables, charts, Markdown, input hot zones, and scroll containers cover common tool-app workflows.",
+    "why.components.title": "Data and interaction",
+    "why.components.text": "Virtual tables support sorting, filtering, and column resizing. Live charts downsample to the plot width, while controls provide keyboard navigation and focus feedback.",
     "docs.eyebrow": "Documentation",
-    "docs.title": "Find architecture, component, and integration notes",
-    "docs.lede": "Search rendering, input, components, platform capabilities, and build workflows directly from the repository docs.",
+    "docs.title": "Find your guide, from integration to development",
+    "docs.lede": "Guides, architecture, and platform references follow the current source. See Releases for published versions.",
     "docs.searchLabel": "Search",
     "docs.searchPlaceholder": "Search DSL, Vulkan, IME, components, layout...",
     "docs.empty": "No matching documents.",
@@ -97,12 +97,12 @@ const copy = {
     "flow.compose.title": "Compose",
     "flow.compose.text": "The C++ DSL builds the UI tree while Runtime owns layout, state sync, and interaction dispatch.",
     "flow.dirty.title": "Dirty Rect",
-    "flow.dirty.text": "Primitives and subtree metadata are cached by id; visual changes merge conservative dirty regions, while blur-dependent frames promote to full paint.",
+    "flow.dirty.text": "Primitives are retained by id and changes merge dirty regions; backdrop blur also repaints affected sampling regions.",
     "flow.backend.title": "Backend",
     "flow.backend.text": "OpenGL and Vulkan manage their own pipelines, atlases, textures, render cache, retained layers, and frame lifecycle.",
     "components.eyebrow": "Component Layer",
     "components.title": "A component layer for tool-grade interfaces",
-    "components.lede": "Buttons, inputs, popups, pickers, charts, Markdown, and data tables compose DSL trees without touching backend primitives.",
+    "components.lede": "Text editors, virtual lists, tables, and live charts share themes, keyboard navigation, and control semantics. File saving and directory selection use system dialogs.",
     "start.eyebrow": "Quick Start",
     "start.title": "Start",
     "start.lede": "Create one CMakeLists.txt and one main.cpp; CMake fetches EUI-NEO automatically.",
@@ -115,7 +115,7 @@ const copy = {
     "start.guide": "Install and integrate",
     "filter.all": "All",
     "footer.contributors": "Contributors",
-    "footer.rights": " · All rights reserved"
+    "footer.rights": " · Apache License 2.0"
   }
 };
 
@@ -144,7 +144,14 @@ const categoryMap = {
 const docs = [
   {
     category: "workflow",
-    href: "../docs/集成指南.md",
+    href: "../docs/README.md",
+    zh: { title: "文档目录", desc: "按使用指南、架构、平台和开发流程查找现行文档。" },
+    en: { title: "Documentation Index", desc: "Current guides, architecture, platform references, and development workflows." },
+    tags: "documentation index guide 文档 目录"
+  },
+  {
+    category: "workflow",
+    href: "../docs/guides/integration.md",
     zh: {
       title: "集成指南",
       desc: "Quick Start、安装 SDK 和 FetchContent，从零接入 EUI-NEO。"
@@ -157,7 +164,7 @@ const docs = [
   },
   {
     category: "workflow",
-    href: "../docs/开发与发布.md",
+    href: "../docs/development/build-and-release.md",
     zh: {
       title: "开发与发布",
       desc: "构建、验证、release 和项目维护流程。"
@@ -170,20 +177,34 @@ const docs = [
   },
   {
     category: "components",
-    href: "../docs/组件.md",
+    href: "../docs/guides/components.md",
     zh: {
       title: "组件",
-      desc: "组件命名、受控状态、输入框、选择器和图表。"
+      desc: "长文本输入、虚拟表格、排序筛选、列宽调整和实时曲线。"
     },
     en: {
       title: "Components",
-      desc: "Component naming, controlled state, inputs, pickers, and charts."
+      desc: "Text editing, virtual tables, sorting, filtering, column resizing, and live charts."
     },
-    tags: "components button input chart picker datatable markdown tooltip context menu mouse area signal"
+    tags: "components button input chart picker datatable markdown tooltip context menu mouse area signal virtual sort filter resize downsample 撤销 预算 表格 虚拟 排序 筛选 列宽 曲线 降采样"
+  },
+  {
+    category: "components",
+    href: "../docs/guides/keyboard-accessibility.md",
+    zh: { title: "键盘与控件语义", desc: "Tab 导航、焦点反馈、弹层焦点恢复与语义快照。" },
+    en: { title: "Keyboard and Control Semantics", desc: "Tab navigation, focus feedback, popup focus restoration, and semantic snapshots." },
+    tags: "accessibility keyboard focus tab semantics 无障碍 键盘 焦点 语义"
+  },
+  {
+    category: "components",
+    href: "../docs/guides/markdown-viewport.md",
+    zh: { title: "Markdown 视口", desc: "大文档只构建可见段落，保留全文高度与稳定标识。" },
+    en: { title: "Markdown Viewport", desc: "Build visible content while preserving full document bounds and stable IDs." },
+    tags: "markdown viewport virtual document 文档 视口 虚拟化"
   },
   {
     category: "core",
-    href: "../docs/布局.md",
+    href: "../docs/guides/layout.md",
     zh: {
       title: "布局",
       desc: "Row、Column、Stack、wrapContent 和 flex 行为。"
@@ -196,7 +217,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/状态.md",
+    href: "../docs/guides/state.md",
     zh: {
       title: "状态模型",
       desc: "Runtime 状态、受控组件、Signal 绑定和生命周期。"
@@ -209,7 +230,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/动画.md",
+    href: "../docs/guides/animation.md",
     zh: {
       title: "动画",
       desc: "Transition、缓动、状态动画和 transform。"
@@ -222,7 +243,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/图片.md",
+    href: "../docs/guides/images.md",
     zh: {
       title: "图片",
       desc: "图片源、远程图片、SVG、GIF 和纹理缓存。"
@@ -235,7 +256,7 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/事件.md",
+    href: "../docs/guides/events.md",
     zh: {
       title: "事件",
       desc: "输入队列、hover/press/click、文本输入和焦点。"
@@ -248,7 +269,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/audio.md",
+    href: "../docs/guides/audio.md",
     zh: {
       title: "音频",
       desc: "miniaudio 播放器、资源路径、错误处理和配乐卡点同步。"
@@ -261,7 +282,7 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/网络.md",
+    href: "../docs/guides/network.md",
     zh: {
       title: "网络",
       desc: "异步文本请求、图片请求和网络结果缓存。"
@@ -274,7 +295,7 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/异步.md",
+    href: "../docs/guides/async.md",
     zh: {
       title: "异步",
       desc: "异步任务、请求和 Runtime 结果回收。"
@@ -287,20 +308,20 @@ const docs = [
   },
   {
     category: "platform",
-    href: "../docs/平台能力.md",
+    href: "../docs/guides/platform.md",
     zh: {
       title: "平台能力",
-      desc: "文件对话框、URL、托盘、剪贴板和窗口能力。"
+      desc: "文件打开与保存、目录选择、URL、托盘和窗口能力。"
     },
     en: {
       title: "Platform Capabilities",
-      desc: "Dialogs, URLs, tray, clipboard, and window capabilities."
+      desc: "Open and save files, select directories, and use URLs, tray, and windows."
     },
-    tags: "platform dialog tray clipboard window"
+    tags: "platform dialog save directory folder tray clipboard window 保存 目录 文件 对话框"
   },
   {
     category: "core",
-    href: "../docs/模块.md",
+    href: "../docs/guides/modules.md",
     zh: {
       title: "模块",
       desc: "键盘、串口等可选功能模块的构建、使用和开发约束。"
@@ -313,7 +334,7 @@ const docs = [
   },
   {
     category: "core",
-    href: "../docs/DSL.md",
+    href: "../docs/guides/dsl.md",
     zh: {
       title: "DSL 设计与当前实现",
       desc: "进阶：元素、布局属性、交互和 DSL app 入口的底层设计。"
@@ -326,7 +347,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/渲染后端架构.md",
+    href: "../docs/architecture/rendering.md",
     zh: {
       title: "渲染后端架构与流程",
       desc: "GLFW/SDL2、OpenGL/Vulkan、Runtime 边界和渲染流程。"
@@ -339,7 +360,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/动态纹理.md",
+    href: "../docs/guides/dynamic-textures.md",
     zh: {
       title: "动态纹理与图像流",
       desc: "RGBA8/BGRA8、NV12、I420、P010 动态帧提交，以及 OpenGL/Vulkan 后端行为。"
@@ -352,7 +373,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/retained_layer_cache.md",
+    href: "../docs/architecture/retained-layers.md",
     zh: {
       title: "保留层缓存",
       desc: "稳定静态子树和相邻绘制段的离屏图层缓存，以及 OpenGL / Vulkan 后端资源和限制。"
@@ -365,7 +386,7 @@ const docs = [
   },
   {
     category: "rendering",
-    href: "../docs/Shadertoy.md",
+    href: "../docs/guides/shadertoy.md",
     zh: {
       title: "Shadertoy 底层图元",
       desc: "Pass graph、通道、uniform、预设以及 OpenGL / Vulkan 双后端契约。"
@@ -375,6 +396,20 @@ const docs = [
       desc: "Pass graphs, channels, uniforms, presets, and the shared OpenGL / Vulkan contract."
     },
     tags: "shadertoy shader graph pass channel uniform opengl vulkan"
+  },
+  {
+    category: "platform",
+    href: "../docs/platform/linux-ime-cursor.md",
+    zh: { title: "Linux IME", desc: "GLFW X11 输入法候选框定位、环境要求和排查方法。" },
+    en: { title: "Linux IME", desc: "GLFW X11 candidate-window positioning, requirements, and troubleshooting." },
+    tags: "linux x11 ime xim cursor input method 输入法 候选框"
+  },
+  {
+    category: "workflow",
+    href: "../docs/skills/eui-neo-ui-replicator/SKILL.md",
+    zh: { title: "UI 设计技能", desc: "辅助生成与复刻界面的布局、主题和组件使用约定。" },
+    en: { title: "UI Design Skill", desc: "Layout, theme, and component conventions for generating and replicating interfaces." },
+    tags: "skill design replicate UI 设计 复刻"
   }
 ];
 
@@ -522,7 +557,7 @@ function renderDocs() {
   });
 }
 
-async function openReader(doc) {
+async function openReader(doc, fragment = "") {
   const localized = doc[currentLang];
   readerTitle.textContent = localized.title;
   readerCategory.textContent = categoryLabel(doc.category);
@@ -540,6 +575,11 @@ async function openReader(doc) {
       ? extractMarkdownSection(markdown, doc.section)
       : markdown;
     readerBody.innerHTML = renderMarkdown(content, doc.href);
+    readerBody.scrollTop = 0;
+    if (fragment) {
+      const heading = readerBody.querySelector(`[id="${CSS.escape(decodeURIComponent(fragment.slice(1)))}"]`);
+      if (heading) heading.scrollIntoView({ block: "start" });
+    }
   } catch (error) {
     readerBody.innerHTML = `<p>${escapeHtml(t("reader.error"))}</p>`;
   }
@@ -570,6 +610,7 @@ function renderMarkdown(markdown, sourceHref) {
   let code = [];
   let listOpen = false;
   let inTable = false;
+  const headingIds = new Map();
 
   const closeList = () => {
     if (listOpen) {
@@ -629,7 +670,11 @@ function renderMarkdown(markdown, sourceHref) {
     if (heading) {
       closeList();
       const level = heading[1].length;
-      html += `<h${level}>${inlineMarkdown(heading[2], sourceHref)}</h${level}>`;
+      const slug = heading[2].replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}_ -]/gu, "").replace(/ /g, "-");
+      const count = headingIds.get(slug) || 0;
+      headingIds.set(slug, count + 1);
+      const id = count ? `${slug}-${count}` : slug;
+      html += `<h${level} id="${escapeHtml(id)}">${inlineMarkdown(heading[2], sourceHref)}</h${level}>`;
       continue;
     }
     const bullet = line.match(/^\s*[-*]\s+(.+)$/);
@@ -680,7 +725,17 @@ function inlineMarkdown(value, sourceHref) {
 function resolveMarkdownHref(href, sourceHref) {
   try {
     const sourceUrl = new URL(sourceHref, window.location.href);
-    return new URL(href, sourceUrl).href;
+    const target = new URL(href, sourceUrl);
+    const docsAt = sourceUrl.pathname.indexOf("/docs/");
+    const basePath = sourceUrl.pathname.slice(0, docsAt + 1);
+    if (docsAt >= 0 && target.origin === sourceUrl.origin && target.pathname.startsWith(basePath)) {
+      const path = target.pathname.slice(basePath.length);
+      // Source examples and repository files are not part of the Pages artifact.
+      if (!path.startsWith("docs/") && !path.startsWith("assets/")) {
+        return `https://github.com/sudoevolve/EUI-NEO/blob/main/${path}${target.hash}`;
+      }
+    }
+    return target.href;
   } catch (error) {
     return href;
   }
@@ -688,6 +743,7 @@ function resolveMarkdownHref(href, sourceHref) {
 
 function findDocumentByHref(href) {
   const targetUrl = new URL(href, window.location.href);
+  targetUrl.hash = "";
   return docs.find((doc) =>
     new URL(doc.href, window.location.href).href === targetUrl.href);
 }
@@ -809,7 +865,7 @@ document.querySelectorAll(".start-links a").forEach((link) => {
       return;
     }
     event.preventDefault();
-    openReader(doc);
+    openReader(doc, new URL(link.href).hash);
   });
 });
 
@@ -865,7 +921,7 @@ readerBody.addEventListener("click", (event) => {
   const doc = findDocumentByHref(link.href);
   if (doc) {
     event.preventDefault();
-    openReader(doc);
+    openReader(doc, new URL(link.href).hash);
   }
 });
 

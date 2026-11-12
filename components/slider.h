@@ -32,6 +32,8 @@ public:
 
     SliderBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
     SliderBuilder& value(float value) { value_ = std::clamp(value, 0.0f, 1.0f); return *this; }
+    SliderBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
+    SliderBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
     SliderBuilder& bind(eui::Signal<float>& signal) {
         value(signal.get());
         onChange([&signal](float value) { signal.set(value); });
@@ -58,6 +60,7 @@ public:
         const std::function<void(float)> onChange = onChange_;
 
         ui_.stack(id_)
+            .disabled(disabled_)
             .size(width_, height_)
             .sliderState(id_, value_, width_, knobSize, onChange)
             .content([&] {
@@ -97,6 +100,22 @@ public:
                 // overlays/scrim/menus composed at default z=0), breaking
                 // their hit testing and paint order.
                 ui_.rect(id_ + ".hit")
+                    .accessible(core::AccessibleRole::Slider, accessibleName_, std::to_string(value_))
+                    .onKeyEvent([onChange, value = value_](const core::KeyEvent& key) {
+                        if (!key.isDown()) return false;
+                        float next = value;
+                        switch (key.key) {
+                        case core::InputKey::Left: case core::InputKey::Down: next -= 0.01f; break;
+                        case core::InputKey::Right: case core::InputKey::Up: next += 0.01f; break;
+                        case core::InputKey::Home: next = 0; break;
+                        case core::InputKey::End: next = 1; break;
+                        case core::InputKey::PageDown: next -= 0.1f; break;
+                        case core::InputKey::PageUp: next += 0.1f; break;
+                        default: return false;
+                        }
+                        if (onChange) onChange(std::clamp(next, 0.0f, 1.0f));
+                        return true;
+                    })
                     .size(width_, height_)
                     .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                             theme::color(0.0f, 0.0f, 0.0f, 0.0f),
@@ -111,6 +130,8 @@ public:
 private:
     core::dsl::Ui& ui_;
     std::string id_;
+    std::string accessibleName_ = "Slider";
+    bool disabled_ = false;
     SliderStyle style_;
     theme::ThemeMetricTokens metrics_;
     core::Transition transition_ = core::Transition::make(0.16f, core::Ease::OutCubic);

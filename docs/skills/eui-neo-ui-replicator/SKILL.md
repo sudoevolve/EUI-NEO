@@ -17,8 +17,8 @@ Before writing code, inspect these local sources when available:
 
 - `README.md` or `README.zh-CN.md` for app setup and public entry points.
 - `site/llms.txt` for the current public API, removed input APIs, build options, and documentation index.
-- `docs/DSL.md` for DSL element capabilities.
-- `docs/*.md` with searches for `Row`, `Column`, `Stack`, `Flow`, `SizeValue`, `ignoreLayout`, and component names for layout and component behavior.
+- `docs/guides/dsl.md` for DSL element capabilities.
+- `docs/guides/*.md` with searches for `Row`, `Column`, `Stack`, `Flow`, `SizeValue`, `ignoreLayout`, and component names for layout and component behavior.
 - `apps/gallery/app.cpp` and `apps/gallery/pages/*.h` only as references for idiomatic multi-page composition.
 - `components/components.h` for the exported component list.
 - `components/workshop/SKILL.md` when porting an effect-heavy or CSS-like custom component.
@@ -197,11 +197,12 @@ Place global overlays near the end of root composition so they sit above normal 
 
 ## Current Input Contract
 
-Use the v0.5.9 event model:
+Use the current event model:
 
 - Key callbacks receive `eui::KeyEvent` with `key`, `action`, `modifiers`, and `scanCode`.
 - Text and IME callbacks receive `eui::TextInputEvent`; never combine text input with key events.
 - Element `.onKeyEvent(...)` callbacks return `bool` to report whether they handled the event.
+- Clickable controls support Tab / Shift+Tab navigation and Enter / Space activation. Supply `.accessibleName(...)` for icon-only buttons; follow `docs/guides/keyboard-accessibility.md` for focus scopes and semantics.
 - Pointer callbacks use `action`, `button`, `buttons`, and `modifiers`.
 - Middle, right, X1, and X2 interactions must be enabled explicitly with `.acceptedButtons(...)`; left is the default.
 

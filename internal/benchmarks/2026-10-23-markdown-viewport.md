@@ -28,16 +28,16 @@ from `/usr/bin/time`, including startup, warmups and font loading.
 | Noto Sans SC CFF, steady | 95.153 / 96.614 | 0.739 / 0.793 | 9003 / 432 | 111524 / 14668 |
 | Noto Sans SC CFF, append | 94.791 / 96.608 | 25.253 / 25.700 | 9005 / 432 | 111788 / 20840 |
 
-[Raw chronological samples and font/binary SHA256](markdown-viewport-20261023.json).
+[Raw chronological samples and font/binary SHA256](data/2026-10-23-markdown-viewport.json).
 The TTF is the existing bundled JingNanJunJunTi asset; CFF is Noto Sans SC 2.004
 regular OTF, SHA256 `faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9`.
 No font/resource is added. Reproduce from a Release Ninja fixture build configured
 with `CMAKE_EXPORT_COMPILE_COMMANDS=ON` (build `markdown_viewport` first):
 
 ```sh
-python3 docs/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
+python3 internal/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
   --font assets/JingNanJunJunTi-JinNanJunJunTi-Bold-2.ttf > paired-ttf.json
-python3 docs/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
+python3 internal/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
   --font /absolute/path/NotoSansSC-Regular.otf > paired-cff.json
 ```
 
