@@ -46,6 +46,8 @@ int main() {
     build();
     auto& model = ui.state<table_detail::State>("samples.tableState");
     if (model.sort != 0 || model.order.size() != 100000) return 8;
+    const auto* viewport = ui.find("samples.body.window");
+    if (!viewport || std::fabs(viewport->frame.width - model.available) > .01f) return 15;
     const auto clickFirst = [&](const auto& self, const core::dsl::Element& element) -> bool {
         if (element.accessibleRole == core::AccessibleRole::ListItem && element.onClick) { element.onClick(); return true; }
         for (const auto& child : element.children) if (self(self, *child)) return true;

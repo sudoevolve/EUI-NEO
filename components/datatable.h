@@ -212,7 +212,7 @@ public:
                 const auto style = style_;
                 const auto metrics = metrics_;
                 components::virtualList(ui_, id_ + ".body").x(1).y(headerHeight).size(bodyWidth, bodyHeight)
-                    .theme(tokens_).rowHeight(rowHeight_).itemCount(static_cast<std::int64_t>(state.order.size()))
+                    .theme(tokens_).scrollbarGap(4).rowHeight(rowHeight_).itemCount(static_cast<std::int64_t>(state.order.size()))
                     .offset(state.offset).onChange([&state](float value) { state.offset = value; })
                     .row([&state, source, widths, onRow, style, metrics](core::dsl::Ui& ui, const std::string& slot, std::int64_t view, float w, float h) {
                         const auto row = state.order[static_cast<std::size_t>(view)];
