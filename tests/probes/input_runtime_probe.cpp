@@ -214,6 +214,11 @@ int main() {
     composeEditor();
     runtime.update(window, 1.f / 60.f, 1.f, 1.f);
     click(30, 30);
+    const auto* field = editorUi->find("field.hit");
+    const auto focusBorder = components::InputStyle{}.focusBorder;
+    passed = passed && editorUi->isFocused("field.hit") && !editorUi->find("field.hit.focusRing") && field &&
+        field->border.color.r == focusBorder.r && field->border.color.g == focusBorder.g &&
+        field->border.color.b == focusBorder.b && field->border.color.a == focusBorder.a;
     core::KeyModifiers selectModifiers;
     selectModifiers.control = true;
     selectModifiers.super = true;

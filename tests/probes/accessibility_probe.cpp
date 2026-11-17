@@ -152,6 +152,74 @@ int main() {
     dateKey(core::InputKey::Tab, true);
     dateKey(core::InputKey::Enter);
     if (pickerOpen || month != 2) return 18;
+
+    // 通过真实输入队列验证输入方式切换，包括焦点 ID 不变的情况。
+    int pointerClicks = 0;
+    bool scopeOpen = false;
+    const auto modality = [&] {
+        runtime.compose("modality", 640, 480, [&](core::dsl::Ui& ui, const core::dsl::Screen&) {
+            currentUi = &ui;
+            ui.rect("action").size(120, 40).onClick([&] { ++pointerClicks; }).build();
+            if (scopeOpen) ui.stack("scope").y(80).size(200, 120).focusScope().content([&] {
+                ui.rect("confirm").size(120, 40).onClick([] {}).build();
+            }).build();
+        });
+    };
+    const auto modalityKey = [&](core::InputKey inputKey, core::KeyModifiers modifiers = {}) {
+        core::queueKeyInput(window, {inputKey, core::KeyAction::Press, modifiers});
+        runtime.update(window, .016f, 1, 1);
+        modality();
+    };
+    const auto pointerClick = [&](bool touch = false, core::PointerButton button = core::PointerButton::Left) {
+        core::queuePointerButton(window, 20, 20, button, core::PointerAction::Press, {}, touch);
+        core::queuePointerButton(window, 20, 20, button, core::PointerAction::Release, {}, touch);
+        runtime.update(window, .016f, 1, 1);
+        const bool recompose = runtime.composeRequested();
+        modality();
+        return recompose;
+    };
+    modality();
+    pointerClick();
+    if (!currentUi->isFocused("action") || currentUi->find("action.focusRing") || pointerClicks != 1) return 22;
+    bool pointerSemanticFocus = false;
+    for (const auto& node : currentUi->accessibilityTree()) {
+        if (node.id == currentUi->find("action")->id) pointerSemanticFocus = node.focused && node.role == core::AccessibleRole::Button;
+    }
+    if (!pointerSemanticFocus) return 23;
+    modalityKey(core::InputKey::Tab);
+    if (!currentUi->isFocused("action") || !currentUi->find("action.focusRing")) return 24;
+    core::queuePointerMotion(window, 25, 20, {}, {});
+    runtime.update(window, .016f, 1, 1);
+    modality();
+    if (!currentUi->find("action.focusRing")) return 25;
+    if (!pointerClick() || currentUi->find("action.focusRing") || !currentUi->isFocused("action")) return 26;
+    core::KeyModifiers shortcut;
+    shortcut.control = true;
+    modalityKey(core::InputKey::Home, shortcut);
+    if (currentUi->find("action.focusRing")) return 27;
+    modalityKey(core::InputKey::Enter);
+    if (!currentUi->find("action.focusRing") || pointerClicks != 3) return 28;
+    if (!pointerClick(true) || currentUi->find("action.focusRing") || pointerClicks != 4) return 29;
+    modalityKey(core::InputKey::Tab);
+    if (!currentUi->find("action.focusRing")) return 30;
+    if (!pointerClick(false, core::PointerButton::Right) || currentUi->find("action.focusRing")) return 31;
+    scopeOpen = true;
+    modality();
+    modality();
+    if (!currentUi->isFocused("confirm") || currentUi->find("confirm.focusRing")) return 32;
+    scopeOpen = false;
+    modality();
+    modality();
+    if (!currentUi->isFocused("action") || currentUi->find("action.focusRing")) return 33;
+    modalityKey(core::InputKey::Tab);
+    scopeOpen = true;
+    modality();
+    modality();
+    if (!currentUi->isFocused("confirm") || !currentUi->find("confirm.focusRing")) return 34;
+    scopeOpen = false;
+    modality();
+    modality();
+    if (!currentUi->isFocused("action") || !currentUi->find("action.focusRing")) return 35;
     runtime.shutdown();
     core::releaseInputQueue(window);
     if (!found) std::cerr << "checkbox semantics missing\n";
