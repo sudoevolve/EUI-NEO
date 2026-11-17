@@ -166,6 +166,8 @@ private:
 
     void setFocusedId(const std::string& id);
 
+    void setFocusVisible(bool visible);
+
     void updateScroll(const ScrollEvent& event, const std::string& targetId, float dpiScale);
 
     void updateTextInput(const TextInputEvent& event);
@@ -291,6 +293,7 @@ private:
     float hoverTargetCacheDpiScale_ = 0.0f;
     std::string hoverTargetCacheId_;
     std::string focusedId_;
+    bool focusVisible_ = false;
     std::function<void(const KeyEvent&)> keyEventHandler_;
     RenderTransform focusedElementRenderTransform_;
     bool focusedElementRenderTransformValid_ = false;

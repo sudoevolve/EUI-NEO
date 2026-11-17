@@ -1,6 +1,6 @@
 # 键盘与控件语义
 
-点击控件默认参与 Tab / Shift+Tab 导航，Enter / Space 激活。导航按声明顺序循环，跳过 disabled、全透明及 `accessibleHidden()` 子树。`.tabStop(false)` 仅排除 Tab 停靠；`.focusable(false)` 取消键盘焦点。焦点使用统一边框反馈。
+点击控件默认参与 Tab / Shift+Tab 导航，Enter / Space 激活。导航按声明顺序循环，跳过 disabled、全透明及 `accessibleHidden()` 子树。`.tabStop(false)` 仅排除 Tab 停靠；`.focusable(false)` 取消键盘焦点。键盘导航或 Enter / Space 操作显示统一焦点框，鼠标或触摸按下时隐藏；仅移动鼠标不隐藏。鼠标和触摸仍可设置焦点，输入框自身的聚焦样式、文本输入和控件语义不受影响。弹层自动聚焦和关闭后的焦点恢复沿用当前输入方式。
 
 - checkbox、switch：Space 切换；radio 可用 `.group("name")` 启用方向键组内切换。
 - tabs、segmented：方向键切换并选中同组项目。

@@ -1434,7 +1434,7 @@ public:
         stack_.clear();
         // 焦点框复用现有 Rect 渲染与 dirty/layer 失效路径，不增加后端特判。
         Element* focused = find(focusedId_);
-        if (focused && focused->focusable && !focused->disabled) {
+        if (focusVisible_ && focused && focused->focusable && !focused->disabled) {
             auto ring = std::make_unique<Element>();
             ring->kind = ElementKind::Rect;
             ring->id = focusedId_ + ".focusRing";
@@ -1608,6 +1608,10 @@ private:
 
     void setFocusedId(const std::string& id) {
         focusedId_ = id;
+    }
+
+    void setFocusVisible(bool visible) {
+        focusVisible_ = visible;
     }
 
     std::vector<std::string> consumeReleasedStateScopes() {
@@ -1887,6 +1891,7 @@ private:
     std::vector<Element*> stack_;
     std::unordered_map<std::string, Element*> index_;
     std::string focusedId_;
+    bool focusVisible_ = false;
     StateStore stateStore_;
     std::vector<std::string> releasedStateScopes_;
     std::size_t generatedId_ = 0;
