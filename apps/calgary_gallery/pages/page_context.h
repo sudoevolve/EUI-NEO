@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <memory>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -218,11 +219,21 @@ inline void requestUnsplashBatch(int columns, bool retry = false) {
     if (feed.loading || feed.exhausted || (feed.failed && !retry)) {
         return;
     }
-    const char* accessKey = std::getenv("EUI_UNSPLASH_ACCESS_KEY");
-    if (accessKey == nullptr || *accessKey == '\0') {
+    std::string accessKey;
+#if defined(_MSC_VER)
+    // MSVC 返回独立副本，由当前作用域释放，避免持有 CRT 环境缓冲区。
+    char* environmentKey = nullptr;
+    std::size_t environmentKeyLength = 0;
+    const auto environmentResult = _dupenv_s(&environmentKey, &environmentKeyLength, "EUI_UNSPLASH_ACCESS_KEY");
+    const std::unique_ptr<char, decltype(&std::free)> ownedKey(environmentKey, &std::free);
+    if (environmentResult == 0 && ownedKey) accessKey = ownedKey.get();
+#else
+    if (const char* environmentKey = std::getenv("EUI_UNSPLASH_ACCESS_KEY")) accessKey = environmentKey;
+#endif
+    if (accessKey.empty()) {
         accessKey = kExampleUnsplashAccessKey;
     }
-    if (*accessKey == '\0') {
+    if (accessKey.empty()) {
         feed.missingKey = true;
         feed.failed = true;
         feed.error = "Set EUI_UNSPLASH_ACCESS_KEY to load the live feed.";
@@ -238,7 +249,7 @@ inline void requestUnsplashBatch(int columns, bool retry = false) {
     const std::string url = "https://api.unsplash.com/photos?page=" + std::to_string(feed.nextPage) +
                             "&per_page=" + std::to_string(feed.requestedCount) +
                             "&order_by=latest" +
-                            "&client_id=" + std::string(accessKey);
+                            "&client_id=" + accessKey;
     eui::network::requestText("calgary.unsplash.feed", url);
 }
 

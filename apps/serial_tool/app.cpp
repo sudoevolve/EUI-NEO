@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -225,8 +226,10 @@ std::vector<unsigned char> hexToBytes(const std::string& hex) {
     }
     for (std::size_t i = 0; i + 1 < digits.size(); i += 2) {
         unsigned int byte = 0;
-        std::sscanf(digits.c_str() + i, "%2x", &byte);
-        bytes.push_back(static_cast<unsigned char>(byte));
+        const auto result = std::from_chars(digits.data() + i, digits.data() + i + 2, byte, 16);
+        if (result.ec == std::errc{} && result.ptr == digits.data() + i + 2) {
+            bytes.push_back(static_cast<unsigned char>(byte));
+        }
     }
     return bytes;
 }

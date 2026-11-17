@@ -224,6 +224,15 @@ inline bool Runtime::hitTestFocusableElement(
     return false;
 }
 
+inline void Runtime::setFocusVisible(bool visible) {
+    if (focusVisible_ == visible) return;
+    focusVisible_ = visible;
+    ui_.setFocusVisible(visible);
+    // 输入方式切换时，即使焦点 ID 不变，也必须重建或移除焦点框。
+    composeRequested_ = true;
+    paintRequested_ = true;
+}
+
 inline void Runtime::setFocusedId(const std::string& id) {
     if (focusedId_ == id) {
         return;
@@ -356,6 +365,18 @@ inline void Runtime::synchronizeFocusScope() {
 inline void Runtime::updateKeyInput(const std::vector<KeyEvent>& events) {
 
     for (const KeyEvent& key : events) {
+        if (key.isDown() && !key.modifiers.control && !key.modifiers.alt && !key.modifiers.super) {
+            switch (key.key) {
+            case InputKey::Tab:
+            case InputKey::Left: case InputKey::Right: case InputKey::Up: case InputKey::Down:
+            case InputKey::Home: case InputKey::End: case InputKey::PageUp: case InputKey::PageDown:
+            case InputKey::Enter: case InputKey::Space:
+                setFocusVisible(true);
+                break;
+            default:
+                break;
+            }
+        }
         const Element* focused = focusedId_.empty() ? nullptr : ui_.find(focusedId_);
         if (focused && isElementInDisabledTree(focusedId_)) { setFocusedId({}); focused = nullptr; }
         bool handled = false;
