@@ -1,6 +1,8 @@
 #include "core/input/input_state.h"
+#include "core/input/touch_tracker.h"
 
 #include <iostream>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -69,6 +71,42 @@ bool verifyPointerCancel() {
         events[1].action == core::PointerAction::Cancel &&
         events[1].button == core::PointerButton::Right &&
         events[1].buttons.empty();
+}
+
+bool verifyTouchPointerCancel() {
+    int windowTag = 0;
+    const auto window = reinterpret_cast<core::window::Handle>(&windowTag);
+    core::queuePointerButton(window, 5.0, 7.0,
+                             core::PointerButton::Left,
+                             core::PointerAction::Press,
+                             {}, true);
+    core::cancelTouchPointerInput(window);
+    const std::vector<core::PointerEvent> touchEvents = core::consumePointerEvents(window);
+    if (touchEvents.size() != 2 ||
+        touchEvents[1].action != core::PointerAction::Cancel ||
+        !touchEvents[1].touch ||
+        !touchEvents[1].buttons.empty()) {
+        return false;
+    }
+
+    core::queuePointerButton(window, 5.0, 7.0, core::PointerButton::Left,
+                             core::PointerAction::Press, {}, true);
+    core::cancelInput(window);
+    const auto focusCanceled = core::consumePointerEvents(window);
+    if (focusCanceled.size() != 2 || !focusCanceled[1].touch ||
+        focusCanceled[1].action != core::PointerAction::Cancel) return false;
+
+    core::queuePointerButton(window, 5.0, 7.0,
+                             core::PointerButton::Left,
+                             core::PointerAction::Press,
+                             {});
+    core::cancelTouchPointerInput(window);
+    const std::vector<core::PointerEvent> mouseEvents = core::consumePointerEvents(window);
+    core::cancelPointerInput(window);
+    core::releaseInputQueue(window);
+    return mouseEvents.size() == 1 &&
+        mouseEvents[0].isPress(core::PointerButton::Left) &&
+        mouseEvents[0].buttons.contains(core::PointerButton::Left);
 }
 
 bool verifySideButtons() {
@@ -164,9 +202,161 @@ bool verifyTouchScrollQueue() {
     const auto window = reinterpret_cast<core::window::Handle>(&windowTag);
     core::queueTouchScrollInput(window, 3.0, -24.0);
     const core::ScrollEvent scroll = core::consumeScrollInput(window);
+    core::queueTouchScrollInput(window, 5.0, -12.0);
+    core::clearTouchScrollInput(window);
+    const core::ScrollEvent discarded = core::consumeScrollInput(window);
     core::releaseInputQueue(window);
     return scroll.x == 0.0 && scroll.y == 0.0 &&
-           scroll.pixelX == 3.0 && scroll.pixelY == -24.0 && scroll.active();
+           scroll.pixelX == 3.0 && scroll.pixelY == -24.0 && scroll.active() &&
+           !discarded.active();
+}
+
+bool verifyGestureQueue() {
+    int windowTag = 0;
+    const auto window = reinterpret_cast<core::window::Handle>(&windowTag);
+    core::GestureEvent begin;
+    begin.phase = core::GesturePhase::Begin;
+    begin.x = 12.0;
+    begin.y = 18.0;
+    begin.touchCount = 2;
+    core::queueGestureInput(window, begin);
+
+    core::GestureEvent update;
+    update.phase = core::GesturePhase::Update;
+    update.x = 14.0;
+    update.y = 21.0;
+    update.deltaX = 2.0;
+    update.deltaY = 3.0;
+    update.scale = 1.25;
+    update.rotation = -15.0;
+    update.touchCount = 2;
+    core::queueGestureInput(window, update);
+
+    const std::vector<core::GestureEvent> events = core::consumeGestureInput(window, 2.0f);
+    if (events.size() != 2 ||
+        events[0].phase != core::GesturePhase::Begin ||
+        events[0].x != 24.0 || events[0].y != 36.0 ||
+        events[1].phase != core::GesturePhase::Update ||
+        events[1].deltaX != 4.0 || events[1].deltaY != 6.0 ||
+        events[1].scale != 1.25 || events[1].rotation != -15.0 ||
+        events[1].touchCount != 2) {
+        return false;
+    }
+
+    core::queueGestureInput(window, begin);
+    core::cancelInput(window);
+    const std::vector<core::GestureEvent> canceled = core::consumeGestureInput(window);
+    core::releaseInputQueue(window);
+    return canceled.size() == 2 &&
+        canceled[0].phase == core::GesturePhase::Begin &&
+        canceled[1].phase == core::GesturePhase::Cancel;
+}
+
+bool verifyTouchTracker() {
+    int windowTag = 0;
+    const auto window = reinterpret_cast<core::window::Handle>(&windowTag);
+    core::input::TouchTracker tracker(window);
+    tracker.down(1, 1, 50.0, 50.0);
+    tracker.down(1, 1, 50.0, 50.0);
+    tracker.down(1, 2, 150.0, 50.0);
+    const auto pointer = core::consumePointerEvents(window);
+    auto gestures = core::consumeGestureInput(window);
+    if (pointer.size() != 2 || !pointer[0].isPress(core::PointerButton::Left) ||
+        pointer[1].action != core::PointerAction::Cancel || !pointer[1].touch ||
+        gestures.size() != 1 || gestures[0].phase != core::GesturePhase::Begin ||
+        gestures[0].x != 100.0 || gestures[0].touchCount != 2) {
+        return false;
+    }
+    tracker.move(1, 2, 100.0, 100.0, 2.0f);
+    gestures = core::consumeGestureInput(window, 2.0f);
+    if (gestures.size() != 1 || std::fabs(gestures[0].scale - std::sqrt(0.5)) > 0.001 ||
+        std::fabs(gestures[0].rotation - 45.0) > 0.001 ||
+        gestures[0].deltaX != -50.0 || gestures[0].deltaY != 50.0) {
+        return false;
+    }
+    tracker.down(1, 3, 180.0, 10.0);
+    tracker.move(1, 3, 180.0, 10.0, 1.0f);
+    gestures = core::consumeGestureInput(window);
+    if (gestures.size() != 1 || gestures[0].deltaX != 0.0 || gestures[0].deltaY != 0.0 ||
+        gestures[0].touchCount != 3) {
+        return false;
+    }
+    tracker.up(1, 3, 180.0, 10.0);
+    tracker.up(1, 2, 120.0, 100.0);
+    tracker.up(1, 1, 50.0, 50.0);
+    gestures = core::consumeGestureInput(window);
+    tracker.reset();
+    core::releaseInputQueue(window);
+    return gestures.size() == 2 && gestures[0].phase == core::GesturePhase::Update &&
+           gestures[0].deltaX == 10.0 && gestures[1].phase == core::GesturePhase::End;
+}
+
+bool verifyGestureMotionOrdering() {
+    int windowTag = 0;
+    const auto window = reinterpret_cast<core::window::Handle>(&windowTag);
+    core::queuePointerMotion(window, 10.0, 10.0, {}, {});
+    core::GestureEvent gesture;
+    gesture.phase = core::GesturePhase::Begin;
+    core::queueGestureInput(window, gesture);
+    core::queuePointerMotion(window, 20.0, 20.0, {}, {});
+    std::vector<std::uint64_t> pointerSequences;
+    std::vector<std::uint64_t> gestureSequences;
+    const auto pointer = core::consumePointerEvents(window, 1.0f, &pointerSequences);
+    const auto gestures = core::consumeGestureInput(window, 1.0f, &gestureSequences);
+    core::releaseInputQueue(window);
+    return pointer.size() == 2 && gestures.size() == 1 &&
+        pointerSequences.size() == 2 && gestureSequences.size() == 1 &&
+        pointerSequences[0] < gestureSequences[0] &&
+        gestureSequences[0] < pointerSequences[1];
+}
+
+bool verifyAllFingerGeometry() {
+    int tag = 0;
+    const auto window = reinterpret_cast<core::window::Handle>(&tag);
+    core::input::TouchTracker tracker(window);
+    tracker.down(1, 1, -100, 0);
+    tracker.down(1, 2, 100, 0);
+    tracker.down(1, 3, 0, 100);
+    core::consumeGestureInput(window);
+    tracker.move(1, 3, 60, 200, 1);
+    auto events = core::consumeGestureInput(window);
+    bool passed = events.size() == 1 && events[0].touchCount == 3 &&
+        events[0].scale > 1.2 && events[0].rotation < -5 &&
+        std::fabs(events[0].deltaX - 20) < 0.001;
+    tracker.up(1, 1, -100, 0);
+    tracker.move(1, 3, 60, 200, 1);
+    events = core::consumeGestureInput(window);
+    passed = passed && events.size() == 1 && events[0].scale == 1 &&
+        events[0].rotation == 0 && events[0].deltaX == 0;
+    tracker.down(2, 9, 1000, 1000);
+    tracker.move(2, 9, 2000, 2000, 1);
+    tracker.move(1, 3, std::numeric_limits<double>::quiet_NaN(), 0, 1);
+    passed = passed && core::consumeGestureInput(window).empty();
+    tracker.up(1, 3, std::numeric_limits<double>::infinity(), 0);
+    events = core::consumeGestureInput(window);
+    passed = passed && events.size() == 1 && events[0].phase == core::GesturePhase::End &&
+        std::isfinite(events[0].x);
+    tracker.up(1, 2, 100, 0);
+    tracker.down(1, 1, 0, 0);
+    tracker.down(1, 2, 0, 0);
+    core::consumeGestureInput(window);
+    tracker.move(1, 2, 100, 0, 1);
+    events = core::consumeGestureInput(window);
+    passed = passed && events.size() == 1 && events[0].scale == 1 && events[0].rotation == 0;
+    tracker.move(1, 2, 200, 0, 1);
+    events = core::consumeGestureInput(window);
+    passed = passed && events.size() == 1 && events[0].scale == 2;
+    tracker.up(1, 2, 200, 0);
+    core::consumeGestureInput(window);
+    tracker.move(1, 1, 50, 0, 1);
+    tracker.up(1, 1, 50, 0);
+    const auto pointer = core::consumePointerEvents(window);
+    for (const auto& event : pointer) {
+        passed = passed && event.action != core::PointerAction::Release;
+    }
+    passed = passed && !core::consumeScrollInput(window).active() && tracker.empty();
+    core::releaseInputQueue(window);
+    return passed;
 }
 
 bool verifyInteractionCapture() {
@@ -235,6 +425,10 @@ int main() {
         std::cerr << "Pointer cancellation did not release held buttons\n";
         return 1;
     }
+    if (!verifyTouchPointerCancel()) {
+        std::cerr << "Touch gesture cancellation affected the mouse pointer\n";
+        return 1;
+    }
     if (!verifySideButtons()) {
         std::cerr << "X1/X2 button state or event ordering failed\n";
         return 1;
@@ -245,6 +439,22 @@ int main() {
     }
     if (!verifyTouchScrollQueue()) {
         std::cerr << "Touch scroll deltas were not preserved\n";
+        return 1;
+    }
+    if (!verifyGestureQueue()) {
+        std::cerr << "Gesture phase, scaling, or cancellation was not preserved\n";
+        return 1;
+    }
+    if (!verifyTouchTracker()) {
+        std::cerr << "Multi-touch tracking or gesture geometry failed\n";
+        return 1;
+    }
+    if (!verifyGestureMotionOrdering()) {
+        std::cerr << "Pointer motion was coalesced across a gesture event\n";
+        return 1;
+    }
+    if (!verifyAllFingerGeometry()) {
+        std::cerr << "All-finger geometry, rebasing, or degenerate contact handling failed\n";
         return 1;
     }
     if (!verifyComposingKeyOrder()) {

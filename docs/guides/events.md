@@ -28,11 +28,44 @@ struct PointerEvent {
 - `button`：当前边沿事件对应的 `Left/Middle/Right/X1/X2`；移动事件为 `None`。
 - `buttons`：事件发生后的完整按下集合，可用 `event.isDown(button)` 查询。
 - `modifiers`：事件发生时的 Control、Shift、Alt、Super、CapsLock 和 NumLock 快照。
-- `touch`：事件是否来自触摸输入；鼠标和 GLFW 系统鼠标映射事件为 `false`。
+- `touch`：事件是否被识别为触摸输入；普通鼠标事件为 `false`，SDL2 和 Windows/Linux GLFW 的原始触摸 pointer 为 `true`。
 
-当前封装了鼠标多按钮 pointer、SDL2 单指触摸 pointer、右键上下文菜单、独立键盘按键、文本输入、IME 预编辑组合串、滚轮和多按钮拖拽事件。IME 光标矩形和 Windows 组合窗口字号会同步到输入框；多指手势和自绘 IME 候选 UI 还没有下沉。
+当前封装了鼠标多按钮 pointer、SDL2 单指触摸 pointer、右键上下文菜单、独立键盘按键、文本输入、IME 预编辑组合串、滚轮和多按钮拖拽事件。IME 光标矩形和 Windows 组合窗口字号会同步到输入框。
 
-SDL2 触摸事件会按窗口转换为左键 pointer：`FINGERDOWN` / `FINGERUP` 对应 press / release，`FINGERMOTION` 同时派发 pointer move 和按 framebuffer 像素累计的滚动增量。`PointerEvent::touch` 可用于区分触摸来源。触摸滑动达到约 6 个逻辑像素的阈值后会抑制本次 click，但仍派发 press、drag 和 release；滑动坐标按 DPI 换算为逻辑滚动距离。每个窗口只跟踪第一根活动手指，其他同时按下的手指会被忽略；双指缩放/旋转、多指拖动和触摸方向/手势仲裁目前不支持。失焦、隐藏、最小化或关闭窗口时会取消按下状态并清空未消费的滚动增量。GLFW 后端仍取决于系统是否将触摸映射为鼠标事件。
+SDL2 第一根手指仍按左键 pointer 处理，单指移动继续产生像素滚动；第二根手指加入时会取消单指按压，避免手势结束时误触发 click。两指及以上会通过 `GestureEvent` 提供中心点平移、缩放比例和旋转角度；手势结束或窗口失焦时会发送 `End` 或 `Cancel`。多指手势阶段不再产生单指滚动。
+
+Windows/Linux GLFW 的原始触屏输入遵循同一状态机。缩放使用全部触点相对中心的分布，旋转使用相邻输入之间全部触点的对应方向计算，顺时针为正。增减触点会重建计算基线，避免跳变；手指数降到一根时结束手势，剩余手指全部抬起前不会重新触发点击或单指滚动。重合触点和非有限坐标不会产生无效缩放或旋转值。
+
+## GestureEvent
+
+```cpp
+struct GestureEvent {
+    GesturePhase phase; // Begin, Update, End, Cancel
+    double x;
+    double y;
+    double deltaX;
+    double deltaY;
+    double scale;
+    double rotation;
+    unsigned int touchCount;
+};
+```
+
+- `x / y`：手势中心点，使用 framebuffer 命中测试坐标。
+- `deltaX / deltaY`：手势中心点本次移动距离。
+- `scale`：本次增量缩放因子；大于 1 表示放大，小于 1 表示缩小。
+- `rotation`：本次增量旋转角度，单位为度。SDL2 触摸屏按屏幕坐标计算，顺时针为正；原生系统手势的方向取决于系统报告。
+- `touchCount`：当前参与手势的触点数；原生系统未提供时为 `0`。
+
+通用 builder 可通过 `.onGesture(callback)` 订阅手势。回调在手势开始时命中一个元素，后续更新和结束事件会捕获到同一元素。
+
+上层 `.blockPointer()` 等交互遮罩会阻挡手势命中，避免缩放、旋转穿透弹层；禁用的遮罩不参与命中。
+
+SDL2 使用带有效窗口 ID 的直接触摸事件计算平移、缩放和旋转；Linux 的 SDL2 X11/Wayland 后端可提供触摸屏事件，取决于 SDL2 构建和系统设备。macOS SDL2 的触控板原始触点没有窗口 ID，不能作为窗口内触摸屏坐标，因此不会作为此手势派发；触控板滚动仍走 `onScroll`。
+
+GLFW 在 Windows 上注册 `WM_TOUCH` 原始触点并过滤系统重复鼠标事件，同时保留 `WM_GESTURE` 系统手势入口；Windows 精确式触控板是否提供缩放、旋转取决于系统和驱动，不能保证通过 `WM_GESTURE` 获取。在 macOS 上接入原生触控板缩放与旋转。Linux GLFW 使用 XInput 2.2 触摸事件、XInput 2.4 触控板手势，以及 Wayland 的 `wl_touch` 和 `pointer-gestures-unstable-v1` 触控板缩放、旋转与多指滑动；触控板普通滚动仍通过 `onScroll` 派发。X11 手势取决于 XInput 版本和输入驱动，Wayland 触控板手势取决于合成器是否提供该协议；设备或系统没有提供数据时不会伪造手势。
+
+Linux 构建 GLFW 原生触控需要相应的 XInput2 和 Wayland 开发文件及 `wayland-protocols`。使用外部 GLFW 时，只有能够检测到的原生后端会启用；Wayland 支持需要 GLFW 3.4，自定义源码 target 应提供 `GLFW_BUILD_X11` / `GLFW_BUILD_WAYLAND` 配置。自动测试覆盖触摸状态机、Wayland 回调转换及 X11/Wayland 初始化，但不能替代触摸屏和触控板实机验证。
 
 ## InteractionState
 
@@ -105,6 +138,7 @@ ui.text("link")
 .onKeyEvent(callback)
 .onTextInput(callback)
 .onScroll(callback)
+.onGesture(callback)
 .onDrag(callback)
 ```
 
@@ -279,7 +313,7 @@ eui::platform::openUrl("https://github.com/sudoevolve/EUI-NEO");
 
 - 已有独立按键 Press/Repeat/Release、原始修饰键、应用级快捷键、文本输入、focus manager、选择、剪贴板、撤销、重做、IME 预编辑组合串和系统 IME 候选窗口定位；自绘 IME 候选 UI 还没做。
 - 没有事件冒泡和捕获阶段。
-- SDL2 后端支持单指点击、拖动和 scrollView 像素滚动；多指手势（例如 pinch zoom）、触摸与控件拖动/滚动之间更完整的手势仲裁，以及物理触摸设备验收尚未完成。GLFW 后端的触摸支持取决于系统是否映射为鼠标事件。
+- SDL2 和 Windows/Linux GLFW 已支持原始触屏单指点击、拖动、像素滚动及多指平移、缩放、旋转；物理触摸屏和触控板仍需实机验收，系统未报告的原生触控板手势无法补算。
 - 默认 hit-test 按布局矩形计算；开启 `.transformedHitTest()` 后会按元素当前 transform 和父容器继承矩阵反投影命中。
 - 弹层、侧边栏、菜单等覆盖层需要显式声明 interactive blocker，例如透明 scrim 或 panel 背景 hit rect，用来阻断下层 hover / click / focus。
 - Text / Image 可以接收 click，但没有内置 hover / pressed 视觉状态；需要视觉状态时通常叠一个 rect 或用组件封装。

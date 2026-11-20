@@ -278,7 +278,8 @@ if(EUI_WINDOW_BACKEND STREQUAL "glfw")
         )
     endif()
 
-    if(EUI_OWNS_GLFW_TARGET AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    if(EUI_OWNS_GLFW_TARGET AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+       (NOT DEFINED GLFW_BUILD_X11 OR GLFW_BUILD_X11))
         set(_eui_glfw_x11_source "${EUI_GLFW_DIR}/src/x11_window.c")
         set(_eui_glfw_x11_patched "${CMAKE_CURRENT_BINARY_DIR}/eui_glfw_patched/x11_window.c")
         execute_process(

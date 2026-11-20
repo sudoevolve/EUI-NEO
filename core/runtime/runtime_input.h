@@ -292,6 +292,30 @@ inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& t
     }
 }
 
+inline void Runtime::updateGesture(const GestureEvent& event, float dpiScale) {
+    PointerEvent position;
+    position.x = event.x;
+    position.y = event.y;
+    if (event.phase == GesturePhase::Begin) {
+        gestureTargetId_ = hitTest(position, dpiScale, [](const Element& element) {
+            // 透明交互遮罩同样阻挡手势，避免缩放、旋转穿透弹层。
+            return (element.interactive || static_cast<bool>(element.onGesture)) && !element.disabled;
+        });
+    }
+
+    const Element* element = gestureTargetId_.empty() ? nullptr : ui_.find(gestureTargetId_);
+    if (element != nullptr && element->onGesture &&
+        !isElementInDisabledTree(gestureTargetId_)) {
+        element->onGesture(event);
+        composeRequested_ = true;
+        paintRequested_ = true;
+    }
+
+    if (event.phase == GesturePhase::End || event.phase == GesturePhase::Cancel) {
+        gestureTargetId_.clear();
+    }
+}
+
 inline void Runtime::updateTextInput(const TextInputEvent& event) {
     if (focusedId_.empty()) {
         return;

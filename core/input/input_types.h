@@ -178,6 +178,24 @@ struct ScrollEvent {
     bool active() const { return x != 0.0 || y != 0.0 || pixelX != 0.0 || pixelY != 0.0; }
 };
 
+enum class GesturePhase {
+    Begin,
+    Update,
+    End,
+    Cancel
+};
+
+struct GestureEvent {
+    GesturePhase phase = GesturePhase::Update;
+    double x = 0.0;
+    double y = 0.0;
+    double deltaX = 0.0;
+    double deltaY = 0.0;
+    double scale = 1.0;
+    double rotation = 0.0;
+    unsigned int touchCount = 0;
+};
+
 struct InteractionState {
     bool hover = false;
     bool pressed = false;

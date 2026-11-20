@@ -20,6 +20,12 @@ struct QueuedPointerEvent {
     PointerButtons buttons;
     KeyModifiers modifiers;
     bool touch = false;
+    std::uint64_t sequence = 0;
+};
+
+struct QueuedGestureEvent {
+    GestureEvent event;
+    std::uint64_t sequence = 0;
 };
 
 struct InputQueue {
@@ -33,6 +39,11 @@ struct InputQueue {
     double scrollY = 0.0;
     double touchScrollX = 0.0;
     double touchScrollY = 0.0;
+    std::vector<QueuedGestureEvent> gestures;
+    GestureEvent lastGesture;
+    bool gestureActive = false;
+    std::uint64_t touchGeneration = 0;
+    std::uint64_t nextPointerGestureSequence = 0;
     bool compositionChanged = false;
 };
 
@@ -48,6 +59,7 @@ struct PointerState {
     bool dispatchedPositionValid = false;
     bool hasPosition = false;
     bool inside = false;
+    bool touchPointerActive = false;
 };
 
 inline std::unordered_map<window::Handle, InputQueue>& inputQueues() {
@@ -131,9 +143,11 @@ inline KeyModifiers currentModifiers(window::Handle window) {
     return iterator == inputQueues().end() ? KeyModifiers{} : iterator->second.modifiers;
 }
 
-inline void pushPointerEvent(PointerState& state, QueuedPointerEvent event) {
+inline void pushPointerEvent(window::Handle window, PointerState& state, QueuedPointerEvent event) {
+    event.sequence = ++inputQueue(window).nextPointerGestureSequence;
     if (event.action == PointerAction::Move && !state.events.empty() &&
-        state.events.back().action == PointerAction::Move) {
+        state.events.back().action == PointerAction::Move &&
+        state.events.back().sequence + 1 == event.sequence) {
         state.events.back() = std::move(event);
         return;
     }
@@ -155,7 +169,7 @@ inline void queuePointerMotion(window::Handle window,
     state.modifiers = modifiers;
     state.hasPosition = true;
     state.inside = true;
-    detail::pushPointerEvent(state, {x, y, PointerAction::Move, PointerButton::None, buttons, modifiers, touch});
+    detail::pushPointerEvent(window, state, {x, y, PointerAction::Move, PointerButton::None, buttons, modifiers, touch});
 }
 
 inline void queuePointerButton(window::Handle window,
@@ -173,10 +187,17 @@ inline void queuePointerButton(window::Handle window,
     state.x = x;
     state.y = y;
     state.buttons.set(button, action == PointerAction::Press);
+    if (button == PointerButton::Left) {
+        if (action == PointerAction::Press) {
+            state.touchPointerActive = touch;
+        } else if (touch) {
+            state.touchPointerActive = false;
+        }
+    }
     state.modifiers = modifiers;
     state.hasPosition = true;
     state.inside = true;
-    detail::pushPointerEvent(state, {x, y, action, button, state.buttons, modifiers, touch});
+    detail::pushPointerEvent(window, state, {x, y, action, button, state.buttons, modifiers, touch});
 }
 
 inline void queuePointerPresence(window::Handle window, bool inside) {
@@ -193,12 +214,29 @@ inline void cancelPointerInput(window::Handle window) {
         if (!state.buttons.contains(button)) {
             continue;
         }
+        const bool touch = button == PointerButton::Left && state.touchPointerActive;
         state.buttons.set(button, false);
-        detail::pushPointerEvent(state, {
-            state.x, state.y, PointerAction::Cancel, button, state.buttons, state.modifiers
+        if (button == PointerButton::Left) {
+            state.touchPointerActive = false;
+        }
+        detail::pushPointerEvent(window, state, {
+            state.x, state.y, PointerAction::Cancel, button, state.buttons, state.modifiers, touch
         });
     }
     state.inside = false;
+}
+
+inline void cancelTouchPointerInput(window::Handle window) {
+    detail::PointerState& state = detail::pointerState(window);
+    if (!state.touchPointerActive || !state.buttons.contains(PointerButton::Left)) {
+        return;
+    }
+    state.buttons.set(PointerButton::Left, false);
+    state.touchPointerActive = false;
+    detail::pushPointerEvent(window, state, {
+        state.x, state.y, PointerAction::Cancel, PointerButton::Left,
+        state.buttons, state.modifiers, true
+    });
 }
 
 inline void queueTextInput(window::Handle window, const std::string& text) {
@@ -228,6 +266,23 @@ inline void queueTouchScrollInput(window::Handle window, double x, double y) {
     detail::InputQueue& queue = detail::inputQueue(window);
     queue.touchScrollX += x;
     queue.touchScrollY += y;
+}
+
+inline void clearTouchScrollInput(window::Handle window) {
+    detail::InputQueue& queue = detail::inputQueue(window);
+    queue.touchScrollX = 0.0;
+    queue.touchScrollY = 0.0;
+}
+
+inline void queueGestureInput(window::Handle window, const GestureEvent& event) {
+    detail::InputQueue& queue = detail::inputQueue(window);
+    queue.gestures.push_back({event, ++queue.nextPointerGestureSequence});
+    queue.lastGesture = event;
+    if (event.phase == GesturePhase::Begin) {
+        queue.gestureActive = true;
+    } else if (event.phase == GesturePhase::End || event.phase == GesturePhase::Cancel) {
+        queue.gestureActive = false;
+    }
 }
 
 inline void queueKeyInput(window::Handle window, const KeyEvent& event) {
@@ -261,9 +316,25 @@ inline void cancelKeyboardInput(window::Handle window) {
     queue.modifiers = {};
 }
 
-inline void cancelInput(window::Handle window) {
-    cancelPointerInput(window);
+inline void cancelGestureInput(window::Handle window) {
     detail::InputQueue& queue = detail::inputQueue(window);
+    if (queue.gestureActive) {
+        GestureEvent event = queue.lastGesture;
+        event.phase = GesturePhase::Cancel;
+        event.deltaX = 0.0;
+        event.deltaY = 0.0;
+        event.scale = 1.0;
+        event.rotation = 0.0;
+        queueGestureInput(window, event);
+    }
+}
+
+inline void cancelInput(window::Handle window) {
+    window::resetTouchInput(window);
+    cancelPointerInput(window);
+    cancelGestureInput(window);
+    detail::InputQueue& queue = detail::inputQueue(window);
+    ++queue.touchGeneration;
     queue.scrollX = 0.0;
     queue.scrollY = 0.0;
     queue.touchScrollX = 0.0;
@@ -326,7 +397,32 @@ inline ScrollEvent consumeScrollInput(window::Handle window) {
     return scroll;
 }
 
-inline std::vector<PointerEvent> consumePointerEvents(window::Handle window, float dpiScale = 1.0f) {
+inline std::vector<GestureEvent> consumeGestureInput(window::Handle window, float pointerScale = 1.0f,
+                                                     std::vector<std::uint64_t>* sequences = nullptr) {
+    detail::InputQueue& queue = detail::inputQueue(window);
+    std::vector<GestureEvent> events;
+    events.reserve(queue.gestures.size());
+    if (sequences) {
+        sequences->clear();
+        sequences->reserve(queue.gestures.size());
+    }
+    for (const detail::QueuedGestureEvent& queued : queue.gestures) {
+        events.push_back(queued.event);
+        if (sequences) sequences->push_back(queued.sequence);
+    }
+    queue.gestures.clear();
+    const double scale = pointerScale > 0.0f ? pointerScale : 1.0;
+    for (GestureEvent& event : events) {
+        event.x *= scale;
+        event.y *= scale;
+        event.deltaX *= scale;
+        event.deltaY *= scale;
+    }
+    return events;
+}
+
+inline std::vector<PointerEvent> consumePointerEvents(window::Handle window, float dpiScale = 1.0f,
+                                                       std::vector<std::uint64_t>* sequences = nullptr) {
     detail::PointerState& state = detail::pointerState(window);
     std::vector<detail::QueuedPointerEvent> queued = std::move(state.events);
     state.events.clear();
@@ -342,6 +438,10 @@ inline std::vector<PointerEvent> consumePointerEvents(window::Handle window, flo
 
     std::vector<PointerEvent> events;
     events.reserve(queued.size());
+    if (sequences) {
+        sequences->clear();
+        sequences->reserve(queued.size());
+    }
     if (state.dispatchedScale != dpiScale) {
         state.dispatchedPositionValid = false;
         state.dispatchedScale = dpiScale;
@@ -366,6 +466,7 @@ inline std::vector<PointerEvent> consumePointerEvents(window::Handle window, flo
         }
         state.dispatchedPositionValid = positionValid;
         events.push_back(event);
+        if (sequences) sequences->push_back(raw.sequence);
     }
     return events;
 }

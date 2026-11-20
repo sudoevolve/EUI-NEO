@@ -192,6 +192,7 @@ struct Element {
     std::function<bool(const KeyEvent&)> onKeyEvent;
     std::function<void(const TextInputEvent&)> onTextInput;
     std::function<void(const ScrollEvent&)> onScroll;
+    std::function<void(const GestureEvent&)> onGesture;
     std::function<void(float)> onScrollOffsetChanged;
     std::function<void(const DragEvent&)> onDrag;
     std::function<void()> onTimer;
@@ -774,6 +775,12 @@ public:
     Derived& onScroll(std::function<void(const ScrollEvent&)> callback) {
         element_->interactive = true;
         element_->onScroll = std::move(callback);
+        return self();
+    }
+
+    Derived& onGesture(std::function<void(const GestureEvent&)> callback) {
+        element_->interactive = true;
+        element_->onGesture = std::move(callback);
         return self();
     }
 

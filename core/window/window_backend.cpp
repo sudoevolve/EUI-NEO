@@ -583,7 +583,7 @@ bool beginWindowResize(Handle window, WindowResizeEdge edge) {
 #endif
 #include <GLFW/glfw3.h>
 
-#if defined(__linux__) && !defined(__ANDROID__)
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(EUI_GLFW_NO_X11)
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3native.h>
 #endif
@@ -609,7 +609,7 @@ void configureOpenGLWindowHints() {
 }
 
 bool sendX11MoveResizeForWindow(Handle window, int direction) {
-#if defined(__linux__) && !defined(__ANDROID__)
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(EUI_GLFW_NO_X11)
     GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window);
     if (!glfwWindow) {
         return false;

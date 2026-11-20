@@ -41,6 +41,8 @@ bool beginWindowMove(Handle window);
 bool beginWindowResize(Handle window, WindowResizeEdge edge);
 void installInputCallbacks(Handle window);
 void uninstallInputCallbacks(Handle window);
+void pollTouchInput(Handle window, float pointerScale);
+void resetTouchInput(Handle window);
 bool queryImeComposition(Handle window, std::string& text, bool& composing);
 
 } // namespace core::window
