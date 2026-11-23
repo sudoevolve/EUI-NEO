@@ -217,6 +217,7 @@ Use a separate build directory for each backend combination. Vulkan requires a V
 - [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/guides/integration.md): SDK, `find_package`, FetchContent, and application entry-point boundaries.
 - [DSL reference](https://sudoevolve.github.io/EUI-NEO/docs/guides/dsl.md): builders, primitives, layout, sizing, transitions, and loaders.
 - [Components](https://sudoevolve.github.io/EUI-NEO/docs/guides/components.md): component APIs and examples.
+- [Desktop UI](https://sudoevolve.github.io/EUI-NEO/docs/guides/desktop-ui.md): forms, dropdown popups, range sliders, typed tables, menus, and high-DPI windows.
 - [State](https://sudoevolve.github.io/EUI-NEO/docs/guides/state.md): persistent state and signals.
 - [Layout](https://sudoevolve.github.io/EUI-NEO/docs/guides/layout.md): row, column, stack, flow, sizing, and scrolling.
 - [Events](https://sudoevolve.github.io/EUI-NEO/docs/guides/events.md): current keyboard, text, pointer, focus, and input dispatch.

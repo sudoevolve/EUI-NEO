@@ -190,6 +190,13 @@ const docs = [
   },
   {
     category: "components",
+    href: "../docs/guides/desktop-ui.md",
+    zh: { title: "桌面界面", desc: "表单布局、下拉弹层、范围滑块、类型化表格、菜单与高 DPI 窗口。" },
+    en: { title: "Desktop UI", desc: "Forms, dropdown popups, range sliders, typed tables, menus, and high-DPI windows." },
+    tags: "desktop form label dropdown slider datatable menubar dpi 桌面 表单 下拉 滑块 表格 菜单"
+  },
+  {
+    category: "components",
     href: "../docs/guides/keyboard-accessibility.md",
     zh: { title: "键盘与控件语义", desc: "Tab 导航、焦点反馈、弹层焦点恢复与语义快照。" },
     en: { title: "Keyboard and Control Semantics", desc: "Tab navigation, focus feedback, popup focus restoration, and semantic snapshots." },
