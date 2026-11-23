@@ -106,7 +106,7 @@ components::dataTable(ui, "downloads").size(700, 400)
 
 多选支持普通点击、Ctrl/Command 切换、Shift 按视图顺序选范围，以及 Ctrl/Command+A 选择当前筛选结果。方向键、Home/End 移动选择并滚动到目标行，Space 选择，Enter 调用行点击回调。选择通过 `AccessibleNode.selected` 导出。
 
-key 必须唯一。稳定 key 保证排序、过滤和源数据重排不串行；过滤保留隐藏行选择，删除源行清除无效 key 并同步受控选择。未提供 rowKey 时使用原始行索引，源数据插入/删除/重排时应改用业务 ID。onRowClick 继续返回原始数据行索引。
+key 必须唯一。稳定 key 保证排序、过滤和源数据重排不串行；过滤保留隐藏行选择，删除源行清除无效 key 并同步受控选择。键盘焦点也跟随业务 key；手动滚动使焦点行离开已构建的虚拟窗口时清除该焦点，保留选择，再次点击或 Tab 进入可见行后继续导航。未提供 rowKey 时使用原始行索引，源数据插入/删除/重排时应改用业务 ID。onRowClick 继续返回原始数据行索引。
 
 ## MenuBar
 

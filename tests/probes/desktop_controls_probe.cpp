@@ -144,11 +144,13 @@ int main() {
         require(menuActions == 10 && current->find("bar.popup.0")->accessibleHidden, "nested action did not close menu");
 
         auto rows = std::make_shared<components::DataTableRows>(components::DataTableRows{{"A"}, {"B"}, {"C"}});
+        std::uint64_t revision = 0;
         eui::Signal<std::vector<std::string>> selected;
         const auto table = [&] {
             runtime.compose("selection", 800, 600, [&](auto& ui, const auto&) {
                 current = &ui;
-                components::dataTable(ui, "table").size(500, 250).columns({"Name"}).data(rows)
+                components::dataTable(ui, "table").size(500, 250).columns({"Name"}).data(rows, revision)
+                    .rowKey([rows](std::size_t row) { return (*rows)[row][0]; })
                     .sortable(false).resizable(false).bindSelection(selected).build();
             });
         };
@@ -157,14 +159,51 @@ int main() {
             runtime.update(window, 0, 1, 1); table();
         };
         table(); tableKey(core::InputKey::Tab); tableKey(core::InputKey::Space);
-        require(selected.get() == std::vector<std::string>{"0"}, "table keyboard initial selection");
+        require(selected.get() == std::vector<std::string>{"A"}, "table keyboard initial selection");
         tableKey(core::InputKey::Down); tableKey(core::InputKey::Down);
-        require(selected.get() == std::vector<std::string>{"2"}, "table keyboard repeated movement");
-        require(current->isFocused("table.body.slot.2.bg"), "table focus did not move with selection");
-        require(current->find("table.body.slot.2.bg.focusRing") != nullptr &&
-                current->find("table.body.slot.1.bg.focusRing") == nullptr, "requested keyboard focus ring did not follow selection");
+        require(selected.get() == std::vector<std::string>{"C"}, "table keyboard repeated movement");
+        require(current->isFocused("table.rows.C.bg"), "table focus did not move with selection");
+        require(current->find("table.rows.C.bg.focusRing") != nullptr &&
+                current->find("table.rows.B.bg.focusRing") == nullptr, "requested keyboard focus ring did not follow selection");
         tableKey(core::InputKey::Tab); tableKey(core::InputKey::Space);
-        require(selected.get() == std::vector<std::string>{"0"}, "table keyboard selection did not follow Tab focus");
+        require(selected.get() == std::vector<std::string>{"A"}, "table keyboard selection did not follow Tab focus");
+        std::swap((*rows)[0], (*rows)[1]); ++revision; table();
+        require(current->isFocused("table.rows.A.bg"), "table focus did not follow business key after reorder");
+        tableKey(core::InputKey::Down);
+        require(selected.get() == std::vector<std::string>{"C"}, "table navigation after reorder used stale view index");
+
+        for (int i = 3; i < 100; ++i) rows->push_back({std::to_string(i)});
+        ++revision; table();
+        core::queuePointerMotion(window, 100, 100, {}, {});
+        core::queueScrollInput(window, 0, -20);
+        // 滚轮先施加速度，再由非零帧时间推进惯性滚动。
+        for (int frame = 0; frame < 120; ++frame) {
+            runtime.update(window, 1.f / 60.f, 1, 1); table();
+        }
+        const float scrolledOffset = current->state<components::table_detail::State>("table.tableState").offset;
+        require(scrolledOffset > 500 && !current->find("table.rows.C.bg"), "table scroll did not recycle the focused row");
+        bool rowFocused = false;
+        for (const auto& node : current->accessibilityTree()) {
+            if (node.role == core::AccessibleRole::ListItem && node.focused) rowFocused = true;
+        }
+        require(!rowFocused, "virtual slot reuse transferred focus to a different business row");
+        tableKey(core::InputKey::Space);
+        require(selected.get() == std::vector<std::string>{"C"} &&
+                current->state<components::table_detail::State>("table.tableState").offset == scrolledOffset,
+                "Space after scrolling changed a stale row or jumped the viewport");
+        core::queuePointerButton(window, 20, 80, core::PointerButton::Left, core::PointerAction::Press, {});
+        core::queuePointerButton(window, 20, 80, core::PointerButton::Left, core::PointerAction::Release, {});
+        runtime.update(window, 0, 1, 1); table();
+        const auto clicked = selected.get();
+        require(clicked.size() == 1 && clicked.front() != "C", "visible row click after scroll failed");
+        if (clicked.size() == 1 && clicked.front() != "C") {
+            const auto row = std::find_if(rows->begin(), rows->end(), [&](const auto& item) { return item[0] == clicked.front(); });
+            const bool hasNext = row != rows->end() && row + 1 != rows->end();
+            require(hasNext, "clicked row has no following business row");
+            tableKey(core::InputKey::Down);
+            require(hasNext && selected.get() == std::vector<std::string>{(*(row + 1))[0]},
+                    "keyboard movement after scrolling did not follow the clicked business row");
+        }
         runtime.shutdown();
     }
     backend.reset();

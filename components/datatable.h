@@ -364,8 +364,11 @@ public:
                     .offset(state.offset).onChange([&state](float value) { state.offset = value; })
                     .row([&state, source, widths, onRow, onSelection, mode, focusGroup, style, metrics, tableWidth, tableHeight, headerHeight, rowHeight, offset, radius, bodyHeight](core::dsl::Ui& ui, const std::string& slot, std::int64_t view, float w, float h) {
                         const auto row = state.order[static_cast<std::size_t>(view)];
+                        // 虚拟 slot 会复用；可选择行的焦点 ID 必须跟随业务 key，避免滚动后指向另一行。
+                        const auto focusId = mode == DataTableSelectionMode::None ? slot + ".bg" :
+                            focusGroup + "." + state.sourceKeys[row] + ".bg";
                         if (mode != DataTableSelectionMode::None && state.focusRequested && state.focusedKey == state.sourceKeys[row]) {
-                            ui.requestFocus(slot + ".bg"); state.focusRequested = false;
+                            ui.requestFocus(focusId); state.focusRequested = false;
                         }
                         const bool selected = mode != DataTableSelectionMode::None && state.selection.contains(state.sourceKeys[row]);
                         const auto color = selected ? core::mixColor(style.row, style.accent, .24f) : (view % 2 ? style.rowAlt : style.row);
@@ -374,7 +377,7 @@ public:
                             ui.rect(slot + ".paint").x(-1).y(offset - headerHeight - static_cast<float>(view * static_cast<double>(rowHeight)))
                                 .size(tableWidth, tableHeight).radius(radius).color(color).build();
                         }).build();
-                        auto background = ui.rect(slot + ".bg").size(w, h).color(radius > 0 ? core::Color{0, 0, 0, 0} : color);
+                        auto background = ui.rect(focusId).size(w, h).color(radius > 0 ? core::Color{0, 0, 0, 0} : color);
                         if (onRow || mode != DataTableSelectionMode::None) {
                             background.accessible(core::AccessibleRole::ListItem, "Row " + std::to_string(row + 1))
                                 .accessibleSelected(selected).focusGroup(focusGroup)
