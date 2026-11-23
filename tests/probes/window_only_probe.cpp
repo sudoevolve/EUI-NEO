@@ -64,6 +64,20 @@ bool pollOnce(core::window::Handle window) {
     return true;
 }
 
+bool verifyWaylandWindowOperationsRequirePointerPress(core::window::Handle window) {
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(EUI_WINDOW_BACKEND_SDL2) && \
+    defined(GLFW_PLATFORM_WAYLAND)
+    if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) {
+        return !core::window::beginWindowMove(window) &&
+               !core::window::beginWindowResize(
+                   window, core::window::WindowResizeEdge::BottomRight);
+    }
+#else
+    (void)window;
+#endif
+    return true;
+}
+
 #if defined(EUI_WINDOW_BACKEND_SDL2)
 bool verifySdlWindowInput(core::window::Handle firstWindow,
                           const core::window::WindowCreateRequest& request) {
@@ -190,6 +204,16 @@ int main(int argc, char** argv) {
         glfwTerminate();
 #endif
         return 1;
+    }
+
+    if (!verifyWaylandWindowOperationsRequirePointerPress(window)) {
+        core::window::destroyWindow(window);
+#if defined(EUI_WINDOW_BACKEND_SDL2)
+        SDL_Quit();
+#else
+        glfwTerminate();
+#endif
+        return 3;
     }
 
 #if defined(EUI_WINDOW_BACKEND_SDL2)

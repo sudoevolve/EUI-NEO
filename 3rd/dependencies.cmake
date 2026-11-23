@@ -318,6 +318,46 @@ if(EUI_WINDOW_BACKEND STREQUAL "glfw")
         target_sources(glfw PRIVATE "${_eui_glfw_x11_patched}")
     endif()
 
+    if(EUI_OWNS_GLFW_TARGET AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+       (NOT DEFINED GLFW_BUILD_WAYLAND OR GLFW_BUILD_WAYLAND))
+        set(_eui_glfw_wayland_source "${EUI_GLFW_DIR}/src/wl_window.c")
+        set(_eui_glfw_wayland_patched "${CMAKE_CURRENT_BINARY_DIR}/eui_glfw_patched/wl_window.c")
+        execute_process(
+            COMMAND "${CMAKE_COMMAND}"
+                "-DGLFW_WAYLAND_SOURCE=${_eui_glfw_wayland_source}"
+                "-DGLFW_WAYLAND_OUTPUT=${_eui_glfw_wayland_patched}"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/scripts/patch_glfw_wayland_window_ops.cmake"
+            RESULT_VARIABLE _eui_glfw_patch_result
+            OUTPUT_VARIABLE _eui_glfw_patch_output
+            ERROR_VARIABLE _eui_glfw_patch_error
+        )
+        if(NOT _eui_glfw_patch_result EQUAL 0)
+            message(FATAL_ERROR
+                "Failed to prepare the GLFW Wayland window operations bridge:\n${_eui_glfw_patch_output}${_eui_glfw_patch_error}")
+        endif()
+        get_target_property(_eui_glfw_sources glfw SOURCES)
+        set(_eui_glfw_filtered_sources)
+        set(_eui_glfw_wayland_source_found OFF)
+        foreach(_eui_glfw_source IN LISTS _eui_glfw_sources)
+            if(IS_ABSOLUTE "${_eui_glfw_source}")
+                set(_eui_glfw_source_absolute "${_eui_glfw_source}")
+            else()
+                get_filename_component(_eui_glfw_source_absolute
+                    "${_eui_glfw_source}" ABSOLUTE BASE_DIR "${EUI_GLFW_DIR}/src")
+            endif()
+            if(_eui_glfw_source_absolute STREQUAL _eui_glfw_wayland_source)
+                set(_eui_glfw_wayland_source_found ON)
+            else()
+                list(APPEND _eui_glfw_filtered_sources "${_eui_glfw_source}")
+            endif()
+        endforeach()
+        if(NOT _eui_glfw_wayland_source_found)
+            message(FATAL_ERROR "The owned GLFW target does not contain src/wl_window.c")
+        endif()
+        set_property(TARGET glfw PROPERTY SOURCES "${_eui_glfw_filtered_sources}")
+        target_sources(glfw PRIVATE "${_eui_glfw_wayland_patched}")
+    endif()
+
     get_target_property(EUI_GLFW_TARGET_TYPE glfw TYPE)
     if(EUI_BUILD_SHARED AND EUI_GLFW_TARGET_TYPE STREQUAL "STATIC_LIBRARY")
         message(FATAL_ERROR

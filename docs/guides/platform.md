@@ -189,7 +189,9 @@ resizeHandle.onPress([] {
 - X11：发送 EWMH `_NET_WM_MOVERESIZE`，由 WM 执行交互式移动/缩放，允许拖出屏幕边缘并享受
   原生贴边分屏。
 - Windows / macOS / SDL2 非 X11：当前返回 `false`，程序化回退保持原行为。
-- Wayland：需要后端提供 seat serial（`xdg_toplevel.move`），当前同样返回 `false`。
+- Wayland：bundled GLFW 的 xdg-shell 窗口可在左键按下后、对应释放前使用有效 seat serial 调用
+  `xdg_toplevel.move/resize`，包括 EUI `onPress` 派发期间。libdecor 窗口、外部 GLFW、SDL2 Wayland
+  和释放之后的调用仍返回 `false`，应用应保留程序化回退。
 
 ## 平台依赖
 
