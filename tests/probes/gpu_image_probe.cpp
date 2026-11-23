@@ -470,6 +470,7 @@ int main() {
         std::cerr << "Leaked native images: " << 257 - released << '\n';
         result = 1;
     }
+    core::releaseInputQueue(window);
     core::window::destroyWindow(window);
 #if defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_Quit();

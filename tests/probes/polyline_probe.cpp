@@ -54,6 +54,7 @@ int main() {
         runtime.shutdown(false);
     }
     backend.reset();
+    core::releaseInputQueue(window);
     core::window::destroyWindow(window);
 #if defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_Quit();

@@ -94,6 +94,7 @@ int main() {
     if (initialized)
         app::shutdown();
     backend.reset();
+    core::releaseInputQueue(window);
     core::window::destroyWindow(window);
 #if defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_Quit();
