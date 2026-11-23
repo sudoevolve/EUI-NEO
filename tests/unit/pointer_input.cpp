@@ -42,6 +42,8 @@ bool verifyPointerQueue() {
     }
 
     const std::vector<core::PointerEvent> events = core::consumePointerEvents(firstWindow);
+    core::releaseInputQueue(firstWindow);
+    core::releaseInputQueue(secondWindow);
     return events.size() == 6 &&
         events[0].action == core::PointerAction::Move &&
         events[1].isPress(core::PointerButton::Middle) &&
@@ -66,6 +68,7 @@ bool verifyPointerCancel() {
                              {});
     core::cancelPointerInput(window);
     const std::vector<core::PointerEvent> events = core::consumePointerEvents(window);
+    core::releaseInputQueue(window);
     return events.size() == 2 &&
         events[0].isPress(core::PointerButton::Right) &&
         events[1].action == core::PointerAction::Cancel &&
@@ -190,10 +193,12 @@ bool verifyPointerOutsideWithoutPosition() {
     const std::vector<core::PointerEvent> events = core::consumePointerEvents(window);
     if (events.size() != 1 || events[0].action != core::PointerAction::Move ||
         events[0].x >= -999999.0 || events[0].y >= -999999.0) {
+        core::releaseInputQueue(window);
         return false;
     }
     core::queuePointerMotion(window, 40.0, 50.0, {}, {});
     const std::vector<core::PointerEvent> entered = core::consumePointerEvents(window);
+    core::releaseInputQueue(window);
     return entered.size() == 1 && entered[0].deltaX == 0.0 && entered[0].deltaY == 0.0;
 }
 
