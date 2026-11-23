@@ -147,10 +147,9 @@ VkPipelineStageFlags destinationStageForLayout(VkImageLayout layout) {
     return sourceStageForLayout(layout);
 }
 
-void VulkanRenderBackend::transitionImageLayout(VkCommandBuffer commandBuffer,
-                                                VkImage image,
-                                                VkImageLayout oldLayout,
-                                                VkImageLayout newLayout) {
+void VulkanRenderBackend::transitionImageLayout(VkCommandBuffer commandBuffer, VkImage image,
+                                                VkImageLayout oldLayout, VkImageLayout newLayout,
+                                                VkPipelineStageFlags sourceStage) {
     if (image == VK_NULL_HANDLE || oldLayout == newLayout) {
         return;
     }
@@ -171,16 +170,8 @@ void VulkanRenderBackend::transitionImageLayout(VkCommandBuffer commandBuffer,
     barrier.srcAccessMask = accessMaskForLayout(oldLayout);
     barrier.dstAccessMask = accessMaskForLayout(newLayout);
 
-    vkCmdPipelineBarrier(commandBuffer,
-                         sourceStageForLayout(oldLayout),
-                         destinationStageForLayout(newLayout),
-                         0,
-                         0,
-                         nullptr,
-                         0,
-                         nullptr,
-                         1,
-                         &barrier);
+    vkCmdPipelineBarrier(commandBuffer, sourceStage ? sourceStage : sourceStageForLayout(oldLayout),
+                         destinationStageForLayout(newLayout), 0, 0, nullptr, 0, nullptr, 1, &barrier);
 }
 
 VkRect2D VulkanRenderBackend::clampScissor(const core::Rect& rect, int windowWidth, int windowHeight) const {
@@ -364,7 +355,8 @@ void VulkanRenderBackend::present() {
     transitionSwapchainImage(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
     vkEndCommandBuffer(commandBuffers_[currentImage_]);
 
-    const VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    const VkPipelineStageFlags waitStage =
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
@@ -1448,7 +1440,13 @@ void VulkanRenderBackend::transitionSwapchainImage(VkImageLayout newLayout) {
         return;
     }
     const VkImageLayout oldLayout = swapchainImageLayouts_[currentImage_];
-    transitionImageLayout(commandBuffers_[currentImage_], swapchainImages_[currentImage_], oldLayout, newLayout);
+    // 首次布局转换也必须等待 acquire；后续 cache blit 可能在 transfer 阶段访问交换链。
+    const bool acquired =
+        oldLayout == VK_IMAGE_LAYOUT_UNDEFINED || oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    const VkPipelineStageFlags sourceStage =
+        acquired ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT : 0;
+    transitionImageLayout(commandBuffers_[currentImage_], swapchainImages_[currentImage_], oldLayout,
+                          newLayout, sourceStage);
     swapchainImageLayouts_[currentImage_] = newLayout;
 }
 

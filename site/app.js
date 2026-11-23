@@ -331,13 +331,13 @@ const docs = [
     href: "../docs/guides/modules.md",
     zh: {
       title: "模块",
-      desc: "键盘、串口等可选功能模块的构建、使用和开发约束。"
+      desc: "键盘、串口、科学绘图等可选功能模块的构建、使用和开发约束。"
     },
     en: {
       title: "Modules",
-      desc: "Build, usage, and development rules for optional modules such as keyboard and serial."
+      desc: "Build, usage, and development rules for optional keyboard, serial, and scientific plotting modules."
     },
-    tags: "modules keyboard serial optional feature"
+    tags: "modules keyboard serial plot scientific optional feature 科学 绘图"
   },
   {
     category: "core",

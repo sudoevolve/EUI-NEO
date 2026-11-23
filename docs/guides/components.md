@@ -976,7 +976,7 @@ components::carousel(ui, "hero.carousel")
 
 三个图表都是通用组件，使用 DSL 图元绘制，不使用 SVG 图片。tooltip 由独立 `components::tooltip` 组件绘制，并通过 `hoverOpacityFrom(sourceId)` 绑定到对应数据点、柱或扇区。
 
-科学坐标轴、任意 X 坐标、复杂二维图、三维及体数据尚未提供。当前图表适用于轻量展示和等间距实时采样。
+本节通用图表适用于轻量展示和等间距实时采样。科学坐标轴、任意 X 坐标、复杂二维图、三维及体数据由独立的[科学绘图模块](modules.md#科学绘图)提供，应用需显式链接 `eui::module_plot`。
 
 ### lineChart
 

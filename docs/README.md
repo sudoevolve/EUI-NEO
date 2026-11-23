@@ -21,7 +21,7 @@
 | [网络](guides/network.md) | 文本与图片请求、结果缓存 |
 | [异步任务](guides/async.md) | 执行、取消、重启和回调生命周期 |
 | [平台能力](guides/platform.md) | 文件打开/保存、目录选择、窗口、托盘 |
-| [可选模块](guides/modules.md) | 键盘、串口模块的构建和接入 |
+| [可选模块](guides/modules.md) | 键盘、串口、科学绘图模块的构建和接入 |
 | [Markdown 视口](guides/markdown-viewport.md) | 只构建可见文本及缓存边界 |
 | [Shadertoy](guides/shadertoy.md) | Pass graph、uniform、双后端契约 |
 
