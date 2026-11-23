@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 
@@ -19,7 +21,7 @@ struct ProgressStyle {
     core::Color fill;
 };
 
-class ProgressBuilder {
+class ProgressBuilder : public ComponentLayout<ProgressBuilder> {
 public:
     ProgressBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -40,7 +42,7 @@ public:
 
     void build() {
         const float height = height_ >= 0.0f ? height_ : metrics_.control.progress;
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height)
             .content([&] {
                 ui_.rect(id_ + ".track")

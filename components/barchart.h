@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "components/tooltip.h"
 #include "core/dsl.h"
@@ -46,7 +48,7 @@ struct BarChartStyle {
     float radius = 18.0f;
 };
 
-class BarChartBuilder {
+class BarChartBuilder : public ComponentLayout<BarChartBuilder> {
     struct TooltipItem {
         std::string sourceId;
         std::string text;
@@ -90,7 +92,7 @@ public:
         const float slotWidth = plotWidth / static_cast<float>(std::max(1, count));
         const float barWidth = std::min(32.0f, std::max(18.0f, slotWidth * 0.54f));
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".bg")

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/scroll.h"
 #include "core/dsl.h"
 #include "core/platform/platform.h"
@@ -14,7 +16,7 @@
 
 namespace components {
 
-class VirtualListBuilder {
+class VirtualListBuilder : public ComponentLayout<VirtualListBuilder> {
 public:
     using RowCompose = std::function<void(core::dsl::Ui&, const std::string&, std::int64_t, float, float)>;
 
@@ -117,7 +119,7 @@ public:
                 0,
                 itemCount - 1);
         };
-        auto root = ui_.stack(id_)
+        auto root = layoutRoot(ui_.stack(id_))
             .size(viewportWidth, viewportHeight)
             .zIndex(zIndex_)
             .clip()

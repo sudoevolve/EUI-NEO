@@ -24,13 +24,14 @@ struct ElementSnapshot {
     int zIndex = 0;
     bool clip = false;
     std::size_t childCount = 0;
+    bool stackingContext = false;
 
     bool operator==(const ElementSnapshot& other) const {
         return id == other.id &&
                kind == other.kind &&
                zIndex == other.zIndex &&
                clip == other.clip &&
-               childCount == other.childCount;
+               childCount == other.childCount && stackingContext == other.stackingContext;
     }
 
     bool operator!=(const ElementSnapshot& other) const {

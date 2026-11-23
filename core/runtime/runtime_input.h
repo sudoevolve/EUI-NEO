@@ -2,6 +2,20 @@
 
 namespace core::dsl {
 
+inline void Runtime::dismissOutsidePress(const std::string& targetId) {
+    std::vector<std::function<void()>> callbacks;
+    const auto visit = [&](const auto& self, const Element& element) -> bool {
+        if (element.disabled || element.accessibleHidden || element.opacity <= 0) return false;
+        bool contains = element.id == targetId;
+        for (const auto& child : element.children) contains = self(self, *child) || contains;
+        if (!contains && element.onOutsidePress) callbacks.push_back(element.onOutsidePress);
+        return contains;
+    };
+    for (const auto& root : ui_.roots()) visit(visit, *root);
+    for (const auto& callback : callbacks) callback();
+    if (!callbacks.empty()) composeRequested_ = paintRequested_ = true;
+}
+
 inline std::string Runtime::capturedInteractionId() const {
     for (const auto& item : instances_.interactions) {
         if (item.second.state.active && ui_.find(item.first) && !isElementInDisabledTree(item.first)) {
@@ -292,6 +306,30 @@ inline void Runtime::updateScroll(const ScrollEvent& event, const std::string& t
     }
 }
 
+inline void Runtime::updateGesture(const GestureEvent& event, float dpiScale) {
+    PointerEvent position;
+    position.x = event.x;
+    position.y = event.y;
+    if (event.phase == GesturePhase::Begin) {
+        gestureTargetId_ = hitTest(position, dpiScale, [](const Element& element) {
+            // 透明交互遮罩同样阻挡手势，避免缩放、旋转穿透弹层。
+            return (element.interactive || static_cast<bool>(element.onGesture)) && !element.disabled;
+        });
+    }
+
+    const Element* element = gestureTargetId_.empty() ? nullptr : ui_.find(gestureTargetId_);
+    if (element != nullptr && element->onGesture &&
+        !isElementInDisabledTree(gestureTargetId_)) {
+        element->onGesture(event);
+        composeRequested_ = true;
+        paintRequested_ = true;
+    }
+
+    if (event.phase == GesturePhase::End || event.phase == GesturePhase::Cancel) {
+        gestureTargetId_.clear();
+    }
+}
+
 inline void Runtime::updateTextInput(const TextInputEvent& event) {
     if (focusedId_.empty()) {
         return;
@@ -346,9 +384,21 @@ inline void Runtime::synchronizeFocusScope() {
     const std::string top = active.empty() ? std::string{} : active.back();
     while (!focusScopes_.empty() && focusScopes_.back().first != top &&
            std::find(active.begin(), active.end(), focusScopes_.back().first) == active.end()) {
+        const auto* closingScope = ui_.find(focusScopes_.back().first);
+        const auto containsFocus = [&](const auto& self, const Element& element) -> bool {
+            if (element.id == focusedId_) return true;
+            for (const auto& child : element.children) if (self(self, *child)) return true;
+            return false;
+        };
+        // 外部按下可能已经转移了焦点；仅在旧焦点仍属于关闭范围或已失效时恢复。
+        const auto* focused = ui_.find(focusedId_);
+        const bool restoreFocus = !focused || !focused->focusable || isElementInDisabledTree(focusedId_) ||
+                                  (closingScope && containsFocus(containsFocus, *closingScope));
         const auto restore = focusScopes_.back().second;
         focusScopes_.pop_back();
-        setFocusedId(ui_.find(restore) && !isElementInDisabledTree(restore) ? restore : std::string{});
+        if (restoreFocus) {
+            setFocusedId(ui_.find(restore) && !isElementInDisabledTree(restore) ? restore : std::string{});
+        }
     }
     if (!top.empty() && (focusScopes_.empty() || focusScopes_.back().first != top)) {
         focusScopes_.push_back({top, focusedId_});
@@ -420,7 +470,7 @@ inline void Runtime::updateKeyInput(const std::vector<KeyEvent>& events) {
                 const auto index = (std::distance(group.begin(), it) + (backwards ? group.size() - 1 : 1)) % group.size();
                 setFocusedId(group[index]);
                 const auto activate = ui_.find(focusedId_)->onClick;
-                if (activate) activate();
+                if (activate && ui_.find(focusedId_)->activateOnFocus) activate();
                 handled = true;
             }
         }

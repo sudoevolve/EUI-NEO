@@ -266,6 +266,9 @@ state->volume
 | 弹层开关 | `open(bool)` | `onOpenChange(bool)` | dropdown、dialog、sidebar |
 | 短暂可见性 | `visible(bool)` | dismiss 回调 | toast |
 | 滚动位置 | `offset(float)` | `onChange(float)` | scrollView、virtualList |
+| 表格选择 | `selectedKeys(vector<string>)`、`bindSelection(signal)` | `onSelectionChange(vector<string>)` | dataTable；需唯一业务 key |
+
+Dropdown 未提供 `onOpenChange` 时，开关状态保存在组件内部，`defaultOpen` 或 `open` 仅指定初始值；`bindOpen` 或 `open + onOpenChange` 切换为受控模式。DataTable 默认不启用选择，`bindSelection` 默认启用单选；显式启用选择但未绑定时，组件内部保存选中 key。类型化数据缓存与 revision 规则见[桌面指南](desktop-ui.md#类型化表格与选择)。
 
 新组件优先沿用这些名称。不要新增 `onValueChanged`、`onSelectedChanged`、`onCheckedChanged` 等重复命名。
 

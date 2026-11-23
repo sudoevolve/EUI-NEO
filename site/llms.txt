@@ -135,6 +135,11 @@ Prefer built-in components before assembling controls from primitives:
 - Scrolling and large collections: `components::scrollView`, `components::virtualList`, `components::virtualMasonry`
 - Custom pointer regions: `components::mouseArea`
 - Themed surfaces and text: `components::panel`, `components::card`, `components::text`
+- Desktop composition: `components::form`, `components::label`, `components::menuBar`; common composite controls accept root `position`, `margin`, `flexGrow/flexShrink`, `ignoreLayout`, and `zIndex`.
+
+Use `.logicalWindowSize(width, height)` on main or child window configuration for initial compose dimensions. `.windowSize(...)`, window position, and min/max constraints use native window units. Read actual layout size from `screen.width/height`.
+
+Dropdown retains its own open state unless `onOpenChange` is supplied. Use `defaultOpen` for an initial value, or `bindOpen` / `open + onOpenChange` for controlled state. Its popup takes no layout height; outside dismissal preserves valid focus transferred to an external input. Slider `range/step` uses business values and keeps both endpoints reachable, including a maximum outside the step grid.
 
 Use `components::theme::dark()` or `components::theme::light()` as the base token set. Pass the same tokens and transition through a page for consistent visuals and motion.
 
@@ -145,11 +150,13 @@ Use `components::theme::dark()` or `components::theme::light()` as the base toke
 - Element-level `.onKeyEvent(...)` callbacks return `bool` to indicate whether the event was handled.
 - Clickable controls participate in Tab / Shift+Tab navigation; Enter / Space activates them. Disabled and hidden subtrees are skipped. Use `.accessibleName(...)` for icon-only buttons.
 - Modal dialogs and pickers constrain focus and restore it when closed. Custom overlays can use `.focusScope(open).onDismiss(...)`.
+- MenuBar supports cascading keyboard navigation without activating actions on focus movement. Selection-enabled DataTable uses Up/Down, Home/End, Space, and Enter; focus follows stable row keys and clears when the row leaves the built virtual window, while selection persists.
 - `ui.accessibilityTree()` exports control semantics and layout bounds. Native screen-reader bridges are not implemented.
 - Pointer events use `action`, `button`, `buttons`, and `modifiers`.
 - Pointer buttons are `Left`, `Middle`, `Right`, `X1`, and `X2`.
 - Standard interaction accepts only the left button by default. Enable other drag or press buttons explicitly with `.acceptedButtons(...)`.
 - Pointer capture belongs to the button that started the interaction. Do not emulate capture with global polling.
+- `.onGesture(...)` receives `eui::GestureEvent` Begin/Update/End/Cancel with incremental pan, scale, and rotation. SDL2 and Windows/Linux GLFW share raw multi-touch tracking; a second contact cancels single-pointer activation. Native touchpad availability depends on OS, driver, and compositor protocols; physical device validation remains required.
 
 Do not generate any of these removed APIs:
 
@@ -163,6 +170,7 @@ Current input reference: https://sudoevolve.github.io/EUI-NEO/docs/guides/events
 ## Data Controls And File Dialogs
 
 - `dataTable(...).data(sharedRows, revision)` virtualizes fixed-height rows. Use `.filter(...)`, `.sort(column, descending)`, `.numericSort()`, and `.columnWidths(...)`; callbacks preserve the original source row index. Increment revision after in-place changes. Do not mutate shared data during composition.
+- Typed tables use `.data<T>(sharedRows, columns, revision)`. Increment revision when data, getters, or key rules change. Provide unique `.rowKey(...)` values for reordering or insertion/deletion; `.bindSelection(...)` defaults to single selection, and `.selectionMode(...)` can enable multiple selection.
 - `lineChart(...).data(sharedSamples, revision).range(min, max)` selects realtime mode. `.visibleRange(first, last)` sets a half-open sample interval. Peak-preserving downsampling limits output to about four points per plot unit; missing-data buckets break the line. Realtime mode omits per-point labels, tooltips, and animation.
 - `input(...).undoByteBudget(bytes)` bounds combined undo/redo accounting; the default is 8 MiB, with at most 128 snapshots per stack. Zero disables history.
 - `eui::platform::saveFileDialog(options)` and `selectDirectoryDialog(options)` distinguish Selected / Cancelled / Failed. `defaultFileName` applies to saving. Dialogs return paths; the caller writes files and handles write failures.
@@ -189,6 +197,7 @@ CMake cache options:
 - `EUI_BUILD_APPS=ON|OFF` for repository `examples/`
 - `EUI_BUILD_USER_APPS=ON|OFF` for repository `apps/`
 - `EUI_ENABLE_MODULES=ON|OFF`
+- `EUI_ENABLE_PLOT=ON|OFF` defaults to OFF. Enable it together with module discovery, link `eui::module_plot` explicitly and include `modules/plot/plot.h`; it is not part of the core target. Supports XY, heatmap, contour, vector, acquisition and 3D/volume views plus PNG/SVG/PDF export. OpenGL/Vulkan use GPU rasterization for 2D when supported; Vulkan 3D currently uses CPU rendering and upload. High-load benchmarks also default to OFF; opt in with `EUI_PLOT_BUILD_BENCHMARKS=ON`. See the module guide for setup and limits.
 - `EUI_ENABLE_TRAY=ON|OFF`
 
 Use a separate build directory for each backend combination. Vulkan requires a Vulkan SDK. SDL2 can use a system package or be fetched by CMake in auto/fetch dependency mode; strict bundled mode does not provide SDL2. Linux tray builds require GLib/GIO development files unless tray support is explicitly disabled.
@@ -217,6 +226,7 @@ Use a separate build directory for each backend combination. Vulkan requires a V
 - [Integration guide](https://sudoevolve.github.io/EUI-NEO/docs/guides/integration.md): SDK, `find_package`, FetchContent, and application entry-point boundaries.
 - [DSL reference](https://sudoevolve.github.io/EUI-NEO/docs/guides/dsl.md): builders, primitives, layout, sizing, transitions, and loaders.
 - [Components](https://sudoevolve.github.io/EUI-NEO/docs/guides/components.md): component APIs and examples.
+- [Desktop UI](https://sudoevolve.github.io/EUI-NEO/docs/guides/desktop-ui.md): forms, dropdown popups, range sliders, typed tables, menus, and high-DPI windows.
 - [State](https://sudoevolve.github.io/EUI-NEO/docs/guides/state.md): persistent state and signals.
 - [Layout](https://sudoevolve.github.io/EUI-NEO/docs/guides/layout.md): row, column, stack, flow, sizing, and scrolling.
 - [Events](https://sudoevolve.github.io/EUI-NEO/docs/guides/events.md): current keyboard, text, pointer, focus, and input dispatch.

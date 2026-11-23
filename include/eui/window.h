@@ -12,8 +12,11 @@ using Handle = core::window::Handle;
 using WindowResizeEdge = core::window::WindowResizeEdge;
 
 // Hand an interactive move/resize to the window manager (EWMH
-// _NET_WM_MOVERESIZE on X11). Returns false when the current
-// platform/backend cannot delegate; callers keep their own fallback.
+// _NET_WM_MOVERESIZE on X11 or xdg_toplevel on bundled GLFW/Wayland).
+// Wayland calls require an xdg-shell-backed window and an active left pointer
+// press; they can be issued from the EUI onPress handler before release.
+// Returns false when the current platform/backend cannot delegate; callers
+// keep their own fallback.
 using core::window::beginWindowMove;
 using core::window::beginWindowResize;
 

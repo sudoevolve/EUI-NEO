@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "core/dsl.h"
 
 #include <algorithm>
@@ -38,7 +40,7 @@ struct MouseScrollEvent {
     float stepY = 0.0f;
 };
 
-class MouseAreaBuilder {
+class MouseAreaBuilder : public ComponentLayout<MouseAreaBuilder> {
 public:
     MouseAreaBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -106,7 +108,7 @@ public:
         const std::function<void(const MouseScrollEvent&)> onScroll = onScroll_;
         const std::function<void(const MouseEvent&)> onContextMenu = onContextMenu_;
 
-        auto area = ui_.rect(id_);
+        auto area = layoutRoot(ui_.rect(id_));
         if (hasX_) {
             area.x(x_);
         }

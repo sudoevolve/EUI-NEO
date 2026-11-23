@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/button.h"
 #include "components/theme.h"
 #include "core/dsl.h"
@@ -19,7 +21,7 @@ struct NavbarItem {
     int value = 0;
 };
 
-class NavbarBuilder {
+class NavbarBuilder : public ComponentLayout<NavbarBuilder> {
 public:
     NavbarBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -69,7 +71,7 @@ public:
                              titleHeight + subtitleGap + subtitleHeight + brandGap;
         const float activeY = navTop + static_cast<float>(activeVisualIndex()) * (navHeight + navGap);
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".bg")

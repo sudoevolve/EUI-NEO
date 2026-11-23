@@ -129,6 +129,8 @@ eui_neo_configure_app(my_app)
 
 可选功能模块位于 `modules/`，详细说明见 [模块指南](docs/guides/modules.md)。
 
+科学绘图通过 `eui::module_plot` 提供曲线、热力图、等高线、矢量场、三维/体数据、采集波形及 PNG/SVG/PDF 导出。模块默认关闭；需设置 `EUI_ENABLE_MODULES=ON` 和 `EUI_ENABLE_PLOT=ON` 并显式链接该 target。接入方式及后端限制见[科学绘图](docs/guides/modules.md#科学绘图)。
+
 ## 目录结构
 
 ```text
@@ -152,6 +154,7 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 - [贡献与提交规范](CONTRIBUTING.md)
 - [DSL 设计与当前实现](docs/guides/dsl.md)
 - [组件](docs/guides/components.md)
+- [桌面表单、菜单与数据选择](docs/guides/desktop-ui.md)
 - [模块](docs/guides/modules.md)
 - [状态模型](docs/guides/state.md)
 - [布局](docs/guides/layout.md)

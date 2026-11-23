@@ -78,6 +78,9 @@ void installInputCallbacks(Handle) {
 
 void uninstallInputCallbacks(Handle) {}
 
+void pollTouchInput(Handle, float) {}
+void resetTouchInput(Handle) {}
+
 bool queryImeComposition(Handle, std::string&, bool&) { return false; }
 
 void getCursorPosition(Handle window, double& x, double& y) {
@@ -88,8 +91,23 @@ void getCursorPosition(Handle window, double& x, double& y) {
 
 #else
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include "core/input/input_state.h"
 #include "core/platform/ime_bridge.h"
+#include "core/platform/gesture_bridge.h"
+#if defined(_WIN32)
+#include "core/input/touch_tracker.h"
+#include <unordered_map>
+#endif
+#if defined(__linux__) && !defined(__ANDROID__)
+#include "core/platform/linux_touch.h"
+#endif
 
 #ifndef GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_NONE
@@ -99,6 +117,13 @@ void getCursorPosition(Handle window, double& x, double& y) {
 namespace core::window {
 
 namespace {
+
+#if defined(_WIN32)
+std::unordered_map<Handle, core::input::TouchTracker>& touchTrackers() {
+    static std::unordered_map<Handle, core::input::TouchTracker> trackers;
+    return trackers;
+}
+#endif
 
 core::InputKey mapGlfwKey(int key) {
     if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
@@ -191,6 +216,14 @@ core::PointerButton mapGlfwButton(int button) {
     }
 }
 
+bool glfwTouchMouseEvent() {
+#if defined(_WIN32)
+    return (static_cast<ULONG_PTR>(GetMessageExtraInfo()) & 0xFFFFFF80u) == 0xFF515780u;
+#else
+    return false;
+#endif
+}
+
 } // namespace
 
 void getCursorPosition(Handle window, double& x, double& y) {
@@ -205,6 +238,70 @@ void installInputCallbacks(Handle window) {
     auto* glfwWindow = static_cast<GLFWwindow*>(window);
     glfwSetInputMode(glfwWindow, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
     eui_ime_install_message_filter(glfwWindow);
+#if defined(__linux__) && !defined(__ANDROID__)
+    core::platform::installLinuxTouch(glfwWindow);
+#endif
+    eui_gesture_install(glfwWindow,
+        [](void* userData,
+           EuiGesturePhase phase,
+           double x,
+           double y,
+           double deltaX,
+           double deltaY,
+           double scale,
+           double rotation,
+           unsigned int touchCount) {
+            core::GestureEvent event;
+            switch (phase) {
+            case EUI_GESTURE_PHASE_BEGIN: event.phase = core::GesturePhase::Begin; break;
+            case EUI_GESTURE_PHASE_UPDATE: event.phase = core::GesturePhase::Update; break;
+            case EUI_GESTURE_PHASE_END: event.phase = core::GesturePhase::End; break;
+            case EUI_GESTURE_PHASE_CANCEL: event.phase = core::GesturePhase::Cancel; break;
+            default: return;
+            }
+            if (event.phase == core::GesturePhase::Begin) {
+                core::cancelTouchPointerInput(userData);
+                core::clearTouchScrollInput(userData);
+            }
+            event.x = x;
+            event.y = y;
+            event.deltaX = deltaX;
+            event.deltaY = deltaY;
+            event.scale = scale;
+            event.rotation = rotation;
+            event.touchCount = touchCount;
+            core::queueGestureInput(userData, event);
+        },
+        window);
+#if defined(_WIN32)
+    touchTrackers().try_emplace(window, window);
+    eui_touch_install(glfwWindow,
+        [](void* window, EuiGesturePhase phase, long long device, long long id, double x, double y) {
+            if (phase == EUI_GESTURE_PHASE_CANCEL) {
+                core::cancelInput(window);
+                return;
+            }
+            auto tracker = touchTrackers().find(window);
+            if (tracker == touchTrackers().end()) {
+                if (phase != EUI_GESTURE_PHASE_BEGIN) return;
+                tracker = touchTrackers().try_emplace(window, window).first;
+            }
+            if (phase == EUI_GESTURE_PHASE_BEGIN) {
+                tracker->second.down(device, id, x, y);
+            } else if (phase == EUI_GESTURE_PHASE_END) {
+                tracker->second.up(device, id, x, y);
+            } else {
+                int width = 0, height = 0, framebufferWidth = 0, framebufferHeight = 0;
+                auto* native = static_cast<GLFWwindow*>(window);
+                glfwGetWindowSize(native, &width, &height);
+                glfwGetFramebufferSize(native, &framebufferWidth, &framebufferHeight);
+                const float scale = width > 0 && height > 0
+                    ? 0.5f * (static_cast<float>(framebufferWidth) / width +
+                              static_cast<float>(framebufferHeight) / height) : 1.0f;
+                tracker->second.move(device, id, x, y, scale);
+            }
+        });
+#endif
     glfwSetCharCallback(glfwWindow, [](GLFWwindow* currentWindow, unsigned int codepoint) {
         core::detail::InputQueue& queue = core::detail::inputQueue(currentWindow);
         core::detail::appendUtf8(queue.text, codepoint);
@@ -220,7 +317,8 @@ void installInputCallbacks(Handle window) {
     glfwSetCursorPosCallback(glfwWindow, [](GLFWwindow* currentWindow, double x, double y) {
         const core::detail::PointerState& state = core::detail::pointerState(currentWindow);
         core::queuePointerMotion(currentWindow, x, y, state.buttons,
-                                 core::detail::currentModifiers(currentWindow));
+                                 core::detail::currentModifiers(currentWindow),
+                                 glfwTouchMouseEvent());
     });
     glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow* currentWindow, int button, int action, int mods) {
         const core::PointerButton mapped = mapGlfwButton(button);
@@ -233,7 +331,7 @@ void installInputCallbacks(Handle window) {
         glfwGetCursorPos(currentWindow, &x, &y);
         core::queuePointerButton(currentWindow, x, y, mapped,
             action == GLFW_PRESS ? core::PointerAction::Press : core::PointerAction::Release,
-            glfwModifiers(mods));
+            glfwModifiers(mods), glfwTouchMouseEvent());
     });
     glfwSetKeyCallback(glfwWindow, [](GLFWwindow* currentWindow, int key, int scanCode, int action, int mods) {
         core::KeyAction keyAction = core::KeyAction::Press;
@@ -253,8 +351,39 @@ void installInputCallbacks(Handle window) {
 
 void uninstallInputCallbacks(Handle window) {
     if (window != nullptr) {
-        eui_ime_uninstall_message_filter(static_cast<GLFWwindow*>(window));
+        auto* glfwWindow = static_cast<GLFWwindow*>(window);
+#if defined(__linux__) && !defined(__ANDROID__)
+        core::platform::uninstallLinuxTouch(glfwWindow);
+#endif
+        eui_gesture_uninstall(glfwWindow);
+#if defined(_WIN32)
+        touchTrackers().erase(window);
+#endif
+        eui_ime_uninstall_message_filter(glfwWindow);
     }
+}
+
+void pollTouchInput(Handle window, float pointerScale) {
+#if defined(__linux__) && !defined(__ANDROID__)
+    core::platform::pollLinuxTouch(static_cast<GLFWwindow*>(window), pointerScale);
+#else
+    (void)window;
+    (void)pointerScale;
+#endif
+}
+
+void resetTouchInput(Handle window) {
+#if defined(_WIN32)
+    const auto tracker = touchTrackers().find(window);
+    if (tracker != touchTrackers().end()) {
+        tracker->second.reset();
+        eui_gesture_reset(static_cast<GLFWwindow*>(window));
+    }
+#elif defined(__linux__) && !defined(__ANDROID__)
+    core::platform::resetLinuxTouch(static_cast<GLFWwindow*>(window));
+#else
+    (void)window;
+#endif
 }
 
 bool queryImeComposition(Handle window, std::string& text, bool& composing) {

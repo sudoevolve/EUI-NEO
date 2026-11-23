@@ -127,6 +127,8 @@ See the [Integration Guide](docs/guides/integration.md) for installation, `Fetch
 
 Optional feature modules live under `modules/` and are documented in the [Modules Guide](docs/guides/modules.md).
 
+Scientific plotting is available as `eui::module_plot`: XY plots, heatmaps, contours, vector fields, 3D/volume views, acquisition waveforms, and PNG/SVG/PDF export. It is disabled by default; set `EUI_ENABLE_MODULES=ON` and `EUI_ENABLE_PLOT=ON`, then link this target explicitly. See [Scientific Plotting](docs/guides/modules.md#科学绘图) for setup and backend limits.
+
 ## Project Layout
 
 ```text
@@ -150,6 +152,7 @@ Start with the [Documentation Index](docs/README.md). It separates application g
 - [Contribution Guidelines](CONTRIBUTING.md)
 - [DSL Design And Current Implementation](docs/guides/dsl.md)
 - [Components](docs/guides/components.md)
+- [Desktop Forms, Menus And Data Selection](docs/guides/desktop-ui.md)
 - [Modules](docs/guides/modules.md)
 - [State Model](docs/guides/state.md)
 - [Layout](docs/guides/layout.md)

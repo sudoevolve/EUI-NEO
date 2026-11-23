@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "components/tooltip.h"
 #include "core/dsl.h"
@@ -44,7 +46,7 @@ struct PieChartStyle {
     float radius = 18.0f;
 };
 
-class PieChartBuilder {
+class PieChartBuilder : public ComponentLayout<PieChartBuilder> {
     struct TooltipItem {
         std::string sourceId;
         std::string text;
@@ -87,7 +89,7 @@ public:
         const float total = valueTotal(displayValues);
         float startAngle = -1.57079632679f;
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".bg")

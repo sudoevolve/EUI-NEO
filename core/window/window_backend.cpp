@@ -583,9 +583,14 @@ bool beginWindowResize(Handle window, WindowResizeEdge edge) {
 #endif
 #include <GLFW/glfw3.h>
 
-#if defined(__linux__) && !defined(__ANDROID__)
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(EUI_GLFW_NO_X11)
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3native.h>
+#endif
+
+#if defined(EUI_BUNDLED_GLFW_WAYLAND_BRIDGE)
+extern "C" int eui_glfw_wayland_window_move(GLFWwindow* window);
+extern "C" int eui_glfw_wayland_window_resize(GLFWwindow* window, int edge);
 #endif
 
 #include "core/platform/ime_bridge.h"
@@ -609,7 +614,7 @@ void configureOpenGLWindowHints() {
 }
 
 bool sendX11MoveResizeForWindow(Handle window, int direction) {
-#if defined(__linux__) && !defined(__ANDROID__)
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(EUI_GLFW_NO_X11)
     GLFWwindow* glfwWindow = static_cast<GLFWwindow*>(window);
     if (!glfwWindow) {
         return false;
@@ -757,10 +762,31 @@ bool framebufferTransparent(Handle window) {
 }
 
 bool beginWindowMove(Handle window) {
+#if defined(__linux__) && !defined(__ANDROID__) && defined(GLFW_PLATFORM_WAYLAND)
+    if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) {
+#if defined(EUI_BUNDLED_GLFW_WAYLAND_BRIDGE)
+        return window != nullptr &&
+               eui_glfw_wayland_window_move(static_cast<GLFWwindow*>(window)) == GLFW_TRUE;
+#else
+        return false;
+#endif
+    }
+#endif
     return sendX11MoveResizeForWindow(window, kNetWmMoveResizeMove);
 }
 
 bool beginWindowResize(Handle window, WindowResizeEdge edge) {
+#if defined(__linux__) && !defined(__ANDROID__) && defined(GLFW_PLATFORM_WAYLAND)
+    if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) {
+#if defined(EUI_BUNDLED_GLFW_WAYLAND_BRIDGE)
+        return window != nullptr &&
+               eui_glfw_wayland_window_resize(
+                   static_cast<GLFWwindow*>(window), static_cast<int>(edge)) == GLFW_TRUE;
+#else
+        return false;
+#endif
+    }
+#endif
     return sendX11MoveResizeForWindow(window, static_cast<int>(edge));
 }
 

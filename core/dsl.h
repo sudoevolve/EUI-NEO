@@ -167,8 +167,10 @@ struct Element {
     std::string accessibleName;
     std::string accessibleValue;
     bool accessibleChecked = false;
+    bool accessibleSelected = false;
     bool accessibleExpanded = false;
     std::string focusGroup;
+    bool activateOnFocus = true;
     std::function<void()> onDismiss;
     bool preserveFocusOnPress = false;
     bool disabled = false;
@@ -192,6 +194,7 @@ struct Element {
     std::function<bool(const KeyEvent&)> onKeyEvent;
     std::function<void(const TextInputEvent&)> onTextInput;
     std::function<void(const ScrollEvent&)> onScroll;
+    std::function<void(const GestureEvent&)> onGesture;
     std::function<void(float)> onScrollOffsetChanged;
     std::function<void(const DragEvent&)> onDrag;
     std::function<void()> onTimer;
@@ -223,6 +226,7 @@ struct Element {
     float scrollDragTravel = 0.0f;
     float scrollThumbTravel = 0.0f;
     float sliderValue = 0.0f;
+    float sliderStep = 0.0f;
     float sliderWidth = 0.0f;
     float sliderKnobSize = 0.0f;
     std::function<void(float)> onSliderValueChanged;
@@ -233,6 +237,8 @@ struct Element {
     std::vector<std::unique_ptr<Element>> children;
     std::vector<const Element*> orderedChildren;
     int subtreeMaxZIndex = 0;
+    bool stackingContext = false;
+    std::function<void()> onOutsidePress;
     bool subtreeNeedsUpdate = true;
     bool subtreeHasDependentVisuals = false;
     bool subtreeHasBackdropBlur = false;
@@ -314,6 +320,11 @@ private:
 template <typename Derived>
 class BuilderBase {
 public:
+    /** @brief 将子树内部层级限制在当前节点内；父容器仅使用此节点的 zIndex 排序。 */
+    Derived& stackingContext(bool value = true) {
+        element_->stackingContext = value;
+        return self();
+    }
     Derived& x(float value) {
         element_->hasX = true;
         element_->x = value;
@@ -560,15 +571,20 @@ public:
         return self();
     }
     Derived& accessibleChecked(bool value) { element_->accessibleChecked = value; return self(); }
+    Derived& accessibleSelected(bool value) { element_->accessibleSelected = value; return self(); }
     Derived& accessibleName(std::string value) { element_->accessibleName = std::move(value); return self(); }
     Derived& accessibleExpanded(bool value) { element_->accessibleExpanded = value; return self(); }
     Derived& accessibleHidden(bool value = true) { element_->accessibleHidden = value; return self(); }
     /** @brief 排除 Tab 停靠，不影响鼠标交互。 */
     Derived& tabStop(bool value) { element_->tabStop = value; return self(); }
     Derived& focusGroup(const std::string& id);
+    /** @brief 方向键切换 focusGroup 成员时是否激活；菜单应关闭，单选组选项保持开启。 */
+    Derived& activateOnFocus(bool value) { element_->activateOnFocus = value; return self(); }
     /** @brief 活动 scope 约束键盘焦点；关闭后恢复之前的焦点。 */
     Derived& focusScope(bool value = true) { element_->focusScope = value; return self(); }
     Derived& onDismiss(std::function<void()> callback) { element_->onDismiss = std::move(callback); return self(); }
+    /** @brief 点击目标位于整个子树之外时调用；不吞掉目标控件的正常点击。 */
+    Derived& onOutsidePress(std::function<void()> callback) { element_->onOutsidePress = std::move(callback); return self(); }
 
     Derived& imeRect(float xValue, float yValue, float widthValue, float heightValue) {
         element_->hasImeRect = true;
@@ -777,6 +793,12 @@ public:
         return self();
     }
 
+    Derived& onGesture(std::function<void(const GestureEvent&)> callback) {
+        element_->interactive = true;
+        element_->onGesture = std::move(callback);
+        return self();
+    }
+
     Derived& onScrollOffsetChanged(std::function<void(float)> callback) {
         element_->interactive = true;
         element_->onScrollOffsetChanged = std::move(callback);
@@ -822,7 +844,7 @@ public:
                          float value,
                          float width,
                          float knobSize,
-                         std::function<void(float)> callback = {});
+                         std::function<void(float)> callback = {}, float step = 0.0f);
     Derived& sliderInputFrom(const std::string& id);
     Derived& sliderFillFrom(const std::string& id);
     Derived& sliderKnobFrom(const std::string& id);
@@ -1427,11 +1449,23 @@ public:
         stack_.clear();
         scopeStack_.clear();
         index_.clear();
+        generatedFocusRingOwner_.clear();
         generatedId_ = 0;
     }
 
     void end() {
         stack_.clear();
+        if (!generatedFocusRingOwner_.empty()) {
+            const auto ringId = generatedFocusRingOwner_ + ".focusRing";
+            if (auto* owner = find(generatedFocusRingOwner_)) {
+                auto& children = owner->children;
+                children.erase(std::remove_if(children.begin(), children.end(), [&](const auto& child) {
+                    return child->id == ringId;
+                }), children.end());
+            }
+            index_.erase(ringId);
+            generatedFocusRingOwner_.clear();
+        }
         // 焦点框复用现有 Rect 渲染与 dirty/layer 失效路径，不增加后端特判。
         Element* focused = find(focusedId_);
         if (focusVisible_ && focused && focused->focusable && !focused->disabled) {
@@ -1447,6 +1481,7 @@ public:
             ring->accessibleHidden = true;
             index_[ring->id] = ring.get();
             focused->children.push_back(std::move(ring));
+            generatedFocusRingOwner_ = focusedId_;
         }
     }
 
@@ -1478,6 +1513,7 @@ public:
                 node.bounds = {element.frame.x, element.frame.y, element.frame.width, element.frame.height};
                 node.disabled = disabled;
                 node.checked = element.accessibleChecked;
+                node.selected = element.accessibleSelected;
                 node.expanded = element.accessibleExpanded;
                 node.focused = element.id == focusedId_;
                 result.push_back(std::move(node));
@@ -1591,9 +1627,13 @@ public:
         releasedStateScopes_.push_back(scope);
     }
 
+    /** @brief 在下次 compose 后请求焦点；目标必须可见、可聚焦且位于活动焦点范围内。 */
+    void requestFocus(const std::string& id) { focusRequest_ = resolveId(id); }
+
     void clearState() {
         stateStore_.clear();
         releasedStateScopes_.clear();
+        focusRequest_.clear();
     }
 
 private:
@@ -1788,7 +1828,9 @@ private:
         for (const auto& child : element.children) {
             element.orderedChildren.push_back(child.get());
             rebuildOrderedChildren(*child);
-            element.subtreeMaxZIndex = std::max(element.subtreeMaxZIndex, child->subtreeMaxZIndex);
+            if (!element.stackingContext) {
+                element.subtreeMaxZIndex = std::max(element.subtreeMaxZIndex, child->subtreeMaxZIndex);
+            }
             element.subtreeNeedsUpdate = element.subtreeNeedsUpdate || child->subtreeNeedsUpdate;
             element.subtreeHasDependentVisuals = element.subtreeHasDependentVisuals || child->subtreeHasDependentVisuals;
             element.subtreeHasBackdropBlur = element.subtreeHasBackdropBlur || child->subtreeHasBackdropBlur;
@@ -1894,6 +1936,8 @@ private:
     bool focusVisible_ = false;
     StateStore stateStore_;
     std::vector<std::string> releasedStateScopes_;
+    std::string focusRequest_;
+    std::string generatedFocusRingOwner_;
     std::size_t generatedId_ = 0;
 };
 
@@ -2012,9 +2056,10 @@ Derived& BuilderBase<Derived>::sliderState(const std::string& id,
                                            float value,
                                            float width,
                                            float knobSize,
-                                           std::function<void(float)> callback) {
+                                           std::function<void(float)> callback, float step) {
     element_->sliderStateId = ui_->resolveId(id);
     element_->sliderValue = std::clamp(value, 0.0f, 1.0f);
+    element_->sliderStep = std::isfinite(step) && step > 0 ? step : 0;
     element_->sliderWidth = std::max(0.0f, width);
     element_->sliderKnobSize = std::max(0.0f, knobSize);
     element_->onSliderValueChanged = std::move(callback);

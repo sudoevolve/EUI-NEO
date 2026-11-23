@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
@@ -11,7 +13,7 @@
 
 namespace components {
 
-class SidebarBuilder {
+class SidebarBuilder : public ComponentLayout<SidebarBuilder> {
 public:
     SidebarBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -53,7 +55,7 @@ public:
         const core::Transition motionTransition = resolveMotionTransition();
         const std::function<void()> requestClose = closeCallback();
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .accessible(core::AccessibleRole::Dialog, "Sidebar").accessibleHidden(!open_).focusScope(open_)
             .onDismiss(requestClose)
             .size(width_, height_)

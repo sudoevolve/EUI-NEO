@@ -1,0 +1,111 @@
+{
+  "date": "2026-09-19",
+  "cpu": "Intel Core i7-12650H",
+  "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU/PCIe/SSE2",
+  "compiler": "MinGW GCC 15.2.0 Release (-Os)",
+  "logical_gallery": [
+    1680,
+    980
+  ],
+  "all_panels_zoom": 2.5,
+  "warmup": 1,
+  "rotation_samples": 12,
+  "single_panel_zoom_samples": 5,
+  "cpu_reference_zoom": 2.628839282033376,
+  "notes": [
+    "Wall time includes compose and glFinish, excludes presentation.",
+    "GPU time measured by GL_TIME_ELAPSED.",
+    "CPU reference is one sample after the subsequent per-panel zoom sequence; camera differs from rotation timings.",
+    "Not FPS or a long-tail percentile estimate."
+  ],
+  "results": [
+    {
+      "backend": "GLFW/OpenGL",
+      "phase": 3,
+      "panels": 6,
+      "dpi": 1,
+      "wall_median_ms": 4.6828,
+      "wall_max_ms": 4.9592,
+      "gpu_median_ms": 4.2752,
+      "slowest_single_panel_median_ms": 2.6234,
+      "cpu_reference_single_sample_ms": 2941.57
+    },
+    {
+      "backend": "GLFW/OpenGL",
+      "phase": 3,
+      "panels": 6,
+      "dpi": 2,
+      "wall_median_ms": 24.6679,
+      "wall_max_ms": 25.37,
+      "gpu_median_ms": 24.106,
+      "slowest_single_panel_median_ms": 6.0039,
+      "cpu_reference_single_sample_ms": 11877.0
+    },
+    {
+      "backend": "GLFW/OpenGL",
+      "phase": 4,
+      "panels": 8,
+      "dpi": 1,
+      "wall_median_ms": 7.3327,
+      "wall_max_ms": 7.7832,
+      "gpu_median_ms": 6.25357,
+      "slowest_single_panel_median_ms": 4.0471,
+      "cpu_reference_single_sample_ms": 4042.15
+    },
+    {
+      "backend": "GLFW/OpenGL",
+      "phase": 4,
+      "panels": 8,
+      "dpi": 2,
+      "wall_median_ms": 17.4262,
+      "wall_max_ms": 75.3766,
+      "gpu_median_ms": 15.9242,
+      "slowest_single_panel_median_ms": 8.7322,
+      "cpu_reference_single_sample_ms": 15909.2
+    },
+    {
+      "backend": "SDL2/OpenGL",
+      "phase": 3,
+      "panels": 6,
+      "dpi": 1,
+      "wall_median_ms": 4.9682,
+      "wall_max_ms": 5.3631,
+      "gpu_median_ms": 4.36429,
+      "slowest_single_panel_median_ms": 2.5551,
+      "cpu_reference_single_sample_ms": 2969.69
+    },
+    {
+      "backend": "SDL2/OpenGL",
+      "phase": 3,
+      "panels": 6,
+      "dpi": 2,
+      "wall_median_ms": 29.7965,
+      "wall_max_ms": 31.3268,
+      "gpu_median_ms": 29.3222,
+      "slowest_single_panel_median_ms": 6.0178,
+      "cpu_reference_single_sample_ms": 11735.5
+    },
+    {
+      "backend": "SDL2/OpenGL",
+      "phase": 4,
+      "panels": 8,
+      "dpi": 1,
+      "wall_median_ms": 7.2747,
+      "wall_max_ms": 7.5431,
+      "gpu_median_ms": 6.2423,
+      "slowest_single_panel_median_ms": 4.2646,
+      "cpu_reference_single_sample_ms": 4093.97
+    },
+    {
+      "backend": "SDL2/OpenGL",
+      "phase": 4,
+      "panels": 8,
+      "dpi": 2,
+      "wall_median_ms": 18.0983,
+      "wall_max_ms": 60.6866,
+      "gpu_median_ms": 16.8479,
+      "slowest_single_panel_median_ms": 8.6667,
+      "cpu_reference_single_sample_ms": 15671.0
+    }
+  ]
+}

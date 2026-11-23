@@ -8,6 +8,7 @@
 | --- | --- |
 | [集成指南](guides/integration.md) | FetchContent、源码接入、安装 SDK、后端选择 |
 | [组件](guides/components.md) | 控件、虚拟表格、实时曲线、长文本输入 |
+| [桌面表单与菜单](guides/desktop-ui.md) | 逻辑尺寸、Form、Dropdown、Slider 范围、表格选择、MenuBar |
 | [键盘与控件语义](guides/keyboard-accessibility.md) | Tab 导航、焦点、弹层、语义快照 |
 | [DSL](guides/dsl.md) | Builder、图元、属性、应用入口 |
 | [状态](guides/state.md) | 页面状态、Signal、状态作用域 |
@@ -20,7 +21,7 @@
 | [网络](guides/network.md) | 文本与图片请求、结果缓存 |
 | [异步任务](guides/async.md) | 执行、取消、重启和回调生命周期 |
 | [平台能力](guides/platform.md) | 文件打开/保存、目录选择、窗口、托盘 |
-| [可选模块](guides/modules.md) | 键盘、串口模块的构建和接入 |
+| [可选模块](guides/modules.md) | 键盘、串口、科学绘图模块的构建和接入 |
 | [Markdown 视口](guides/markdown-viewport.md) | 只构建可见文本及缓存边界 |
 | [Shadertoy](guides/shadertoy.md) | Pass graph、uniform、双后端契约 |
 

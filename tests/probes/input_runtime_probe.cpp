@@ -16,6 +16,7 @@
 #endif
 
 #include <iostream>
+#include <vector>
 
 namespace {
 
@@ -72,6 +73,7 @@ int main() {
     int defaultFocusedKeys = 0;
     int applicationKeys = 0;
     int clicks = 0;
+    std::vector<core::GestureEvent> gestures;
 
     core::dsl::Runtime runtime;
     runtime.setKeyEventHandler([&](const core::KeyEvent&) { ++applicationKeys; });
@@ -101,6 +103,9 @@ int main() {
                 })
                 .onContextMenu([&](const core::PointerEvent&, const core::Rect&) {
                     ++contextMenus;
+                })
+                .onGesture([&](const core::GestureEvent& event) {
+                    gestures.push_back(event);
                 })
                 .onKeyEvent([&](const core::KeyEvent& event) {
                     ++focusedKeys;
@@ -152,6 +157,28 @@ int main() {
                              core::PointerAction::Release, modifiers);
     runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
 
+    core::GestureEvent gesture;
+    gesture.phase = core::GesturePhase::Begin;
+    gesture.x = 20.0;
+    gesture.y = 20.0;
+    gesture.touchCount = 2;
+    core::queueGestureInput(window, gesture);
+    gesture.phase = core::GesturePhase::Update;
+    gesture.x = 150.0;
+    gesture.scale = 1.5;
+    gesture.rotation = 12.0;
+    gesture.deltaX = 3.0;
+    core::queueGestureInput(window, gesture);
+    gesture.phase = core::GesturePhase::End;
+    core::queueGestureInput(window, gesture);
+    runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
+
+    gesture.phase = core::GesturePhase::Begin;
+    gesture.x = 30.0;
+    core::queueGestureInput(window, gesture);
+    runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
+    runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f, false);
+
     core::queuePointerButton(window, 20.0, 20.0, core::PointerButton::Left,
                              core::PointerAction::Press, modifiers, true);
     runtime.update(window, 1.0f / 60.0f, 1.0f, 1.0f);
@@ -174,7 +201,17 @@ int main() {
 
     bool passed = presses == 6 && releases == 6 &&
         middleDrags > 0 && rightDrags > 0 && contextMenus == 1 &&
-        focusedKeys == 2 && defaultFocusedKeys == 0 && applicationKeys == 1 && clicks == 5;
+        focusedKeys == 2 && defaultFocusedKeys == 0 && applicationKeys == 1 && clicks == 5 &&
+        gestures.size() == 5 &&
+        gestures[0].phase == core::GesturePhase::Begin &&
+        gestures[1].phase == core::GesturePhase::Update &&
+        gestures[1].x == 150.0 &&
+        gestures[1].scale == 1.5 && gestures[1].rotation == 12.0 &&
+        gestures[1].deltaX == 3.0 &&
+        gestures[2].phase == core::GesturePhase::End &&
+        gestures[3].phase == core::GesturePhase::Begin &&
+        gestures[4].phase == core::GesturePhase::Cancel &&
+        gestures[4].x == 30.0;
     if (!passed) {
         std::cerr << "Input Runtime dispatch failed: presses=" << presses
                   << " releases=" << releases
@@ -186,6 +223,60 @@ int main() {
                   << " defaultFocusedKeys=" << defaultFocusedKeys
                   << " applicationKeys=" << applicationKeys << "\n";
     }
+
+    std::vector<char> touchOrder;
+    runtime.compose("touch-order", 200.f, 160.f, [&](core::dsl::Ui& ui, const core::dsl::Screen&) {
+        ui.rect("touch-target").size(120.f, 100.f)
+            .onPress([&](const core::PointerEvent&, const core::Rect&) { touchOrder.push_back('P'); })
+            .onRelease([&](const core::PointerEvent& event, const core::Rect&) {
+                if (event.action == core::PointerAction::Cancel) touchOrder.push_back('C');
+            })
+            .onClick([&] { touchOrder.push_back('X'); })
+            .onGesture([&](const core::GestureEvent& event) {
+                if (event.phase == core::GesturePhase::Begin) touchOrder.push_back('G');
+            }).build();
+    });
+    core::queuePointerButton(window, 20.0, 20.0, core::PointerButton::Left,
+                             core::PointerAction::Press, modifiers, true);
+    core::cancelTouchPointerInput(window);
+    gesture = {};
+    gesture.phase = core::GesturePhase::Begin;
+    gesture.x = 20.0;
+    gesture.y = 20.0;
+    core::queueGestureInput(window, gesture);
+    gesture.phase = core::GesturePhase::End;
+    core::queueGestureInput(window, gesture);
+    core::queuePointerButton(window, 20.0, 20.0, core::PointerButton::Left,
+                             core::PointerAction::Press, modifiers, true);
+    core::queuePointerButton(window, 20.0, 20.0, core::PointerButton::Left,
+                             core::PointerAction::Release, modifiers, true);
+    runtime.update(window, 1.f / 60.f, 1.f, 1.f);
+    passed = passed && touchOrder == std::vector<char>{'P', 'C', 'G', 'P', 'X'};
+    if (touchOrder != std::vector<char>{'P', 'C', 'G', 'P', 'X'}) {
+        std::cerr << "Touch and gesture events must retain their cross-stream order\n";
+    }
+
+    int backgroundGestures = 0;
+    const auto composeGestureBlock = [&](bool disabled) {
+        runtime.compose("gesture.block", 200.f, 160.f, [&](core::dsl::Ui& ui, const core::dsl::Screen&) {
+            ui.rect("background").size(100.f, 100.f)
+                .onGesture([&](const core::GestureEvent&) { ++backgroundGestures; }).build();
+            ui.rect("overlay").size(100.f, 100.f).blockPointer().disabled(disabled).build();
+        });
+        gesture = {};
+        gesture.x = 20;
+        gesture.y = 20;
+        gesture.phase = core::GesturePhase::Begin;
+        core::queueGestureInput(window, gesture);
+        gesture.phase = core::GesturePhase::End;
+        core::queueGestureInput(window, gesture);
+        runtime.update(window, 1.f / 60.f, 1.f, 1.f);
+    };
+    composeGestureBlock(false);
+    passed = passed && backgroundGestures == 0;
+    composeGestureBlock(true);
+    passed = passed && backgroundGestures == 2;
+    if (backgroundGestures != 2) std::cerr << "Gesture overlay blocking or disabled hit testing failed\n";
 
     // 经由 Runtime 的命中、捕获和焦点分发验证输入框滚动条，而非直接调用回调。
     std::string document;

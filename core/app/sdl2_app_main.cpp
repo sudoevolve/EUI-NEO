@@ -1,3 +1,4 @@
+#include "eui/detail/window_size.h"
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -24,6 +25,7 @@
 #include "core/app/dsl_window_runtime.h"
 #include "core/app/main_window_runtime.h"
 #include "core/input/input_state.h"
+#include "core/input/touch_tracker.h"
 #include "core/platform/platform.h"
 #include "core/platform/native_bridge.h"
 #include "core/render/render_backend.h"
@@ -279,28 +281,17 @@ core::PointerButton pointerButton(Uint8 button) {
 }
 
 struct TouchState {
-    SDL_TouchID device = 0;
-    SDL_FingerID id = 0;
-    float x = 0.0f;
-    float y = 0.0f;
-    bool active = false;
+    explicit TouchState(SDL_Window* window, int width, int height, std::uint64_t generation)
+        : tracker(window), width(width), height(height), generation(generation) {}
+    core::input::TouchTracker tracker;
+    int width;
+    int height;
+    std::uint64_t generation;
 };
 
 std::unordered_map<SDL_Window*, TouchState>& touchStates() {
     static std::unordered_map<SDL_Window*, TouchState> states;
     return states;
-}
-
-bool touchPosition(SDL_Window* window, float normalizedX, float normalizedY, double& x, double& y) {
-    int width = 0;
-    int height = 0;
-    SDL_GetWindowSize(window, &width, &height);
-    if (width <= 0 || height <= 0) {
-        return false;
-    }
-    x = static_cast<double>(normalizedX) * width;
-    y = static_cast<double>(normalizedY) * height;
-    return true;
 }
 
 bool processInputEvent(SDL_Window* window,
@@ -309,80 +300,64 @@ bool processInputEvent(SDL_Window* window,
                        bool& repaintRequested) {
     repaintRequested = false;
     switch (event.type) {
-    case SDL_FINGERDOWN: {
+    case SDL_FINGERDOWN:
+    case SDL_FINGERMOTION:
+    case SDL_FINGERUP: {
+        if (event.tfinger.touchId == SDL_MOUSE_TOUCHID) return true;
+        if (event.tfinger.windowID != SDL_GetWindowID(window)) {
+            return true;
+        }
         if (!inputEnabled) {
             touchStates().erase(window);
             core::cancelInput(window);
             return true;
         }
-        TouchState& touch = touchStates()[window];
-        if (touch.active) {
+        auto state = touchStates().find(window);
+        const std::uint64_t generation = core::detail::inputQueue(window).touchGeneration;
+        if (state != touchStates().end() && state->second.generation != generation) {
+            touchStates().erase(state);
+            state = touchStates().end();
+        }
+        int width = 0;
+        int height = 0;
+        SDL_GetWindowSize(window, &width, &height);
+        if (width <= 0 || height <= 0) {
+            if (state != touchStates().end()) {
+                core::cancelTouchPointerInput(window);
+                core::cancelGestureInput(window);
+                core::clearTouchScrollInput(window);
+                touchStates().erase(state);
+            }
             return true;
         }
-        double x = 0.0;
-        double y = 0.0;
-        if (!touchPosition(window, event.tfinger.x, event.tfinger.y, x, y)) {
-            return true;
+        if (state == touchStates().end()) {
+            if (event.type != SDL_FINGERDOWN) return true;
+            state = touchStates().try_emplace(window, window, width, height, generation).first;
         }
-        touch = {event.tfinger.touchId, event.tfinger.fingerId,
-                 event.tfinger.x, event.tfinger.y, true};
-        core::queuePointerButton(window, x, y, core::PointerButton::Left,
-                                 core::PointerAction::Press,
-                                 core::detail::currentModifiers(window), true);
+        TouchState& touch = state->second;
+        if (touch.width != width || touch.height != height) {
+            touch.tracker.rescale(static_cast<double>(width) / touch.width,
+                                  static_cast<double>(height) / touch.height);
+            touch.width = width;
+            touch.height = height;
+        }
+        const double x = static_cast<double>(event.tfinger.x) * width;
+        const double y = static_cast<double>(event.tfinger.y) * height;
+        if (event.type == SDL_FINGERDOWN) {
+            touch.tracker.down(event.tfinger.touchId, event.tfinger.fingerId, x, y);
+        } else if (event.type == SDL_FINGERMOTION) {
+            touch.tracker.move(event.tfinger.touchId, event.tfinger.fingerId, x, y, pointerScale(window));
+        } else {
+            touch.tracker.up(event.tfinger.touchId, event.tfinger.fingerId, x, y);
+            if (touch.tracker.empty()) touchStates().erase(state);
+        }
         repaintRequested = true;
         return true;
     }
-    case SDL_FINGERMOTION: {
-        if (!inputEnabled) {
-            touchStates().erase(window);
-            core::cancelInput(window);
-            return true;
-        }
-        auto state = touchStates().find(window);
-        if (state == touchStates().end() || !state->second.active ||
-            state->second.device != event.tfinger.touchId ||
-            state->second.id != event.tfinger.fingerId) {
-            return true;
-        }
-        const float previousX = state->second.x;
-        const float previousY = state->second.y;
-        state->second.x = event.tfinger.x;
-        state->second.y = event.tfinger.y;
-        double x = 0.0;
-        double y = 0.0;
-        if (touchPosition(window, state->second.x, state->second.y, x, y)) {
-            int width = 0;
-            int height = 0;
-            SDL_GetWindowSize(window, &width, &height);
-            const float scale = pointerScale(window);
-            core::queueTouchScrollInput(window,
-                                        static_cast<double>(state->second.x - previousX) * width * scale,
-                                        static_cast<double>(state->second.y - previousY) * height * scale);
-            core::queuePointerMotion(window, x, y, core::PointerButton::Left,
-                                     core::detail::currentModifiers(window), true);
-            repaintRequested = true;
-        }
-        return true;
-    }
-    case SDL_FINGERUP: {
-        auto state = touchStates().find(window);
-        if (state != touchStates().end() && state->second.device == event.tfinger.touchId &&
-            state->second.id == event.tfinger.fingerId) {
-            double x = 0.0;
-            double y = 0.0;
-            if (inputEnabled && touchPosition(window, event.tfinger.x, event.tfinger.y, x, y)) {
-                core::queuePointerButton(window, x, y, core::PointerButton::Left,
-                                         core::PointerAction::Release,
-                                         core::detail::currentModifiers(window), true);
-            } else if (inputEnabled) {
-                core::cancelPointerInput(window);
-            }
-            touchStates().erase(state);
-        }
-        repaintRequested = inputEnabled;
-        return true;
-    }
     case SDL_MOUSEMOTION:
+        if (event.motion.which == SDL_TOUCH_MOUSEID) {
+            return true;
+        }
         core::queuePointerMotion(window,
                                  event.motion.x,
                                  event.motion.y,
@@ -392,6 +367,9 @@ bool processInputEvent(SDL_Window* window,
         return true;
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
+        if (event.button.which == SDL_TOUCH_MOUSEID) {
+            return true;
+        }
         if (const core::PointerButton button = pointerButton(event.button.button);
             button != core::PointerButton::None) {
             core::queuePointerButton(window,
@@ -557,6 +535,12 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
         return {};
     }
 
+    if (request.logicalSize) {
+        const auto size = app::detail::nativeWindowSize(request.width, request.height,
+            dpiScale(window), pointerScale(window), app::uiScale());
+        SDL_SetWindowSize(window, size.first, size.second);
+    }
+
     auto managed = std::make_unique<ManagedWindow>();
     managed->window = window;
     managed->parentWindow = parentWindow;
@@ -712,6 +696,13 @@ bool updateManagedWindow(ManagedWindow& managed, float deltaSeconds, bool update
 
 } // namespace
 
+#if defined(EUI_SDL_INPUT_TESTING)
+bool eui_test_sdl_input_event(SDL_Window* window, const SDL_Event& event, bool inputEnabled) {
+    bool repaintRequested = false;
+    return processInputEvent(window, event, inputEnabled, repaintRequested);
+}
+#endif
+
 int eui_app_run() {
     core::platform::repairCurrentWorkingDirectory();
     SDL_SetMainReady();
@@ -754,6 +745,12 @@ int eui_app_run() {
     if (window == nullptr) {
         SDL_Quit();
         return -1;
+    }
+
+    if (app::dslAppConfig().logicalWindowSizeValue) {
+        const auto size = app::detail::nativeWindowSize(app::initialWindowWidth(), app::initialWindowHeight(),
+            dpiScale(window), pointerScale(window), app::uiScale());
+        SDL_SetWindowSize(window, size.first, size.second);
     }
 
     auto renderBackend = core::render::createRenderBackend(window, nullptr, app::windowTransparent());

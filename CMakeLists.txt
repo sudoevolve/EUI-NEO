@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(EUI-NEO VERSION 0.6.4)
+project(EUI-NEO VERSION 0.6.5)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -19,6 +19,7 @@ option(EUI_BUILD_TEST_FIXTURES "Build internal test fixture applications." OFF)
 option(EUI_BUILD_FFMPEG_VIDEO_EXAMPLE "Build the optional FFmpeg video playback example." OFF)
 option(EUI_BUILD_SHARED "Build eui_neo as a shared library instead of a static library." OFF)
 option(EUI_ENABLE_INSTALL "Install EUI-NEO library, headers, and CMake package files." ${EUI_NEO_TOP_LEVEL_DEFAULT})
+option(EUI_INSTALL_DEMO_ASSETS "Include demo media and fonts in the installed SDK; review redistribution rights before shipping." ON)
 option(EUI_ENABLE_MODULES "Build optional EUI-NEO modules when their directories are present." ${EUI_NEO_TOP_LEVEL_DEFAULT})
 option(EUI_VULKAN_LOW_LATENCY_PRESENT "Prefer low-latency Vulkan presentation when available." OFF)
 option(EUI_ENABLE_TRAY "Enable the system tray backend. On Linux, configuration fails when neither glib/gio (SNI) nor GTK3 + libappindicator is available; turn this OFF to build without tray support." ON)
@@ -107,6 +108,7 @@ if(APPLE)
     set_source_files_properties(core/platform/native_bridge.c PROPERTIES LANGUAGE OBJC)
     set_source_files_properties(core/platform/tray_bridge.c PROPERTIES LANGUAGE OBJC)
     set_source_files_properties(core/platform/ime_bridge.c PROPERTIES LANGUAGE OBJC)
+    set_source_files_properties(core/platform/gesture_bridge.c PROPERTIES LANGUAGE OBJC)
 endif()
 
 function(eui_apply_compile_options target_name)
@@ -249,7 +251,13 @@ elseif(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
 endif()
 
 if(EUI_WINDOW_BACKEND STREQUAL "glfw")
-    list(APPEND CORE_SOURCES core/platform/ime_bridge.c)
+    list(APPEND CORE_SOURCES
+        core/platform/gesture_bridge.c
+        core/platform/ime_bridge.c
+    )
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        list(APPEND CORE_SOURCES core/platform/linux_touch.cpp)
+    endif()
 endif()
 
 # -----------------------------------------------------------------------------
@@ -334,6 +342,7 @@ elseif(EUI_RESOLVED_RENDER_BACKEND STREQUAL "vulkan")
     target_link_libraries(eui_neo PUBLIC Vulkan::Vulkan)
 endif()
 
+set(EUI_LINUX_TOUCH_USES_X11 OFF)
 if(EUI_WINDOW_BACKEND STREQUAL "sdl2")
     if(NOT TARGET SDL2::SDL2)
         find_package(SDL2 CONFIG REQUIRED)
@@ -343,6 +352,88 @@ if(EUI_WINDOW_BACKEND STREQUAL "sdl2")
     set(EUI_APP_MAIN_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/core/app/sdl2_app_main.cpp")
 else()
     target_link_libraries(eui_neo PUBLIC glfw)
+    if(WIN32)
+        target_link_libraries(eui_neo PUBLIC comctl32)
+    endif()
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(EUI_TOUCH_GLFW_X11 OFF)
+        set(EUI_TOUCH_GLFW_WAYLAND OFF)
+        set(EUI_TOUCH_GLFW_BACKENDS_KNOWN ON)
+        get_target_property(EUI_GLFW_IMPORTED glfw IMPORTED)
+        if(EUI_GLFW_IMPORTED)
+            include(CheckCXXSourceCompiles)
+            set(EUI_SAVED_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
+            set(CMAKE_REQUIRED_LIBRARIES glfw)
+            check_cxx_source_compiles([=[
+                #define GLFW_EXPOSE_NATIVE_X11
+                #include <GLFW/glfw3.h>
+                #include <GLFW/glfw3native.h>
+                int main() { return glfwGetX11Display() == nullptr; }
+            ]=] EUI_GLFW_NATIVE_X11_AVAILABLE)
+            check_cxx_source_compiles([=[
+                #define GLFW_EXPOSE_NATIVE_WAYLAND
+                #include <GLFW/glfw3.h>
+                #include <GLFW/glfw3native.h>
+                #ifndef GLFW_PLATFORM_WAYLAND
+                #error GLFW 3.4 is required
+                #endif
+                int main() { return glfwGetWaylandDisplay() == nullptr; }
+            ]=] EUI_GLFW_NATIVE_WAYLAND_AVAILABLE)
+            set(CMAKE_REQUIRED_LIBRARIES "${EUI_SAVED_REQUIRED_LIBRARIES}")
+            set(EUI_TOUCH_GLFW_X11 ${EUI_GLFW_NATIVE_X11_AVAILABLE})
+            set(EUI_TOUCH_GLFW_WAYLAND ${EUI_GLFW_NATIVE_WAYLAND_AVAILABLE})
+        elseif(EUI_OWNS_GLFW_TARGET OR DEFINED GLFW_BUILD_X11 OR DEFINED GLFW_BUILD_WAYLAND)
+            set(EUI_TOUCH_GLFW_X11 ${GLFW_BUILD_X11})
+            set(EUI_TOUCH_GLFW_WAYLAND ${GLFW_BUILD_WAYLAND})
+        else()
+            set(EUI_TOUCH_GLFW_BACKENDS_KNOWN OFF)
+            message(WARNING "Cannot determine native touch backends of the supplied GLFW target")
+        endif()
+        if(EUI_TOUCH_GLFW_X11)
+            find_package(X11 REQUIRED)
+            if(NOT X11_Xi_FOUND)
+                message(FATAL_ERROR "Linux GLFW touch input requires the XInput2 development files")
+            endif()
+            target_compile_definitions(eui_neo PRIVATE EUI_LINUX_TOUCH_X11=1)
+            target_include_directories(eui_neo PRIVATE ${X11_Xi_INCLUDE_PATH})
+            target_link_libraries(eui_neo PUBLIC X11::X11 X11::Xi)
+            set(EUI_LINUX_TOUCH_USES_X11 ON)
+        elseif(EUI_TOUCH_GLFW_BACKENDS_KNOWN)
+            target_compile_definitions(eui_neo PRIVATE EUI_GLFW_NO_X11=1)
+        endif()
+        if(EUI_TOUCH_GLFW_WAYLAND)
+            if(EUI_OWNS_GLFW_TARGET)
+                target_compile_definitions(eui_neo PRIVATE EUI_BUNDLED_GLFW_WAYLAND_BRIDGE=1)
+            endif()
+            find_package(PkgConfig REQUIRED)
+            pkg_check_modules(EUI_TOUCH_WAYLAND REQUIRED wayland-client)
+            pkg_get_variable(EUI_WAYLAND_PROTOCOL_DIR wayland-protocols pkgdatadir)
+            set(EUI_POINTER_GESTURES_XML
+                "${EUI_WAYLAND_PROTOCOL_DIR}/unstable/pointer-gestures/pointer-gestures-unstable-v1.xml")
+            if(NOT EXISTS "${EUI_POINTER_GESTURES_XML}")
+                message(FATAL_ERROR "Linux GLFW gestures require the wayland-protocols development files")
+            endif()
+            find_program(EUI_WAYLAND_SCANNER wayland-scanner)
+            if(NOT EUI_WAYLAND_SCANNER)
+                message(FATAL_ERROR "Linux GLFW gestures require wayland-scanner")
+            endif()
+            set(EUI_POINTER_GESTURES_HEADER "${CMAKE_CURRENT_BINARY_DIR}/eui-pointer-gestures.h")
+            set(EUI_POINTER_GESTURES_CODE "${CMAKE_CURRENT_BINARY_DIR}/eui-pointer-gestures.c")
+            add_custom_command(
+                OUTPUT "${EUI_POINTER_GESTURES_HEADER}" "${EUI_POINTER_GESTURES_CODE}"
+                COMMAND "${EUI_WAYLAND_SCANNER}" client-header "${EUI_POINTER_GESTURES_XML}" "${EUI_POINTER_GESTURES_HEADER}"
+                COMMAND "${EUI_WAYLAND_SCANNER}" private-code "${EUI_POINTER_GESTURES_XML}" "${EUI_POINTER_GESTURES_CODE}"
+                DEPENDS "${EUI_POINTER_GESTURES_XML}"
+                VERBATIM)
+            target_sources(eui_neo PRIVATE "${EUI_POINTER_GESTURES_HEADER}" "${EUI_POINTER_GESTURES_CODE}")
+            target_include_directories(eui_neo PRIVATE "${CMAKE_CURRENT_BINARY_DIR}" ${EUI_TOUCH_WAYLAND_INCLUDE_DIRS})
+            target_compile_definitions(eui_neo PRIVATE EUI_LINUX_TOUCH_WAYLAND=1)
+            target_link_libraries(eui_neo PUBLIC wayland-client)
+        endif()
+        if(NOT EUI_TOUCH_GLFW_X11 AND NOT EUI_TOUCH_GLFW_WAYLAND)
+            message(WARNING "The supplied GLFW target does not expose a supported Linux touch backend")
+        endif()
+    endif()
     set(EUI_APP_MAIN_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/core/app/glfw_app_main.cpp")
 endif()
 
@@ -625,7 +716,14 @@ if(EUI_BUILD_USER_APPS)
 endif()
 
 if(EUI_BUILD_TEST_FIXTURES)
+    if(WIN32 AND EUI_WINDOW_BACKEND STREQUAL "glfw")
+        target_compile_definitions(eui_neo PRIVATE EUI_GESTURE_TESTING=1)
+    endif()
     enable_testing()
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND EUI_WINDOW_BACKEND STREQUAL "glfw")
+        target_compile_definitions(eui_neo PRIVATE EUI_LINUX_TOUCH_TESTING=1)
+    endif()
 
     file(GLOB TEST_FIXTURE_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/*.cpp")
     foreach(fixture_source ${TEST_FIXTURE_SOURCES})
@@ -650,6 +748,16 @@ if(EUI_BUILD_TEST_FIXTURES)
         target_compile_definitions(${probe_name} PRIVATE EUI_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
         add_test(NAME ${probe_name} COMMAND ${probe_name} --frames 3)
         set_tests_properties(${probe_name} PROPERTIES LABELS "probe")
+        if(probe_name STREQUAL "sdl_touch_probe")
+            set_tests_properties(${probe_name} PROPERTIES SKIP_RETURN_CODE 77)
+            if(EUI_WINDOW_BACKEND STREQUAL "sdl2")
+                target_sources(${probe_name} PRIVATE core/app/sdl2_app_main.cpp)
+                target_compile_definitions(${probe_name} PRIVATE EUI_APP_RUNNER_LIBRARY EUI_SDL_INPUT_TESTING)
+            endif()
+        endif()
+        if(probe_name STREQUAL "linux_touch_probe" OR probe_name STREQUAL "windows_touch_probe")
+            set_tests_properties(${probe_name} PROPERTIES SKIP_RETURN_CODE 77)
+        endif()
         if(probe_name STREQUAL "markdown_viewport_probe")
             set_tests_properties(${probe_name} PROPERTIES SKIP_RETURN_CODE 77)
         endif()
@@ -728,6 +836,12 @@ if(EUI_BUILD_TEST_FIXTURES)
     endforeach()
 endif()
 
+# 模块在发现阶段登记脚本，在 app/test helpers 就绪后注册自己的示例与测试。
+get_property(EUI_NEO_MODULE_BUILD_SCRIPTS GLOBAL PROPERTY EUI_NEO_MODULE_BUILD_SCRIPTS)
+foreach(module_build_script IN LISTS EUI_NEO_MODULE_BUILD_SCRIPTS)
+    include("${module_build_script}")
+endforeach()
+
 if(Python3_Interpreter_FOUND)
     add_custom_target(eui_check_vulkan_shaders
         COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/generate_vulkan_shaders.py" --check
@@ -755,9 +869,10 @@ if(EUI_ENABLE_INSTALL)
         DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/app"
         RENAME app_main.cpp
     )
-    install(DIRECTORY assets/
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/assets"
-    )
+    if(EUI_INSTALL_DEMO_ASSETS)
+        install(DIRECTORY assets/
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/eui-neo/assets")
+    endif()
     if(TARGET eui_shadertoy_wrap)
         install(TARGETS eui_shadertoy_wrap
             EXPORT EuiNeoTargets
@@ -788,16 +903,25 @@ if(EUI_ENABLE_INSTALL)
         FILES_MATCHING PATTERN "*.h"
         PATTERN "detail" EXCLUDE
     )
-    install(FILES include/eui/detail/dsl_app_impl.h
+    install(FILES
+        include/eui/detail/dsl_app_impl.h
+        include/eui/detail/window_size.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui/detail
     )
     set(EUI_NEO_INSTALL_HEADER_DIRS components core)
     if(EUI_ENABLE_MODULES AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/modules")
         list(APPEND EUI_NEO_INSTALL_HEADER_DIRS modules)
     endif()
+    # 自行安装公开头文件的模块从通用目录扫描中排除，避免实现头或测试头泄漏。
+    get_property(EUI_NEO_MODULE_OWN_HEADER_DIRS GLOBAL PROPERTY EUI_NEO_MODULE_OWN_HEADER_DIRS)
+    set(EUI_NEO_MODULE_HEADER_EXCLUSIONS)
+    foreach(module_header_dir IN LISTS EUI_NEO_MODULE_OWN_HEADER_DIRS)
+        list(APPEND EUI_NEO_MODULE_HEADER_EXCLUSIONS PATTERN "modules/${module_header_dir}" EXCLUDE)
+    endforeach()
     install(DIRECTORY ${EUI_NEO_INSTALL_HEADER_DIRS}
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/eui-neo
         FILES_MATCHING PATTERN "*.h"
+        ${EUI_NEO_MODULE_HEADER_EXCLUSIONS}
     )
     if(EUI_OWNS_GLFW_TARGET AND TARGET glfw)
         install(DIRECTORY "${EUI_GLFW_DIR}/include/GLFW"
@@ -887,6 +1011,10 @@ endif()
 
 if(EUI_NEO_WINDOW_BACKEND STREQUAL "sdl2")
     find_dependency(SDL2 CONFIG)
+endif()
+
+if(@EUI_LINUX_TOUCH_USES_X11@)
+    find_dependency(X11)
 endif()
 
 if(NOT WIN32)

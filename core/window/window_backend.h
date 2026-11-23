@@ -33,14 +33,18 @@ void setImeCursorRect(Handle window, float x, float y, float width, float height
 // honors the transparent request; SDL2 and compositor-less X11 do not).
 bool framebufferTransparent(Handle window);
 // Hand an interactive move/resize to the window manager (EWMH
-// _NET_WM_MOVERESIZE on X11). Per-frame programmatic moves arrive as
-// ConfigureRequests and can be clamped back into the workarea, so undecorated
-// windows should delegate title-bar drags this way. Returns false when the
-// current platform/backend cannot delegate; callers keep their own fallback.
+// _NET_WM_MOVERESIZE on X11 or xdg_toplevel on bundled GLFW/Wayland). Per-frame
+// programmatic moves arrive as ConfigureRequests and can be clamped back into
+// the workarea, so undecorated windows should delegate title-bar drags this
+// way. Wayland calls require an xdg-shell-backed window and an active left
+// pointer press. Returns false when the current platform/backend cannot
+// delegate; callers keep their own fallback.
 bool beginWindowMove(Handle window);
 bool beginWindowResize(Handle window, WindowResizeEdge edge);
 void installInputCallbacks(Handle window);
 void uninstallInputCallbacks(Handle window);
+void pollTouchInput(Handle window, float pointerScale);
+void resetTouchInput(Handle window);
 bool queryImeComposition(Handle window, std::string& text, bool& composing);
 
 } // namespace core::window

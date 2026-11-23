@@ -1,5 +1,6 @@
 #pragma once
-#pragma once
+
+#include "components/layout.h"
 
 #include "components/theme.h"
 #include "core/dsl.h"
@@ -31,7 +32,7 @@ struct TabsStyle {
     core::Color border;
 };
 
-class TabsBuilder {
+class TabsBuilder : public ComponentLayout<TabsBuilder> {
 public:
     TabsBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -64,10 +65,9 @@ public:
         const int selected = count > 0 ? std::clamp(selected_, 0, count - 1) : 0;
         const float tabWidth = count > 0 ? width_ / static_cast<float>(count) : width_;
         const float labelLineHeight = fontSize;
-        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f) - metrics_.spacing.micro;
         const std::function<void(int)> onChange = onChange_;
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".line")
@@ -98,14 +98,14 @@ public:
 
                     ui_.text(id_ + ".label." + std::to_string(index))
                         .x(x)
-                        .y(labelY)
-                        .size(tabWidth, labelLineHeight)
+                        .y(0)
+                        .size(tabWidth, height_)
                         .text(items_[index])
                         .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(active ? style_.selectedText : style_.text)
                         .horizontalAlign(core::HorizontalAlign::Center)
-                        .verticalAlign(core::VerticalAlign::Top)
+                        .verticalAlign(core::VerticalAlign::Center)
                         .transition(transition_)
                         .animate(core::AnimProperty::TextColor)
                         .build();

@@ -12,7 +12,7 @@
 // WindowResizeEdge corners/edges.
 inline constexpr int kNetWmMoveResizeMove = 8;
 
-#if defined(__linux__) && !defined(__ANDROID__)
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(EUI_GLFW_NO_X11)
 
 #include <dlfcn.h>
 #include <X11/Xlib.h>

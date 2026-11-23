@@ -21,7 +21,18 @@ inline void Runtime::compose(const std::string& pageId, float logicalWidth, floa
     composeFn(ui_, screen);
     ui_.end();
     ui_.layout(screen);
+    const auto composedFocus = focusedId_;
     synchronizeFocusScope();
+    if (!ui_.focusRequest_.empty()) {
+        const auto request = std::move(ui_.focusRequest_);
+        ui_.focusRequest_.clear();
+        const auto order = focusOrder();
+        if (std::find(order.begin(), order.end(), request) != order.end()) setFocusedId(request);
+    }
+    if (focusedId_ != composedFocus) {
+        ui_.end();
+        ui_.layout(screen);
+    }
     elementStructure_ = collectElementStructure();
     syncScrollStateBindings();
     for (const std::string& scope : ui_.consumeReleasedStateScopes()) {
@@ -55,15 +66,20 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
     if (updateFrameToken_ == 0) {
         ++updateFrameToken_;
     }
-    if (!inputEnabled) {
+    if (inputEnabled) {
+        core::window::pollTouchInput(window, pointerScale);
+    } else {
         cancelInput(window);
         touchScrollMoved_ = false;
         touchScrollDistance_ = 0.0;
     }
-    std::vector<PointerEvent> pointerEvents = consumePointerEvents(window, pointerScale);
+    std::vector<std::uint64_t> pointerSequences;
+    std::vector<std::uint64_t> gestureSequences;
+    std::vector<PointerEvent> pointerEvents = consumePointerEvents(window, pointerScale, &pointerSequences);
     std::vector<KeyEvent> keyEvents = consumeKeyEvents(window);
     TextInputEvent textInputEvent = consumeTextInput(window);
     ScrollEvent scrollEvent = consumeScrollInput(window);
+    std::vector<GestureEvent> gestureEvents = consumeGestureInput(window, pointerScale, &gestureSequences);
     for (const PointerEvent& event : pointerEvents) {
         if (event.touch && event.isPress(PointerButton::Left)) {
             touchScrollMoved_ = false;
@@ -105,17 +121,30 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
     }
     updateScrollMotion(deltaSeconds);
 
-    for (std::size_t index = 0; index < pointerEvents.size(); ++index) {
-        const PointerEvent& event = pointerEvents[index];
+    std::size_t pointerIndex = 0;
+    std::size_t gestureIndex = 0;
+    while (pointerIndex < pointerEvents.size() || gestureIndex < gestureEvents.size()) {
+        if (gestureIndex < gestureEvents.size() &&
+            (pointerIndex == pointerEvents.size() ||
+             gestureSequences[gestureIndex] < pointerSequences[pointerIndex])) {
+            const GestureEvent& event = gestureEvents[gestureIndex++];
+            if (inputEnabled || event.phase == GesturePhase::Cancel) {
+                updateGesture(event, dpiScale);
+            }
+            continue;
+        }
+        const PointerEvent& event = pointerEvents[pointerIndex];
         if (inputEnabled && event.action == PointerAction::Press) {
             setFocusVisible(false);
+            dismissOutsidePress(hitTestInteractive(event, dpiScale));
         }
         if (event.isPress(PointerButton::Left)) {
             setFocusedId(hitTestFocusable(event, dpiScale));
         }
         const std::string hoverTargetId = resolveHoverTarget(event, dpiScale, inputEnabled);
-        const float eventDeltaSeconds = index + 1 == pointerEvents.size() ? deltaSeconds : 0.0f;
+        const float eventDeltaSeconds = pointerIndex + 1 == pointerEvents.size() ? deltaSeconds : 0.0f;
         updateElementTree(event, eventDeltaSeconds, dpiScale, hoverTargetId);
+        ++pointerIndex;
     }
     for (const PointerEvent& event : pointerEvents) {
         if (event.touch && (event.action == PointerAction::Release || event.action == PointerAction::Cancel)) {
@@ -290,6 +319,7 @@ inline void Runtime::shutdown(bool releaseCachedImageTextures) {
     instances_.clear();
     elementStructure_.clear();
     hoverTargetCacheValid_ = false;
+    gestureTargetId_.clear();
     // 元素与回调也可能持有外部 GPU 资源，不能留到设备销毁后的 Runtime 析构。
     ui_.begin();
     ui_.end();

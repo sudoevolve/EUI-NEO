@@ -170,9 +170,12 @@ private:
 
     void updateScroll(const ScrollEvent& event, const std::string& targetId, float dpiScale);
 
+    void updateGesture(const GestureEvent& event, float dpiScale);
+
     void updateTextInput(const TextInputEvent& event);
 
     void updateKeyInput(const std::vector<KeyEvent>& events);
+    void dismissOutsidePress(const std::string& targetId);
     void synchronizeFocusScope();
     void moveFocus(bool backwards);
     std::vector<std::string> focusOrder() const;
@@ -292,6 +295,7 @@ private:
     PointerEvent hoverTargetCacheEvent_;
     float hoverTargetCacheDpiScale_ = 0.0f;
     std::string hoverTargetCacheId_;
+    std::string gestureTargetId_;
     std::string focusedId_;
     bool focusVisible_ = false;
     std::function<void(const KeyEvent&)> keyEventHandler_;

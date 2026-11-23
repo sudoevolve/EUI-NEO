@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/scroll.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
@@ -13,7 +15,7 @@
 
 namespace components {
 
-class ScrollViewBuilder {
+class ScrollViewBuilder : public ComponentLayout<ScrollViewBuilder> {
 public:
     ScrollViewBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -82,7 +84,7 @@ public:
         const std::function<void(float)> onChange = onChange_;
         const float scrollStep = step_ > 0.0f ? step_ : metrics_.spacing.overlay;
 
-        auto root = ui_.stack(id_)
+        auto root = layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .zIndex(zIndex_)
             .clip()
