@@ -152,6 +152,7 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 - [贡献与提交规范](CONTRIBUTING.md)
 - [DSL 设计与当前实现](docs/guides/dsl.md)
 - [组件](docs/guides/components.md)
+- [桌面表单、菜单与数据选择](docs/guides/desktop-ui.md)
 - [模块](docs/guides/modules.md)
 - [状态模型](docs/guides/state.md)
 - [布局](docs/guides/layout.md)

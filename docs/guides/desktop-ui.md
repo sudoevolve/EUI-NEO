@@ -83,6 +83,8 @@ components::slider(ui, "limit").size(320, 28)
 
 `value/bind/onChange` 都使用业务值，拖动中的视觉位置也吸附步长。步长相对最小值，两个端点总是可达；0 步长表示连续。方向键移动一步，连续模式为范围的 1%；PageUp/Down 移动十步，连续模式为 10%；Home/End 到端点。range 与 bind 的调用先后不影响结果。
 
+最大值即使不在步长网格上也算一个合法端点。例如 `range(10,110).step(30)` 的刻度为 10、40、70、100、110，从 110 按左键到 100，按右键可返回 110；PageUp/Down 按合法刻度计步并钳制到端点。
+
 默认范围仍为 0..1；逆序端点自动交换，相同端点表示固定值并禁用交互。
 
 ## 类型化表格与选择
@@ -104,7 +106,7 @@ components::dataTable(ui, "downloads").size(700, 400)
 
 默认不启用选择；bindSelection 默认启用单选，显式 selectionMode 可选择 None、Single、Multiple。selectedKeys 与 onSelectionChange 支持受控选择；不绑定时，已启用的选择保存在组件状态中。
 
-多选支持普通点击、Ctrl/Command 切换、Shift 按视图顺序选范围，以及 Ctrl/Command+A 选择当前筛选结果。方向键、Home/End 移动选择并滚动到目标行，Space 选择，Enter 调用行点击回调。选择通过 `AccessibleNode.selected` 导出。
+多选支持普通点击、Ctrl/Command 切换、Shift 按视图顺序选范围，以及 Ctrl/Command+A 选择当前筛选结果。上下方向键、Home/End 移动选择并滚动到目标行，Space 选择，Enter 调用行点击回调。选择通过 `AccessibleNode.selected` 导出。
 
 key 必须唯一。稳定 key 保证排序、过滤和源数据重排不串行；过滤保留隐藏行选择，删除源行清除无效 key 并同步受控选择。键盘焦点也跟随业务 key；手动滚动使焦点行离开已构建的虚拟窗口时清除该焦点，保留选择，再次点击或 Tab 进入可见行后继续导航。未提供 rowKey 时使用原始行索引，源数据插入/删除/重排时应改用业务 ID。onRowClick 继续返回原始数据行索引。
 

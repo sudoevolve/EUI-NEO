@@ -94,6 +94,8 @@ static const DslAppConfig config = DslAppConfig{}
 
 `minWindowSize` 和 `maxWindowSize` 中的 `0` 表示对应方向不限制；窗口尺寸约束由 GLFW/SDL2 后端执行。`centerWindow()` 会清除显式位置并恢复居中。`highDpi` 在 SDL2 中控制 `SDL_WINDOW_ALLOW_HIGHDPI`；GLFW 的 DPI 感知由其初始化阶段按平台设置，是进程级行为，不能安全地按单个窗口关闭。全屏和 VSync 不属于 `DslAppConfig`，它们会改变平台窗口或渲染后端生命周期，应通过专用平台/渲染配置处理。
 
+主窗口 `DslAppConfig` 和子窗口 `DslWindowConfig` 都支持 `.logicalWindowSize(width, height)`，以 compose 逻辑单位指定初始客户区尺寸，并按 DPI 与 uiScale 换算。原有 `.windowSize(...)` 使用原生窗口单位并切回原生模式；单独设置 width/height 保持当前模式。窗口位置及最小/最大尺寸仍为原生单位，布局应读取实际 `screen.width/height`。示例见[桌面尺寸与布局](desktop-ui.md#尺寸与布局)。
+
 `.transparent(true)` 与 `decorated` 同属创建期窗口属性：GLFW 后端以 `GLFW_TRANSPARENT_FRAMEBUFFER` 请求带 alpha 的 framebuffer，Vulkan 后端据此选择受支持的 composite-alpha 模式，用于无边框自绘圆角窗口。平台是否真的授予以 `eui::window::framebufferTransparent(window)` 为准（SDL2 后端不支持；X11 无合成器时会拒绝）。启用后应用应把 `clearColor` 的 alpha 设为 0，并自绘圆角根表面；未启用时行为与从前逐像素一致。
 
 Debug 配置只控制诊断输出，不参与业务状态。`showDebugStatsInTitle` 控制窗口标题中的 FPS、CPU/GPU 和渲染统计；`debugTitleInterval` 控制标题统计刷新间隔（秒）。`showDebugOverlay` 与 `onDebugOverlay` 用于注入布局边界、性能标记等调试框，回调在每次页面 compose 后执行；未设置回调时不会绘制任何额外内容。Debug 构建默认开启标题统计和覆盖层开关，Release 构建默认关闭。
@@ -638,18 +640,20 @@ ui.stack("card")
 - `components::radio(ui, id)`：无状态 radio，点击回调 next selected。
 - `components::toggleSwitch(ui, id)`：无状态 switch，点击回调 next checked。
 - `components::progress(ui, id)`：进度条，value 范围 `0.0f - 1.0f`。
-- `components::slider(ui, id)`：滑块，点击或拖拽回调 next value。
+- `components::slider(ui, id)`：滑块，通过 `range/step` 设置业务范围和离散刻度，点击、拖动或键盘回调 next value。
 - `components::input(ui, id)`：基础文本输入，页面传 value，组件回调 next value。
 - `components::segmented(ui, id)`：分段选择，点击回调 next index。
 - `components::tabs(ui, id)`：标签页切换，点击回调 next index。
 - `components::scroll(ui, id)`：滚动条，绑定 Runtime scroll state 后由 Runtime 更新 thumb transform。
 - `components::scrollView(ui, id)`：普通滚动区域，适合内容量可完整 compose 的页面；滚轮由 Runtime 按时间推进惯性，滚动内容通过 Runtime transform 移动，滚轮和滚动条拖动不触发整页 compose。
 - `components::virtualList(ui, id)`：固定行高虚拟列表，适合超长纵向列表；组件按 `offset + viewport + overscan` 只 compose 可见 slot，行回调收到真实 index、宽度和行高。回调 id 是可见 slot id，不是业务行 id；需要保存行级业务状态时，用真实 index 或业务 key 存在页面状态里。
-- `components::dropdown(ui, id)`：下拉选择，页面传 selected/open，组件回调 next index 和 open 状态。
+- `components::dropdown(ui, id)`：下拉选择，页面传 selected，组件回调 next index；开关状态可内部保存并以 `defaultOpen` 初始化，也可用 `bindOpen` 或 `open + onOpenChange` 受控。
 - `components::datePicker(ui, id)`：dialog 式日期选择器，页面传 date/open，面板内调整是 draft，点击 `Done` 后才回调 next date。
 - `components::timePicker(ui, id)`：dialog 式时间选择器，页面传 time/open，面板内调整是 draft，点击 `Done` 后才回调 next time。
 - `components::colorPicker(ui, id)`：dialog 式颜色选择器，页面传 color/open，RGB slider 和色块只改 draft，点击 `Done` 后才回调 next color。
-- `components::dataTable(ui, id)`：简单数据表。
+- `components::dataTable(ui, id)`：固定行高虚拟表格，支持类型化数据、排序筛选、列宽调整及按业务 key 单选/多选。
+- `components::form(ui, id)`：统一标签列、控件行与操作区布局；`components::label(ui, id)` 提供默认垂直居中的文本。
+- `components::menuBar(ui, id)`：客户区菜单栏，支持级联菜单、禁用项、分隔线和键盘导航。
 - `components::dialog(ui, id)`：模态对话框，页面传 open 状态。
 - `components::toast(ui, id)`：toast 提示，支持 duration。
 - `components::tooltip(ui, id)`：轻量提示浮层，支持 anchor、title/value、hover source 和圆润 Polygon 指针，指针边缘走 polygon shader 抗锯齿。

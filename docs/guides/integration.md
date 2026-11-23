@@ -230,6 +230,14 @@ cmake -S . -B build \
 cmake --build build --target gallery --parallel
 ```
 
+桌面表单、菜单与类型化表格示例为 `desktop_settings`（`examples/desktop_settings.cpp`），只需 `EUI_BUILD_APPS=ON`。Visual Studio 等多配置生成器需指定配置：
+
+```sh
+cmake --build build --config Release --target desktop_settings --parallel
+```
+
+运行多配置构建的 `build/Release/desktop_settings.exe`，或单配置构建的 `build/desktop_settings`。使用方式见[桌面指南](desktop-ui.md)。
+
 复杂应用应放在 `apps/<name>/app.cpp`；外部单文件项目仍建议使用 `main.cpp`。
 
 ## 运行资源

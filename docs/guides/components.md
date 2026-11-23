@@ -36,12 +36,14 @@
 | `datePicker` | dialog 式日期选择器，受控 `open/date` |
 | `timePicker` | dialog 式时间选择器，受控 `open/time` |
 | `colorPicker` | dialog 式颜色选择器，受控 `open/value` |
-| `dataTable` | 虚拟表格、排序筛选和列宽调整 |
+| `dataTable` | 类型化虚拟表格、排序筛选、列宽调整与行选择 |
+| `form` | 标签与控件对齐的表单行、整行内容和操作区 |
 | `dialog` | 模态对话框 |
 | `sidebar` | 右侧抽屉式侧边栏容器 |
 | `toast` | 右上角 toast，支持自动消失 |
 | `tooltip` | 轻量提示浮层，支持文本内容和圆润指针 |
 | `contextMenu` | 右键菜单 |
+| `menuBar` | 客户区菜单栏、级联菜单和键盘导航 |
 | `carousel` | 视差重叠轮播，支持拖拽、滚轮和指示点切换 |
 | `lineChart` | 折线图 |
 | `barChart` | 柱状图 |
@@ -51,6 +53,7 @@
 | `card` | 带背景、边框、阴影和内容 inset 的卡片容器 |
 | `layoutDebugOverlay` | 显式绘制 frame / padding / content 边界的布局调试覆盖层 |
 | `text` | 套用主题文本色的 `TextBuilder` |
+| `label` | 默认垂直居中的主题文本，适合表单与控件标签 |
 | `image` | 套用主题图片样式的 `ImageBuilder` |
 | `theme` | 颜色和视觉 token 辅助函数 |
 | `workshop::neumorphicButton` | 工坊拟态按钮，高定视觉组件示例 |
@@ -71,7 +74,7 @@
 | 图表 | `lineChart`、`barChart`、`pieChart` |
 | Picker | `datePicker`、`timePicker`、`colorPicker` |
 | 复合控件 | `toggleSwitch`、`scrollView`、`virtualList`、`mouseArea`、`contextMenu` |
-| 文本包装 | `text` |
+| 文本包装 | `text`、`label` |
 
 命名规则：
 
@@ -91,8 +94,9 @@
 | 变更事件 | `onChange(...)`、`onOpenChange(...)`、`onDismiss(...)`、`onAutoDismiss(...)` | 值变化统一用 `onChange`，`open` 统一用 `onOpenChange`，`visible` 反馈可用 dismiss 事件 |
 | 可用状态 | `disabled(bool)` | 可交互组件应支持禁用态，禁用后不触发业务回调 |
 | 视觉 | `theme(tokens)`、`style(style)`、`transition(...)` | `theme` 按主题重建样式，`style` 完整覆盖样式，动画走 `transition` |
-| 层级 | `zIndex(value)` | 弹层、菜单、toast、tooltip 等 overlay 组件 |
-| 坐标 | `position(x, y)`、`anchor(...)`、`screen(width, height)` | 浮层、菜单、tooltip、dialog/picker 等需要定位的组件 |
+| 布局 | `x/y/position`、`margin`、`flexGrow/flexShrink`、`ignoreLayout` | 普通复合组件的根节点；Row/Column 内优先交给布局计算 |
+| 层级 | `zIndex(value)` | 普通复合组件及弹层；Dropdown 的弹层另有 `popupZIndex` |
+| 弹层定位 | `anchor(...)`、`screen(width, height)` | tooltip、dialog/picker 等屏幕级弹层，具体以组件 API 为准 |
 
 `Signal<T>` 绑定是受控组件的简写：普通值使用 `.bind(signal)`，弹层开关使用 `.bindOpen(signal)`，toast 可见性使用 `.bindVisible(signal)`。需要额外副作用时继续写显式 `value/open + onChange/onOpenChange`。
 
@@ -107,7 +111,7 @@
 | `radio` | 单选项 | `selected`、`bind`、`text`、`onChange` | 页面持有选中项 | 本文、gallery |
 | `toggleSwitch` | 开关 | `checked`、`bind`、`text`、`onChange` | 页面持有 `checked` | 本文、gallery |
 | `progress` | 只读进度 | `value`、`theme`、`transition` | 页面持有 `value` | 本文、gallery |
-| `slider` | 连续数值选择 | `value`、`bind`、`onChange` | 页面持有 `value` | 本文、gallery |
+| `slider` | 连续或离散数值选择 | `value`、`bind`、`range`、`step`、`onChange` | 页面持有业务值 | 本文、gallery、desktop_settings |
 | `input` | 文本输入 | `value`、`bind`、`placeholder`、`multiline`、`onChange` | 页面持有文本，组件交互态走 `ui.state` | 本文、gallery |
 | `segmented` | 分段选择 | `items`、`selected`、`bind`、`onChange` | 页面持有 index | 本文、gallery |
 | `stepper` | 数字步进 | `value`、`bind`、`step`、`min/max`、`base`、`onChange` | 页面持有数值 | 本文、gallery |
@@ -116,11 +120,13 @@
 | `scrollView` | 自动测量滚动容器 | `size`、`offset`、`content`、`contentKey`、`onChange` | Runtime 管理滚动状态，组件可缓存稳定内容高度 | 本文、gallery |
 | `virtualList` | 固定行高虚拟列表 | `size`、`itemCount`、`rowHeight`、`offset`、`overscanViewports`、`row`、`onChange` | Runtime 管理滚动状态，页面持有 offset；组件只 compose 可见 slot | 本文、gallery |
 | `markdown` | Markdown 显示 | `markdown`、`width`、`theme`、`style` | 无业务状态，解析和行内布局按 source / 样式缓存 | 本文、markdown_viewer |
-| `dropdown` | 下拉选择 | `items`、`selected`、`bind`、`open`、`bindOpen`、`onChange`、`onOpenChange` | selected 可受控；未提供 `onOpenChange` 时组件保留 open 状态 | 本文、gallery |
+| `dropdown` | 下拉选择 | `items`、`selected`、`bind`、`defaultOpen`、`open`、`bindOpen`、`onChange`、`onOpenChange` | selected 可受控；未提供 `onOpenChange` 时组件保留 open 状态 | 本文、gallery |
 | `datePicker` | 日期选择 | `open`、`date`、`screen`、`onChange`、`onOpenChange` | 页面持有 open/date，组件 draft 走 `ui.state` | 本文、gallery |
 | `timePicker` | 时间选择 | `open`、`time`、`minuteStep`、`screen`、`onChange`、`onOpenChange` | 页面持有 open/time，组件 draft 走 `ui.state` | 本文、gallery |
 | `colorPicker` | 颜色选择 | `open`、`value`、`colors`、`screen`、`onChange`、`onOpenChange` | 页面持有 open/value，组件 draft 走 `ui.state` | 本文、gallery |
-| `dataTable` | 虚拟表格 | `columns`、`data`、`filter`、`sort`、`columnWidths` | 页面持有数据 | 本文、data_tools_viewer |
+| `dataTable` | 类型化虚拟表格与行选择 | `columns`、`data`、`filter`、`sort`、`columnWidths`、`rowKey`、`selectionMode`、`bindSelection` | 页面持有数据；已启用的选择可内部保存或受控绑定 | 本文、data_tools_viewer、desktop_settings |
+| `form` | 表单行布局 | `width`、`labelWidth`、`controlHeight`、`row`、`fullRow`、`actions` | 控件业务值由页面持有 | [桌面指南](desktop-ui.md)、desktop_settings |
+| `menuBar` | 客户区菜单栏 | `screen`、`menus`、`height`、`onSelect` | 组件保存展开路径，页面执行菜单动作 | [桌面指南](desktop-ui.md)、desktop_settings |
 | `dialog` | 模态确认 | `open`、`screen`、`title`、`message`、`onOpenChange`、回调 | 页面持有 open | 本文、gallery |
 | `sidebar` | 抽屉容器 | `open`、`size`、`drawerWidth`、`title`、`onOpenChange`、`content` | 页面持有 open，内部内容由页面声明 | 本文、gallery |
 | `toast` | 临时反馈 | `visible`、`screen`、`title`、`message`、`duration` | 页面持有 visible | 本文、gallery |
@@ -135,6 +141,7 @@
 | `card` | 主题卡片容器 | `size`、`padding`、`theme`、`style`、`content` | 无业务状态，内部只声明背景和内容 Stack | 本文、layout_regression_viewer |
 | `layoutDebugOverlay` | 布局边界调试覆盖层 | `width`、`height`、`inset`、`label` | 无业务状态，手动传入被观察区域尺寸 | 本文、layout_regression_viewer |
 | `text` | 主题文本包装 | `text`、`fontSize`、`theme`、`style` | 无业务状态 | 本文、demo |
+| `label` | 垂直居中的主题文本 | `text`、`size`、`fontSize`、`theme` | 无业务状态 | [桌面指南](desktop-ui.md)、desktop_settings |
 | `image` | 主题图片包装 | `source`、`cover`、`contain`、`theme`、`style` | 资源缓存归 Runtime | 本文 |
 | `theme` | 主题 token 和视觉辅助 | `light/dark`、`pageVisuals`、`fieldVisuals` | 无业务状态 | 本文、gallery |
 | `workshop::neumorphicButton` | 拟态按钮 | `size`、`text`、`theme`、`transition`、`onClick` | 视觉按压态走 `ui.state`，页面处理业务回调 | 本文、gallery More |
@@ -371,7 +378,7 @@ components::slider(ui, "volume")
 
 `progress` 支持 `size`、`value`、`style`、`theme`、`transition`。
 
-`slider` 支持 `size`、`value`、`range`、`step`、`style`、`theme`、`transition`、`onChange`。默认范围为 0..1；设置 range 后，value/bind/onChange 使用业务值，step 同时作用于拖动和键盘。滑块用透明 hit rect 处理点击和拖拽。
+`slider` 支持 `size`、`value`、`bind`、`range`、`step`、`style`、`theme`、`transition`、`onChange`。默认范围为 0..1；设置 range 后，value/bind/onChange 使用业务值，step 同时作用于拖动和键盘。步长相对最小值，两个端点始终可达：`range(10,110).step(30)` 的合法刻度为 10、40、70、100、110，从 110 按左键返回 100。连续模式及 PageUp/Down 规则见[桌面指南](desktop-ui.md#slider-业务范围)。滑块用透明 hit rect 处理点击和拖拽。
 
 ### markdown
 
@@ -841,9 +848,11 @@ components::dropdown(ui, "theme.dropdown")
     .build();
 ```
 
-支持 `size`、`items`、`selected`、`placeholder`、`open`、`openUp`、`itemHeight`、`style`、`theme`、`transition`、`zIndex`、`onChange`、`onOpenChange`。
+支持 `size`、`items`、`selected`、`bind`、`placeholder`、`defaultOpen`、`open`、`bindOpen`、`openUp`、`itemHeight`、`style`、`theme`、`transition`、`zIndex`、`popupZIndex`、`onChange`、`onOpenChange`。
 
-未提供 `onOpenChange` 时，dropdown 按自身 ID 在 UI 状态中保留开合值，点击字段切换，选择选项后关闭；`.open(value)` 在首次创建内部状态时作为初始值。提供 `onOpenChange`（包括 `.bindOpen(signal)`）时转为受控模式，由调用方回写下一次 `open` 值。默认弹层向下展开；靠近窗口底部时可显式使用 `.openUp()` 让弹层向上展开，折叠动画锚点同步翻转。该选项不自动判断可用空间，也不会穿透祖先 `.clip()`；被裁剪时应将 dropdown 放入未裁剪的 overlay 容器。
+未提供 `onOpenChange` 时，dropdown 按自身 ID 在 UI 状态中保留开合值，点击字段切换，选择选项后关闭；`.defaultOpen(value)` 或 `.open(value)` 在首次创建内部状态时作为初始值。提供 `onOpenChange`（包括 `.bindOpen(signal)`）时转为受控模式，由调用方回写下一次 `open` 值。字段根节点只占字段高度，弹层不参与布局；外部按下关闭弹层且继续送达目标，已转移到外部输入框的有效焦点会保留。
+
+默认弹层向下展开；靠近窗口底部时可显式使用 `.openUp()` 让弹层向上展开，折叠动画锚点同步翻转。该选项不自动判断可用空间，也不会穿透祖先 `.clip()`；被裁剪时应将 dropdown 放入未裁剪的 overlay 容器。层级规则见[桌面指南](desktop-ui.md#dropdown-与弹层)。
 
 ### datePicker / timePicker / colorPicker
 
@@ -934,7 +943,9 @@ components::dataTable(ui, "metrics.table")
     .build();
 ```
 
-支持 `size`、`columns`、`rows`、`style`、`theme`、`transition`。
+支持 `size`、`columns`、`rows`、`data`、`filter`、`sort`、`numericSort`、`columnWidths`、`rowKey`、`selectionMode`、`bindSelection`、`selectedKeys`、`onSelectionChange`、`onRowClick`、`style`、`theme`、`transition`。
+
+`.data<T>(sharedRows, columns, revision)` 支持业务对象与列 getter。数据、getter 或 key 规则改变时递增 revision；业务 key 必须唯一。默认不选择行，`bindSelection` 默认启用单选，也可显式启用多选。焦点跟随业务 key；焦点行滚出已构建的虚拟窗口后清除焦点并保留选择，不会将焦点转给复用槽位的新行。完整示例与选择操作见[类型化表格与选择](desktop-ui.md#类型化表格与选择)。
 
 表头与行底色绘制为外层圆角面板在对应区域的交集，边框最后绘制，滚动条在上下端留出圆角空间。圆角表格在滚动 offset 变化后重建可见槽位以固定视口边界，节点数仍由视口和 overscan 决定；不会为全部数据行创建节点。
 
@@ -1022,7 +1033,7 @@ components::pieChart(ui, "usage.pie")
 - `scroll` 只负责 offset 控制，不是完整 ScrollArea；需要自动测量内容时应优先用 `scrollView`。
 - `input` 会在控件内自绘 IME 预编辑组合串，并继续使用系统 IME 候选窗口。
 - chart 是轻量展示组件，当前只显示归一化百分比，不提供坐标轴刻度配置、图例布局和数据格式化回调。
-- `dialog`、`toast`、`contextMenu`、`dropdown`、`datePicker`、`timePicker`、`colorPicker` 需要页面传入 open/visible 状态，组件不会自己持久化开关状态。
+- `dialog`、`toast`、`contextMenu`、`datePicker`、`timePicker`、`colorPicker` 需要页面传入 open/visible 状态。Dropdown 支持内部开关状态，也可通过 `bindOpen` 或 `open + onOpenChange` 受控；MenuBar 内部保存展开路径。
 - 容器 transform 会继承到组件内部子树渲染，包含 2D transform 和 2.5D 透视投影；默认 hit-test 仍按布局矩形计算，组件确实需要跟随视觉变换时可在内部元素上开启 `.transformedHitTest()`。
 - Runtime 按绘制顺序从最上层往下命中 interactive 元素，同一位置只会触发最上层交互层；focus 命中会被上层 interactive blocker 阻断。
 - Runtime 对复杂嵌套滚动、圆角 clip 和事件冒泡的支持有限，不能按完整的嵌套滚动与事件传播模型使用。

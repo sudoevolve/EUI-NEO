@@ -150,6 +150,7 @@ Start with the [Documentation Index](docs/README.md). It separates application g
 - [Contribution Guidelines](CONTRIBUTING.md)
 - [DSL Design And Current Implementation](docs/guides/dsl.md)
 - [Components](docs/guides/components.md)
+- [Desktop Forms, Menus And Data Selection](docs/guides/desktop-ui.md)
 - [Modules](docs/guides/modules.md)
 - [State Model](docs/guides/state.md)
 - [Layout](docs/guides/layout.md)
