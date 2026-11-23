@@ -146,6 +146,7 @@ void openWindow(const DslWindowConfig& config, DslWindowCompose composeFn) {
     request.clearColor = config.clearColorValue;
     request.width = std::max(160, config.windowWidthValue);
     request.height = std::max(120, config.windowHeightValue);
+    request.logicalSize = config.logicalWindowSizeValue;
     request.modal = config.modalValue;
     request.onKeyEvent = config.keyEventHandler;
     request.compose = std::move(composeFn);
@@ -251,7 +252,7 @@ bool windowMaximized() {
 
 float uiScale() {
     const float configuredScale = dslAppConfig().uiScaleValue;
-    return configuredScale > 0.0f ? configuredScale : 1.0f;
+    return std::isfinite(configuredScale) && configuredScale > 0.0f ? configuredScale : 1.0f;
 }
 
 bool trayEnabled() {

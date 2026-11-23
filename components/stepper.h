@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
@@ -43,7 +45,7 @@ struct StepperStyle {
     float radius = 12.0f;
 };
 
-class StepperBuilder {
+class StepperBuilder : public ComponentLayout<StepperBuilder> {
 public:
     StepperBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -99,7 +101,7 @@ public:
         const std::string valueText = formatValue(currentValue, base, effectiveDigits(base, bitWidth));
         const std::function<void(long long)> onChange = onChange_;
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".minus.bg")

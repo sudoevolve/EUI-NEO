@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 
@@ -37,7 +39,7 @@ struct ButtonStyle {
     float pressScale = 0.965f;
 };
 
-class ButtonBuilder {
+class ButtonBuilder : public ComponentLayout<ButtonBuilder> {
 public:
     ButtonBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -121,7 +123,7 @@ public:
         const std::function<void()> onPress = onPress_;
         const std::function<void()> onRelease = onRelease_;
 
-        auto root = ui_.stack(id_)
+        auto root = layoutRoot(ui_.stack(id_))
             .size(w, h)
             .visualStateFrom(id_ + ".bg", style_.pressScale);
         if (hasX_) {

@@ -1,3 +1,4 @@
+#include "eui/detail/window_size.h"
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -534,6 +535,12 @@ std::unique_ptr<ManagedWindow> createManagedWindow(const app::DslWindowRequest& 
         return {};
     }
 
+    if (request.logicalSize) {
+        const auto size = app::detail::nativeWindowSize(request.width, request.height,
+            dpiScale(window), pointerScale(window), app::uiScale());
+        SDL_SetWindowSize(window, size.first, size.second);
+    }
+
     auto managed = std::make_unique<ManagedWindow>();
     managed->window = window;
     managed->parentWindow = parentWindow;
@@ -738,6 +745,12 @@ int eui_app_run() {
     if (window == nullptr) {
         SDL_Quit();
         return -1;
+    }
+
+    if (app::dslAppConfig().logicalWindowSizeValue) {
+        const auto size = app::detail::nativeWindowSize(app::initialWindowWidth(), app::initialWindowHeight(),
+            dpiScale(window), pointerScale(window), app::uiScale());
+        SDL_SetWindowSize(window, size.first, size.second);
     }
 
     auto renderBackend = core::render::createRenderBackend(window, nullptr, app::windowTransparent());

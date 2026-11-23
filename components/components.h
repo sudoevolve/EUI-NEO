@@ -1,6 +1,7 @@
 #pragma once
 
 #include "components/button.h"
+#include "components/form.h"
 #include "components/checkbox.h"
 #include "components/radio.h"
 #include "components/switch.h"
@@ -27,6 +28,7 @@
 #include "components/toast.h"
 #include "components/tooltip.h"
 #include "components/contextmenu.h"
+#include "components/menubar.h"
 #include "components/carousel.h"
 #include "components/linechart.h"
 #include "components/barchart.h"

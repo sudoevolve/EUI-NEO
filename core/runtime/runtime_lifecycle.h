@@ -21,7 +21,18 @@ inline void Runtime::compose(const std::string& pageId, float logicalWidth, floa
     composeFn(ui_, screen);
     ui_.end();
     ui_.layout(screen);
+    const auto composedFocus = focusedId_;
     synchronizeFocusScope();
+    if (!ui_.focusRequest_.empty()) {
+        const auto request = std::move(ui_.focusRequest_);
+        ui_.focusRequest_.clear();
+        const auto order = focusOrder();
+        if (std::find(order.begin(), order.end(), request) != order.end()) setFocusedId(request);
+    }
+    if (focusedId_ != composedFocus) {
+        ui_.end();
+        ui_.layout(screen);
+    }
     elementStructure_ = collectElementStructure();
     syncScrollStateBindings();
     for (const std::string& scope : ui_.consumeReleasedStateScopes()) {
@@ -125,6 +136,7 @@ inline bool Runtime::update(core::window::Handle window, float deltaSeconds, flo
         const PointerEvent& event = pointerEvents[pointerIndex];
         if (inputEnabled && event.action == PointerAction::Press) {
             setFocusVisible(false);
+            dismissOutsidePress(hitTestInteractive(event, dpiScale));
         }
         if (event.isPress(PointerButton::Left)) {
             setFocusedId(hitTestFocusable(event, dpiScale));

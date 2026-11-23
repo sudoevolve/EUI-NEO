@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 
@@ -27,7 +29,7 @@ struct ScrollStyle {
     float radius = 999.0f;
 };
 
-class ScrollBuilder {
+class ScrollBuilder : public ComponentLayout<ScrollBuilder> {
 public:
     ScrollBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -72,7 +74,7 @@ public:
         const float scrollStep = step_ > 0.0f ? step_ : metrics_.control.control;
         const std::string runtimeStateId = stateId_.empty() ? id_ : stateId_;
 
-        auto root = ui_.stack(id_)
+        auto root = layoutRoot(ui_.stack(id_))
             .size(width, height_)
             .zIndex(zIndex_)
             .scrollState(runtimeStateId, currentOffset, maxOffset, scrollStep);

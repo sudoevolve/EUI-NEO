@@ -180,7 +180,7 @@ ui.stack("root")
 .clip()
 ```
 
-`.zIndex(...)` 只影响同级元素的绘制顺序和 topmost hit-test，不参与布局计算；值越大越靠上。`.clip()` 会按该元素布局矩形裁剪自己和子树，并且命中测试也不会穿出裁剪区域。
+`.zIndex(...)` 影响绘制顺序和 topmost hit-test，不参与布局计算。同级按子树最大 zIndex 稳定排序；`.stackingContext()` 可隔离内部层级，使外部只按该节点自身 zIndex 排序。`.clip()` 裁剪自己和子树的绘制与命中区域。桌面应用的逻辑窗口尺寸、表单和弹层组合见[桌面 UI 指南](desktop-ui.md)。
 
 `Row / Column` 的主轴 flex 分配会先用自身 fixed / fill 结果约束 inner size，再把结果作为子项测量约束；fixed、wrapContent 和 fill 子项都可以显式参与 grow / shrink，默认 `flexShrink` 为 0，避免固定尺寸控件被意外压扁。`Stack` 会用自身最终 inner size 重新测量 fill 子项，适合普通叠放背景层；`Stack.wrapContent()` 会把子项正向 x/y 偏移计入包裹尺寸，负向偏移仍视为向外溢出。
 

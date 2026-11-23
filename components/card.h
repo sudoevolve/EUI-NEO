@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 
@@ -30,7 +32,7 @@ struct CardStyle {
     float inset = 20.0f;
 };
 
-class CardBuilder {
+class CardBuilder : public ComponentLayout<CardBuilder> {
 public:
     CardBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -78,7 +80,7 @@ public:
         const core::SizeValue backgroundWidth = fixedWidth ? core::SizeValue::fixed(width_.value) : core::SizeValue::fill();
         const core::SizeValue backgroundHeight = fixedHeight ? core::SizeValue::fixed(height_.value) : core::SizeValue::fill();
 
-        auto root = ui_.stack(id_)
+        auto root = layoutRoot(ui_.stack(id_))
             .width(width_)
             .height(height_)
             .zIndex(zIndex_);

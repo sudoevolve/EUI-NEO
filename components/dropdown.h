@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
@@ -53,7 +55,7 @@ struct DropdownStyle {
     float radius = 12.0f;
 };
 
-class DropdownBuilder {
+class DropdownBuilder : public ComponentLayout<DropdownBuilder> {
 public:
     DropdownBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -67,7 +69,10 @@ public:
         return *this;
     }
     DropdownBuilder& placeholder(const std::string& value) { placeholder_ = value; return *this; }
+    /** @brief 设置非受控模式的初始展开状态；持续控制请使用 bindOpen/onOpenChange。 */
     DropdownBuilder& open(bool value = true) { open_ = value; return *this; }
+    /** @brief open 的显式初始状态别名；已有内部状态不会被后续 compose 覆盖。 */
+    DropdownBuilder& defaultOpen(bool value = true) { return open(value); }
     DropdownBuilder& bindOpen(eui::Signal<bool>& signal) {
         open(signal.get());
         onOpenChange([&signal](bool value) { signal.set(value); });
@@ -83,6 +88,8 @@ public:
     }
     DropdownBuilder& transition(const core::Transition& value) { transition_ = value; return *this; }
     DropdownBuilder& zIndex(int value) { zIndex_ = value; return *this; }
+    /** @brief 展开时提升弹层所在子树，避免后声明的表单控件绘制在菜单上。 */
+    DropdownBuilder& popupZIndex(int value) { popupZIndex_ = value; return *this; }
     DropdownBuilder& onChange(std::function<void(int)> callback) { onChange_ = std::move(callback); return *this; }
     DropdownBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
     DropdownBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
@@ -112,18 +119,19 @@ public:
         const float popupOffsetY = open_ ? 0.0f : (openUp_ ? 6.0f : -6.0f);
         const float popupScale = open_ ? 1.0f : 0.96f;
         const float popupY = openUp_ ? -(popupHeight + popupGap) : height + popupGap;
-        const float rootHeight = openUp_ ? height : height + popupGap + popupHeight;
         const std::function<void(int)> onChange = onChange_;
         const std::function<void(bool)> onOpenChange = onOpenChange_;
+        const std::function<void()> requestClose = [onOpenChange, retainedOpen] {
+            if (onOpenChange) onOpenChange(false);
+            else if (retainedOpen) retainedOpen->open = false;
+        };
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .disabled(disabled_)
             .focusScope(open_)
-            .onDismiss([onOpenChange, retainedOpen] {
-                if (onOpenChange) onOpenChange(false);
-                else if (retainedOpen) retainedOpen->open = false;
-            })
-            .size(width_, rootHeight)
+            .onDismiss(requestClose)
+            .onOutsidePress(open_ ? requestClose : std::function<void()>{})
+            .size(width_, height)
             .zIndex(zIndex_)
             .content([&] {
                 ui_.rect(id_ + ".field")
@@ -184,6 +192,8 @@ public:
                     .build();
 
                 ui_.stack(id_ + ".popup")
+                    .ignoreLayout()
+                    .zIndex(open_ ? popupZIndex_ : 0)
                     .accessibleHidden(!open_)
                     .y(popupY)
                     .size(width_, popupHeight)
@@ -238,13 +248,13 @@ public:
 
                             ui_.text(id_ + ".item.label." + std::to_string(index))
                                 .x(popupPadding + metrics_.spacing.content)
-                                .y(itemY + std::max(0.0f, (itemHeight - metrics_.typography.option -
-                                                           metrics_.typography.lineGapTight) * 0.5f))
+                                .y(itemY)
                                 .size(std::max(0.0f, width_ - popupPadding * 2.0f - metrics_.spacing.panel),
-                                      metrics_.spacing.large)
+                                      itemHeight)
                                 .text(items_[index])
                                 .fontSize(metrics_.typography.option)
                                 .lineHeight(metrics_.typography.option + metrics_.typography.lineGapTight)
+                                .verticalAlign(core::VerticalAlign::Center)
                                 .color(active ? style_.accent : style_.text)
                                 .transition(transition_)
                                 .animate(core::AnimProperty::TextColor)
@@ -274,7 +284,8 @@ private:
     float width_ = 260.0f;
     float height_ = -1.0f;
     float itemHeight_ = 0.0f;
-    int zIndex_ = 20;
+    int zIndex_ = layer::Content;
+    int popupZIndex_ = layer::Popup;
 };
 
 inline DropdownBuilder dropdown(core::dsl::Ui& ui, const std::string& id) {

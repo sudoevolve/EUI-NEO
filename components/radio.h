@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "core/render/text.h"
@@ -34,7 +36,7 @@ struct RadioStyle {
     core::Color rowPressed;
 };
 
-class RadioBuilder {
+class RadioBuilder : public ComponentLayout<RadioBuilder> {
 public:
     RadioBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -80,7 +82,6 @@ public:
         const float contentX = horizontalInset;
         const float labelWidth = std::max(0.0f, width_ - labelX - horizontalInset);
         const float labelLineHeight = fontSize;
-        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f);
         const float hitWidth = text_.empty()
             ? outer + horizontalInset * 2.0f
             : std::min(width_, labelX + textWidth(text_, fontSize) + horizontalInset * 2.0f);
@@ -89,7 +90,7 @@ public:
         dotTransition.ease = core::Ease::OutCubic;
         const std::function<void(bool)> onChange = onChange_;
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .disabled(disabled_)
             .size(width_, height_)
             .content([&] {
@@ -133,13 +134,13 @@ public:
                 if (!text_.empty()) {
                     ui_.text(id_ + ".label")
                         .x(contentX + labelX)
-                        .y(labelY)
-                        .size(labelWidth, labelLineHeight)
+                        .y(0)
+                        .size(labelWidth, height_)
                         .text(text_)
                         .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(style_.text)
-                        .verticalAlign(core::VerticalAlign::Top)
+                        .verticalAlign(core::VerticalAlign::Center)
                         .build();
                 }
             })

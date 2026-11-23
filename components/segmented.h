@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
@@ -32,7 +34,7 @@ struct SegmentedStyle {
     core::Color border;
 };
 
-class SegmentedBuilder {
+class SegmentedBuilder : public ComponentLayout<SegmentedBuilder> {
 public:
     SegmentedBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -67,10 +69,9 @@ public:
         const float segmentWidth = count > 0 ? width_ / static_cast<float>(count) : width_;
         const float innerInset = metrics_.spacing.tiny - metrics_.spacing.hairline;
         const float labelLineHeight = fontSize;
-        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f);
         const std::function<void(int)> onChange = onChange_;
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .clip()
             .content([&] {
@@ -115,14 +116,14 @@ public:
 
                     ui_.text(id_ + ".label." + std::to_string(index))
                         .x(x)
-                        .y(labelY)
-                        .size(segmentWidth, labelLineHeight)
+                        .y(0)
+                        .size(segmentWidth, height_)
                         .text(items_[index])
                         .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(active ? style_.selectedText : style_.text)
                         .horizontalAlign(core::HorizontalAlign::Center)
-                        .verticalAlign(core::VerticalAlign::Top)
+                        .verticalAlign(core::VerticalAlign::Center)
                         .transition(transition_)
                         .animate(core::AnimProperty::TextColor)
                         .build();

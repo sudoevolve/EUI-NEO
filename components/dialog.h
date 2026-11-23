@@ -2,6 +2,7 @@
 
 #include "components/button.h"
 #include "components/theme.h"
+#include "components/layout.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
 
@@ -94,6 +95,7 @@ public:
         const std::function<void()> onSecondary = onSecondary_ ? onSecondary_ : requestClose;
 
         ui_.stack(id_)
+            .stackingContext()
             .accessible(core::AccessibleRole::Dialog, title_)
             .accessibleHidden(!open_)
             .focusScope(open_)
@@ -242,7 +244,7 @@ private:
     float screenHeight_ = 600.0f;
     float width_ = 420.0f;
     float height_ = 220.0f;
-    int zIndex_ = 1000;
+    int zIndex_ = layer::Dialog;
 };
 
 inline DialogBuilder dialog(core::dsl::Ui& ui, const std::string& id) {

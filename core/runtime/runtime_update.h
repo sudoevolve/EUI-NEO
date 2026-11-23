@@ -276,7 +276,8 @@ inline std::vector<runtime::ElementSnapshot> Runtime::collectElementStructure() 
             element.kind,
             element.zIndex,
             element.clip,
-            element.children.size()
+            element.children.size(),
+            element.stackingContext
         });
     });
     return result;
@@ -586,7 +587,11 @@ inline void Runtime::setSliderValue(const std::string& stateId, float value, boo
     }
 
     runtime::SliderStateInstance& instance = state->second;
-    const float next = std::clamp(value, 0.0f, 1.0f);
+    float next = std::clamp(value, 0.0f, 1.0f);
+    const Element* owner = ui_.find(stateId);
+    if (owner && owner->sliderStep > 0 && next > 0 && next < 1) {
+        next = std::clamp(std::round(next / owner->sliderStep) * owner->sliderStep, 0.0f, 1.0f);
+    }
     const bool changed = !closeEnough(next, instance.value);
     instance.dragging = dragging;
     if (!changed) {
@@ -596,7 +601,7 @@ inline void Runtime::setSliderValue(const std::string& stateId, float value, boo
     instance.value = next;
     addSliderDirtyRect(instance);
     paintRequested_ = true;
-    if (const Element* owner = ui_.find(stateId)) {
+    if (owner) {
         if (owner->onSliderValueChanged && !owner->disabled) {
             owner->onSliderValueChanged(instance.value);
         }

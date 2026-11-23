@@ -23,6 +23,7 @@ struct AccessibleNode {
     bool expanded = false;
     bool disabled = false;
     bool focused = false;
+    bool selected = false;
 };
 
 } // namespace core

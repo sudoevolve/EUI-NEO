@@ -1,6 +1,7 @@
 #pragma once
 
 #include "components/theme.h"
+#include "components/layout.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
 
@@ -10,6 +11,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <type_traits>
 
 namespace components {
 
@@ -42,10 +44,20 @@ struct ContextMenuStyle {
 struct ContextMenuItem {
     std::string text;
     std::vector<ContextMenuItem> children;
+    /** @brief 叶子项被点击或键盘激活时同步调用；随后发送选择回调并关闭菜单。 */
+    std::function<void()> action;
+    /** @brief 禁用项不可点击，也不参与键盘导航。 */
+    bool enabled = true;
+    /** @brief 分隔线不占普通行高，不可交互；通常通过 separatorItem 创建。 */
+    bool separator = false;
 
     ContextMenuItem(std::string value) : text(std::move(value)) {}
     ContextMenuItem(std::string value, std::vector<ContextMenuItem> childItems)
         : text(std::move(value)), children(std::move(childItems)) {}
+    template <typename Callback, std::enable_if_t<std::is_invocable_r_v<void, Callback&>, int> = 0>
+    ContextMenuItem(std::string value, Callback callback)
+        : text(std::move(value)), action(std::move(callback)) {}
+    static ContextMenuItem separatorItem() { ContextMenuItem item(""); item.separator = true; return item; }
 
     bool hasChildren() const { return !children.empty(); }
 };
@@ -54,6 +66,18 @@ namespace context_menu_detail {
 
 inline float menuHeight(std::size_t itemCount, float itemHeight, float inset) {
     return itemHeight * static_cast<float>(itemCount) + inset * 2.0f;
+}
+
+inline float itemOffset(const std::vector<ContextMenuItem>& items, std::size_t index, float itemHeight, float inset) {
+    float result = 0;
+    for (std::size_t i = 0; i < std::min(index, items.size()); ++i) {
+        result += items[i].separator ? std::max(4.0f, inset) : itemHeight;
+    }
+    return result;
+}
+
+inline float menuHeight(const std::vector<ContextMenuItem>& items, float itemHeight, float inset) {
+    return itemOffset(items, items.size(), itemHeight, inset) + inset * 2;
 }
 
 inline float clampMenuY(float desiredY, float height, float screenHeight) {
@@ -83,6 +107,8 @@ public:
     }
     ContextMenuBuilder& screen(float width, float height) { screenWidth_ = width; screenHeight_ = height; return *this; }
     ContextMenuBuilder& position(float x, float y) { x_ = x; y_ = y; return *this; }
+    /** @brief 外部菜单栏保留可交互区域；区域之外的点击关闭菜单。坐标相对当前父容器。 */
+    ContextMenuBuilder& dismissExclusion(const core::Rect& rect) { dismissExclusion_ = rect; hasExclusion_ = true; return *this; }
     ContextMenuBuilder& size(float width, float itemHeight) { width_ = width; itemHeight_ = itemHeight; return *this; }
     ContextMenuBuilder& items(std::vector<std::string> value) {
         items_.clear();
@@ -107,6 +133,7 @@ public:
     ContextMenuBuilder& onSelect(std::function<void(int)> callback) { onSelect_ = std::move(callback); return *this; }
     ContextMenuBuilder& onSelectPath(std::function<void(const std::vector<int>&)> callback) { onSelectPath_ = std::move(callback); return *this; }
     ContextMenuBuilder& onOpenChange(std::function<void(bool)> callback) { onOpenChange_ = std::move(callback); return *this; }
+    ContextMenuBuilder& onNavigate(std::function<bool(const core::KeyEvent&)> callback) { onNavigate_ = std::move(callback); return *this; }
 
     void build() {
         if (items_.empty()) {
@@ -117,7 +144,7 @@ public:
         const float itemHeight = resolvedItemHeight();
         const float width = std::min(width_, std::max(0.0f, screenWidth_ - metrics_.spacing.section));
         const float xInset = metrics_.spacing.compact;
-        const float height = context_menu_detail::menuHeight(items_.size(), itemHeight, inset);
+        const float height = context_menu_detail::menuHeight(items_, itemHeight, inset);
         const float x = std::clamp(x_, xInset, std::max(xInset, screenWidth_ - width - xInset));
         const float y = context_menu_detail::clampMenuY(y_, height, screenHeight_);
         const std::function<void()> requestDismiss = dismissCallback();
@@ -134,14 +161,28 @@ public:
             .zIndex(zIndex_)
             .content([&] {
                 if (open_) {
-                    ui_.rect(id_ + ".dismiss")
-                        .size(screenWidth_, screenHeight_)
+                    const auto dismiss = [&](const std::string& suffix, float x, float y, float w, float h) {
+                        if (w <= 0 || h <= 0) return;
+                        ui_.rect(id_ + ".dismiss" + suffix).position(x, y)
+                        .size(w, h)
                         .states(theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f),
                                 theme::color(0.0f, 0.0f, 0.0f, 0.0f))
                         .onClick(requestDismiss).tabStop(false).preserveFocusOnPress()
                         .onScroll([](const core::ScrollEvent&) {})
                         .build();
+                    };
+                    if (!hasExclusion_) dismiss("", 0, 0, screenWidth_, screenHeight_);
+                    else {
+                        const float left = std::clamp(dismissExclusion_.x, 0.0f, screenWidth_);
+                        const float top = std::clamp(dismissExclusion_.y, 0.0f, screenHeight_);
+                        const float right = std::clamp(dismissExclusion_.x + dismissExclusion_.width, left, screenWidth_);
+                        const float bottom = std::clamp(dismissExclusion_.y + dismissExclusion_.height, top, screenHeight_);
+                        dismiss(".top", 0, 0, screenWidth_, top);
+                        dismiss(".bottom", 0, bottom, screenWidth_, screenHeight_ - bottom);
+                        dismiss(".left", 0, top, left, bottom - top);
+                        dismiss(".right", right, top, screenWidth_ - right, bottom - top);
+                    }
                 }
 
                 ui_.stack(id_ + ".menu")
@@ -197,11 +238,11 @@ private:
                     break;
                 }
                 prefix.push_back(parentIndex);
-                const float desiredY = menuY + static_cast<float>(parentIndex) * itemHeight;
+                const float desiredY = menuY + context_menu_detail::itemOffset(*levelItems, static_cast<std::size_t>(parentIndex), itemHeight, inset);
                 levelItems = &(*levelItems)[parentIndex].children;
                 menuX = context_menu_detail::childMenuX(menuX, width, width, screenWidth_, metrics_.spacing.tiny);
                 menuY = context_menu_detail::clampMenuY(
-                    desiredY, context_menu_detail::menuHeight(levelItems->size(), itemHeight, inset), screenHeight_);
+                    desiredY, context_menu_detail::menuHeight(*levelItems, itemHeight, inset), screenHeight_);
             }
 
             const bool visible = open_ && (depth == 0 || depth <= static_cast<int>(cascade.openPath.size()));
@@ -222,7 +263,7 @@ private:
                      const std::function<void()>& requestDismiss) {
         const std::string levelId = id_ + ".level." + std::to_string(depth);
         const float itemHeight = resolvedItemHeight();
-        const float height = context_menu_detail::menuHeight(levelItems.size(), itemHeight, inset);
+        const float height = context_menu_detail::menuHeight(levelItems, itemHeight, inset);
         const float opacity = visible ? 1.0f : 0.0f;
         const float scale = visible ? 1.0f : 0.94f;
         const float offsetY = visible ? 0.0f : -4.0f;
@@ -242,18 +283,40 @@ private:
                     .states(theme::color(0, 0, 0, 0), theme::color(0, 0, 0, 0), theme::color(0, 0, 0, 0))
                     .disabled(!visible).blockPointer().build();
 
+                float itemY = inset;
                 for (int index = 0; index < static_cast<int>(levelItems.size()); ++index) {
                     const ContextMenuItem& item = levelItems[index];
-                    const float itemY = inset + static_cast<float>(index) * itemHeight;
                     std::vector<int> path = prefix;
                     path.push_back(index);
+                    int firstChild = -1;
+                    for (int child = 0; child < static_cast<int>(item.children.size()); ++child) {
+                        if (item.children[child].enabled && !item.children[child].separator) { firstChild = child; break; }
+                    }
+                    const std::string childFocus = firstChild < 0 ? std::string{} :
+                        id_ + ".level." + std::to_string(depth + 1) + ".item." + std::to_string(firstChild);
+                    const std::string parentFocus = prefix.empty() ? std::string{} :
+                        id_ + ".level." + std::to_string(depth - 1) + ".item." + std::to_string(prefix.back());
                     ui_.rect(levelId + ".item." + std::to_string(index))
                         .accessible(core::AccessibleRole::ListItem, item.text).accessibleExpanded(item.hasChildren())
-                        .focusGroup(levelId)
+                        .focusGroup(levelId).activateOnFocus(false)
                         .x(inset).y(itemY).size(std::max(0.0f, width - inset * 2.0f), itemHeight)
                         .states(theme::color(0, 0, 0, 0), style_.hover, style_.pressed)
                         .radius(std::max(metrics_.radius.tiny, style_.radius - metrics_.radius.tiny)).instantStates()
-                        .disabled(!visible)
+                        .disabled(!visible || !item.enabled || item.separator)
+                        .onKeyEvent([navigate = onNavigate_, cascadePtr = &cascade, path, depth, ui = &ui_, childFocus, parentFocus,
+                                     hasChildren = item.hasChildren()](const core::KeyEvent& key) {
+                            if (!key.isDown()) return false;
+                            if (key.key == core::InputKey::Right && hasChildren) {
+                                cascadePtr->openPath = path; cascadePtr->renderedPath = path;
+                                if (!childFocus.empty()) ui->requestFocus(childFocus);
+                                return true;
+                            }
+                            if (key.key == core::InputKey::Left && depth > 0) {
+                                cascadePtr->openPath.resize(static_cast<std::size_t>(depth - 1));
+                                ui->requestFocus(parentFocus); return true;
+                            }
+                            return navigate ? navigate(key) : false;
+                        })
                         .onHover([cascadePtr = &cascade, path, hasChildren = item.hasChildren()](bool hovered) {
                             if (!hovered) return;
                             cascadePtr->openPath = path;
@@ -264,27 +327,34 @@ private:
                             }
                         })
                         .onClick([onSelect, onSelectPath, requestDismiss, path, index,
-                                  hasChildren = item.hasChildren(), cascadePtr = &cascade] {
+                                  hasChildren = item.hasChildren(), action = item.action, cascadePtr = &cascade, ui = &ui_, childFocus] {
                             if (hasChildren) {
                                 cascadePtr->openPath = path;
                                 cascadePtr->renderedPath = path;
+                                if (!childFocus.empty()) ui->requestFocus(childFocus);
                                 return;
                             }
+                            if (action) action();
                             if (onSelectPath) onSelectPath(path);
                             if (onSelect) onSelect(index);
                             requestDismiss();
                         }).build();
+                    if (item.separator) {
+                        ui_.rect(levelId + ".separator." + std::to_string(index))
+                            .position(inset, itemY + std::max(4.0f, inset) * .5f).size(std::max(0.0f, width - inset * 2), 1)
+                            .color(style_.border).build();
+                    }
                     ui_.text(levelId + ".label." + std::to_string(index))
                         .x(inset + metrics_.spacing.content)
-                        .y(itemY + std::max(0.0f, (itemHeight - metrics_.typography.option -
-                                                   metrics_.typography.lineGapTight) * 0.5f))
+                        .y(itemY)
                         .size(std::max(0.0f, width - inset * 2.0f -
                                       (item.hasChildren() ? metrics_.control.control : metrics_.spacing.panel)),
-                              metrics_.spacing.large)
+                              itemHeight)
                         .text(item.text)
                         .fontSize(metrics_.typography.option)
                         .lineHeight(metrics_.typography.option + metrics_.typography.lineGapTight)
-                        .color(style_.text).build();
+                        .verticalAlign(core::VerticalAlign::Center)
+                        .color(item.enabled ? style_.text : style_.mutedText).build();
                     if (item.hasChildren()) {
                         ui_.text(levelId + ".arrow." + std::to_string(index))
                             .x(width - inset - metrics_.control.compact + metrics_.spacing.micro)
@@ -297,6 +367,7 @@ private:
                             .verticalAlign(core::VerticalAlign::Center)
                             .build();
                     }
+                    itemY += item.separator ? std::max(4.0f, inset) : itemHeight;
                 }
             })
             .build();
@@ -332,6 +403,9 @@ private:
     std::function<void(int)> onSelect_;
     std::function<void(const std::vector<int>&)> onSelectPath_;
     std::function<void(bool)> onOpenChange_;
+    std::function<bool(const core::KeyEvent&)> onNavigate_;
+    core::Rect dismissExclusion_{};
+    bool hasExclusion_ = false;
     bool open_ = false;
     float screenWidth_ = 800.0f;
     float screenHeight_ = 600.0f;
@@ -339,7 +413,7 @@ private:
     float y_ = 0.0f;
     float width_ = 190.0f;
     float itemHeight_ = 0.0f;
-    int zIndex_ = 1050;
+    int zIndex_ = layer::Menu;
 };
 
 inline ContextMenuBuilder contextMenu(core::dsl::Ui& ui, const std::string& id) {

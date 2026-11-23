@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/mousearea.h"
 #include "components/theme.h"
 #include "core/dsl.h"
@@ -49,7 +51,7 @@ struct CarouselStyle {
     float radius = 22.0f;
 };
 
-class CarouselBuilder {
+class CarouselBuilder : public ComponentLayout<CarouselBuilder> {
 public:
     CarouselBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -153,7 +155,7 @@ public:
         };
         const bool moving = shouldEmitIndex(state.displayIndex, state.targetIndex);
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(safeWidth, safeHeight)
             .clip()
             .content([&] {

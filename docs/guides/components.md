@@ -6,6 +6,8 @@
 
 ## 引入
 
+桌面设置页组合方式见[桌面表单、菜单与数据选择](desktop-ui.md)，包括统一布局接口、Form、逻辑窗口尺寸、Slider 范围、表格选择和 MenuBar。
+
 通常只需要包含聚合头：
 
 ```cpp
@@ -21,7 +23,7 @@
 | `radio` | 受控单选项 |
 | `toggleSwitch` | 受控开关 |
 | `progress` | 进度条，`value` 范围是 `0.0f - 1.0f` |
-| `slider` | 滑块，`value` 范围是 `0.0f - 1.0f` |
+| `slider` | 滑块，默认 0..1，支持 range/step 业务范围 |
 | `input` | 文本输入框，支持单行/多行、选择、剪贴板快捷键 |
 | `segmented` | 分段选择 |
 | `stepper` | 受控数字步进器，支持不同进制和位数 |
@@ -369,7 +371,7 @@ components::slider(ui, "volume")
 
 `progress` 支持 `size`、`value`、`style`、`theme`、`transition`。
 
-`slider` 支持 `size`、`value`、`style`、`theme`、`transition`、`onChange`。`value` 会 clamp 到 `0.0f - 1.0f`。滑块用透明 hit rect 处理点击和拖拽，拖拽时根据缓存 bounds 计算 next value。
+`slider` 支持 `size`、`value`、`range`、`step`、`style`、`theme`、`transition`、`onChange`。默认范围为 0..1；设置 range 后，value/bind/onChange 使用业务值，step 同时作用于拖动和键盘。滑块用透明 hit rect 处理点击和拖拽。
 
 ### markdown
 

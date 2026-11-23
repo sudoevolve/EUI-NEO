@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "eui/signal.h"
@@ -25,13 +27,22 @@ struct SliderStyle {
     core::Color knob;
 };
 
-class SliderBuilder {
+class SliderBuilder : public ComponentLayout<SliderBuilder> {
 public:
     SliderBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
 
     SliderBuilder& size(float width, float height) { width_ = width; height_ = height; return *this; }
-    SliderBuilder& value(float value) { value_ = std::clamp(value, 0.0f, 1.0f); return *this; }
+    SliderBuilder& value(float value) { value_ = value; return *this; }
+    /** @brief 业务值范围，默认 0..1；端点逆序时自动交换，相等时为固定值。 */
+    SliderBuilder& range(float minimum, float maximum) {
+        if (std::isfinite(minimum) && std::isfinite(maximum)) {
+            minimum_ = std::min(minimum, maximum); maximum_ = std::max(minimum, maximum);
+        }
+        return *this;
+    }
+    /** @brief 相对最小值吸附的业务步长；0 表示连续取值。 */
+    SliderBuilder& step(float value) { step_ = std::isfinite(value) && value > 0 ? value : 0; return *this; }
     SliderBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
     SliderBuilder& disabled(bool value = true) { disabled_ = value; return *this; }
     SliderBuilder& bind(eui::Signal<float>& signal) {
@@ -53,16 +64,30 @@ public:
     SliderBuilder& onChange(std::function<void(float)> callback) { onChange_ = std::move(callback); return *this; }
 
     void build() {
+        const float minimum = minimum_, maximum = maximum_, step = step_;
+        const double span = static_cast<double>(maximum) - minimum;
+        const auto snap = [minimum, maximum, step](double value) {
+            double result = std::isnan(value) ? minimum : std::clamp(value, static_cast<double>(minimum), static_cast<double>(maximum));
+            if (step > 0 && result > minimum && result < maximum) {
+                result = minimum + std::round((result - minimum) / step) * step;
+            }
+            return static_cast<float>(std::clamp(result, static_cast<double>(minimum), static_cast<double>(maximum)));
+        };
+        const float value = snap(value_);
+        const float unit = span > 0 ? static_cast<float>((value - static_cast<double>(minimum)) / span) : 0;
+        const auto emit = onChange_;
+        const auto onChange = [emit, minimum, span, snap](float normalized) {
+            if (emit) emit(snap(static_cast<float>(minimum + span * normalized)));
+        };
         const float trackHeight = std::max(metrics_.spacing.tiny - metrics_.spacing.hairline,
                                            height_ * 0.18f);
         const float trackY = (height_ - trackHeight) * 0.5f;
         const float knobSize = std::max(metrics_.typography.label, height_ * 0.72f);
-        const std::function<void(float)> onChange = onChange_;
 
-        ui_.stack(id_)
-            .disabled(disabled_)
+        layoutRoot(ui_.stack(id_))
+            .disabled(disabled_ || span <= 0)
             .size(width_, height_)
-            .sliderState(id_, value_, width_, knobSize, onChange)
+            .sliderState(id_, unit, width_, knobSize, onChange, span > 0 ? static_cast<float>(step / span) : 0)
             .content([&] {
                 ui_.rect(id_ + ".track")
                     .y(trackY)
@@ -73,7 +98,7 @@ public:
 
                 ui_.rect(id_ + ".fill")
                     .y(trackY)
-                    .size(width_ * value_, trackHeight)
+                    .size(width_ * unit, trackHeight)
                     .color(style_.fill)
                     .radius(trackHeight * 0.5f)
                     .transition(transition_)
@@ -100,20 +125,20 @@ public:
                 // overlays/scrim/menus composed at default z=0), breaking
                 // their hit testing and paint order.
                 ui_.rect(id_ + ".hit")
-                    .accessible(core::AccessibleRole::Slider, accessibleName_, std::to_string(value_))
-                    .onKeyEvent([onChange, value = value_](const core::KeyEvent& key) {
+                    .accessible(core::AccessibleRole::Slider, accessibleName_, std::to_string(value))
+                    .onKeyEvent([emit, value, minimum, maximum, step, span, snap](const core::KeyEvent& key) {
                         if (!key.isDown()) return false;
-                        float next = value;
+                        double next = value;
                         switch (key.key) {
-                        case core::InputKey::Left: case core::InputKey::Down: next -= 0.01f; break;
-                        case core::InputKey::Right: case core::InputKey::Up: next += 0.01f; break;
-                        case core::InputKey::Home: next = 0; break;
-                        case core::InputKey::End: next = 1; break;
-                        case core::InputKey::PageDown: next -= 0.1f; break;
-                        case core::InputKey::PageUp: next += 0.1f; break;
+                        case core::InputKey::Left: case core::InputKey::Down: next -= step > 0 ? step : span * .01; break;
+                        case core::InputKey::Right: case core::InputKey::Up: next += step > 0 ? step : span * .01; break;
+                        case core::InputKey::Home: next = minimum; break;
+                        case core::InputKey::End: next = maximum; break;
+                        case core::InputKey::PageDown: next -= step > 0 ? step * 10.0 : span * .1; break;
+                        case core::InputKey::PageUp: next += step > 0 ? step * 10.0 : span * .1; break;
                         default: return false;
                         }
-                        if (onChange) onChange(std::clamp(next, 0.0f, 1.0f));
+                        if (emit) emit(snap(next));
                         return true;
                     })
                     .size(width_, height_)
@@ -139,6 +164,7 @@ private:
     float width_ = 300.0f;
     float height_ = 32.0f;
     float value_ = 0.0f;
+    float minimum_ = 0.0f, maximum_ = 1.0f, step_ = 0.0f;
 };
 
 inline SliderBuilder slider(core::dsl::Ui& ui, const std::string& id) {

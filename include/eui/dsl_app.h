@@ -50,16 +50,23 @@ struct DslAppConfig {
     std::function<void(const eui::KeyEvent&)> keyEventHandler;
     std::function<void()> startHandler;
     std::function<void()> shutdownHandler;
+    bool logicalWindowSizeValue = false;
 
     DslAppConfig& title(std::string value) { titleValue = std::move(value); return *this; }
     DslAppConfig& pageId(std::string value) { pageIdValue = std::move(value); return *this; }
     DslAppConfig& appId(std::string value) { appIdValue = std::move(value); return *this; }
     DslAppConfig& clearColor(const eui::Color& value) { clearColorValue = value; return *this; }
     DslAppConfig& background(const eui::Color& value) { return clearColor(value); }
+    /** @brief 原生窗口单位的客户区尺寸；逻辑布局尺寸请使用 logicalWindowSize。 */
     DslAppConfig& windowSize(int width, int height) {
+        logicalWindowSizeValue = false;
         windowWidthValue = width;
         windowHeightValue = height;
         return *this;
+    }
+    /** @brief 初始客户区使用与 compose 相同的逻辑单位，自动计入当前 DPI 和 uiScale。 */
+    DslAppConfig& logicalWindowSize(int width, int height) {
+        windowSize(width, height); logicalWindowSizeValue = true; return *this;
     }
     DslAppConfig& windowWidth(int value) { windowWidthValue = value; return *this; }
     DslAppConfig& windowHeight(int value) { windowHeightValue = value; return *this; }
@@ -91,7 +98,7 @@ struct DslAppConfig {
     DslAppConfig& alwaysOnTop(bool value = true) { alwaysOnTopValue = value; return *this; }
     DslAppConfig& maximized(bool value = true) { maximizedValue = value; return *this; }
     DslAppConfig& uiScale(float value) {
-        uiScaleValue = value > 0.0f ? value : 1.0f;
+        uiScaleValue = std::isfinite(value) && value > 0.0f ? value : 1.0f;
         return *this;
     }
     DslAppConfig& showDebugStatsInTitle(bool value = true) {
@@ -155,15 +162,21 @@ struct DslWindowConfig {
     int windowHeightValue = 420;
     bool modalValue = false;
     std::function<void(const eui::KeyEvent&)> keyEventHandler;
+    bool logicalWindowSizeValue = false;
 
     DslWindowConfig& title(std::string value) { titleValue = std::move(value); return *this; }
     DslWindowConfig& pageId(std::string value) { pageIdValue = std::move(value); return *this; }
     DslWindowConfig& clearColor(const eui::Color& value) { clearColorValue = value; return *this; }
     DslWindowConfig& background(const eui::Color& value) { return clearColor(value); }
     DslWindowConfig& windowSize(int width, int height) {
+        logicalWindowSizeValue = false;
         windowWidthValue = width;
         windowHeightValue = height;
         return *this;
+    }
+    /** @brief 初始客户区使用 compose 逻辑单位；继承主应用的 uiScale。 */
+    DslWindowConfig& logicalWindowSize(int width, int height) {
+        windowSize(width, height); logicalWindowSizeValue = true; return *this;
     }
     DslWindowConfig& windowWidth(int value) { windowWidthValue = value; return *this; }
     DslWindowConfig& windowHeight(int value) { windowHeightValue = value; return *this; }

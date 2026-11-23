@@ -21,6 +21,7 @@ struct DslWindowRequest {
     bool modal = false;
     std::function<void(const eui::KeyEvent&)> onKeyEvent;
     DslWindowCompose compose;
+    bool logicalSize = false;
 };
 
 const char* windowTitle();

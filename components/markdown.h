@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "core/render/text.h"
@@ -816,7 +818,7 @@ inline std::shared_ptr<const MarkdownDocument> cachedMarkdownDocument(const std:
 
 } // namespace detail
 
-class MarkdownBuilder {
+class MarkdownBuilder : public ComponentLayout<MarkdownBuilder> {
     struct ViewportLayout;
 
   public:
@@ -901,7 +903,7 @@ class MarkdownBuilder {
         }
         const std::shared_ptr<const detail::MarkdownDocument> document = parsedDocument();
         const std::vector<detail::MarkdownBlock>& blocks = document->blocks;
-        auto root = ui_.column(id_)
+        auto root = layoutRoot(ui_.column(id_))
             .width(width_)
             .height(height_)
             .margin(margin_.left, margin_.top, margin_.right, margin_.bottom)
@@ -1299,7 +1301,7 @@ private:
         auto plan = viewportLayout();
         activePlan_ = plan.get();
         auto root =
-            ui_.stack(id_)
+            layoutRoot(ui_.stack(id_))
                 .width(width_)
                 .height(height_.mode == core::SizeMode::WrapContent ? core::SizeValue::fixed(plan->height) : height_)
                 .margin(margin_.left, margin_.top, margin_.right, margin_.bottom)

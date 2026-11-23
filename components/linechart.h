@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "components/tooltip.h"
 #include "core/dsl.h"
@@ -103,7 +105,7 @@ struct Cache {
 };
 } // namespace linechart_detail
 
-class LineChartBuilder {
+class LineChartBuilder : public ComponentLayout<LineChartBuilder> {
     struct TooltipItem {
         std::string sourceId;
         std::string text;
@@ -163,7 +165,7 @@ public:
             displayPoints.push_back(pointAt(displayValues, index, plotX, bottomY, plotHeight, stepX));
         }
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .content([&] {
                 ui_.rect(id_ + ".bg")
@@ -293,7 +295,7 @@ private:
             cache.width = w; cache.height = h; cache.minimum = minimum_; cache.maximum = maximum_;
             cache.points = linechart_detail::downsample(*source, first_, last_, w, h, minimum_, maximum_);
         }
-        ui_.stack(id_).size(width_, height_).clip().content([&] {
+        layoutRoot(ui_.stack(id_)).size(width_, height_).clip().content([&] {
             ui_.rect(id_ + ".bg").size(width_, height_).color(style_.background).radius(style_.radius)
                 .border(1, style_.border).build();
             ui_.text(id_ + ".title").x(28).y(20).size(w, 30).text(title_)

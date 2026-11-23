@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "components/input_model.h"
 #include "components/scroll.h"
@@ -40,7 +42,7 @@ struct InputStyle {
     float radius = 10.0f;
 };
 
-class InputBuilder {
+class InputBuilder : public ComponentLayout<InputBuilder> {
 public:
     InputBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -151,7 +153,7 @@ public:
             return index - compositionSize + compositionRange.second - compositionRange.first;
         };
 
-        auto root = ui_.stack(id_)
+        auto root = layoutRoot(ui_.stack(id_))
             .size(width_, height_)
             .clip()
             .dirtyKey(InputModel::makeDirtyKey(state, focused, layout) + (scrollbar_ ? "|bar" : "|no-bar"));

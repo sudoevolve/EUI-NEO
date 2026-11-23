@@ -1,5 +1,7 @@
 #pragma once
 
+#include "components/layout.h"
+
 #include "components/theme.h"
 #include "core/dsl.h"
 #include "core/render/text.h"
@@ -32,7 +34,7 @@ struct SwitchStyle {
     core::Color rowPressed;
 };
 
-class SwitchBuilder {
+class SwitchBuilder : public ComponentLayout<SwitchBuilder> {
 public:
     SwitchBuilder(core::dsl::Ui& ui, std::string id)
         : ui_(ui), id_(std::move(id)) {}
@@ -81,14 +83,13 @@ public:
         const float contentX = horizontalInset;
         const float labelWidth = std::max(0.0f, width_ - labelX - horizontalInset);
         const float labelLineHeight = fontSize;
-        const float labelY = std::max(0.0f, (height_ - labelLineHeight) * 0.5f);
         const float hitWidth = label_.empty()
             ? trackWidth + horizontalInset * 2.0f
             : std::min(width_, labelX + textWidth(label_, fontSize) + horizontalInset * 2.0f);
         const bool nextChecked = !checked_;
         const std::function<void(bool)> onChange = onChange_;
 
-        ui_.stack(id_)
+        layoutRoot(ui_.stack(id_))
             .disabled(disabled_)
             .size(width_, height_)
             .content([&] {
@@ -129,13 +130,13 @@ public:
                 if (!label_.empty()) {
                     ui_.text(id_ + ".label")
                         .x(contentX + labelX)
-                        .y(labelY)
-                        .size(labelWidth, labelLineHeight)
+                        .y(0)
+                        .size(labelWidth, height_)
                         .text(label_)
                         .fontSize(fontSize)
                         .lineHeight(labelLineHeight)
                         .color(style_.text)
-                        .verticalAlign(core::VerticalAlign::Top)
+                        .verticalAlign(core::VerticalAlign::Center)
                         .build();
                 }
             })

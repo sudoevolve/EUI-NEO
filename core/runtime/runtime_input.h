@@ -2,6 +2,20 @@
 
 namespace core::dsl {
 
+inline void Runtime::dismissOutsidePress(const std::string& targetId) {
+    std::vector<std::function<void()>> callbacks;
+    const auto visit = [&](const auto& self, const Element& element) -> bool {
+        if (element.disabled || element.accessibleHidden || element.opacity <= 0) return false;
+        bool contains = element.id == targetId;
+        for (const auto& child : element.children) contains = self(self, *child) || contains;
+        if (!contains && element.onOutsidePress) callbacks.push_back(element.onOutsidePress);
+        return contains;
+    };
+    for (const auto& root : ui_.roots()) visit(visit, *root);
+    for (const auto& callback : callbacks) callback();
+    if (!callbacks.empty()) composeRequested_ = paintRequested_ = true;
+}
+
 inline std::string Runtime::capturedInteractionId() const {
     for (const auto& item : instances_.interactions) {
         if (item.second.state.active && ui_.find(item.first) && !isElementInDisabledTree(item.first)) {
@@ -444,7 +458,7 @@ inline void Runtime::updateKeyInput(const std::vector<KeyEvent>& events) {
                 const auto index = (std::distance(group.begin(), it) + (backwards ? group.size() - 1 : 1)) % group.size();
                 setFocusedId(group[index]);
                 const auto activate = ui_.find(focusedId_)->onClick;
-                if (activate) activate();
+                if (activate && ui_.find(focusedId_)->activateOnFocus) activate();
                 handled = true;
             }
         }

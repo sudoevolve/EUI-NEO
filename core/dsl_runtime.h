@@ -175,6 +175,7 @@ private:
     void updateTextInput(const TextInputEvent& event);
 
     void updateKeyInput(const std::vector<KeyEvent>& events);
+    void dismissOutsidePress(const std::string& targetId);
     void synchronizeFocusScope();
     void moveFocus(bool backwards);
     std::vector<std::string> focusOrder() const;
