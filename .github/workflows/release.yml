@@ -19,10 +19,13 @@ jobs:
         include:
           - os: windows-2022
             platform: windows
+            parallel: 4
           - os: ubuntu-latest
             platform: linux
+            parallel: 4
           - os: macos-latest
             platform: macos
+            parallel: 2
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -60,7 +63,7 @@ jobs:
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DEUI_BUILD_TEST_FIXTURES=ON
 
       - name: build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel ${{ matrix.parallel }}
 
       - name: test unit suite
         run: ctest --test-dir build -C Release -L unit --output-on-failure
