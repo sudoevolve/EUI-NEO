@@ -419,6 +419,7 @@ chore(deps): trim bundled third-party sources
 ## Release 约定
 
 - 推送 `v*` tag 会触发 `.github/workflows/release.yml`。
+- macOS 单独重打包可运行 `gh workflow run release.yml --ref main -f tag=vX.Y.Z`；手动入口只构建指定标签的 macOS 包，保留 Windows/Linux 附件。macOS 构建并发为 2，Windows/Linux 为 4。
 - CI 构建 Windows、Linux、macOS 运行包和 SDK 包。
 - 运行包会从 `examples/*.cpp`、`apps/*.cpp` 和 `apps/*/app.cpp` 自动推导可执行文件列表；新增 demo 或应用不需要手动维护 release.yml 的应用名单。
 - Release assets 上传运行包和 SDK 包，不上传正文截图。

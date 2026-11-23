@@ -2,11 +2,18 @@ name: release
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  EUI_RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to rebuild for macOS only"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -16,20 +23,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: windows-2022
-            platform: windows
-            parallel: 4
-          - os: ubuntu-latest
-            platform: linux
-            parallel: 4
-          - os: macos-latest
-            platform: macos
-            parallel: 2
+        include: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[{"os":"macos-latest","platform":"macos","parallel":2}]' || '[{"os":"windows-2022","platform":"windows","parallel":4},{"os":"ubuntu-latest","platform":"linux","parallel":4},{"os":"macos-latest","platform":"macos","parallel":2}]') }}
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: install linux deps
         if: matrix.platform == 'linux'
@@ -83,7 +83,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          $label = "${{ github.ref_name }}"
+          $label = $env:EUI_RELEASE_TAG
           $label = $label -replace '[^A-Za-z0-9._-]', '-'
           $arch = "${{ runner.arch }}".ToLowerInvariant()
           $out = "dist/EUI-NEO-$label-windows-$arch-runtime.zip"
@@ -120,7 +120,7 @@ jobs:
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
-          $label = "${{ github.ref_name }}"
+          $label = $env:EUI_RELEASE_TAG
           $label = $label -replace '[^A-Za-z0-9._-]', '-'
           $arch = "${{ runner.arch }}".ToLowerInvariant()
           $out = "dist/EUI-NEO-$label-windows-$arch-sdk.zip"
@@ -131,7 +131,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          label="$(printf '%s' "${GITHUB_REF_NAME}" | tr -cs 'A-Za-z0-9._-' '-')"
+          label="$(printf '%s' "${EUI_RELEASE_TAG}" | tr -cs 'A-Za-z0-9._-' '-')"
           arch="$(printf '%s' "${RUNNER_ARCH:-X64}" | tr '[:upper:]' '[:lower:]')"
           out="dist/EUI-NEO-${label}-${{ matrix.platform }}-${arch}-runtime.tar.gz"
 
@@ -176,7 +176,7 @@ jobs:
         if: matrix.platform == 'linux' || matrix.platform == 'macos'
         shell: bash
         run: |
-          label="$(printf '%s' "${GITHUB_REF_NAME}" | tr -cs 'A-Za-z0-9._-' '-')"
+          label="$(printf '%s' "${EUI_RELEASE_TAG}" | tr -cs 'A-Za-z0-9._-' '-')"
           arch="$(printf '%s' "${RUNNER_ARCH:-X64}" | tr '[:upper:]' '[:lower:]')"
           out="dist/EUI-NEO-${label}-${{ matrix.platform }}-${arch}-sdk.tar.gz"
           tar -czf "$out" -C package-sdk .
@@ -194,7 +194,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = $env:EUI_RELEASE_TAG
           gh release view $tag | Out-Null
           if ($LASTEXITCODE -ne 0) {
             $notes = "docs/releases/$tag.md"
@@ -213,12 +213,12 @@ jobs:
           }
 
       - name: upload unix release asset
-        if: (matrix.platform == 'linux' || matrix.platform == 'macos') && startsWith(github.ref, 'refs/tags/')
+        if: (matrix.platform == 'linux' || matrix.platform == 'macos') && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="${GITHUB_REF_NAME}"
+          tag="${EUI_RELEASE_TAG}"
           if ! gh release view "$tag" >/dev/null 2>&1; then
             if [ -f "docs/releases/$tag.md" ]; then
               gh release create "$tag" --title "EUI-NEO $tag" --notes-file "docs/releases/$tag.md" || gh release view "$tag" >/dev/null
