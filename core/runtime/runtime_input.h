@@ -384,9 +384,21 @@ inline void Runtime::synchronizeFocusScope() {
     const std::string top = active.empty() ? std::string{} : active.back();
     while (!focusScopes_.empty() && focusScopes_.back().first != top &&
            std::find(active.begin(), active.end(), focusScopes_.back().first) == active.end()) {
+        const auto* closingScope = ui_.find(focusScopes_.back().first);
+        const auto containsFocus = [&](const auto& self, const Element& element) -> bool {
+            if (element.id == focusedId_) return true;
+            for (const auto& child : element.children) if (self(self, *child)) return true;
+            return false;
+        };
+        // 外部按下可能已经转移了焦点；仅在旧焦点仍属于关闭范围或已失效时恢复。
+        const auto* focused = ui_.find(focusedId_);
+        const bool restoreFocus = !focused || !focused->focusable || isElementInDisabledTree(focusedId_) ||
+                                  (closingScope && containsFocus(containsFocus, *closingScope));
         const auto restore = focusScopes_.back().second;
         focusScopes_.pop_back();
-        setFocusedId(ui_.find(restore) && !isElementInDisabledTree(restore) ? restore : std::string{});
+        if (restoreFocus) {
+            setFocusedId(ui_.find(restore) && !isElementInDisabledTree(restore) ? restore : std::string{});
+        }
     }
     if (!top.empty() && (focusScopes_.empty() || focusScopes_.back().first != top)) {
         focusScopes_.push_back({top, focusedId_});

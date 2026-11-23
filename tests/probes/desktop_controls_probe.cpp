@@ -2,6 +2,7 @@
 #include "components/slider.h"
 #include "components/menubar.h"
 #include "components/datatable.h"
+#include "components/input.h"
 #include "core/dsl_runtime.h"
 
 #if defined(EUI_RENDER_BACKEND_OPENGL)
@@ -46,6 +47,8 @@ int main() {
         eui::Signal<int> choice{0};
         eui::Signal<float> value{10};
         int outsideClicks = 0;
+        eui::Signal<std::string> text;
+        core::dsl::Ui* current = nullptr;
         int w = 0, h = 0;
 #if defined(EUI_WINDOW_BACKEND_SDL2)
 #if defined(EUI_RENDER_BACKEND_VULKAN)
@@ -59,6 +62,7 @@ int main() {
         for (float scale : {1.f, 1.5f, 2.f}) {
             const auto compose = [&] {
                 runtime.compose("popup", w / scale, h / scale, [&](auto& ui, const auto& screen) {
+                    current = &ui;
                     ui.stack("root").size(screen.width, screen.height).content([&] {
                         ui.stack("wrap").position(20, 20).size(200, 28).zIndex(73).content([&] {
                             components::dropdown(ui, "choice").size(200, 28).items({"System", "HTTP"})
@@ -66,6 +70,7 @@ int main() {
                         }).build();
                         ui.rect("later").position(20, 65).size(200, 90).zIndex(73).color({1, 0, 0, 1}).build();
                         ui.rect("outside").position(250, 160).size(100, 28).onClick([&] { ++outsideClicks; }).build();
+                        components::input(ui, "outside.input").position(250, 195).size(100, 28).bind(text).build();
                         components::slider(ui, "range").position(20, 220).size(200, 28).range(10, 110).step(5).bind(value).build();
                     }).build();
                 });
@@ -96,6 +101,13 @@ int main() {
             require(!open.get() && outsideClicks == before + 1, "outside click must close dropdown and activate its target");
             compose(); render();
             click(40, 30); compose(); render();
+            click(270, 205); compose(); render();
+            require(!open.get() && current->isFocused("outside.input.hit"), "closing dropdown stole outside input focus");
+            const auto textLength = text.get().size();
+            core::queueTextInput(window, "x");
+            runtime.update(window, 0, 1, scale); compose();
+            require(text.get().size() == textLength + 1, "outside input cannot type after closing dropdown");
+            click(40, 30); compose(); render();
             click(40, 112);
             require(choice.get() == 1 && !open.get(), "popup option outside field bounds did not receive click");
             compose(); render();
@@ -105,7 +117,6 @@ int main() {
             require(std::fabs(ticks - std::round(ticks)) < .001f, "pointer value not snapped");
         }
         int menuActions = 0;
-        core::dsl::Ui* current = nullptr;
         const auto menu = [&] {
             runtime.compose("keyboard", 800, 600, [&](auto& ui, const auto&) {
                 current = &ui;
