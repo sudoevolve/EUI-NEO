@@ -148,6 +148,7 @@ int main() {
     require(readyCalls == 1, "first-frame readiness callback did not run exactly once");
     app::shutdown();
     backend.reset();
+    core::releaseInputQueue(window);
     core::window::destroyWindow(window);
 #if defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_Quit();

@@ -60,7 +60,9 @@ int main() {
             else if (pixels != original) { std::cerr << "viewport pixels changed at " << top << " dpi " << dpi << '\n'; ++failures; }
         }
     }
-    runtime.shutdown(); backend.reset(); core::window::destroyWindow(window);
+    runtime.shutdown(); backend.reset();
+    core::releaseInputQueue(window);
+    core::window::destroyWindow(window);
 #if defined(EUI_WINDOW_BACKEND_SDL2)
     SDL_Quit();
 #else
