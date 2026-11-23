@@ -129,13 +129,22 @@ public:
                     .onKeyEvent([emit, value, minimum, maximum, step, span, snap](const core::KeyEvent& key) {
                         if (!key.isDown()) return false;
                         double next = value;
+                        const auto moveTicks = [&](int count) {
+                            if (step <= 0) return value + span * .01 * count;
+                            const double index = (static_cast<double>(value) - minimum) / step;
+                            // maximum 也属于合法刻度，即使范围不是 step 的整数倍。
+                            const double endIndex = std::round(span / step);
+                            const bool endOnTick = static_cast<float>(minimum + endIndex * step) == maximum;
+                            const double tick = value == maximum ? (endOnTick ? endIndex : std::ceil(span / step)) : std::round(index);
+                            return static_cast<double>(minimum) + (tick + count) * step;
+                        };
                         switch (key.key) {
-                        case core::InputKey::Left: case core::InputKey::Down: next -= step > 0 ? step : span * .01; break;
-                        case core::InputKey::Right: case core::InputKey::Up: next += step > 0 ? step : span * .01; break;
+                        case core::InputKey::Left: case core::InputKey::Down: next = moveTicks(-1); break;
+                        case core::InputKey::Right: case core::InputKey::Up: next = moveTicks(1); break;
                         case core::InputKey::Home: next = minimum; break;
                         case core::InputKey::End: next = maximum; break;
-                        case core::InputKey::PageDown: next -= step > 0 ? step * 10.0 : span * .1; break;
-                        case core::InputKey::PageUp: next += step > 0 ? step * 10.0 : span * .1; break;
+                        case core::InputKey::PageDown: next = moveTicks(-10); break;
+                        case core::InputKey::PageUp: next = moveTicks(10); break;
                         default: return false;
                         }
                         if (emit) emit(snap(next));

@@ -69,6 +69,22 @@ void sliderRange() {
     compose();
     ui.find("limit.hit")->onKeyEvent({core::InputKey::End, core::KeyAction::Press, {}});
     require(value.get() == 110, "End does not reach maximum");
+    const auto move = [&](float minimum, float maximum, float step, float start, core::InputKey key) {
+        value.set(start);
+        ui.begin("ticks");
+        components::slider(ui, "ticks").range(minimum, maximum).step(step).bind(value).build();
+        ui.end(); ui.layout(400, 100);
+        ui.find("ticks.hit")->onKeyEvent({key, core::KeyAction::Press, {}});
+        return value.get();
+    };
+    require(near(move(10, 110, 30, 110, core::InputKey::Left), 100), "Left from unmatched maximum skips previous tick");
+    require(near(move(10, 110, 30, 100, core::InputKey::Right), 110), "Right must reach unmatched maximum");
+    require(near(move(10, 110, 30, 110, core::InputKey::PageDown), 10), "PageDown must clamp to minimum");
+    require(near(move(-25, 300, 30, 300, core::InputKey::PageDown), 5), "PageDown must count ten legal ticks from unmatched maximum");
+    require(near(move(10, 110, 200, 110, core::InputKey::Down), 10), "step larger than range must reach minimum");
+    require(near(move(10, 110, 200, 10, core::InputKey::Up), 110), "step larger than range must reach maximum");
+    require(near(move(0, 1.2f, .4f, 1.2f, core::InputKey::Left), .8f), "fractional aligned maximum must not stall");
+    require(near(move(10, 110, 0, 110, core::InputKey::PageDown), 100), "continuous PageDown must retain ten percent behavior");
     ui.begin("fixed");
     components::slider(ui, "fixed").range(42, 42).value(100).onChange([&](float v) { value.set(v); }).build();
     ui.end(); ui.layout(400, 100);
