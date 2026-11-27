@@ -101,18 +101,19 @@ public:
         const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.input;
         // 开启时固定预留槽位，避免溢出临界点因滚动条显隐反复改变换行宽度。
         const bool allowMultiline = multiline_ && !password_;
+        const float passwordToggleWidth = password_ ? std::max(28.0f, fontSize * 1.8f) : 0.0f;
         const float scrollbarWidth = scrollbar_ && allowMultiline
             ? std::min(metrics_.control.scrollbar, std::max(0.0f, width_ - inset * 2.0f)) : 0.0f;
         const float scrollbarGutter = scrollbarWidth > 0.0f ? scrollbarWidth + 4.0f : 0.0f;
-        const float textWidth = std::max(0.0f, width_ - inset * 2.0f - scrollbarGutter);
+        const float textWidth = std::max(0.0f, width_ - inset * 2.0f - scrollbarGutter - passwordToggleWidth);
         const std::function<void(const std::string&)> onChange = onChange_;
         const std::function<void()> onEnter = onEnter_;
         const std::function<void(bool)> onFocus = onFocus_;
         const float textLineHeight = fontSize * 1.2f;
         const float textY = allowMultiline ? inset : std::max(0.0f, (height_ - textLineHeight) * 0.5f);
         const float textHeight = allowMultiline ? std::max(0.0f, height_ - inset * 2.0f) : textLineHeight;
-        const float width = width_ - scrollbarGutter;
-        const float controlWidth = width_;
+        const float width = width_ - scrollbarGutter - passwordToggleWidth;
+        const float controlWidth = width;
         const std::string fontFamily = fontFamily_;
         InputState& state = ui_.state<InputState>(id_);
         state.undoByteBudget = undoByteBudget_;
@@ -136,8 +137,9 @@ public:
         state.selectionEnd = InputModel::clampUtf8Boundary(state.text, state.selectionEnd);
         const bool hasComposition = focused && !state.compositionText.empty();
         InputState& sourceDisplay = InputModel::displayState(state, hasComposition);
-        InputState& display = password_ ? InputModel::maskedDisplayState(sourceDisplay) : sourceDisplay;
-        const InputLayout layout = InputLayout::build(display, textWidth, textHeight, width, inset, textY, textLineHeight, fontFamily_, fontSize, allowMultiline);
+        const bool maskPassword = password_ && !state.passwordVisible;
+        InputState& display = maskPassword ? InputModel::maskedDisplayState(sourceDisplay) : sourceDisplay;
+        const InputLayout layout = InputLayout::build(display, textWidth, textHeight, controlWidth, inset, textY, textLineHeight, fontFamily_, fontSize, allowMultiline);
         state.horizontalScroll = display.horizontalScroll;
         state.verticalScroll = display.verticalScroll;
         const bool empty = display.text.empty();
@@ -145,7 +147,7 @@ public:
         const std::string textDirtyKey = id_ + ".text|" + std::to_string(state.textRevision) + "|" + std::to_string(display.textRevision) +
             "|" + std::to_string(static_cast<int>(std::lround(state.horizontalScroll * 64.0f))) +
             "|" + std::to_string(static_cast<int>(std::lround(state.verticalScroll * 64.0f))) +
-            (empty ? "|p" : "|v") + (hasComposition ? "|ime" : "") + (password_ ? "|password" : "|text");
+            (empty ? "|p" : "|v") + (hasComposition ? "|ime" : "") + (maskPassword ? "|password" : "|text");
         const float renderedTextHeight = allowMultiline ? layout.contentHeight : textHeight;
         const float caretX = layout.clampedCursorX();
         const bool password = password_;
@@ -436,7 +438,7 @@ public:
                                 .lineHeight(textLineHeight)
                                 .color(empty ? style_.placeholder : style_.text)
                                 .wrap(false)
-                                .verticalAlign(core::VerticalAlign::Top)
+                                .verticalAlign(core::VerticalAlign::Center)
                                 .build();
                         }
 
@@ -450,6 +452,22 @@ public:
                         }
                     })
                     .build();
+
+                if (password_) {
+                    ui_.text(id_ + ".passwordToggle")
+                        .position(width_ - inset - passwordToggleWidth, 0.0f)
+                        .size(passwordToggleWidth, height_)
+                        .icon(state.passwordVisible ? 0xF070 : 0xF06E)
+                        .fontSize(std::max(12.0f, fontSize * 0.82f))
+                        .color(style_.placeholder)
+                        .horizontalAlign(core::HorizontalAlign::Center)
+                        .verticalAlign(core::VerticalAlign::Center)
+                        .accessible(core::AccessibleRole::Button,
+                                    state.passwordVisible ? "Hide password" : "Show password")
+                        .preserveFocusOnPress()
+                        .onClick([&state] { state.passwordVisible = !state.passwordVisible; })
+                        .build();
+                }
                 if (scrollbarWidth > 0.0f && textHeight > 0.0f && layout.maxVerticalScroll > 0.0f) {
                     const float thumbHeight = std::clamp(textHeight * textHeight / layout.contentHeight,
                                                         std::min(24.0f, textHeight), textHeight);

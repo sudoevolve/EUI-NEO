@@ -209,7 +209,7 @@ Use the current event model:
 - Pointer callbacks use `action`, `button`, `buttons`, and `modifiers`.
 - Middle, right, X1, and X2 interactions must be enabled explicitly with `.acceptedButtons(...)`; left is the default.
 
-For `components::input`, `.password()` masks each UTF-8 code point in the rendered field, keeps the original value for binding and callbacks, forces single-line layout, disables copy/cut, and omits the value from the accessibility snapshot. Do not log or render the original value elsewhere. Password mode is a display and privacy contract; it is not encryption or secure storage.
+For `components::input`, `.password()` masks each UTF-8 code point in the rendered field, keeps the original value for binding and callbacks, forces single-line layout, disables copy/cut, provides an eye button to toggle the current display, and omits the value from the accessibility snapshot. Do not log or render the original value elsewhere. Password mode is a display and privacy contract; it is not encryption or secure storage.
 
 Never generate removed `KeyboardEvent`, `PointerEvent::down`, `rightDown`, `pressedThisFrame`, `releasedThisFrame`, other `*ThisFrame` fields, compatibility aliases, native button polling, or dual input paths. Do not disable retained-layer caching to work around rendering or resize behavior.
 

@@ -131,8 +131,10 @@ int main() {
     passwordUi.end();
     passwordUi.layout(180.0f, 42.0f);
     const core::dsl::Element* passwordText = passwordUi.find("secret.text");
+    const core::dsl::Element* passwordToggle = passwordUi.find("secret.passwordToggle");
     const auto accessibility = passwordUi.accessibilityTree();
-    if (passwordText == nullptr || passwordText->text != "******" || accessibility.empty() || !accessibility.front().value.empty()) {
+    if (passwordText == nullptr || passwordText->text != "******" || passwordText->frame.y <= 0.0f ||
+        passwordToggle == nullptr || passwordToggle->text.empty() || accessibility.empty() || !accessibility.front().value.empty()) {
         std::cerr << "Password input did not mask rendered or accessible value\n";
         return 1;
     }

@@ -2,6 +2,7 @@ struct GalleryControlsPage {
     bool checked = true;
     eui::Signal<bool> switchOn{true};
     bool radioA = true;
+    std::string password = "EUI-secret";
     std::string input = "Hello EUI-NEO 😉";
     std::string editor = "Hello EUI-NEO 😉\nType multiple lines here.";
     eui::Signal<float> slider{0.44f};
@@ -194,6 +195,18 @@ struct GalleryControlsPage {
         .placeholder("Type here")
         .onChange([this](const std::string& value) {
             input = value;
+        })
+        .build();
+
+    components::input(ui, "control.password")
+        .theme(themeColors())
+        .size(fieldWidth, 44.0f)
+        .password()
+        .value(password)
+        .placeholder("Password (masked)")
+        .accessibleName("Password")
+        .onChange([this](const std::string& value) {
+            password = value;
         })
         .build();
 

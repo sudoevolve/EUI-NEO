@@ -462,7 +462,7 @@ components::input(ui, "name")
 
 支持 `size`、`value`、`placeholder`、`multiline`、`password`、`scrollbar`、`fontSize`、`fontFamily`、`inset`、`style`、`theme`、`transition`、`onChange`、`onEnter`、`onFocus`。
 
-`.password()` 只改变显示层：每个 UTF-8 code point 显示为一个 `*`，`value`、`bind`、`onChange` 和编辑操作仍使用原文。密码模式强制单行布局、禁用复制/剪切，并从无障碍 value 中省略原文；需要提交或校验时仍使用页面持有的业务值。密码字段不应把原文写入日志或错误提示。
+`.password()` 只改变显示层：每个 UTF-8 code point 显示为一个 `*`，`value`、`bind`、`onChange` 和编辑操作仍使用原文。密码模式强制单行布局、禁用复制/剪切，并从无障碍 value 中省略原文；右侧眼睛图标可切换当前字段的显示状态。需要提交或校验时仍使用页面持有的业务值。密码字段不应把原文写入日志或错误提示。
 
 ```cpp
 components::input(ui, "password")

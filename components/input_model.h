@@ -69,6 +69,7 @@ struct InputModel {
         std::vector<EditSnapshot> undoStack;
         std::vector<EditSnapshot> redoStack;
         std::size_t undoByteBudget = 8u * 1024u * 1024u;
+        bool passwordVisible = false;
         std::unique_ptr<InputState> masked;
         std::vector<int> displayToSource;
         // 预编辑只持有展示状态，不修改文档/撤销历史；提交或取消后立即释放。
