@@ -69,6 +69,8 @@ struct InputModel {
         std::vector<EditSnapshot> undoStack;
         std::vector<EditSnapshot> redoStack;
         std::size_t undoByteBudget = 8u * 1024u * 1024u;
+        std::unique_ptr<InputState> masked;
+        std::vector<int> displayToSource;
         // 预编辑只持有展示状态，不修改文档/撤销历史；提交或取消后立即释放。
         std::unique_ptr<InputState> preedit;
     };
@@ -709,6 +711,74 @@ struct InputModel {
         display.horizontalScroll = state.horizontalScroll;
         display.verticalScroll = state.verticalScroll;
         return display;
+    }
+
+    static std::string maskedText(const std::string& input,
+                                  std::vector<int>* sourceToDisplay = nullptr,
+                                  std::vector<int>* displayToSource = nullptr) {
+        std::string output;
+        if (sourceToDisplay) sourceToDisplay->assign(input.size() + 1, 0);
+        if (displayToSource) {
+            displayToSource->clear();
+            displayToSource->push_back(0);
+        }
+        std::size_t offset = 0;
+        std::size_t displayOffset = 0;
+        while (offset < input.size()) {
+            const unsigned char first = static_cast<unsigned char>(input[offset]);
+            std::size_t length = 1;
+            if ((first & 0xE0u) == 0xC0u) length = 2;
+            else if ((first & 0xF0u) == 0xE0u) length = 3;
+            else if ((first & 0xF8u) == 0xF0u) length = 4;
+            if (offset + length > input.size()) length = 1;
+            for (std::size_t index = 1; index < length; ++index) {
+                if ((static_cast<unsigned char>(input[offset + index]) & 0xC0u) != 0x80u) {
+                    length = 1;
+                    break;
+                }
+            }
+            if (sourceToDisplay) {
+                for (std::size_t index = 0; index < length; ++index) {
+                    (*sourceToDisplay)[offset + index] = static_cast<int>(displayOffset);
+                }
+                (*sourceToDisplay)[offset + length] = static_cast<int>(displayOffset + 1);
+            }
+            output.push_back('*');
+            ++displayOffset;
+            if (displayToSource) displayToSource->push_back(static_cast<int>(offset + length));
+            offset += length;
+        }
+        return output;
+    }
+
+    static int sourceIndexForDisplay(const InputState& state, int displayIndex) {
+        if (state.displayToSource.empty()) return displayIndex;
+        const int clamped = std::clamp(displayIndex, 0, static_cast<int>(state.displayToSource.size() - 1));
+        return state.displayToSource[static_cast<std::size_t>(clamped)];
+    }
+
+    static InputState& maskedDisplayState(InputState& source) {
+        if (!source.masked) source.masked = std::make_unique<InputState>();
+        InputState& masked = *source.masked;
+        std::vector<int> sourceToDisplay;
+        std::string text = maskedText(source.text, &sourceToDisplay, &masked.displayToSource);
+        if (masked.text != text) {
+            masked.text = std::move(text);
+            masked.layoutCacheValid = false;
+        }
+        const auto mapIndex = [&](int index) {
+            const int clamped = std::clamp(index, 0, static_cast<int>(sourceToDisplay.size() - 1));
+            return sourceToDisplay[static_cast<std::size_t>(clamped)];
+        };
+        masked.cursor = mapIndex(source.cursor);
+        masked.selectionStart = mapIndex(source.selectionStart);
+        masked.selectionEnd = mapIndex(source.selectionEnd);
+        masked.followCaret = source.followCaret;
+        masked.horizontalScroll = source.horizontalScroll;
+        masked.verticalScroll = source.verticalScroll;
+        masked.textRevision = source.textRevision;
+        masked.compositionText.clear();
+        return masked;
     }
 
     static const std::vector<InputLayout::Line>& cachedLines(InputState& state,

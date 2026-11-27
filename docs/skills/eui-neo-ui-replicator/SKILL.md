@@ -16,7 +16,7 @@ When the user provides only a product idea, vague requirements, or a desired sty
 Before writing code, inspect these local sources when available:
 
 - `README.md` or `README.zh-CN.md` for app setup and public entry points.
-- `site/llms.txt` for the current public API, removed input APIs, build options, and documentation index.
+- `site/llms.txt` as a navigation aid for public APIs and build options; confirm exact signatures in public headers and `docs/guides/` because the summary is not exhaustive.
 - `docs/guides/dsl.md` for DSL element capabilities.
 - `docs/guides/*.md` with searches for `Row`, `Column`, `Stack`, `Flow`, `SizeValue`, `ignoreLayout`, and component names for layout and component behavior.
 - `apps/gallery/app.cpp` and `apps/gallery/pages/*.h` only as references for idiomatic multi-page composition.
@@ -182,14 +182,17 @@ Use these built-ins first:
 - Boolean choices: `components::checkbox`, `components::toggleSwitch`
 - Exclusive choices: `components::radio`, `components::segmented`, `components::tabs`
 - Numeric input: `components::slider`, `components::stepper`, `components::progress`
-- Text entry: `components::input`
+- Text entry: `components::input` (including `.password()` for masked, single-line secrets)
 - Menus and pickers: `components::dropdown`, `components::datePicker`, `components::timePicker`, `components::colorPicker`, `components::contextMenu`
-- Navigation: `components::navbar`, `components::sidebar`
+- Forms and navigation: `components::form`, `components::label`, `components::navbar`, `components::sidebar`, `components::menuBar`
 - Overlays and feedback: `components::dialog`, `components::toast`, `components::tooltip`
 - Data and media: `components::dataTable`, `components::carousel`, `components::lineChart`, `components::barChart`, `components::pieChart`, `components::markdown`
 - Scrolling and large collections: `components::scrollView`, `components::virtualList`, `components::virtualMasonry`
 - Hit regions: `components::mouseArea`
-- Surfaces and typography: `components::card`, `components::panel`, `components::text`, `components::image`
+- Surfaces, typography, and diagnostics: `components::card`, `components::panel`, `components::text`, `components::image`, `components::layoutDebugOverlay`, `components::theme`
+- Workshop components: `components::workshop::heartSwitch`, `components::workshop::neumorphicButton`, `components::workshop::cardSlider`, `components::workshop::tiltCard`
+
+This is a component and composition index, not an exhaustive API reference. The framework surface also includes the core DSL primitives (`Rect`, `Text`, `Image`, `Svg`, `Polygon`, `Row`, `Column`, `Stack`, `Flow`, loaders, transitions, animation, focus, accessibility, and Runtime bindings), public services (`eui::audio`, `eui::network`, `eui::image`, `eui::platform`, `eui::json`, `eui::window`, `eui::async`, `eui::animation`, and `eui::Signal`), and optional modules (`modules/keyboard`, `modules/serial`, and `modules/plot`). Use these current guides as the API map: `dsl.md`, `layout.md`, `events.md`, `state.md`, `animation.md`, `keyboard-accessibility.md`, `images.md`, `dynamic-textures.md`, `audio.md`, `network.md`, `async.md`, `platform.md`, `modules.md`, and `shadertoy.md`; `integration.md` covers application setup and public facades. Verify exact names in headers when a guide and code disagree.
 
 For controlled components, keep business state in the page or owning model. Pass current values into the component and update them through `onChange`, `onOpenChange`, or `onDismiss`. When a builder supports signals, call the builder method `.bind(signal)`, `.bindOpen(signal)`, or `.bindVisible(signal)`; `eui::Signal<T>` itself has no `bind` method.
 
@@ -205,6 +208,8 @@ Use the current event model:
 - Clickable controls support Tab / Shift+Tab navigation and Enter / Space activation. Supply `.accessibleName(...)` for icon-only buttons; follow `docs/guides/keyboard-accessibility.md` for focus scopes and semantics.
 - Pointer callbacks use `action`, `button`, `buttons`, and `modifiers`.
 - Middle, right, X1, and X2 interactions must be enabled explicitly with `.acceptedButtons(...)`; left is the default.
+
+For `components::input`, `.password()` masks each UTF-8 code point in the rendered field, keeps the original value for binding and callbacks, forces single-line layout, disables copy/cut, and omits the value from the accessibility snapshot. Do not log or render the original value elsewhere. Password mode is a display and privacy contract; it is not encryption or secure storage.
 
 Never generate removed `KeyboardEvent`, `PointerEvent::down`, `rightDown`, `pressedThisFrame`, `releasedThisFrame`, other `*ThisFrame` fields, compatibility aliases, native button polling, or dual input paths. Do not disable retained-layer caching to work around rendering or resize behavior.
 

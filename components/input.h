@@ -60,6 +60,8 @@ public:
     InputBuilder& placeholder(std::string value) { placeholder_ = std::move(value); return *this; }
     InputBuilder& accessibleName(std::string value) { accessibleName_ = std::move(value); return *this; }
     InputBuilder& multiline(bool value = true) { multiline_ = value; return *this; }
+    /** @brief 以掩码显示输入内容；密码模式始终使用单行布局，业务值仍保持原文。 */
+    InputBuilder& password(bool value = true) { password_ = value; return *this; }
     /** @brief 撤销和重做历史的合计字节预算，0 关闭历史；默认 8 MiB。 */
     InputBuilder& undoByteBudget(std::size_t value) { undoByteBudget_ = value; return *this; }
     /** @brief 多行输入溢出时显示垂直滚动条，默认关闭；不影响滚轮和光标跟随。 */
@@ -98,17 +100,17 @@ public:
         const float inset = inset_ >= 0.0f ? inset_ : metrics_.spacing.content;
         const float fontSize = fontSize_ > 0.0f ? fontSize_ : metrics_.typography.input;
         // 开启时固定预留槽位，避免溢出临界点因滚动条显隐反复改变换行宽度。
-        const float scrollbarWidth = scrollbar_ && multiline_
+        const bool allowMultiline = multiline_ && !password_;
+        const float scrollbarWidth = scrollbar_ && allowMultiline
             ? std::min(metrics_.control.scrollbar, std::max(0.0f, width_ - inset * 2.0f)) : 0.0f;
         const float scrollbarGutter = scrollbarWidth > 0.0f ? scrollbarWidth + 4.0f : 0.0f;
         const float textWidth = std::max(0.0f, width_ - inset * 2.0f - scrollbarGutter);
-        const bool allowMultiline = multiline_;
         const std::function<void(const std::string&)> onChange = onChange_;
         const std::function<void()> onEnter = onEnter_;
         const std::function<void(bool)> onFocus = onFocus_;
         const float textLineHeight = fontSize * 1.2f;
-        const float textY = multiline_ ? inset : std::max(0.0f, (height_ - textLineHeight) * 0.5f);
-        const float textHeight = multiline_ ? std::max(0.0f, height_ - inset * 2.0f) : textLineHeight;
+        const float textY = allowMultiline ? inset : std::max(0.0f, (height_ - textLineHeight) * 0.5f);
+        const float textHeight = allowMultiline ? std::max(0.0f, height_ - inset * 2.0f) : textLineHeight;
         const float width = width_ - scrollbarGutter;
         const float controlWidth = width_;
         const std::string fontFamily = fontFamily_;
@@ -133,8 +135,9 @@ public:
         state.selectionStart = InputModel::clampUtf8Boundary(state.text, state.selectionStart);
         state.selectionEnd = InputModel::clampUtf8Boundary(state.text, state.selectionEnd);
         const bool hasComposition = focused && !state.compositionText.empty();
-        InputState& display = InputModel::displayState(state, hasComposition);
-        const InputLayout layout = InputLayout::build(display, textWidth, textHeight, width, inset, textY, textLineHeight, fontFamily_, fontSize, multiline_);
+        InputState& sourceDisplay = InputModel::displayState(state, hasComposition);
+        InputState& display = password_ ? InputModel::maskedDisplayState(sourceDisplay) : sourceDisplay;
+        const InputLayout layout = InputLayout::build(display, textWidth, textHeight, width, inset, textY, textLineHeight, fontFamily_, fontSize, allowMultiline);
         state.horizontalScroll = display.horizontalScroll;
         state.verticalScroll = display.verticalScroll;
         const bool empty = display.text.empty();
@@ -142,12 +145,14 @@ public:
         const std::string textDirtyKey = id_ + ".text|" + std::to_string(state.textRevision) + "|" + std::to_string(display.textRevision) +
             "|" + std::to_string(static_cast<int>(std::lround(state.horizontalScroll * 64.0f))) +
             "|" + std::to_string(static_cast<int>(std::lround(state.verticalScroll * 64.0f))) +
-            (empty ? "|p" : "|v") + (hasComposition ? "|ime" : "");
-        const float renderedTextHeight = multiline_ ? layout.contentHeight : textHeight;
+            (empty ? "|p" : "|v") + (hasComposition ? "|ime" : "") + (password_ ? "|password" : "|text");
+        const float renderedTextHeight = allowMultiline ? layout.contentHeight : textHeight;
         const float caretX = layout.clampedCursorX();
+        const bool password = password_;
         const auto compositionRange = InputModel::selectionRange(state);
         const int compositionSize = hasComposition ? static_cast<int>(state.compositionText.size()) : 0;
-        const auto documentIndex = [hasComposition, compositionRange, compositionSize](int index) {
+        const auto documentIndex = [password, &display, hasComposition, compositionRange, compositionSize](int index) {
+            if (password) index = InputModel::sourceIndexForDisplay(display, index);
             if (!hasComposition || index <= compositionRange.first) return index;
             if (index < compositionRange.first + compositionSize) return compositionRange.first;
             return index - compositionSize + compositionRange.second - compositionRange.first;
@@ -165,7 +170,7 @@ public:
         }
         root.content([&] {
                 auto hit = ui_.rect(hitId)
-                    .accessible(core::AccessibleRole::TextInput, accessibleName_.empty() ? placeholder_ : accessibleName_, state.text)
+                    .accessible(core::AccessibleRole::TextInput, accessibleName_.empty() ? placeholder_ : accessibleName_, password_ ? std::string{} : state.text)
                     .size(width_, height_)
                     .color(style_.background)
                     .radius(style_.radius)
@@ -204,7 +209,7 @@ public:
                             layout.maxVerticalScroll);
                     });
                 }
-                hit.onKeyEvent([&state, allowMultiline, onChange, onEnter, width, inset, fontSize, fontFamily, textHeight](const core::KeyEvent& event) {
+                hit.onKeyEvent([&state, allowMultiline, password, onChange, onEnter, width, inset, fontSize, fontFamily, textHeight](const core::KeyEvent& event) {
                         if (!event.isDown()) {
                             return false;
                         }
@@ -256,9 +261,9 @@ public:
                             state.selectionEnd = static_cast<int>(state.text.size());
                             state.cursor = state.selectionEnd;
                         } else if (shortcut && event.key == core::InputKey::C) {
-                            InputModel::copySelection(state);
+                            if (!password) InputModel::copySelection(state);
                         } else if (shortcut && event.key == core::InputKey::X) {
-                            if (InputModel::hasTextSelection(state)) {
+                            if (!password && InputModel::hasTextSelection(state)) {
                                 InputModel::copySelection(state);
                                 InputModel::pushUndoState(state);
                                 InputModel::eraseSelection(state);
@@ -386,7 +391,7 @@ public:
                                     .position(selectionRect.x - inset, selectionRect.y - textY)
                                     .size(selectionRect.width, selectionRect.height)
                                     .color(theme::withAlpha(style_.cursor, hasComposition ? 0.12f : 0.24f))
-                                    .radius(multiline_ ? 0.0f : 3.0f)
+                                    .radius(allowMultiline ? 0.0f : 3.0f)
                                     .build();
                                 if (hasComposition) {
                                     ui_.rect(id_ + ".composition.underline." + std::to_string(index))
@@ -396,7 +401,7 @@ public:
                             }
                         }
 
-                        if (multiline_ && !empty) {
+                        if (allowMultiline && !empty) {
                             const auto& lines = layout.lineList();
                             const auto firstLine = static_cast<std::size_t>(std::max(0.0f, std::floor(state.verticalScroll / textLineHeight)));
                             const auto endLine = std::min(lines.size(), static_cast<std::size_t>(std::ceil((state.verticalScroll + textHeight) / textLineHeight)) + 1);
@@ -508,6 +513,7 @@ private:
     std::string text_;
     std::string placeholder_ = "Hello EUI-NEO 😉";
     bool multiline_ = false;
+    bool password_ = false;
     bool scrollbar_ = false;
     float width_ = 260.0f;
     float height_ = 44.0f;

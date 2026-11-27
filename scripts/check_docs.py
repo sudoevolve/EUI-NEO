@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 def check(root: Path, site_dir: Path | None = None) -> list[str]:
     errors = []
     sources = [root / 'README.md', root / 'README.zh-CN.md', root / 'CONTRIBUTING.md']
-    sources += list((root / 'docs').rglob('*.md')) + list((root / 'internal').rglob('*.md'))
+    sources += list((root / 'docs').rglob('*.md'))
     for source in sources:
         content = source.read_text(encoding='utf-8')
         content = re.sub(r'^```[^\n]*\n.*?^```\s*$', '', content, flags=re.M | re.S)
@@ -25,7 +25,8 @@ def check(root: Path, site_dir: Path | None = None) -> list[str]:
     app = (site / 'app.js').read_text(encoding='utf-8')
     catalog = re.findall(r'href: "(?:\.\./|\./)(docs/[^"#]+\.md)"', app)
     public_docs = {p.relative_to(root).as_posix() for p in (root / 'docs').rglob('*.md')
-                   if 'releases' not in p.relative_to(root / 'docs').parts}
+                   if 'releases' not in p.relative_to(root / 'docs').parts and
+                   'internal' not in p.relative_to(root / 'docs').parts}
     if len(catalog) != len(set(catalog)):
         errors.append('site/app.js: duplicate document entries')
     if set(catalog) != public_docs:
@@ -41,7 +42,7 @@ def check(root: Path, site_dir: Path | None = None) -> list[str]:
             target = site / path if site_dir else root / path.removeprefix('../')
             if not target.exists():
                 errors.append(f'{name}: missing resource {path}')
-    if site_dir and (site / 'internal').exists():
+    if site_dir and ((site / 'internal').exists() or (site / 'docs' / 'internal').exists()):
         errors.append('published site must not include internal records')
     return errors
 

@@ -72,7 +72,7 @@ Bug 修复 PR 必须写明：
 
 具体 API 和目录约定见 [组件文档](docs/guides/components.md)。
 
-文档入口为 [docs/README.md](docs/README.md)。使用指南放 `docs/guides/`，架构说明放 `docs/architecture/`，构建流程放 `docs/development/`；计划、审查、验收和性能数据放 `internal/`，不混入官网文档。文件名使用小写英文与连字符，历史记录使用 `YYYY-MM-DD-topic.md`。文档移动或功能更新时，同步网站中英文目录、README、`llms.txt` 与 sitemap，并执行 `python scripts/check_docs.py`。
+文档入口为 [docs/README.md](docs/README.md)。使用指南放 `docs/guides/`，架构说明放 `docs/architecture/`，构建流程放 `docs/development/`；计划、审查、验收和性能数据放 `docs/internal/`，不混入官网文档。文件名使用小写英文与连字符，历史记录使用 `YYYY-MM-DD-topic.md`。文档移动或功能更新时，同步网站中英文目录、README、`llms.txt` 与 sitemap，并执行 `python scripts/check_docs.py`。
 
 ## 性能优化要求
 

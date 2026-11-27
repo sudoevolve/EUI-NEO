@@ -138,7 +138,7 @@ assets/       字体、PNG、SVG 和图标等运行资源
 components/   基于 DSL 封装的通用组件
 core/         DSL、Runtime、图元、文本、图片、网络和平台能力
 docs/         使用指南、架构说明和开发文档
-internal/     计划、审查、验证记录和性能原始数据
+docs/internal/ 仓库计划、审查、验证记录和性能原始数据
 examples/     短小、单页面的 API 演示
 modules/      键盘、串口等可选功能模块
 apps/         代码较长或多页面应用；每个应用使用独立目录和 app.cpp
@@ -149,7 +149,7 @@ tests/        probe 源码、fixture 应用和本地 benchmark 记录
 
 ## 文档
 
-从[文档目录](docs/README.md)查找使用指南、架构说明和开发流程。历史审查、计划和性能数据单独保存在 `internal/`。
+从[文档目录](docs/README.md)查找使用指南、架构说明、开发流程和仓库记录。历史审查、计划和性能数据保存在 `docs/internal/`。
 
 - [贡献与提交规范](CONTRIBUTING.md)
 - [DSL 设计与当前实现](docs/guides/dsl.md)

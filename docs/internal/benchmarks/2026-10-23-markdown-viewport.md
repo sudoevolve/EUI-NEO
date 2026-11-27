@@ -35,9 +35,9 @@ No font/resource is added. Reproduce from a Release Ninja fixture build configur
 with `CMAKE_EXPORT_COMPILE_COMMANDS=ON` (build `markdown_viewport` first):
 
 ```sh
-python3 internal/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
+python3 docs/internal/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
   --font assets/JingNanJunJunTi-JinNanJunJunTi-Bold-2.ttf > paired-ttf.json
-python3 internal/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
+python3 docs/internal/benchmarks/markdown-viewport-pair.py --build /absolute/build/glfw-opengl \
   --font /absolute/path/NotoSansSC-Regular.otf > paired-cff.json
 ```
 

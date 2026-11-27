@@ -217,7 +217,7 @@ Use a separate build directory for each backend combination. Vulkan requires a V
 
 ## Documentation
 
-- [Documentation index](https://sudoevolve.github.io/EUI-NEO/docs/README.md): public guides organized by topic; internal plans, reviews, and benchmark records are kept outside the website.
+- [Documentation index](https://sudoevolve.github.io/EUI-NEO/docs/README.md): public guides organized by topic; repository plans, reviews, and benchmark records live in `docs/internal/` and are excluded from the published site.
 - [Keyboard and control semantics](https://sudoevolve.github.io/EUI-NEO/docs/guides/keyboard-accessibility.md): navigation, focus, overlays, and semantic snapshots.
 - [Markdown viewport](https://sudoevolve.github.io/EUI-NEO/docs/guides/markdown-viewport.md): visible-content construction and cache contracts.
 - [Linux IME](https://sudoevolve.github.io/EUI-NEO/docs/platform/linux-ime-cursor.md): X11 positioning and troubleshooting.

@@ -136,7 +136,7 @@ assets/       Runtime assets: fonts, PNG, SVG, and icons
 components/   Reusable UI components built on top of the DSL
 core/         DSL, Runtime, primitives, text, image, network, and platform code
 docs/         User guides, architecture, and development documentation
-internal/     Plans, reviews, validation records, and benchmark data
+docs/internal/ Repository plans, reviews, validation records, and benchmark data
 examples/     Short, single-screen API demonstrations
 modules/      Optional feature modules such as keyboard and serial
 apps/         Longer or multi-page applications; each app lives in its own folder
@@ -147,7 +147,7 @@ tests/        Probe sources, fixture apps, and local benchmark notes
 
 ## Docs
 
-Start with the [Documentation Index](docs/README.md). It separates application guides, architecture, and development workflows. Historical reviews, plans, and benchmark data live under `internal/`.
+Start with the [Documentation Index](docs/README.md). It separates application guides, architecture, development workflows, and repository records. Historical reviews, plans, and benchmark data live under `docs/internal/`.
 
 - [Contribution Guidelines](CONTRIBUTING.md)
 - [DSL Design And Current Implementation](docs/guides/dsl.md)

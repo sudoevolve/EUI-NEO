@@ -112,7 +112,7 @@
 | `toggleSwitch` | 开关 | `checked`、`bind`、`text`、`onChange` | 页面持有 `checked` | 本文、gallery |
 | `progress` | 只读进度 | `value`、`theme`、`transition` | 页面持有 `value` | 本文、gallery |
 | `slider` | 连续或离散数值选择 | `value`、`bind`、`range`、`step`、`onChange` | 页面持有业务值 | 本文、gallery、desktop_settings |
-| `input` | 文本输入 | `value`、`bind`、`placeholder`、`multiline`、`onChange` | 页面持有文本，组件交互态走 `ui.state` | 本文、gallery |
+| `input` | 文本输入 | `value`、`bind`、`placeholder`、`multiline`、`password`、`onChange` | 页面持有文本，组件交互态走 `ui.state` | 本文、gallery |
 | `segmented` | 分段选择 | `items`、`selected`、`bind`、`onChange` | 页面持有 index | 本文、gallery |
 | `stepper` | 数字步进 | `value`、`bind`、`step`、`min/max`、`base`、`onChange` | 页面持有数值 | 本文、gallery |
 | `tabs` | 标签切换 | `items`、`selected`、`bind`、`onChange` | 页面持有 index | 本文、gallery |
@@ -460,7 +460,19 @@ components::input(ui, "name")
     .build();
 ```
 
-支持 `size`、`value`、`placeholder`、`multiline`、`scrollbar`、`fontSize`、`fontFamily`、`inset`、`style`、`theme`、`transition`、`onChange`、`onEnter`、`onFocus`。
+支持 `size`、`value`、`placeholder`、`multiline`、`password`、`scrollbar`、`fontSize`、`fontFamily`、`inset`、`style`、`theme`、`transition`、`onChange`、`onEnter`、`onFocus`。
+
+`.password()` 只改变显示层：每个 UTF-8 code point 显示为一个 `*`，`value`、`bind`、`onChange` 和编辑操作仍使用原文。密码模式强制单行布局、禁用复制/剪切，并从无障碍 value 中省略原文；需要提交或校验时仍使用页面持有的业务值。密码字段不应把原文写入日志或错误提示。
+
+```cpp
+components::input(ui, "password")
+    .size(280.0f, 42.0f)
+    .password()
+    .value(password)
+    .accessibleName("Password")
+    .onChange([&](const std::string& value) { password = value; })
+    .build();
+```
 
 多行编辑器可以显式开启垂直滚动条，默认关闭：
 
@@ -984,7 +996,7 @@ components::carousel(ui, "hero.carousel")
 
 实时模式采用线性折线，每个横向逻辑像素桶保留首、最小、最大、尾采样并按原顺序输出，点数最多约为绘图区宽度的 4 倍。NaN/Inf 所在的桶断开路径，因此不会连接缺失数据两侧；缺失桶内的有效采样也会被省略。范围外的值裁到范围边界，空数据不绘线，单点绘圆点。
 
-整条折线只占一个 Polygon Runtime 节点，线段复用 OpenGL/Vulkan 的圆角矩形批次；实际 GPU 提交次数由后端批次容量决定。实时模式省略逐点动画、标签和 Tooltip，原有 `.values(...).labels(...)` 展示模式保留。详细测量见 [数据工具验证记录](https://github.com/sudoevolve/EUI-NEO/blob/main/internal/validation/2026-11-12-data-tools.md)，交互示例为 `data_tools_viewer`。
+整条折线只占一个 Polygon Runtime 节点，线段复用 OpenGL/Vulkan 的圆角矩形批次；实际 GPU 提交次数由后端批次容量决定。实时模式省略逐点动画、标签和 Tooltip，原有 `.values(...).labels(...)` 展示模式保留。详细测量见 [数据工具验证记录](../internal/validation/2026-11-12-data-tools.md)，交互示例为 `data_tools_viewer`。
 
 ```cpp
 components::lineChart(ui, "usage.line")

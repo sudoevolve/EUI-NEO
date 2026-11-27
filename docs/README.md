@@ -36,7 +36,7 @@
 
 ## 目录与命名约定
 
-`docs/` 只维护面向使用者和贡献者的现行说明。实施计划、历史审查、测试验收和性能原始数据放在仓库的 [internal/](https://github.com/sudoevolve/EUI-NEO/tree/main/internal)，不进入官网文档目录。
+`docs/` 维护面向使用者和贡献者的现行说明，以及不进入官网目录的仓库维护记录。实施计划、历史审查、测试验收和性能原始数据放在 [`docs/internal/`](internal/)。
 
 - `guides/`：使用方法与 API 契约。
 - `architecture/`：现行架构与设计边界。
@@ -46,4 +46,4 @@
 - `skills/`：可分发的技能说明，保留工具要求的 `SKILL.md` 文件名。
 - `releases/`：历史版本说明，供发布流程使用；官网现行文档目录不收录，发布入口为 GitHub Releases。
 
-文件名统一使用小写英文 `kebab-case.md`，目录索引使用 `README.md`。历史记录使用 `YYYY-MM-DD-topic.md`；未实现方案只放 `internal/plans/`，不得写成正式功能介绍。移动文档时必须同步 README、相互引用、网站目录、`llms.txt` 和 sitemap。
+文件名统一使用小写英文 `kebab-case.md`，目录索引使用 `README.md`。历史记录使用 `YYYY-MM-DD-topic.md`；未实现方案只放 `docs/internal/plans/`，不得写成正式功能介绍。`docs/internal/` 不参与官网目录和 sitemap。移动文档时必须同步 README、相互引用、网站目录、`llms.txt` 和 sitemap。

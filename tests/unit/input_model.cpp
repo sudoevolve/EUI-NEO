@@ -105,6 +105,38 @@ int main() {
         return 1;
     }
 
+    Model::InputState passwordState;
+    passwordState.text = std::string("a") + "\xE4\xB8\xAD" + "b";
+    passwordState.textRevision = 1;
+    passwordState.cursor = 4;
+    passwordState.selectionStart = 1;
+    passwordState.selectionEnd = 4;
+    Model::InputState& masked = Model::maskedDisplayState(passwordState);
+    if (masked.text != "***" || masked.cursor != 2 || masked.selectionStart != 1 || masked.selectionEnd != 2 ||
+        Model::sourceIndexForDisplay(masked, 2) != 4) {
+        std::cerr << "Password display did not preserve UTF-8 edit indices: text=" << masked.text
+                  << " cursor=" << masked.cursor << " selection=" << masked.selectionStart << "," << masked.selectionEnd
+                  << " source=" << Model::sourceIndexForDisplay(masked, 2) << "\n";
+        return 1;
+    }
+
+    core::dsl::Ui passwordUi;
+    passwordUi.begin("input.password");
+    components::input(passwordUi, "secret")
+        .size(180.0f, 42.0f)
+        .password()
+        .value("secret")
+        .accessibleName("Password")
+        .build();
+    passwordUi.end();
+    passwordUi.layout(180.0f, 42.0f);
+    const core::dsl::Element* passwordText = passwordUi.find("secret.text");
+    const auto accessibility = passwordUi.accessibilityTree();
+    if (passwordText == nullptr || passwordText->text != "******" || accessibility.empty() || !accessibility.front().value.empty()) {
+        std::cerr << "Password input did not mask rendered or accessible value\n";
+        return 1;
+    }
+
     ui.begin("input.multiline");
     components::input(ui, "multiline")
         .size(180.0f, 100.0f)
